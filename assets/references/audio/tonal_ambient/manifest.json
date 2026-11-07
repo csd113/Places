@@ -1,0 +1,36 @@
+{
+  "license": "MIT",
+  "runtime": false,
+  "recipe": "tools/audio/tonal.py render_master; tools/audio/original.py render(empty_room)",
+  "files": [
+    {
+      "file": "threshold_air.wav",
+      "sha256": "f98beccd7f435ecaf54f8af129a888fb7d19f74860435d3c439babc66671adf8",
+      "rate": 48000,
+      "bits": 24,
+      "frames": 768000
+    },
+    {
+      "file": "pale_signal.wav",
+      "sha256": "5c6e4065645ae66762cb2d151eb781494071b4465ecfced9a5e402e7b5979743",
+      "rate": 48000,
+      "bits": 24,
+      "frames": 768000
+    },
+    {
+      "file": "below_the_landing.wav",
+      "sha256": "cba41b4e2aace96f4f12da9112ec4e0f6d4bc70cd24c9a3de9a1c9009f7c7433",
+      "rate": 48000,
+      "bits": 24,
+      "frames": 768000
+    },
+    {
+      "file": "empty_room_original_44100.wav",
+      "sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059",
+      "rate": 44100,
+      "bits": 16,
+      "frames": 1300950,
+      "git_blob": "adc957933be8c5e23ddfa3778f7a983227277940"
+    }
+  ]
+}

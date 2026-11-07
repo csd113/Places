@@ -187,6 +187,15 @@
       "license": "MIT",
       "archive": "original",
       "recipe": "tools/audio/feltling.py; editable deterministic additive/formant scores; no recordings or runtime synthesis"
+    },
+    {
+      "id": "places_original_tonal_ambient_0131",
+      "title": "Places lonely tonal interiors",
+      "author": "Places contributors",
+      "license": "MIT",
+      "archive": "original",
+      "recipe": "tools/audio/tonal.py; seeded offline single-pitch synthesis and circular room processing; no recordings; explicit per-file runtime rates",
+      "masters": "assets/references/audio/tonal_ambient/"
     }
   ],
   "clips": [
@@ -543,7 +552,15 @@
       "file": "empty_room/01.wav",
       "source": "places_original_ambient_013",
       "source_file": "empty_room",
-      "crossfade_seconds": 0.5
+      "crossfade_seconds": 0.5,
+      "sample_rate": 16000,
+      "resample": {
+        "method": "periodic_fft_tpdf",
+        "seed": 72199,
+        "source_sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059"
+      },
+      "expected_sha256": "ef7174a59fdd5e67ecfc06d5c8fd65b44221cac6bf0f48fba3ec5dac295059b6",
+      "loop_seam_check": true
     },
     {
       "file": "elevator_shaft/01.wav",
@@ -673,6 +690,30 @@
       "file": "feltling/feltling_cheer.wav",
       "source": "places_original_feltling_0131",
       "source_file": "feltling_cheer"
+    },
+    {
+      "file": "ambient_tones/threshold_air.wav",
+      "source": "places_original_tonal_ambient_0131",
+      "source_file": "threshold_air",
+      "sample_rate": 16000,
+      "expected_sha256": "b0fec1f8b3a41d18aa2c656cce95a2f49e1727a66cb6ad8b71dc59762fab99b0",
+      "loop_seam_check": true
+    },
+    {
+      "file": "ambient_tones/pale_signal.wav",
+      "source": "places_original_tonal_ambient_0131",
+      "source_file": "pale_signal",
+      "sample_rate": 16000,
+      "expected_sha256": "bb2055391b6c1b39de24718bfbc800828a0066f82e47185fa923b31b644ec7bc",
+      "loop_seam_check": true
+    },
+    {
+      "file": "ambient_tones/below_the_landing.wav",
+      "source": "places_original_tonal_ambient_0131",
+      "source_file": "below_the_landing",
+      "sample_rate": 16000,
+      "expected_sha256": "f75873cb0321c8037e5c6cdcc60704b5c17aa3a3fd8318e769dfe1c2464903cc",
+      "loop_seam_check": true
     }
   ]
 }

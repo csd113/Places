@@ -23,6 +23,7 @@ import zipfile
 ROOT = Path(__file__).resolve().parents[2]
 AUDIO = ROOT / "assets/audio"
 RATE = 44_100
+MAX_DECODED_BYTES = 64 * 1024 * 1024
 
 
 def digest(data):
@@ -71,10 +72,71 @@ def source_bytes(source, clip, cache, download):
     return data
 
 
+def clip_rate(clip):
+    rate = clip.get("sample_rate", RATE)
+    if type(rate) is not int or not 8000 <= rate <= 48000:
+        raise ValueError(f"invalid explicit audio sample rate: {clip['file']}")
+    return rate
+
+
+def wav_record(data, clip, original):
+    if len(data) > 16 * 1024 * 1024:
+        raise ValueError(f"WAV exceeds 16 MiB: {clip['file']}")
+    if len(data) < 12 or data[:4] != b"RIFF" or data[8:12] != b"WAVE" or int.from_bytes(data[4:8], "little") + 8 != len(data):
+        raise ValueError(f"WAV RIFF size mismatch: {clip['file']}")
+    with wave.open(io.BytesIO(data), "rb") as wav:
+        channels, bits, rate, frames = (wav.getnchannels(), wav.getsampwidth() * 8,
+                                      wav.getframerate(), wav.getnframes())
+        if (channels, bits, rate) != (1, 16, clip_rate(clip)) or not 0 < frames <= 30 * rate:
+            raise ValueError(f"WAV explicit format/duration mismatch: {clip['file']}")
+        if len(wav.readframes(frames)) != frames * channels * 2:
+            raise ValueError(f"WAV truncated sample data: {clip['file']}")
+    if clip.get("expected_sha256", digest(data)) != digest(data):
+        raise ValueError(f"pinned rendered WAV mismatch: {clip['file']}")
+    return dict(file=clip["file"], source=clip["source"], source_file=clip["source_file"],
+                source_file_sha256=digest(original), sha256=digest(data), frames=frames,
+                sample_rate=rate, channels=channels, sample_bits=bits)
+
+
+def original_audio(clip):
+    # Unknown source IDs must not accidentally dispatch to the legacy renderer.
+    if clip["source"] == "places_original_elevator_0131":
+        from elevator import render
+    elif clip["source"] == "places_original_feltling_0131":
+        from feltling import render
+    elif clip["source"] == "places_original_ambient_013":
+        from original import render
+    elif clip["source"] == "places_original_tonal_ambient_0131":
+        from tonal import render
+        original = render(clip["source_file"], clip_rate(clip))
+        return original, original
+    else:
+        raise ValueError(f"unknown original audio source: {clip['source']}")
+    original = render(clip["source_file"])
+    conversion = clip.get("resample")
+    if conversion is None:
+        return original, original
+    if (conversion.get("method") != "periodic_fft_tpdf"
+            or type(conversion.get("seed")) is not int
+            or conversion["seed"] < 0
+            or digest(original) != conversion.get("source_sha256")):
+        raise ValueError(f"invalid or changed original resample source: {clip['file']}")
+    from tonal import resample_reference
+    return original, resample_reference(original, clip_rate(clip), conversion["seed"])
+
+
+def preflight_bank(records):
+    if len({r["file"] for r in records}) != len(records) or len(records) > 128:
+        raise ValueError("duplicate or over-budget audio import")
+    if sum(r["frames"] * 8 for r in records) > MAX_DECODED_BYTES:
+        raise ValueError("runtime audio catalog decoded budget exceeded before publication")
+
+
 def edit_pcm(data, clip):
+    rate = clip_rate(clip)
     raw = subprocess.run(
         ["ffmpeg", "-v", "error", "-i", "pipe:0", "-map", "0:a:0",
-         "-f", "s16le", "-acodec", "pcm_s16le", "-ac", "1", "-ar", str(RATE),
+         "-f", "s16le", "-acodec", "pcm_s16le", "-ac", "1", "-ar", str(rate),
          "-fflags", "+bitexact", "-flags:a", "+bitexact", "pipe:1"],
         input=data, capture_output=True, check=True).stdout
     values = array("h")
@@ -88,20 +150,20 @@ def edit_pcm(data, clip):
         with wave.open(result, "wb") as wav:
             wav.setnchannels(1)
             wav.setsampwidth(2)
-            wav.setframerate(RATE)
+            wav.setframerate(rate)
             wav.writeframes(raw)
         return result.getvalue()
     if clip.get("edit_mode", "polish") != "polish":
         raise ValueError(f"unknown audio edit mode: {clip['file']}")
-    start = round(clip.get("start_seconds", 0) * RATE)
-    stop = round(clip["end_seconds"] * RATE) if "end_seconds" in clip else len(values)
+    start = round(clip.get("start_seconds", 0) * rate)
+    stop = round(clip["end_seconds"] * rate) if "end_seconds" in clip else len(values)
     samples = list(values[start:stop])
     if not samples:
         raise ValueError(f"empty audio selection: {clip['file']}")
     # Remove source DC offset before the edge edits and peak normalization.
     dc = round(sum(samples) / len(samples))
     samples = [value - dc for value in samples]
-    overlap = round(clip.get("crossfade_seconds", 0) * RATE)
+    overlap = round(clip.get("crossfade_seconds", 0) * rate)
     if overlap:
         if overlap * 2 >= len(samples):
             raise ValueError(f"crossfade too long: {clip['file']}")
@@ -134,36 +196,40 @@ def edit_pcm(data, clip):
     with wave.open(result, "wb") as wav:
         wav.setnchannels(1)
         wav.setsampwidth(2)
-        wav.setframerate(RATE)
+        wav.setframerate(rate)
         wav.writeframes(pcm.tobytes())
     return result.getvalue()
 
 
-def import_audio(authoring, cache, download):
+def import_audio(authoring, cache, download, originals_only=False):
     sources = {source["id"]: source for source in authoring["sources"]}
-    records = []
+    prior = {r["file"]: r for r in json.loads((AUDIO / "provenance.json").read_text())["files"]} if originals_only else {}
+    records, staged = [], []
     for clip in authoring["clips"]:
         path = AUDIO / relative_path(clip["file"])
         if sources[clip["source"]].get("archive") == "original":
-            if clip["source"] == "places_original_elevator_0131":
-                from elevator import render
-            elif clip["source"] == "places_original_feltling_0131":
-                from feltling import render
-            else:
-                from original import render
-            original = encoded = render(clip["source_file"])
+            original, encoded = original_audio(clip)
+            record = wav_record(encoded, clip, original)
+        elif originals_only:
+            encoded = path.read_bytes()
+            record = prior[clip["file"]]
+            measured = wav_record(encoded, clip, encoded)
+            if any(measured[key] != record[key] for key in
+                   ("file", "source", "source_file", "sha256", "frames", "sample_rate", "channels", "sample_bits")):
+                raise ValueError(f"retained source/provenance mismatch: {clip['file']}")
         else:
             original = source_bytes(sources[clip["source"]], clip, cache, download)
             encoded = edit_pcm(original, clip)
+            record = wav_record(encoded, clip, original)
+        records.append(record)
+        staged.append((path, encoded))
+    # No file or provenance is replaced until every render/hash/header and the
+    # entire decoded bank pass. A missing rate override cannot publish 44.1 kHz.
+    preflight_bank(records)
+    version = subprocess.check_output(["ffmpeg", "-version"], text=True).splitlines()[0]
+    for path, encoded in staged:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_bytes(encoded)
-        with wave.open(io.BytesIO(encoded), "rb") as wav:
-            frames = wav.getnframes()
-        records.append(dict(file=clip["file"], source=clip["source"],
-                            source_file=clip["source_file"],
-                            source_file_sha256=digest(original), sha256=digest(encoded),
-                            frames=frames, sample_rate=RATE, channels=1, sample_bits=16))
-    version = subprocess.check_output(["ffmpeg", "-version"], text=True).splitlines()[0]
     write_json(AUDIO / "provenance.json", dict(format_version=1,
         imported_with=version, sources=authoring["sources"], files=records))
 
@@ -193,7 +259,8 @@ def audit(authoring):
         raise ValueError("source provenance differs from authoring recipes")
     records = {record["file"]: record for record in provenance["files"]}
     clips = {clip["file"]: clip for clip in authoring["clips"]}
-    if len(records) != len(provenance["files"]) or set(records) != set(clips):
+    if (len(records) != len(provenance["files"]) or len(clips) != len(authoring["clips"])
+            or set(records) != set(clips)):
         raise ValueError("duplicate or missing WAV provenance")
     source_ids = {source["id"] for source in provenance["sources"]}
     cues = set()
@@ -224,18 +291,23 @@ def audit(authoring):
         recipe = clips[name]
         if record["source"] != recipe["source"] or record["source_file"] != recipe["source_file"]:
             raise ValueError(f"WAV source recipe mismatch: {name}")
+        if recipe.get("resample") and record["source_file_sha256"] != recipe["resample"].get("source_sha256"):
+            raise ValueError(f"WAV original source hash differs from conversion recipe: {name}")
+        checked = wav_record(data, recipe, data)
+        if any(checked[key] != record[key] for key in ("sample_rate", "sample_bits", "channels", "frames")):
+            raise ValueError(f"WAV declared format/provenance mismatch: {name}")
         with wave.open(io.BytesIO(data), "rb") as wav:
             if (wav.getnchannels(), wav.getsampwidth(), wav.getframerate(), wav.getnframes()) != (
-                    1, 2, RATE, record["frames"]):
+                    1, 2, clip_rate(recipe), record["frames"]):
                 raise ValueError(f"WAV format mismatch: {name}")
             values = array("h", wav.readframes(wav.getnframes()))
             if sys.byteorder != "little":
                 values.byteswap()
-        if not values or record["frames"] > 30 * RATE or max(map(abs, values)) > 30_000:
+        if not values or record["frames"] > 30 * clip_rate(recipe) or max(map(abs, values)) > 30_000:
             raise ValueError(f"WAV duration/signal budget exceeded: {name}")
         if max(map(abs, values)) < 100:
             raise ValueError(f"WAV contains no useful signal: {name}")
-        if recipe.get("crossfade_seconds"):
+        if recipe.get("crossfade_seconds") or recipe.get("loop_seam_check"):
             # A noise recording has natural adjacent-sample changes too. Compare
             # the boundary to the recording's derivative, not an arbitrary zero.
             step_rms = math.sqrt(sum((b - a) ** 2 for a, b in zip(values, values[1:]))
@@ -244,7 +316,7 @@ def audit(authoring):
                 raise ValueError(f"loop seam discontinuity: {name}")
         encoded_bytes += len(data)
         frames_total += record["frames"]
-    if len(cues) > 64 or len(records) > 128 or frames_total * 8 > 64 * 1024 * 1024:
+    if len(cues) > 64 or len(records) > 128 or frames_total * 8 > MAX_DECODED_BYTES:
         raise ValueError("runtime audio catalog budget exceeded")
     # Catch map typos without requiring any map bake or a decoder dependency.
     def inspect(value, source):
@@ -270,14 +342,19 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--check", action="store_true", help="offline integrity audit (the default)")
     parser.add_argument("--import", dest="import_sources", action="store_true", help="rebuild committed WAVs")
+    parser.add_argument("--originals-only", action="store_true", help="with --import, regenerate originals and verify/retain all imported recordings")
     parser.add_argument("--cache", type=Path, default=Path("/tmp/places-audio-sources"))
     parser.add_argument("--download", action="store_true", help="allow pinned upstream downloads during import")
     args = parser.parse_args()
     authoring = json.loads((AUDIO / "authoring.json").read_text())
     if args.download and not args.import_sources:
         parser.error("--download requires --import")
+    if args.originals_only and not args.import_sources:
+        parser.error("--originals-only requires --import")
+    if args.originals_only and args.download:
+        parser.error("--originals-only cannot download")
     if args.import_sources:
-        import_audio(authoring, args.cache, args.download)
+        import_audio(authoring, args.cache, args.download, args.originals_only)
         refresh_hearing_profiles()
     audit(authoring)
 

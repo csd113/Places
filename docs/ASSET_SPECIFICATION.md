@@ -2661,7 +2661,10 @@ are not 2:1 sky panoramas. Existing panoramas retain their original contract.
 ## Runtime audio assets
 
 Shipped sound clips are real, committed mono PCM16 WAV files under
-`assets/audio/<cue>/`, at 44,100 Hz, no longer than 30 seconds. Catalog entries
+`assets/audio/<cue>/`, at explicitly declared 8–48 kHz rates, no longer than
+30 seconds. Most retain 44.1 kHz; the narrow-band Empty Room runtime copy and
+three original tonal beds use 16 kHz. Exact source masters remain outside the
+runtime bank under `assets/references/audio/tonal_ambient/`. Catalog entries
 declare gain, loop and positional mode; bird/water beds retain their
 non-positional defaults. HVAC is reserved for a single player-owned spatial voice near fixed props tagged `hvac-duct`; its
 catalog default is overridden by that owner. A deliberate positional override

@@ -377,7 +377,7 @@
       "spatial": true,
       "min_distance": 4,
       "max_distance": 18,
-      "rms_amplitude": 0.03842618189244747
+      "rms_amplitude": 0.03842613645956689
     },
     {
       "id": "elevator_shaft",
@@ -640,6 +640,42 @@
       "min_distance": 1,
       "max_distance": 14,
       "rms_amplitude": 0.14362717933021815
+    },
+    {
+      "id": "threshold_air",
+      "files": [
+        "ambient_tones/threshold_air.wav"
+      ],
+      "gain": 0.065,
+      "looping": true,
+      "spatial": false,
+      "min_distance": 4,
+      "max_distance": 18,
+      "rms_amplitude": 0.03399998166189276
+    },
+    {
+      "id": "pale_signal",
+      "files": [
+        "ambient_tones/pale_signal.wav"
+      ],
+      "gain": 0.065,
+      "looping": true,
+      "spatial": false,
+      "min_distance": 4,
+      "max_distance": 18,
+      "rms_amplitude": 0.03399994443537816
+    },
+    {
+      "id": "below_the_landing",
+      "files": [
+        "ambient_tones/below_the_landing.wav"
+      ],
+      "gain": 0.065,
+      "looping": true,
+      "spatial": false,
+      "min_distance": 4,
+      "max_distance": 18,
+      "rms_amplitude": 0.033999983811618326
     }
   ]
 }

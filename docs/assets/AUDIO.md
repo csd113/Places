@@ -2,14 +2,17 @@
 
 `assets/audio/catalog.json` is the sound catalog. Audio is independent of the
 visual `assets/catalog.json`: maps name sound cue IDs, and sound cues name real
-WAV files under `assets/audio/`. Every shipped WAV is mono, 44,100 Hz, signed
-16-bit PCM. No microphone input or runtime sound synthesis is involved.
+WAV files under `assets/audio/`. Every shipped WAV is mono signed 16-bit PCM. Most use 44,100 Hz; the
+three tonal loops and narrow-band Empty Room runtime copy explicitly use
+16,000 Hz. Archival masters are outside the runtime bank. No microphone input or runtime sound synthesis is involved.
 
-The library has **32 cues / 70 WAV files / 14,242,320 bytes** (13.58 MiB). Its
-decoded stereo float allocation estimate is **54.32 MiB**, below the runtime's
-64 MiB library limit. The elevator shaft one-shot lasts 5.6 seconds; ordinary impact/switch cues remain
-short. Original interior ambience includes a 29.5-second loop. Mono ambient recordings deliberately play without positional
-panning; per-cue and per-emitter gains keep the backgrounds quiet.
+The current library has **53 cues / 91 unique WAV files / 95 file references /
+16,598,000 disk bytes**. Its retained stereo-float allocation is **66,375,984
+bytes**, leaving **732,880 bytes** under the unchanged 64 MiB limit. Each unique
+source frame costs eight decoded bytes, even for a mono/low-bit-rate file;
+compression alone would not lower this residency. The native loader accepts
+PCM16 at 8–48 kHz, up to 30 seconds per clip. Per-file declarations and actual
+headers must agree. Shared canonical paths decode only once.
 
 ## Sources and redistribution
 
@@ -75,8 +78,8 @@ and their provenance ship. No unrelated pack previews or third-party artwork shi
 | `ambience_intercom` | 1 / 29.500 s | Optional quiet, non-positional intercom bed by GrimmReaperSounds (CC0) |
 | `water_emitter` | Shares `ambience_water` WAV | Positional world-time water source for native distance/pan checks; no extra WAV or decoded allocation |
 
-Source files were decoded once offline, downmixed/resampled to the fixed WAV
-format, DC-corrected, and normalized to a bounded integer peak. One-shots trim
+Source recordings were decoded once offline, downmixed/resampled to their declared
+mono PCM16 runtime format, DC-corrected, and normalized to a bounded integer peak. One-shots trim
 near-silence, retain a short lead/tail and use 3 ms edge fades. Ambient selections
 overlap their original tail and head using the explicit linear crossfade recipe;
 they do not fade to silence each lap. Gains in the runtime catalog are separate
@@ -151,7 +154,6 @@ From the repository root:
 
 ```sh
 python3 tools/audio/build.py --check
-python3 tools/levels/soundscapes.py --check
 python3 tools/levels/build_sound_fixture.py --check
 python3 tools/assets/validate.py
 ```
@@ -239,3 +241,72 @@ player region spans X −8..36, Z 0..18 and Y −0.1..6.9; the existing upper HV
 region starts at Y 7.0. Crossing the regions stops one bed before starting the
 other. Map unload retires the source through ordinary audio ownership. The
 current 29.5 s WAV and original attachment/provenance are unchanged.
+
+## Optional lonely tonal interiors (0.13.1)
+
+The normal editor sound picker now includes `threshold_air`, `pale_signal` and
+`below_the_landing`. They are original 16-second single-pitch beds with very slow
+breathing, faint sympathetic partials/air and circular room processing, not
+music tracks, recordings or runtime synthesis. Catalog gain 0.065, looping enabled
+and non-positional defaults keep their setup consistent with quiet interiors.
+Spatial emitter overrides remain available because the files are mono. No map
+selection, including the deferred duck map, was changed.
+
+Choose a cue in a Sound Emitter or regional ambience component, or author:
+
+```json
+{ "id": "quiet_tone", "x": 0, "y": 1, "z": 0,
+  "sound": "threshold_air", "gain": 1, "spatial": false,
+  "looped": true, "enabled": true, "playing": true, "time_domain": "real" }
+```
+
+Use a single bed rather than stacked copies. Threshold Air centers at 196 Hz,
+Pale Signal at 246.9375 Hz and Below the Landing at 164.8125 Hz. The new dry files
+measure about −29.37 dBFS RMS, −29.8 to −30.3 LUFS and −22.3 to −23.3 dBFS true peak.
+These objective measurements are not a subjective listening review.
+
+`assets/references/audio/tonal_ambient/` preserves three exact 48 kHz PCM24 masters
+and the unchanged 44.1 kHz favorite Empty Room original. They are authoring
+references, not catalog members or runtime-export inputs. Its manifest pins their
+hashes. `tools/audio/tonal.py` regenerates all three original masters and the
+compact runtime variants using NumPy only; no SciPy, sample library or service is
+needed. NumPy is an offline authoring dependency, never a game dependency.
+
+The favorite original source SHA-256 remains
+`f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059`.
+Its 29.5-second 16 kHz runtime copy has SHA-256
+`ef7174a59fdd5e67ecfc06d5c8fd65b44221cac6bf0f48fba3ec5dac295059b6`.
+The original renderer and its source identity remain intact in provenance. The
+conversion is reversible from the saved original or `original.render("empty_room")`.
+99.9% of original energy is below 330 Hz; matched ideal 48 kHz reconstruction
+changes its RMS by −0.0000103 dB with 66.39 dB SNR. It preserves the displayed
+−27.2 LUFS / 20.3 LU LRA / −15.5 dBFS true peak. These numerical comparisons do
+not substitute for perceptual listening or establish arbitrary low-rate quality.
+
+### Reproducible per-file format policy
+
+`authoring.json.sample_rate` is the legacy default, not an all-files mandate.
+The four compact clips explicitly declare `sample_rate: 16000` and a pinned
+`expected_sha256`. Empty Room additionally pins the original source hash,
+`periodic_fft_tpdf` conversion and dither seed 72199. The tonal source has an
+explicit renderer dispatcher; unknown original source IDs fail closed.
+
+Import records each actual WAV's rate, frames, channels and bit depth. Audit
+checks those against the recipe, duration against the actual rate, exact hashes,
+loop derivatives and the unchanged bank cap. Every import renders/stages the
+whole selected bank and checks its decoded budget before publishing any asset
+or provenance. A missing compact-rate override fails format/hash validation
+rather than silently publishing an oversized 44.1 kHz bank.
+
+To regenerate only original cues while verifying and preserving the recordings:
+
+```sh
+python3 tools/audio/build.py --import --originals-only
+python3 tools/audio/build.py --check
+```
+
+This does not download or require third-party source caches. Full `--import`
+continues to require the exact pinned source archives/attachments. Neither mode
+changes the other cues' bytes, gain or lifecycle policy. Inspect the
+[dated integration report](../reports/tonal-ambience-0.13.1.md) for actual native
+capture coverage and listening limits.

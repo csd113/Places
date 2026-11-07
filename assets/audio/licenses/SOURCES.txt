@@ -47,3 +47,12 @@ CC0-1.0 displayed on the source page; checked 2026-11-05.
 Courtesy credit to GrimmReaperSounds. Uses the user-supplied MP3, not a downloaded replacement.
 A 10–40 s excerpt is downmixed/resampled and crossfaded into a 29.5 s loop;
 the source filename, original hash and processing recipe are retained in the manifests.
+
+Original Places lonely tonal interiors (2026-11-07)
+Threshold Air, Pale Signal and Below the Landing: original offline single-pitch
+synthesis, seeded air and circular room processing; no recordings or third-party
+music. Repository MIT license. Recipe: tools/audio/tonal.py.
+Original 48 kHz PCM24 masters and the unchanged 44.1 kHz Empty Room source are
+preserved under assets/references/audio/tonal_ambient/. Runtime PCM16 formats,
+including the reversible narrow-band Empty Room conversion, are explicitly
+hash-pinned per file in authoring.json and provenance.json.

@@ -26,8 +26,9 @@ The elevator additions are original Places audio under MIT, rendered offline by
 `tools/audio/elevator.py`: a short traction-motor/cable shaft pass and a restrained
 arrival ding. They are committed mono 44.1 kHz PCM16 WAVs, preloaded with the
 ordinary library; the exact recipes and output hashes are in authoring/provenance.
-The current complete audit reports 32 cues, 70 WAVs and 54.32 MiB decoded stereo
-float samples, within the 64 MiB budget. No runtime synthesis is involved.
+The current complete bank contains 53 cues and 91 unique WAVs, using 66,375,984
+decoded bytes and leaving 732,880 bytes below the unchanged 67,108,864-byte cap.
+No runtime synthesis is involved.
 
 `ambience_intercom` adds “The intercom of nothingness” by GrimmReaperSounds
 (CC0, source page checked November 5, 2026). It uses the user-supplied MP3,
@@ -37,3 +38,13 @@ catalog gain is 0.03. It is an optional non-positional ambient cue available
 to map authors and the editor sound picker. The Quiet Collection’s Office uses
 it on the middle/basement floors, separately from its retained upper-floor HVAC bed.
 See the audio guide for an emitter example and the source hash/recipe.
+
+`threshold_air`, `pale_signal` and `below_the_landing` are three original MIT
+16-second single-pitch ambient choices, with explicit mono PCM16 16 kHz runtime
+formats and offline NumPy recipes in `tools/audio/tonal.py`. Their exact 48 kHz
+PCM24 masters and the unchanged 44.1 kHz Empty Room original are preserved under
+`assets/references/audio/tonal_ambient/`, outside runtime exports. Empty Room's
+narrow-band runtime copy is reversibly 16 kHz; every other pre-existing WAV and
+all map selections are unchanged. Per-file format/hash settings prevent imports
+from silently exceeding the decoded cap. See the audio guide for measured
+reconstruction/native mixer evidence and the unperformed perceptual-review limit.

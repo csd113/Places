@@ -13,6 +13,12 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Add three original, opt-in tonal ambient loops: Threshold Air, Pale Signal
+  and Below the Landing. Expose them through the normal sound picker without
+  changing authored map selections. Preserve the original Empty Room master;
+  explicit narrow-band runtime formats keep all cues inside the unchanged
+  decoded-audio cap, with reproducible per-file import and audit settings.
+
 - Add opt-in Tall Guest acoustic pursuit and mouth capture of a full-size
   Feltling, followed by an articulated lean-back swallow and recovery. Keep one
   physical/render owner, exact-generation retirement and existing asset/audio

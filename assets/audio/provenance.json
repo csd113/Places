@@ -185,6 +185,15 @@
       "license": "MIT",
       "archive": "original",
       "recipe": "tools/audio/feltling.py; editable deterministic additive/formant scores; no recordings or runtime synthesis"
+    },
+    {
+      "id": "places_original_tonal_ambient_0131",
+      "title": "Places lonely tonal interiors",
+      "author": "Places contributors",
+      "license": "MIT",
+      "archive": "original",
+      "recipe": "tools/audio/tonal.py; seeded offline single-pitch synthesis and circular room processing; no recordings; explicit per-file runtime rates",
+      "masters": "assets/references/audio/tonal_ambient/"
     }
   ],
   "files": [
@@ -912,9 +921,9 @@
       "source": "places_original_ambient_013",
       "source_file": "empty_room",
       "source_file_sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059",
-      "sha256": "f13f2c0cf3181d12799cf2ee5014e9822ee348c07c4343ac64bd235dede08059",
-      "frames": 1300950,
-      "sample_rate": 44100,
+      "sha256": "ef7174a59fdd5e67ecfc06d5c8fd65b44221cac6bf0f48fba3ec5dac295059b6",
+      "frames": 472000,
+      "sample_rate": 16000,
       "channels": 1,
       "sample_bits": 16
     },
@@ -1167,8 +1176,7 @@
       "frames": 23814,
       "sample_rate": 44100,
       "channels": 1,
-      "sample_bits": 16,
-      "imported_with": "tools/audio/feltling.py original deterministic synthesis"
+      "sample_bits": 16
     },
     {
       "file": "feltling/feltling_attention.wav",
@@ -1179,8 +1187,7 @@
       "frames": 29106,
       "sample_rate": 44100,
       "channels": 1,
-      "sample_bits": 16,
-      "imported_with": "tools/audio/feltling.py original deterministic synthesis"
+      "sample_bits": 16
     },
     {
       "file": "feltling/feltling_cheer.wav",
@@ -1191,8 +1198,40 @@
       "frames": 27342,
       "sample_rate": 44100,
       "channels": 1,
-      "sample_bits": 16,
-      "imported_with": "tools/audio/feltling.py original deterministic synthesis"
+      "sample_bits": 16
+    },
+    {
+      "file": "ambient_tones/threshold_air.wav",
+      "source": "places_original_tonal_ambient_0131",
+      "source_file": "threshold_air",
+      "source_file_sha256": "b0fec1f8b3a41d18aa2c656cce95a2f49e1727a66cb6ad8b71dc59762fab99b0",
+      "sha256": "b0fec1f8b3a41d18aa2c656cce95a2f49e1727a66cb6ad8b71dc59762fab99b0",
+      "frames": 256000,
+      "sample_rate": 16000,
+      "channels": 1,
+      "sample_bits": 16
+    },
+    {
+      "file": "ambient_tones/pale_signal.wav",
+      "source": "places_original_tonal_ambient_0131",
+      "source_file": "pale_signal",
+      "source_file_sha256": "bb2055391b6c1b39de24718bfbc800828a0066f82e47185fa923b31b644ec7bc",
+      "sha256": "bb2055391b6c1b39de24718bfbc800828a0066f82e47185fa923b31b644ec7bc",
+      "frames": 256000,
+      "sample_rate": 16000,
+      "channels": 1,
+      "sample_bits": 16
+    },
+    {
+      "file": "ambient_tones/below_the_landing.wav",
+      "source": "places_original_tonal_ambient_0131",
+      "source_file": "below_the_landing",
+      "source_file_sha256": "f75873cb0321c8037e5c6cdcc60704b5c17aa3a3fd8318e769dfe1c2464903cc",
+      "sha256": "f75873cb0321c8037e5c6cdcc60704b5c17aa3a3fd8318e769dfe1c2464903cc",
+      "frames": 256000,
+      "sample_rate": 16000,
+      "channels": 1,
+      "sample_bits": 16
     }
   ]
 }

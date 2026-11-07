@@ -11,6 +11,7 @@ use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::{Duration, Instant};
 
 mod allocation_owners;
+mod ambient_tones;
 mod tall_guest_cues;
 mod witnesses;
 
@@ -76,30 +77,21 @@ fn main() -> Result<(), String> {
     );
     let out = PathBuf::from(args.next().ok_or("Missing output directory")?);
     let mode = args.next();
-    let probe = mode
-        .as_ref()
-        .is_some_and(|value| value == "--control-probe");
-    let lifetime = mode
-        .as_ref()
-        .is_some_and(|value| value == "--lifetime-probe");
-    let sustained = mode
-        .as_ref()
-        .is_some_and(|value| value == "--sustained-probe");
-    let fallback = mode
-        .as_ref()
-        .is_some_and(|value| value == "--fallback-probe");
-    let owners = mode.as_ref().is_some_and(|value| value == "--owner-probe");
-    let disposal = mode
-        .as_ref()
-        .is_some_and(|value| value == "--disposal-probe");
-    let scene = mode.as_ref().is_some_and(|value| value == "--scene-probe");
-    let tall_guest = mode
-        .as_ref()
-        .is_some_and(|value| value == "--tall-guest-cues");
-    let feltling = mode
-        .as_ref()
-        .is_some_and(|value| value == "--feltling-cues");
+    let is_mode = |value: &str| mode.as_ref().is_some_and(|selected| selected == value);
+    let probe = is_mode("--control-probe");
+    let lifetime = is_mode("--lifetime-probe");
+    let sustained = is_mode("--sustained-probe");
+    let fallback = is_mode("--fallback-probe");
+    let owners = is_mode("--owner-probe");
+    let disposal = is_mode("--disposal-probe");
+    let scene = is_mode("--scene-probe");
+    let tall_guest = is_mode("--tall-guest-cues");
+    let feltling = is_mode("--feltling-cues");
+    let ambient = is_mode("--ambient-tones");
+    let ambient_reference = is_mode("--ambient-reference");
     if mode.is_some()
+        && !ambient
+        && !ambient_reference
         && !feltling
         && !probe
         && !lifetime
@@ -136,6 +128,9 @@ fn main() -> Result<(), String> {
     }
     if !audio.stats().enabled {
         return Err("Native output unavailable; inspect actual device log".into());
+    }
+    if ambient || ambient_reference {
+        return ambient_tones::run(&mut audio, &assets, &out, ambient_reference);
     }
     if tall_guest {
         return tall_guest_cues::run(&mut audio, &assets, &out);
@@ -216,8 +211,9 @@ fn full_audit(
     Ok(())
 }
 fn write_wav(path: &std::path::Path, pcm: &[[f32; 2]]) -> Result<(), String> {
-    use std::io::Write;
-    let mut file = std::fs::File::create(path).map_err(|error| error.to_string())?;
+    use std::io::{BufWriter, Write};
+    let raw_file = std::fs::File::create(path).map_err(|error| error.to_string())?;
+    let mut file = BufWriter::new(raw_file);
     let bytes = u32::try_from(pcm.len().saturating_mul(8)).map_err(|error| error.to_string())?;
     for data in [
         b"RIFF".as_slice(),
@@ -241,7 +237,7 @@ fn write_wav(path: &std::path::Path, pcm: &[[f32; 2]]) -> Result<(), String> {
                 .map_err(|error| error.to_string())?;
         }
     }
-    Ok(())
+    file.flush().map_err(|error| error.to_string())
 }
 
 fn run_cycle(
