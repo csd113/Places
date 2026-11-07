@@ -6629,6 +6629,9 @@ pub struct AnimatedDoorDef {
     pub boxes: Vec<AnimatedDoorBox>,
     #[serde(default)]
     pub initial_open: bool,
+    /// Gameplay lock: opening is refused, but closing remains allowed.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub locked: bool,
 }
 
 /// An upright oriented solid following one actual rigid animation node.
@@ -6638,6 +6641,10 @@ pub struct AnimatedDoorBox {
     pub node: String,
     pub center: [f32; 3],
     pub size: [f32; 3],
+    /// Opt out of the floor approximation for hardware already represented by
+    /// a leaf's contact, or mounted stock. Collision is unaffected.
+    #[serde(default = "default_prop_occludes")]
+    pub grounding: bool,
 }
 
 /// Offline fit of a centred, floor-reference, local-X static model module.

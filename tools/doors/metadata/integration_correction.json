@@ -1,0 +1,17 @@
+{
+  "reason": "Engine host-fit gate proved prepared push-side hinge axes swung the cores into fixed jambs. Corrected physical hinge barrels, hinge axes and leaf hinge plates to rear/pull face, and recalculated actual closer linkage.",
+  "hinge_plane_relative_frame_m": -0.03,
+  "hinge_local_z_m": -0.058,
+  "frame_local_z_m": -0.028,
+  "original_preparation_zip_sha256": "a9a474a57a47b03ec220db22f005b62aced27703f2c21a0ddca7f7d378c31e6c",
+  "preview_pixels_inspected": [
+    "single_corrected_open.png",
+    "double_corrected_open.png",
+    "double_corrected_rear.png"
+  ],
+  "source_tool": "Blender 4.3.2, cloud, four CPU threads",
+  "gimp_art_unchanged": true,
+  "no_cap_changes": true,
+  "native_acceptance_report": "docs/reports/exit-doors-0.13.1-mac.md",
+  "native_acceptance_scope": "Targeted Mac SDL/Metal physical, AI sight/navigation, flashlight, receiving light, culling, editor and grounding checks; no practical room-light silhouette casting or Windows acceptance."
+}

@@ -7422,5 +7422,21 @@
       0.6098197102546692,
       0.21965087950229645
     ]
+  },
+  "shared/doors/hollow_metal_exit_door_single.glb": {
+    "sha256": "1982688f4cfc7e688f27c506c00411134a0993fa7d5a99d25532bae472f2ab48",
+    "triangles": 728,
+    "texture_edge": 256,
+    "identities": [
+      "core:hollow_metal_exit_door_single"
+    ]
+  },
+  "shared/doors/hollow_metal_exit_door_double.glb": {
+    "sha256": "d61ac7660d1059ee9f21ac89fdb8106830c8145e4646c7ae2ef311ea831a9c0a",
+    "triangles": 1268,
+    "texture_edge": 256,
+    "identities": [
+      "core:hollow_metal_exit_door_double"
+    ]
   }
 }

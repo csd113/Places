@@ -1,0 +1,24 @@
+{
+  "output": "SET_BY_ACCEPTANCE_GENERATOR",
+  "actions": [
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "wait_idle"
+      }
+    },
+    {
+      "delay_ms": 500,
+      "action": {
+        "kind": "checkpoint",
+        "name": "reopened"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "close"
+      }
+    }
+  ]
+}

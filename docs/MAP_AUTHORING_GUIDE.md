@@ -9508,7 +9508,14 @@ supported within the existing 128-character budget. This profile requires
 `solid:false`, no physics, float, span, route, pitch/roll, shadow-only or material
 replacement. Keep its normal `animation` and `interactable` components and use
 `toggle_animation` on the named clip; `play_animation` requests the open end.
-Native slab `doors[]` retain their existing action/lock interface.
+Both this legacy route and the common `open`/`close`/`toggle` actions share the
+accepted clock. Compound mechanisms also support `lock`/`unlock` and normal
+locked/open/closed conditions; optional `animated_door.locked` defaults false.
+A box may set `grounding:false` to exclude mounted/redundant stock from the
+floor approximation without changing collision. New exports require
+`animated-door-actions-v1`. Existing slab `doors[]` behavior is unchanged.
+[Exit doors](EXIT_DOORS.md) documents the original single/pair presets, exact
+160 mm host fit, actual hinge offset, live collision and authoring limits.
 
 Gameplay advances the actual clip at its authored duration. Prospective poses
 are checked in at most 5 ms of clip time and 100 ms per update against player,

@@ -1035,6 +1035,16 @@
     "sha256": "56cdd920bb8b0ca249aa414948f54228942cddbeca56c7b6ac6455cb336d0b23",
     "source": "shared/textures/walls/grille_01.png"
   },
+  "core:hollow_metal_exit_door_double": {
+    "path": "editor/previews/b5f5346cd9e07916e984eeda.png",
+    "sha256": "d61ac7660d1059ee9f21ac89fdb8106830c8145e4646c7ae2ef311ea831a9c0a",
+    "source": "shared/doors/hollow_metal_exit_door_double.glb"
+  },
+  "core:hollow_metal_exit_door_single": {
+    "path": "editor/previews/0602253d2901a08e403e894f.png",
+    "sha256": "1982688f4cfc7e688f27c506c00411134a0993fa7d5a99d25532bae472f2ab48",
+    "source": "shared/doors/hollow_metal_exit_door_single.glb"
+  },
   "core:hot_tub": {
     "path": "editor/previews/7d36bb4c05bf259e2e4cd830.png",
     "sha256": "605736dc82788cf2ec56ce8b3b03fda25a70e4d5261f9e96cc16b3b48547fc3e",

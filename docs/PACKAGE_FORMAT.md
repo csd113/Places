@@ -1065,3 +1065,12 @@ introduced. An older player rejects the capability by name. Audio-only edits
 refresh package identity while retaining the prepared geometry/lighting stage.
 Measured headphone filters are attributed runtime assets, independent of the
 map's lighting variants and the player's persisted speaker/headphone preference.
+
+### Compound-door action capability
+
+New exports containing clip-driven doors require `animated-door-actions-v1`
+in addition to `animated-door-v1`. This extends shared action/condition and Luau
+query admission, optional authored `locked:false` and per-node-box
+`grounding:true` defaults. Runtime semantic validation requires the new capability
+when locked or excluded-grounding options are present. Older packages with only
+the original mechanism options remain readable. No numeric resource cap changes.

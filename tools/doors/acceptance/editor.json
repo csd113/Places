@@ -1,0 +1,350 @@
+{
+  "output": "SET_BY_ACCEPTANCE_GENERATOR",
+  "actions": [
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "resize",
+        "width": 1100,
+        "height": 680
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "wait_idle"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "focus"
+      }
+    },
+    {
+      "delay_ms": 500,
+      "action": {
+        "kind": "checkpoint",
+        "name": "original"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "DockTab(Assets)"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "DockCatalog(Doors)"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "BrowserSearch"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "text",
+        "text": "hollow"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "choices"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "capture",
+        "name": "01-choices"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "camera",
+        "eye": [
+          0,
+          6.5,
+          14.25833
+        ],
+        "yaw": 0,
+        "pitch": -30
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "DockChoose(0)"
+      }
+    },
+    {
+      "delay_ms": 120,
+      "action": {
+        "kind": "wait_idle"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "placed-single"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "camera",
+        "eye": [
+          0,
+          6.5,
+          15.25833
+        ],
+        "yaw": 0,
+        "pitch": -30
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "DockChoose(1)"
+      }
+    },
+    {
+      "delay_ms": 120,
+      "action": {
+        "kind": "wait_idle"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "placed-pair"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Focus"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "world_click",
+        "position": [
+          0,
+          1.2,
+          1.5
+        ]
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "picked-pair"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "capture",
+        "name": "02-placed-pair"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Undo"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Undo"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "undone"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Redo"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Redo"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "redone"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Save"
+      }
+    },
+    {
+      "delay_ms": 600,
+      "action": {
+        "kind": "checkpoint",
+        "name": "saved"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Play"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "wait_test"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "focus"
+      }
+    },
+    {
+      "delay_ms": 400,
+      "action": {
+        "kind": "checkpoint",
+        "name": "test-start"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "key",
+        "key": "E",
+        "pressed": true
+      }
+    },
+    {
+      "delay_ms": 70,
+      "action": {
+        "kind": "key",
+        "key": "E",
+        "pressed": false
+      }
+    },
+    {
+      "delay_ms": 1500,
+      "action": {
+        "kind": "checkpoint",
+        "name": "test-open"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "capture",
+        "name": "03-test-open"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "key",
+        "key": "Escape"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "wait_idle"
+      }
+    },
+    {
+      "delay_ms": 400,
+      "action": {
+        "kind": "checkpoint",
+        "name": "test-stopped"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Play"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "wait_test"
+      }
+    },
+    {
+      "delay_ms": 400,
+      "action": {
+        "kind": "checkpoint",
+        "name": "test-restarted"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "key",
+        "key": "Escape"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "wait_idle"
+      }
+    },
+    {
+      "delay_ms": 300,
+      "action": {
+        "kind": "checkpoint",
+        "name": "after-test"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "close"
+      }
+    }
+  ]
+}

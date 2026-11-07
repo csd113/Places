@@ -1,0 +1,93 @@
+{
+  "output": "SET_BY_ACCEPTANCE_GENERATOR",
+  "actions": [
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "wait_idle"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "focus"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "SceneSearch"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "text",
+        "text": "editor_prop"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "scene-choices"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Select(Prop(8))"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "selected-single"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "SceneSearch"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "text",
+        "text": "editor_prop"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "control",
+        "action": "Select(Prop(9))"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "checkpoint",
+        "name": "selected-pair"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "capture",
+        "name": "01-selected-pair"
+      }
+    },
+    {
+      "delay_ms": 180,
+      "action": {
+        "kind": "close"
+      }
+    }
+  ]
+}

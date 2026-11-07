@@ -420,3 +420,12 @@ camera cancellation does not roll back previous side effects or kill unrelated
 script/AI work. Existing state/task/animation events remain the synchronization
 mechanism. See [Live in-engine cinematics](CINEMATICS.md) for the keyed completion
 and interruption contract.
+
+#### Compound door state
+
+`api.door_status(id)` also accepts explicitly authored `animated_door` props.
+It returns immutable `phase`, `locked`, `obstructed` and `progress` (0..1).
+Only a native single-slab door returns `angle`; several hinged leaves do not
+have one meaningful common angle. Existing `api.door(id, operation)` accepts open/close/toggle/lock/unlock for the
+same compound mechanism; shared locked/unlocked/open/closed conditions apply.
+See [exit-door behavior and reset/checkpoint limits](EXIT_DOORS.md).

@@ -213,20 +213,21 @@ impl EntityWorld {
             return false;
         }
         if point.kind == UseKind::Door {
-            let opened = self
+            let slab_opened = self
                 .doors
                 .request_open_from(&point.target, Some(Vec3::from_array(point.approach)));
-            let opening = self
-                .doors
-                .index_of(&point.target)
-                .and_then(|index| self.doors.get(index))
-                .is_some_and(|door| {
-                    matches!(
-                        door.phase(),
-                        crate::engine::door::DoorPhase::Opening
-                            | crate::engine::door::DoorPhase::Open
-                    )
-                });
+            let opened = self
+                .animated_doors
+                .iter_mut()
+                .find(|door| door.id == point.target)
+                .is_some_and(|door| door.request_end(true))
+                || slab_opened;
+            let opening = self.door_status(&point.target).is_some_and(|door| {
+                matches!(
+                    door.phase,
+                    crate::engine::door::DoorPhase::Opening | crate::engine::door::DoorPhase::Open
+                )
+            });
             if !opened && !opening {
                 return false;
             }

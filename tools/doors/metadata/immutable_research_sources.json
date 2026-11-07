@@ -1,0 +1,82 @@
+{
+  "commit": "624e4da8273200e7c5b843c106208a5afa7c1a68",
+  "files": {
+    "AGENTS.md": {
+      "repository_path": "AGENTS.md",
+      "git_blob_sha": "81897b0a7497503e65c207ef67690ada6e7b5632",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/AGENTS.md",
+      "sha256": "cafb6996eaf840aaef1347135c80530496dbf5afe289483273d052a5dfb5b264",
+      "bytes": 6460
+    },
+    "docs__assets__SHADOWS.md": {
+      "repository_path": "docs/assets/SHADOWS.md",
+      "git_blob_sha": "4aa86d0b1bb13cdce561e0c02d42d07f7351d25e",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/docs/assets/SHADOWS.md",
+      "sha256": "091502b5d0f760c19f75e5625ce78205bcb1155aecad95b156bb5478d0adae91",
+      "bytes": 6278
+    },
+    "docs__assets__README.md": {
+      "repository_path": "docs/assets/README.md",
+      "git_blob_sha": "0c86199acf79f6c23830219ac861ca92002623b1",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/docs/assets/README.md",
+      "sha256": "5c17e0f76e094ca27d82606923bee41161659c84581ce77f9c7d3ee1eb9b80ad",
+      "bytes": 4887
+    },
+    "docs__assets__ENVIRONMENTS.md": {
+      "repository_path": "docs/assets/ENVIRONMENTS.md",
+      "git_blob_sha": "b85d56e95632dc1c3052389f215972b2759d50f1",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/docs/assets/ENVIRONMENTS.md",
+      "sha256": "34708660c442a692900417b1fd5c91313fb06627b232536754636d4c07a95d9d",
+      "bytes": 22918
+    },
+    "docs__OFFLINE_TOOLING.md": {
+      "repository_path": "docs/OFFLINE_TOOLING.md",
+      "git_blob_sha": "ed01e76391872fe7c18ef84aa5549de85bea5493",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/docs/OFFLINE_TOOLING.md",
+      "sha256": "711b504a78459db9a5ec67670316bd6542ed1f122cb78a49f7d25f81c1459a1a",
+      "bytes": 29533
+    },
+    "src__engine__door.rs": {
+      "repository_path": "src/engine/door.rs",
+      "git_blob_sha": "f772b1d2d412c10861fb6abe2bc59152ec2ba471",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/src/engine/door.rs",
+      "sha256": "11d9927410c65d5e18c32e9eea2a76ccb7e9a3de7eff70acc5023bd45add95e6",
+      "bytes": 20920
+    },
+    "src__engine__animated_door.rs": {
+      "repository_path": "src/engine/animated_door.rs",
+      "git_blob_sha": "fb9e07ab00da326787bbaaf31abf358e498d6e11",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/src/engine/animated_door.rs",
+      "sha256": "ba7f6842b351565ec61f7921b957a01d755e4f7d359975028f9658d5dd5814e6",
+      "bytes": 8612
+    },
+    "src__engine__render__common__doors.rs": {
+      "repository_path": "src/engine/render/common/doors.rs",
+      "git_blob_sha": "24aca7c0fc463c857cbdf926da4a597393b512d3",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/src/engine/render/common/doors.rs",
+      "sha256": "e2be711688e64b79250f79a98796d72fcf58c7709a4b5c9e0d261ba1c8c0cf84",
+      "bytes": 38614
+    },
+    "docs__MAP_AUTHORING_GUIDE.md": {
+      "repository_path": "docs/MAP_AUTHORING_GUIDE.md",
+      "git_blob_sha": "e90cd13b4c6b525e47a418437650e2d3fd118b09",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/docs/MAP_AUTHORING_GUIDE.md",
+      "sha256": "66f4b483a9e69b316a2f32248d9ec9873d46d3e0501128e39763e04620c74990",
+      "bytes": 620705
+    },
+    "docs__ASSET_SPECIFICATION.md": {
+      "repository_path": "docs/ASSET_SPECIFICATION.md",
+      "git_blob_sha": "d2b87e528df4fed3e3bf03c7eeabf3fc7e7fb764",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/docs/ASSET_SPECIFICATION.md",
+      "sha256": "839a8b1968024470877db01d479f2561cd10c6e1665d979fa8915c7794415919",
+      "bytes": 176641
+    },
+    "src__engine__gltf.rs": {
+      "repository_path": "src/engine/gltf.rs",
+      "git_blob_sha": "7517a134982082f2aeecb2a6b9c14379beac4df5",
+      "url": "https://github.com/csd113/Places/blob/624e4da8273200e7c5b843c106208a5afa7c1a68/src/engine/gltf.rs",
+      "sha256": "e9d3fa4b767965f225d30f2fbd8ff44129c7f7495278572aaf00133d11366563",
+      "bytes": 154478
+    }
+  }
+}

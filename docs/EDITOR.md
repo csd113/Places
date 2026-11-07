@@ -1166,3 +1166,14 @@ start/end views, choose a completion destination and Apply as one undoable edit.
 Test runs camera/NPC behavior; Build+Play proves complete-project transitions.
 See [Live in-engine cinematics](CINEMATICS.md) for camera fields, busy/once policy,
 interruption behavior and the source contract.
+
+### Single and paired hollow-metal exit doors
+
+The Doors browser includes **Place hollow-metal exit door** and **Place
+hollow-metal exit door pair**. Unlike a slab style assignment, either places a
+new complete compound prop at the view target. The same Models selections plus
+Place chosen prop install the full live preset, not disconnected decoration.
+Select its prop entry for position/yaw/uniform scale, fit the specified actual
+wall opening and use Test. Existing slab style choices remain unchanged.
+Active-mechanism model replacement is refused to preserve authored wiring.
+See [exact placement, behavior and source contract](EXIT_DOORS.md).

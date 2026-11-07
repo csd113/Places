@@ -66,6 +66,17 @@ impl DoorPhase {
     }
 }
 
+/// Common read-only door state. Compound clips expose a fraction instead of
+/// inventing one angle for multiple independently hinged leaves.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct DoorStatus {
+    pub phase: DoorPhase,
+    pub locked: bool,
+    pub obstructed: bool,
+    pub angle: Option<f32>,
+    pub progress: Option<f32>,
+}
+
 /// How one advance step changed a door.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub struct DoorStep {

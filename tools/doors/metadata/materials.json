@@ -1,0 +1,163 @@
+{
+  "application": "GIMP 3.0.4",
+  "source_size": [
+    1024,
+    1024
+  ],
+  "runtime_size": [
+    256,
+    256
+  ],
+  "roles": [
+    {
+      "cell": 0,
+      "name": "01 Painted steel - cool grey",
+      "base_srgb": [
+        144,
+        148,
+        149
+      ]
+    },
+    {
+      "cell": 1,
+      "name": "02 Frame powdercoat",
+      "base_srgb": [
+        116,
+        121,
+        123
+      ]
+    },
+    {
+      "cell": 2,
+      "name": "03 Satin hardware steel",
+      "base_srgb": [
+        180,
+        185,
+        185
+      ]
+    },
+    {
+      "cell": 3,
+      "name": "04 Rubber and latch recess",
+      "base_srgb": [
+        37,
+        42,
+        43
+      ]
+    },
+    {
+      "cell": 4,
+      "name": "05 Leaf edge steel",
+      "base_srgb": [
+        126,
+        132,
+        134
+      ]
+    },
+    {
+      "cell": 5,
+      "name": "06 Subtle painted wear",
+      "base_srgb": [
+        139,
+        144,
+        145
+      ]
+    },
+    {
+      "cell": 6,
+      "name": "07 Slotted fixing",
+      "base_srgb": [
+        158,
+        165,
+        166
+      ]
+    },
+    {
+      "cell": 7,
+      "name": "08 Threshold brushed aluminium",
+      "base_srgb": [
+        159,
+        166,
+        168
+      ]
+    },
+    {
+      "cell": 8,
+      "name": "09 Closer cover",
+      "base_srgb": [
+        164,
+        170,
+        171
+      ]
+    },
+    {
+      "cell": 9,
+      "name": "10 Crossbar satin face",
+      "base_srgb": [
+        178,
+        184,
+        184
+      ]
+    },
+    {
+      "cell": 10,
+      "name": "11 Strike and latch plates",
+      "base_srgb": [
+        149,
+        155,
+        157
+      ]
+    },
+    {
+      "cell": 11,
+      "name": "12 Exit device end cap",
+      "base_srgb": [
+        119,
+        127,
+        130
+      ]
+    },
+    {
+      "cell": 12,
+      "name": "13 Reverse painted steel",
+      "base_srgb": [
+        144,
+        148,
+        149
+      ]
+    },
+    {
+      "cell": 13,
+      "name": "14 Hinge knuckle",
+      "base_srgb": [
+        162,
+        170,
+        172
+      ]
+    },
+    {
+      "cell": 14,
+      "name": "15 Rod guide saddle",
+      "base_srgb": [
+        158,
+        166,
+        168
+      ]
+    },
+    {
+      "cell": 15,
+      "name": "16 Reserved neutral",
+      "base_srgb": [
+        126,
+        132,
+        134
+      ]
+    }
+  ],
+  "layers": 5,
+  "seed": 531170,
+  "alpha": "opaque",
+  "uv": "4x4 cells, fitted, clamped, inset by 3 runtime pixels",
+  "light_bake": "None. Marks are material variation, not fixed lighting or AO.",
+  "rights": "Original asset artwork authored for Connor Dawkins / Places."
+}

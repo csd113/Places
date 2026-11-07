@@ -1,0 +1,54 @@
+{
+  "status": "REVIEWED OFFLINE",
+  "images": [
+    {
+      "path": "qa/single_closed_front.png",
+      "sha256": "726bbc61d69b738e869c5576f78c64ea3a4461d3737de18e904dfa7a55bf7b55",
+      "runtime_sha256": "59d79f5272fbb132558ac64087e26fbf561b6d87a946bee44fb53fea684c4793",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    },
+    {
+      "path": "qa/single_closed_back.png",
+      "sha256": "ab36e62883c09e786086f10963148df65edc3e68b6b9ff6f26a330fd4428c44a",
+      "runtime_sha256": "59d79f5272fbb132558ac64087e26fbf561b6d87a946bee44fb53fea684c4793",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    },
+    {
+      "path": "qa/single_open_90.png",
+      "sha256": "9bd7b2fbae3cbee0a9cb9d5ca7e4aa075ee984b4ea0d99a53f1c898828f06f8d",
+      "runtime_sha256": "59d79f5272fbb132558ac64087e26fbf561b6d87a946bee44fb53fea684c4793",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    },
+    {
+      "path": "qa/single_hardware.png",
+      "sha256": "dd8890b996e6f1835ae5f39dd400e66f27799ce1b4ec407bde32e3d0d655596d",
+      "runtime_sha256": "59d79f5272fbb132558ac64087e26fbf561b6d87a946bee44fb53fea684c4793",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    },
+    {
+      "path": "qa/double_closed_front.png",
+      "sha256": "a048e73c682d4df2472a3da3014f607d1eaa2997d582c97fe9329c042f9d33a6",
+      "runtime_sha256": "fd03a852dc38301fcbfa00322022ae8536698b1a81905223e4b1c14929a85686",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    },
+    {
+      "path": "qa/double_closed_back.png",
+      "sha256": "ed8c77b9edc80ecabed39e06187db239655e4128b9ed9069961ef2365b3a02b9",
+      "runtime_sha256": "fd03a852dc38301fcbfa00322022ae8536698b1a81905223e4b1c14929a85686",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    },
+    {
+      "path": "qa/double_open_90.png",
+      "sha256": "c95d3c19b43e12d17e188c258752b08991a48c4b2b9f29c9882c1d9a07f0ef7e",
+      "runtime_sha256": "fd03a852dc38301fcbfa00322022ae8536698b1a81905223e4b1c14929a85686",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    },
+    {
+      "path": "qa/double_hardware.png",
+      "sha256": "e7f95737cb38f49c099f89e4547a904c94c99e58c1dc6129f0e12975b56a2d39",
+      "runtime_sha256": "fd03a852dc38301fcbfa00322022ae8536698b1a81905223e4b1c14929a85686",
+      "review": "Inspected actual pixels: silhouette, reverse, open aperture, fitted hardware; neutral CPU preview only."
+    }
+  ],
+  "native_acceptance": false
+}

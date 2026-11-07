@@ -13,6 +13,13 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Add original single and paired flush hollow-metal exit doors with
+  surface-mounted vertical-rod panic hardware, editable Blender/GIMP sources
+  and interactive editor presets. Share door actions, locks and Luau state
+  queries with rigid clip mechanisms; keep collision and appearance on one
+  accepted pose, and ground separate frame/leaf contacts rather than an empty
+  aperture. No automatic closing, certification claim or asset-cap increase.
+
 - Add reusable live in-engine cinematics through ordinary trigger/sequence
   events, out-of-body move/follow/orbit/look-at shots and existing Luau NPC
   actions. Add a small Advanced authoring sheet, exact-key completion/level

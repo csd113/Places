@@ -45,6 +45,7 @@ pub struct AnimatedDoor {
     progress: f32,
     target: f32,
     pub obstructed: bool,
+    locked: bool,
     colliders: Vec<DoorCollider>,
 }
 
@@ -66,6 +67,7 @@ impl AnimatedDoor {
         let progress = if def.initial_open { 1.0 } else { 0.0 };
         let mut door = Self {
             id,
+            locked: def.locked,
             def,
             animator,
             duration,
@@ -140,17 +142,57 @@ impl AnimatedDoor {
         if clip != self.def.clip {
             return false;
         }
-        self.target = if toggle && self.target > 0.5 {
-            0.0
+        self.request_end(!toggle || self.target < 0.5)
+    }
+
+    /// Shared door actions and legacy clip actions use the same lock and clock.
+    pub fn request_end(&mut self, open: bool) -> bool {
+        if open && self.locked {
+            return false;
+        }
+        let target = if open { 1.0 } else { 0.0 };
+        let changed = (self.target - target).abs() > 1.0e-6;
+        self.target = target;
+        changed
+    }
+
+    pub fn toggle(&mut self) -> bool {
+        self.request_end(self.target < 0.5)
+    }
+
+    pub const fn set_locked(&mut self, locked: bool) -> bool {
+        let changed = self.locked != locked;
+        self.locked = locked;
+        changed
+    }
+
+    #[must_use]
+    pub fn status(&self) -> crate::engine::door::DoorStatus {
+        use crate::engine::door::{DoorPhase, DoorStatus};
+        let phase = if self.is_moving() {
+            if self.target > self.progress {
+                DoorPhase::Opening
+            } else {
+                DoorPhase::Closing
+            }
+        } else if self.progress > 0.5 {
+            DoorPhase::Open
         } else {
-            1.0
+            DoorPhase::Closed
         };
-        true
+        DoorStatus {
+            phase,
+            locked: self.locked,
+            obstructed: self.obstructed,
+            angle: None,
+            progress: Some(self.progress),
+        }
     }
 
     pub fn reset(&mut self) {
         self.progress = if self.def.initial_open { 1.0 } else { 0.0 };
         self.target = self.progress;
+        self.locked = self.def.locked;
         self.obstructed = false;
         self.colliders = self.sample(self.progress);
     }
@@ -177,7 +219,7 @@ impl AnimatedDoor {
     #[must_use]
     pub fn diagnostics(&self) -> serde_json::Value {
         serde_json::json!({"id":self.id,"clip":self.def.clip,"progress":self.progress,
-            "target":self.target,"obstructed":self.obstructed,
+            "target":self.target,"obstructed":self.obstructed, "locked":self.locked, "phase":self.status().phase.name(),
             "boxes":self.colliders.iter().map(|leaf| serde_json::json!({
                 "hinge":[leaf.hinge_x,leaf.hinge_y,leaf.hinge_z],
                 "direction":[leaf.dir_x,leaf.dir_z],"size":[leaf.width,leaf.height,leaf.thickness]
@@ -222,4 +264,19 @@ impl AnimatedDoor {
         }
         moved
     }
+}
+
+/// Canonical authored placement defaults. Runtime still loads explicit level data.
+#[must_use]
+pub fn preset(model: &str) -> Option<serde_json::Value> {
+    let source = match model {
+        "core:hollow_metal_exit_door_single" => {
+            include_str!("../../assets/shared/doors/hollow_metal_exit_door_single.json")
+        }
+        "core:hollow_metal_exit_door_double" => {
+            include_str!("../../assets/shared/doors/hollow_metal_exit_door_double.json")
+        }
+        _ => return None,
+    };
+    serde_json::from_str(source).ok()
 }

@@ -1,0 +1,94 @@
+[
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 100,
+    "action": {
+      "kind": "focus",
+      "focused": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 200,
+    "action": {
+      "kind": "activate",
+      "id": "open_all"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 300,
+    "action": {
+      "kind": "player",
+      "position": [
+        0,
+        1.63,
+        3.5
+      ],
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 1800,
+    "action": {
+      "kind": "checkpoint",
+      "name": "open-wide"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 1900,
+    "action": {
+      "kind": "capture",
+      "name": "01-open-wide"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 2200,
+    "action": {
+      "kind": "resize",
+      "width": 600,
+      "height": 800
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 2400,
+    "action": {
+      "kind": "player",
+      "position": [
+        -1.9,
+        1.6,
+        -0.75
+      ],
+      "yaw": -90,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 2900,
+    "action": {
+      "kind": "checkpoint",
+      "name": "frame-out-leaf-visible"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 3000,
+    "action": {
+      "kind": "capture",
+      "name": "02-frame-out-leaf-visible"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 3600,
+    "action": {
+      "kind": "quit"
+    }
+  }
+]

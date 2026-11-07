@@ -1,0 +1,44 @@
+{
+  "status": "prepared_privately_ready_for_later_integration",
+  "canonical_repository_modified": false,
+  "requested_reference_library_id": "libfile_cfe2f74081d8819185ef90ab92d370af",
+  "resolved_materialization_library_id": "libfile_fde3_f-cfe2f74081d8819185ef90ab92d370af_2e37728cdad08191acacf8a0401feb09",
+  "reference": {
+    "path": "reference/image.png",
+    "sha256": "44a632d63bda4678e170e532c6336372c5cfaae27547e6fa751d72a8c6297d38",
+    "bytes": 889834,
+    "size": [
+      1284,
+      1309
+    ],
+    "pixels_inspected": true
+  },
+  "generic_terminology": "Flush hollow-metal exit door / pair with surface-mounted vertical-rod exit device (panic hardware).",
+  "terminology_sources": [
+    {
+      "url": "https://steeldoor.org/glossary/",
+      "purpose": "Generic hollow-metal/flush door nomenclature."
+    },
+    {
+      "url": "https://kc.allegion.com/kb/article/surface-vertical-rod-exit-device/",
+      "purpose": "Generic visible surface-applied rods connected to top and bottom latches."
+    }
+  ],
+  "identification_limits": "No brand, fire rating, metal gauge, tested security class, safety listing or certification is asserted.",
+  "reference_interpretation": "Flat grey leaves, metal frame, top/bottom exposed rods, touchbars, overhead closers; reference shows pair. Single variant adapts that visible hardware arrangement.",
+  "tools": {
+    "modelling": "Blender 4.3.2",
+    "painting": "GIMP 3.0.4",
+    "preview": "Cycles CPU only; no GPU benchmarks",
+    "inspection": "Python deterministic GLB gates plus Blender re-import"
+  },
+  "originality": "Original geometry and native GIMP paint. No image-generation stand-ins, downloaded models or third-party textures.",
+  "reference_rights": "Reference retained unchanged for comparison; this preparation makes no new rights claim over that image.",
+  "engine_budget_changes": null,
+  "new_runtime_formats": null,
+  "new_runtime_extensions": null,
+  "native_acceptance": false,
+  "Mac_commands": false,
+  "source_integration": false,
+  "scope_end": "Pause after private preparation. Later integration and native/Windows validation remain queued. No map layout or level build."
+}

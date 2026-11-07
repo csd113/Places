@@ -409,3 +409,14 @@ include their output allocation and collection; they are not additive full-bake
 fractions, exact live-heap attribution or GPU speedups. Keep this diagnostic out of
 timed before/after cohorts. The ordinary `PLACES_VERBOSE=1` stage timers and
 `PLACES_SOLVER_PROFILE=1` worker timings remain the complete-bake references.
+
+### Original exit-door source owner
+
+`tools/doors/source/` owns the original packed Blender scenes, GIMP XCF and paint
+master for `assets/shared/doors/hollow_metal_exit_door_{single,double}.glb` and
+`exit_door_materials.png`. The read-only command is
+`python3 tools/doors/check.py --check`; ordinary `tools/props/build.py --check`
+and `tools/assets/validate.py` also apply. Exact corrected sources/exports live
+in the metadata ledger. Work in a fresh private authoring stage and review bytes
+before publishing. Do not invoke broad art exporters or paint at runtime.
+See [the full authoring contract](EXIT_DOORS.md).

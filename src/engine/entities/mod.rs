@@ -2088,6 +2088,28 @@ impl EntityWorld {
         &self.doors
     }
 
+    /// Common state for native slabs and explicitly authored compound doors.
+    #[must_use]
+    pub fn door_status(&self, id: &str) -> Option<crate::engine::door::DoorStatus> {
+        if let Some(door) = self
+            .doors
+            .index_of(id)
+            .and_then(|index| self.doors.get(index))
+        {
+            return Some(crate::engine::door::DoorStatus {
+                phase: door.phase(),
+                locked: door.is_locked(),
+                obstructed: door.obstructed,
+                angle: Some(door.angle()),
+                progress: None,
+            });
+        }
+        self.animated_doors
+            .iter()
+            .find(|door| door.id == id)
+            .map(crate::engine::animated_door::AnimatedDoor::status)
+    }
+
     /// The door runtimes, mutably.
     pub const fn doors_mut(&mut self) -> &mut Doors {
         &mut self.doors
@@ -2770,6 +2792,13 @@ impl EntityWorld {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
+                if let Some(door) = self.animated_doors.iter_mut().find(|door| door.id == id) {
+                    if door.request_end(request_open) {
+                        report.doors_acted = report.doors_acted.saturating_add(1);
+                    }
+                    report.actions_run = report.actions_run.saturating_add(1);
+                    return;
+                }
                 if self.doors.index_of(&id).is_none() {
                     report.unsupported = report.unsupported.saturating_add(1);
                     warn_once(
@@ -2801,6 +2830,13 @@ impl EntityWorld {
                         report.actions_run = report.actions_run.saturating_add(1);
                         report.doors_acted = report.doors_acted.saturating_add(1);
                     }
+                    return;
+                }
+                if let Some(door) = self.animated_doors.iter_mut().find(|door| door.id == id) {
+                    if door.toggle() {
+                        report.doors_acted = report.doors_acted.saturating_add(1);
+                    }
+                    report.actions_run = report.actions_run.saturating_add(1);
                     return;
                 }
                 if self.toggle_light_by_id(&id, depth.saturating_add(1)) {
@@ -2864,7 +2900,13 @@ impl EntityWorld {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
-                if self.doors.set_locked(&id, locked) {
+                let changed =
+                    if let Some(door) = self.animated_doors.iter_mut().find(|door| door.id == id) {
+                        door.set_locked(locked)
+                    } else {
+                        self.doors.set_locked(&id, locked)
+                    };
+                if changed {
                     report.actions_run = report.actions_run.saturating_add(1);
                     let _event_queued = self.emit_depth(
                         EventKind::ObjectState,
@@ -5754,13 +5796,13 @@ impl ConditionView for WorldConditionView<'_> {
     }
 
     fn locked(&self, target: &str) -> Option<bool> {
-        self.world.doors.is_locked(target)
+        self.world.door_status(target).map(|status| status.locked)
     }
 
     fn door_open(&self, target: &str) -> Option<bool> {
-        let index = self.world.doors.index_of(target)?;
-        let door = self.world.doors.get(index)?;
-        Some(door.phase() == DoorPhase::Open)
+        self.world
+            .door_status(target)
+            .map(|status| status.phase == DoorPhase::Open)
     }
 
     fn sequence_running(&self, target: &str) -> Option<bool> {

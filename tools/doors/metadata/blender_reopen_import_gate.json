@@ -1,0 +1,109 @@
+{
+  "status": "PASS",
+  "models": [
+    {
+      "variant": "single",
+      "blend_file": "hollow_metal_exit_door_single.blend",
+      "blend_sha256": "5c267ef550e07c2b3ad25a52ecefe90ca4f6a9404ff94a7b18880339408f5099",
+      "runtime_sha256": "1982688f4cfc7e688f27c506c00411134a0993fa7d5a99d25532bae472f2ab48",
+      "reexport_sha256": "1982688f4cfc7e688f27c506c00411134a0993fa7d5a99d25532bae472f2ab48",
+      "byte_identical_source_reexport": true,
+      "imported_nodes": [
+        "exit_door_single",
+        "closer_L_arm_a",
+        "closer_L_arm_b",
+        "closer_L_frame_bracket",
+        "frame_stock",
+        "hinge_L",
+        "leaf_L_closer",
+        "leaf_L_core",
+        "leaf_L_hinges",
+        "leaf_L_panic_hardware"
+      ],
+      "imported_bounds": {
+        "bounds_closed": {
+          "min": [
+            -0.5759999752044678,
+            0.0,
+            -0.12600000202655792
+          ],
+          "max": [
+            0.5759999752044678,
+            2.2100000381469727,
+            0.12600000202655792
+          ]
+        },
+        "bounds_open_90": {
+          "min": [
+            -0.5759999752044678,
+            0.0,
+            -1.0459998846054077
+          ],
+          "max": [
+            0.5759999752044678,
+            2.2100000381469727,
+            0.12600000202655792
+          ]
+        }
+      },
+      "preview_source": "actual runtime GLB re-import",
+      "renderer": "Blender 4.3.2 Cycles CPU, 4 threads, 64 samples, no denoising"
+    },
+    {
+      "variant": "double",
+      "blend_file": "hollow_metal_exit_door_double.blend",
+      "blend_sha256": "f1082ed74ad56f23be60891cc80a328e1b5672695e53ea48ce96ff5066223898",
+      "runtime_sha256": "d61ac7660d1059ee9f21ac89fdb8106830c8145e4646c7ae2ef311ea831a9c0a",
+      "reexport_sha256": "d61ac7660d1059ee9f21ac89fdb8106830c8145e4646c7ae2ef311ea831a9c0a",
+      "byte_identical_source_reexport": true,
+      "imported_nodes": [
+        "exit_door_double",
+        "closer_L_arm_a",
+        "closer_L_arm_b",
+        "closer_L_frame_bracket",
+        "closer_R_arm_a",
+        "closer_R_arm_b",
+        "closer_R_frame_bracket",
+        "frame_stock",
+        "hinge_L",
+        "leaf_L_closer",
+        "leaf_L_core",
+        "leaf_L_hinges",
+        "leaf_L_panic_hardware",
+        "hinge_R",
+        "leaf_R_closer",
+        "leaf_R_core",
+        "leaf_R_hinges",
+        "leaf_R_panic_hardware"
+      ],
+      "imported_bounds": {
+        "bounds_closed": {
+          "min": [
+            -1.0260000228881836,
+            0.0,
+            -0.12600000202655792
+          ],
+          "max": [
+            1.0260000228881836,
+            2.2100000381469727,
+            0.12600000202655792
+          ]
+        },
+        "bounds_open_90": {
+          "min": [
+            -1.0260000228881836,
+            0.0,
+            -0.9989999532699585
+          ],
+          "max": [
+            1.0260000228881836,
+            2.2100000381469727,
+            0.12600000202655792
+          ]
+        }
+      },
+      "preview_source": "actual runtime GLB re-import",
+      "renderer": "Blender 4.3.2 Cycles CPU, 4 threads, 64 samples, no denoising"
+    }
+  ]
+}

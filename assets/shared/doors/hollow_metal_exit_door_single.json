@@ -1,0 +1,172 @@
+{
+  "id": "review_hollow_metal_exit_single",
+  "model": "core:hollow_metal_exit_door_single",
+  "x": 0.0,
+  "y": 0.0,
+  "z": 0.027999997,
+  "rotation_degrees": 0.0,
+  "scale": 1.0,
+  "size": [
+    1.152,
+    2.21,
+    0.252
+  ],
+  "solid": false,
+  "animated_door": {
+    "clip": "exit_open",
+    "initial_open": false,
+    "boxes": [
+      {
+        "node": "exit_door_single",
+        "center": [
+          -0.534,
+          1.075,
+          0.0
+        ],
+        "size": [
+          0.084,
+          2.15,
+          0.196
+        ],
+        "grounding": true
+      },
+      {
+        "node": "exit_door_single",
+        "center": [
+          0.534,
+          1.075,
+          0.0
+        ],
+        "size": [
+          0.084,
+          2.15,
+          0.196
+        ],
+        "grounding": true
+      },
+      {
+        "node": "exit_door_single",
+        "center": [
+          0.0,
+          2.176,
+          0.0
+        ],
+        "size": [
+          1.152,
+          0.068,
+          0.196
+        ],
+        "grounding": false
+      },
+      {
+        "node": "closer_L_arm_a",
+        "center": [
+          0.092500001,
+          0.0,
+          0.0
+        ],
+        "size": [
+          0.185000002,
+          0.012,
+          0.017000001
+        ],
+        "grounding": false
+      },
+      {
+        "node": "closer_L_arm_b",
+        "center": [
+          0.102499999,
+          0.0,
+          0.0
+        ],
+        "size": [
+          0.204999998,
+          0.012,
+          0.015
+        ],
+        "grounding": false
+      },
+      {
+        "node": "closer_L_frame_bracket",
+        "center": [
+          0.0,
+          -0.03700003,
+          0.001249997
+        ],
+        "size": [
+          0.052999999,
+          0.100000054,
+          0.067499995
+        ],
+        "grounding": false
+      },
+      {
+        "node": "leaf_L_closer",
+        "center": [
+          0.0,
+          0.019000035,
+          0.0
+        ],
+        "size": [
+          0.284999996,
+          0.112000071,
+          0.067000002
+        ],
+        "grounding": false
+      },
+      {
+        "node": "leaf_L_core",
+        "center": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "size": [
+          0.987999976,
+          2.128000021,
+          0.045000002
+        ],
+        "grounding": true
+      },
+      {
+        "node": "leaf_L_panic_hardware",
+        "center": [
+          0.00499998,
+          0.052000046,
+          0.017000001
+        ],
+        "size": [
+          0.924000025,
+          2.118000031,
+          0.072999999
+        ],
+        "grounding": false
+      }
+    ]
+  },
+  "components": [
+    {
+      "component": "interactable",
+      "reach": 2.0,
+      "prompt": "Open / close"
+    },
+    {
+      "component": "animation",
+      "clip": "exit_open",
+      "looped": false,
+      "playing": false
+    }
+  ],
+  "bindings": [
+    {
+      "on": "interact",
+      "actions": [
+        {
+          "action": "toggle"
+        }
+      ]
+    }
+  ],
+  "occludes": false,
+  "display_name": "Flush hollow-metal exit door"
+}

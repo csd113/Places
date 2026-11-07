@@ -324,3 +324,11 @@ against independent area coverage with a one-byte output tolerance. It creates
 no artwork, map bake, extra adapter or ordinary frame-time workload. A validation
 or numerical failure returns an error; successful controls log `[bloom-probe]`.
 This diagnostic run must not be used for FPS acceptance.
+
+### Original hollow-metal exit-door integration
+
+Run `python3 tools/doors/check.py --check` for exact source/export identities and
+preset contracts. [The dated Mac report](reports/exit-doors-0.13.1-mac.md) separates
+actual native/editor acceptance from Blender previews, documents room-light
+casting limits, and gives the small explicit fixture recipe for Windows follow-up.
+No full-map or broad model-review repeat is required for this feature gate.

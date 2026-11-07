@@ -16,6 +16,7 @@ fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
     Ok(Character {
         blood_identity: super::next_blood_identity(),
         bind_bounds: super::asset_bounds(&asset),
+        contact_boxes: Vec::new(),
         texture: None,
         ragdoll_owned: false,
         ragdoll_bounds: None,

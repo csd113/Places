@@ -1,0 +1,14 @@
+{
+  "application": "GIMP 3.0.4",
+  "source_size": [
+    1024,
+    1024
+  ],
+  "layers": [
+    "05 Fitted slotted fixing and threshold grooves",
+    "04 Sparse handling marks",
+    "03 Fine non-directional surface finish",
+    "02 Restrained powdercoat grain",
+    "01 Material role base colours"
+  ]
+}

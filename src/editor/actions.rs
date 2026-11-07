@@ -504,6 +504,9 @@ impl App {
                         self.status = format!("Assigned fixture {id}");
                     }
                     Catalog::Doors => {
+                        if self.place_exit_door_choice(&id)? {
+                            return Ok(true);
+                        }
                         let selected = self
                             .selected
                             .ok_or("Place or select a door before choosing its style")?;
@@ -950,6 +953,18 @@ impl App {
         Ok(())
     }
 
+    fn place_exit_door_choice(&mut self, id: &str) -> Result<bool, String> {
+        if crate::engine::animated_door::preset(id).is_none() {
+            return Ok(false);
+        }
+        id.clone_into(&mut self.prop);
+        self.add_object(ObjectKind::Prop)?;
+        self.status =
+            "Placed interactive exit door. Fit its 160 mm host opening; inspect Details and Test."
+                .into();
+        Ok(true)
+    }
+
     fn choose_asset(&mut self, index: usize) -> Result<(), String> {
         if matches!(self.popup, Some(Popup::DoorAssets)) {
             let id = self
@@ -957,6 +972,9 @@ impl App {
                 .get(index)
                 .cloned()
                 .ok_or("Door selection expired")?;
+            if self.place_exit_door_choice(&id)? {
+                return Ok(());
+            }
             let style = id
                 .strip_prefix("editor:door_")
                 .ok_or("Invalid door style")?;

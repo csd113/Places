@@ -5394,11 +5394,11 @@ impl WgpuRenderer {
                         submesh.alpha.mode != crate::engine::materials::AlphaMode::Blend
                     })
                 })
-                .map(|character| {
-                    (
-                        character.contact_bounds(),
-                        character.entity_lighting().prepared,
-                    )
+                .flat_map(|character| {
+                    let sample = character.entity_lighting().prepared;
+                    character
+                        .contact_subject_bounds()
+                        .map(move |bounds| (bounds, sample))
                 });
         let subjects = dynamic
             .chain(characters)

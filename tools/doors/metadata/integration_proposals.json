@@ -1,0 +1,557 @@
+{
+  "baseline_commit": "624e4da8273200e7c5b843c106208a5afa7c1a68",
+  "status": "PRIVATE PROPOSALS, NOT INSTALLED OR ENGINE VALIDATED",
+  "models": [
+    {
+      "variant": "single",
+      "logical_id_suggestion": "core:hollow_metal_exit_door_single",
+      "display_name_suggestion": "Flush hollow-metal exit door with surface vertical-rod exit device",
+      "runtime_file": "runtime/hollow_metal_exit_door_single.glb",
+      "catalog_size_m": [
+        1.152,
+        2.21,
+        0.252
+      ],
+      "nominal_host_opening_m": [
+        1.0,
+        2.15
+      ],
+      "host_wall_depth_m": 0.16,
+      "host_wall_centre_plane_local_z_m": -0.02799999713897705,
+      "proposed_placement_aligns_to_host_world_plane_z": 0.0,
+      "closed_leaf_bottom_m": 0.014,
+      "closed_leaf_top_m": 2.142,
+      "threshold_top_m": 0.008,
+      "frame_clear_width_m": 0.984,
+      "frame_clear_height_above_threshold_m": 2.134,
+      "full_open_conservative_body_path_width_m": 0.8605001416912604,
+      "full_open_body_path_x_interval_m": [
+        -0.36850014169126044,
+        0.492
+      ],
+      "player_hull_comparison_m": [
+        0.8,
+        1.8
+      ],
+      "player_width_margin_m": 0.06050014169126039,
+      "collision_box_count": 11,
+      "collision_profile": "Conservative rigid boxes, no mesh collision. Hardware group boxes deliberately include air around rods.",
+      "placement_proposal_not_engine_validated": {
+        "id": "review_hollow_metal_exit_single",
+        "model": "core:hollow_metal_exit_door_single",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.027999997,
+        "rotation_degrees": 0.0,
+        "scale": 1.0,
+        "size": [
+          1.152,
+          2.21,
+          0.252
+        ],
+        "solid": false,
+        "animated_door": {
+          "clip": "exit_open",
+          "initial_open": false,
+          "boxes": [
+            {
+              "node": "exit_door_single",
+              "center": [
+                -0.534,
+                1.075,
+                0.0
+              ],
+              "size": [
+                0.084,
+                2.15,
+                0.196
+              ]
+            },
+            {
+              "node": "exit_door_single",
+              "center": [
+                0.534,
+                1.075,
+                0.0
+              ],
+              "size": [
+                0.084,
+                2.15,
+                0.196
+              ]
+            },
+            {
+              "node": "exit_door_single",
+              "center": [
+                0.0,
+                2.176,
+                0.0
+              ],
+              "size": [
+                1.152,
+                0.068,
+                0.196
+              ]
+            },
+            {
+              "node": "exit_door_single",
+              "center": [
+                0.0,
+                0.004,
+                0.0
+              ],
+              "size": [
+                1.0,
+                0.008,
+                0.15
+              ]
+            },
+            {
+              "node": "closer_L_arm_a",
+              "center": [
+                0.092500001,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.185000002,
+                0.012,
+                0.017000001
+              ]
+            },
+            {
+              "node": "closer_L_arm_b",
+              "center": [
+                0.102499999,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.204999998,
+                0.012,
+                0.015
+              ]
+            },
+            {
+              "node": "closer_L_frame_bracket",
+              "center": [
+                0.0,
+                -0.03700003,
+                0.001249997
+              ],
+              "size": [
+                0.052999999,
+                0.100000054,
+                0.067499995
+              ]
+            },
+            {
+              "node": "leaf_L_closer",
+              "center": [
+                0.0,
+                0.019000035,
+                0.0
+              ],
+              "size": [
+                0.284999996,
+                0.112000071,
+                0.067000002
+              ]
+            },
+            {
+              "node": "leaf_L_core",
+              "center": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.987999976,
+                2.128000021,
+                0.045000002
+              ]
+            },
+            {
+              "node": "leaf_L_hinges",
+              "center": [
+                0.015499999,
+                0.839999974,
+                0.0
+              ],
+              "size": [
+                0.050999999,
+                1.759999871,
+                0.02
+              ]
+            },
+            {
+              "node": "leaf_L_panic_hardware",
+              "center": [
+                0.00499998,
+                0.052000046,
+                0.017000001
+              ],
+              "size": [
+                0.924000025,
+                2.118000031,
+                0.072999999
+              ]
+            }
+          ]
+        },
+        "components": [
+          {
+            "component": "interactable",
+            "reach": 2.0
+          },
+          {
+            "component": "animation",
+            "clip": "exit_open",
+            "looped": false,
+            "playing": false
+          }
+        ],
+        "bindings": [
+          {
+            "on": "interact",
+            "actions": [
+              {
+                "action": "toggle_animation",
+                "clip": "exit_open"
+              }
+            ]
+          }
+        ]
+      },
+      "behavior": "Reversible 1.1 second open clip; starts closed. Pair opens both leaves together. Closing is another toggle; overhead closer appearance does not implement automatic closing.",
+      "not_supported_by_this_delivery": [
+        "per-leaf independent pair controls",
+        "native slab DoorKind",
+        "native door lock/state API integration",
+        "opposite-hand single variant",
+        "certified building-egress behavior"
+      ]
+    },
+    {
+      "variant": "double",
+      "logical_id_suggestion": "core:hollow_metal_exit_door_double",
+      "display_name_suggestion": "Flush hollow-metal exit door pair with surface vertical-rod exit device",
+      "runtime_file": "runtime/hollow_metal_exit_door_double.glb",
+      "catalog_size_m": [
+        2.052,
+        2.21,
+        0.252
+      ],
+      "nominal_host_opening_m": [
+        1.9,
+        2.15
+      ],
+      "host_wall_depth_m": 0.16,
+      "host_wall_centre_plane_local_z_m": -0.02799999713897705,
+      "proposed_placement_aligns_to_host_world_plane_z": 0.0,
+      "closed_leaf_bottom_m": 0.014,
+      "closed_leaf_top_m": 2.142,
+      "threshold_top_m": 0.008,
+      "frame_clear_width_m": 1.884,
+      "frame_clear_height_above_threshold_m": 2.134,
+      "full_open_conservative_body_path_width_m": 1.6370003032981055,
+      "full_open_body_path_x_interval_m": [
+        -0.8185001516490528,
+        0.8185001516490528
+      ],
+      "player_hull_comparison_m": [
+        0.8,
+        1.8
+      ],
+      "player_width_margin_m": 0.8370003032981055,
+      "collision_box_count": 18,
+      "collision_profile": "Conservative rigid boxes, no mesh collision. Hardware group boxes deliberately include air around rods.",
+      "placement_proposal_not_engine_validated": {
+        "id": "review_hollow_metal_exit_double",
+        "model": "core:hollow_metal_exit_door_double",
+        "x": 0.0,
+        "y": 0.0,
+        "z": 0.027999997,
+        "rotation_degrees": 0.0,
+        "scale": 1.0,
+        "size": [
+          2.052,
+          2.21,
+          0.252
+        ],
+        "solid": false,
+        "animated_door": {
+          "clip": "exit_open",
+          "initial_open": false,
+          "boxes": [
+            {
+              "node": "exit_door_double",
+              "center": [
+                -0.984,
+                1.075,
+                0.0
+              ],
+              "size": [
+                0.084,
+                2.15,
+                0.196
+              ]
+            },
+            {
+              "node": "exit_door_double",
+              "center": [
+                0.984,
+                1.075,
+                0.0
+              ],
+              "size": [
+                0.084,
+                2.15,
+                0.196
+              ]
+            },
+            {
+              "node": "exit_door_double",
+              "center": [
+                0.0,
+                2.176,
+                0.0
+              ],
+              "size": [
+                2.052,
+                0.068,
+                0.196
+              ]
+            },
+            {
+              "node": "exit_door_double",
+              "center": [
+                0.0,
+                0.004,
+                0.0
+              ],
+              "size": [
+                1.9,
+                0.008,
+                0.15
+              ]
+            },
+            {
+              "node": "closer_L_arm_a",
+              "center": [
+                0.092500001,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.185000002,
+                0.012,
+                0.017000001
+              ]
+            },
+            {
+              "node": "closer_L_arm_b",
+              "center": [
+                0.102499999,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.204999998,
+                0.012,
+                0.015
+              ]
+            },
+            {
+              "node": "closer_L_frame_bracket",
+              "center": [
+                0.0,
+                -0.03700003,
+                0.001249997
+              ],
+              "size": [
+                0.052999999,
+                0.100000054,
+                0.067499995
+              ]
+            },
+            {
+              "node": "closer_R_arm_a",
+              "center": [
+                0.092500001,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.185000002,
+                0.012,
+                0.017000001
+              ]
+            },
+            {
+              "node": "closer_R_arm_b",
+              "center": [
+                0.102499999,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.204999998,
+                0.012,
+                0.015
+              ]
+            },
+            {
+              "node": "closer_R_frame_bracket",
+              "center": [
+                0.0,
+                -0.03700003,
+                0.001249997
+              ],
+              "size": [
+                0.052999999,
+                0.100000054,
+                0.067499995
+              ]
+            },
+            {
+              "node": "leaf_L_closer",
+              "center": [
+                0.0,
+                0.019000035,
+                0.0
+              ],
+              "size": [
+                0.284999996,
+                0.112000071,
+                0.067000002
+              ]
+            },
+            {
+              "node": "leaf_L_core",
+              "center": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.940999985,
+                2.128000021,
+                0.045000002
+              ]
+            },
+            {
+              "node": "leaf_L_hinges",
+              "center": [
+                0.015500014,
+                0.839999974,
+                0.0
+              ],
+              "size": [
+                0.051000029,
+                1.759999871,
+                0.02
+              ]
+            },
+            {
+              "node": "leaf_L_panic_hardware",
+              "center": [
+                0.004999965,
+                0.052000046,
+                0.017000001
+              ],
+              "size": [
+                0.877000034,
+                2.118000031,
+                0.072999999
+              ]
+            },
+            {
+              "node": "leaf_R_closer",
+              "center": [
+                0.0,
+                0.019000035,
+                0.0
+              ],
+              "size": [
+                0.284999996,
+                0.112000071,
+                0.067000002
+              ]
+            },
+            {
+              "node": "leaf_R_core",
+              "center": [
+                0.0,
+                0.0,
+                0.0
+              ],
+              "size": [
+                0.940999985,
+                2.128000021,
+                0.045000002
+              ]
+            },
+            {
+              "node": "leaf_R_hinges",
+              "center": [
+                -0.015500014,
+                0.839999974,
+                0.0
+              ],
+              "size": [
+                0.051000029,
+                1.759999871,
+                0.02
+              ]
+            },
+            {
+              "node": "leaf_R_panic_hardware",
+              "center": [
+                -0.004999965,
+                0.052000046,
+                0.017000001
+              ],
+              "size": [
+                0.877000034,
+                2.118000031,
+                0.072999999
+              ]
+            }
+          ]
+        },
+        "components": [
+          {
+            "component": "interactable",
+            "reach": 2.0
+          },
+          {
+            "component": "animation",
+            "clip": "exit_open",
+            "looped": false,
+            "playing": false
+          }
+        ],
+        "bindings": [
+          {
+            "on": "interact",
+            "actions": [
+              {
+                "action": "toggle_animation",
+                "clip": "exit_open"
+              }
+            ]
+          }
+        ]
+      },
+      "behavior": "Reversible 1.1 second open clip; starts closed. Pair opens both leaves together. Closing is another toggle; overhead closer appearance does not implement automatic closing.",
+      "not_supported_by_this_delivery": [
+        "per-leaf independent pair controls",
+        "native slab DoorKind",
+        "native door lock/state API integration",
+        "opposite-hand single variant",
+        "certified building-egress behavior"
+      ]
+    }
+  ]
+}

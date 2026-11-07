@@ -323,6 +323,7 @@ pub(super) fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, 
             ));
         }
         let mut facts = EntityFacts::of("prop");
+        facts.is_door = prop.animated_door.is_some();
         facts.is_prop = true;
         validate_components(&context, &prop.components, &mut facts)?;
         facts.has_animation |= prop.feltling.is_some();

@@ -617,3 +617,45 @@ fn checkpoint_authoring_retains_level_policy_and_action_through_history_and_reop
     );
     Ok(())
 }
+
+// One tiny document, two preset additions and one reopen protect the unique
+// editor boundary: choosing the art must install live collision/actions, while
+// a model reassignment cannot erase an authored mechanism. No render or bake.
+#[test]
+fn exit_door_presets_are_live_atomic_and_survive_save_reopen() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut document = Document::open(&fixture.0)?;
+    let catalog = AssetCatalog::load_default();
+    for variant in ["single", "double"] {
+        let model = format!("core:hollow_metal_exit_door_{variant}");
+        let id =
+            document.add_with_catalog(ObjectKind::Prop, [1.0, 0.0, 1.0], Some(&model), &catalog)?;
+        let ObjectId::Prop(index) = id else {
+            return Err("not prop".into());
+        };
+        let prop = document.level().props.get(index).ok_or("prop")?;
+        assert!(
+            !prop.solid && prop.animated_door.is_some(),
+            "selection installs real mechanism, not broad static box"
+        );
+        let before = document.raw().clone();
+        assert!(
+            document
+                .set_gameplay_asset(id, "core:chair", &catalog)
+                .is_err(),
+            "active door replacement is explicit, not silent data loss"
+        );
+        assert_eq!(document.raw(), &before, "failure atomic");
+        assert!(document.undo(), "one undo removes whole preset");
+        assert!(document.redo(), "one redo restores whole preset");
+    }
+    let expected = document.raw().clone();
+    document.save_all()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(
+        reopened.raw(),
+        &expected,
+        "named nodes/bindings retained exactly"
+    );
+    Ok(())
+}

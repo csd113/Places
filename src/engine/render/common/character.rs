@@ -1262,6 +1262,7 @@ pub struct Character {
     lighting_local_bounds: Aabb,
     /// Immutable mesh envelope; posed/balloon lighting bounds can change independently.
     bind_bounds: Aabb,
+    contact_boxes: Vec<crate::engine::level::AnimatedDoorBox>,
     /// Applied latex tint; avoids repeating immutable albedo work each frame.
     balloon_color: Option<[f32; 3]>,
     world_bounds: Aabb,
@@ -1441,6 +1442,31 @@ impl Character {
             return transform_bounds(&self.lighting_local_bounds, &self.transform);
         }
         transform_bounds(&self.bind_bounds, &self.transform)
+    }
+
+    /// Independent posed solids for compound mechanisms. A frame's aperture
+    /// never becomes one broad fake grounding subject; overhead stock fades
+    /// through the ordinary floor-support query, not a special shadow bake.
+    pub fn contact_subject_bounds(&self) -> impl Iterator<Item = Aabb> + '_ {
+        std::iter::once(self.contact_bounds())
+            .filter(|_| self.contact_boxes.is_empty())
+            .chain(
+                self.contact_boxes
+                    .iter()
+                    .filter(|shape| shape.grounding && self.is_visible())
+                    .filter_map(|shape| {
+                        let matrix = self
+                            .transform
+                            .mul_mat4(&self.animator.node_global(&shape.node)?);
+                        let [x, y, z] = shape.center;
+                        let [hx, hy, hz] = shape.size.map(|value| value * 0.5);
+                        let bounds = Aabb {
+                            min: [x - hx, y - hy, z - hz],
+                            max: [x + hx, y + hy, z + hz],
+                        };
+                        Some(transform_bounds(&bounds, &matrix))
+                    }),
+            )
     }
 
     /// The placed-instance id this character is keyed by, if any.
@@ -2044,6 +2070,10 @@ impl CharacterScene {
                 lighting_local_centre,
                 lighting_local_bounds,
                 bind_bounds,
+                contact_boxes: prop
+                    .animated_door
+                    .as_ref()
+                    .map_or_else(Vec::new, |door| door.boxes.clone()),
                 balloon_color: None,
                 ragdoll_owned: false,
                 ragdoll_bounds: None,
@@ -2167,7 +2197,6 @@ impl CharacterScene {
         let lighting_local_centre = model_lighting_centre(&asset);
         let bind_bounds = asset_bounds(&asset);
         let world_bounds = character_bounds(bind_bounds, &transform);
-        let lighting_local_bounds = bind_bounds;
         let character = Character {
             blood_identity: next_blood_identity(),
             albedo: tinted_albedo(&asset, tint, self.real_self_shadows),
@@ -2186,8 +2215,9 @@ impl CharacterScene {
             lighting_surface_revision: 0,
             static_rays: super::light_transport::EntityStaticRayCache::default(),
             lighting_local_centre,
-            lighting_local_bounds,
+            lighting_local_bounds: bind_bounds,
             bind_bounds,
+            contact_boxes: Vec::new(),
             balloon_color: None,
             ragdoll_owned: false,
             ragdoll_bounds: None,

@@ -12716,6 +12716,48 @@
         "tool": "completed",
         "source": "completed-models.json"
       }
+    },
+    {
+      "id": "core:hollow_metal_exit_door_single",
+      "display_name": "Single hollow-metal exit door",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "shared/doors/hollow_metal_exit_door_single.glb",
+      "size": [
+        1.152,
+        2.21,
+        0.252
+      ],
+      "color": "#a4a8a6",
+      "category": "Architecture",
+      "solid": false,
+      "description": "Flush hollow-metal exit door with surface-mounted vertical-rod exit devices (panic hardware). Interactive editor preset; both pair leaves open together. No autoclose, rating, brand or certification claim.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:hollow_metal_exit_door_double",
+      "display_name": "Double hollow-metal exit door",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "shared/doors/hollow_metal_exit_door_double.glb",
+      "size": [
+        2.052,
+        2.21,
+        0.252
+      ],
+      "color": "#a4a8a6",
+      "category": "Architecture",
+      "solid": false,
+      "description": "Flush hollow-metal exit door pair with surface-mounted vertical-rod exit devices (panic hardware). Interactive editor preset; both pair leaves open together. No autoclose, rating, brand or certification claim.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     }
   ]
 }

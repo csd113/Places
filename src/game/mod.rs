@@ -1791,8 +1791,8 @@ impl Game {
     pub(crate) fn carried_door_target(&self, body_distance: Option<f32>) -> Option<(usize, f32)> {
         let index = self.interaction_target()?;
         let item = self.interactables().get(index)?;
-        if let Some(door_index) = item.door_index {
-            if self.doors().get(door_index)?.is_locked() {
+        if let Some(status) = self.world.door_status(&item.id) {
+            if status.locked {
                 return None;
             }
         } else if !item.id.starts_with("@elevator:")

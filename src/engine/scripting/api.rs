@@ -606,15 +606,18 @@ pub(super) fn host<'scope>(
         capability(scope, calls, move |vm, value: HostString| {
             let id = entity(world, value)?;
             let door = world
-                .doors()
-                .index_of(&id)
-                .and_then(|index| world.doors().get(index))
-                .ok_or_else(|| error("Target is not a hinged door"))?;
+                .door_status(&id)
+                .ok_or_else(|| error("Target is not a door"))?;
             let result = vm.create_table()?;
-            result.set("phase", door.phase().name())?;
-            result.set("locked", door.is_locked())?;
+            result.set("phase", door.phase.name())?;
+            result.set("locked", door.locked)?;
             result.set("obstructed", door.obstructed)?;
-            result.set("angle", door.angle())?;
+            if let Some(angle) = door.angle {
+                result.set("angle", angle)?;
+            }
+            if let Some(progress) = door.progress {
+                result.set("progress", progress)?;
+            }
             result.set_readonly(true);
             Ok(result)
         })?,
@@ -651,7 +654,7 @@ pub(super) fn host<'scope>(
             calls,
             move |_, (value, operation): (HostString, HostString)| {
                 let id = entity(world, value)?;
-                if world.doors().index_of(&id).is_none() {
+                if world.door_status(&id).is_none() {
                     return Err(error("Target is not a door"));
                 }
                 let target = Some(id);

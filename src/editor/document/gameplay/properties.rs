@@ -347,6 +347,14 @@ impl Document {
             | ObjectId::FogRegion(_)
             | ObjectId::GroundFog(_) => return Err("Choose a light, sound or entity".into()),
         };
+        if matches!(id, ObjectId::Prop(_)) {
+            if object_mut(&mut raw, id)?.contains_key("animated_door") {
+                return Err(
+                    "Do not replace a live door mechanism's model; place another preset".into(),
+                );
+            }
+            objects::apply_door_preset(&mut raw, id, asset)?;
+        }
         drop(object_mut(&mut raw, id)?.insert(key.into(), asset.into()));
         self.accept_edit(raw)
     }

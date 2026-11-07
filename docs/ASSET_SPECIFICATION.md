@@ -2796,3 +2796,18 @@ nodes from that delivery into the one skinned mesh node Places requires. It
 retains the complete BIN chunk, primitive order, joint hierarchy and animation
 values byte for byte. Provenance records both delivered and normalized hashes;
 reproduce the runtime with `tools/entities/normalize_feltling.py` after re-export.
+
+### Original hollow-metal exit-door family (0.13.1)
+
+`core:hollow_metal_exit_door_single` and `_double` use the ordinary rigid prop
+profile: 728/1,268 triangles, zero joints, two opaque single-sided materials and
+one shared original opaque fitted/clamped 256×256 PNG under `assets/shared/doors/`.
+The same PNG is embedded unchanged in both GLBs. Its 4×4 cell layout, inset UVs
+and orientation are authored with the geometry; do not repack it independently.
+No emission, cavity attenuation or new texture/triangle exception is used.
+Packed Blender 4.3.2 sources and the five-layer 1024² GIMP XCF/master remain
+editable under `tools/doors/source/`; the runtime always loads saved PNGs.
+The pair exceeds the preferred 800-triangle review point, not the 1,500 art
+maximum or unchanged 6,000 engine ceiling. See [exit-door contract](EXIT_DOORS.md)
+for the generic truthful terminology, node/pivot identity and collision preset.
+Run `python3 tools/doors/check.py --check` before normal asset validation.

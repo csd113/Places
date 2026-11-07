@@ -1,0 +1,26 @@
+[
+  {
+    "variant": "single",
+    "opening": [
+      1.0,
+      2.15
+    ],
+    "frame_depth": 0.196,
+    "leaf_thickness": 0.045,
+    "duration_seconds": 1.1,
+    "clip": "exit_open",
+    "leaf_count": 1
+  },
+  {
+    "variant": "double",
+    "opening": [
+      1.9,
+      2.15
+    ],
+    "frame_depth": 0.196,
+    "leaf_thickness": 0.045,
+    "duration_seconds": 1.1,
+    "clip": "exit_open",
+    "leaf_count": 2
+  }
+]

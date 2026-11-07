@@ -884,6 +884,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     }
     if level.props.iter().any(|prop| prop.animated_door.is_some()) {
         required.push("animated-door-v1".into());
+        required.push("animated-door-actions-v1".into());
     }
     if level.props.iter().any(|prop| {
         prop.tall_guest

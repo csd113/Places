@@ -49,10 +49,12 @@ struct Choices {
     ids: Rc<[String]>,
 }
 
-pub(super) const DOOR_PREVIEWS: [&str; 3] = [
+pub(super) const DOOR_PREVIEWS: [&str; 5] = [
     "editor:door_interior",
     "editor:door_sauna",
     "editor:door_restroom",
+    "core:hollow_metal_exit_door_single",
+    "core:hollow_metal_exit_door_double",
 ];
 
 pub(super) const PAGE_SIZE: usize = 24;
@@ -479,6 +481,8 @@ pub(super) fn door_name(id: &str) -> &str {
         "editor:door_interior" => "Interior door",
         "editor:door_sauna" => "Sauna door",
         "editor:door_restroom" => "Restroom door",
+        "core:hollow_metal_exit_door_single" => "Place hollow-metal exit door",
+        "core:hollow_metal_exit_door_double" => "Place hollow-metal exit door pair",
         _ => id,
     }
 }

@@ -1,0 +1,619 @@
+{
+  "status": "PASS",
+  "baseline_commit": "624e4da8273200e7c5b843c106208a5afa7c1a68",
+  "models": [
+    {
+      "file": "hollow_metal_exit_door_single.glb",
+      "sha256": "1982688f4cfc7e688f27c506c00411134a0993fa7d5a99d25532bae472f2ab48",
+      "bytes": 72372,
+      "variant": "single",
+      "triangles": 728,
+      "vertices": 1440,
+      "primitives": 9,
+      "materials": [
+        "EXIT_STEEL",
+        "EXIT_PAINT"
+      ],
+      "images": [
+        {
+          "sha256": "d5414c201a66237fea86876bd38b4c4da8ecbca5a291757efd226ee97ad13c6d",
+          "bytes": 9474,
+          "size": [
+            256,
+            256
+          ],
+          "decoded_rgba_bytes": 262144
+        }
+      ],
+      "joints": 0,
+      "nodes": [
+        "closer_L_arm_a",
+        "closer_L_arm_b",
+        "closer_L_frame_bracket",
+        "frame_stock",
+        "leaf_L_closer",
+        "leaf_L_core",
+        "leaf_L_hinges",
+        "leaf_L_panic_hardware",
+        "hinge_L",
+        "exit_door_single"
+      ],
+      "clip": {
+        "name": "exit_open",
+        "duration_seconds": 1.100000023841858,
+        "channels": [
+          {
+            "node": "closer_L_arm_a",
+            "path": "translation"
+          },
+          {
+            "node": "closer_L_arm_a",
+            "path": "rotation"
+          },
+          {
+            "node": "closer_L_arm_b",
+            "path": "translation"
+          },
+          {
+            "node": "closer_L_arm_b",
+            "path": "rotation"
+          },
+          {
+            "node": "hinge_L",
+            "path": "rotation"
+          }
+        ]
+      },
+      "bounds_closed": {
+        "min": [
+          -0.5759999454021454,
+          0.0,
+          -0.12600000202655792
+        ],
+        "max": [
+          0.5759999752044678,
+          2.2100000381469727,
+          0.12599999830126762
+        ],
+        "size": [
+          1.1519999206066132,
+          2.2100000381469727,
+          0.25200000032782555
+        ]
+      },
+      "max_closer_endpoint_gap_m": 0.0001366857982479324,
+      "bounds_open_90": {
+        "min": [
+          -0.5759999454021454,
+          0.0,
+          -1.0459999826608943
+        ],
+        "max": [
+          0.5759999752044678,
+          2.2100000381469727,
+          0.12599999830126762
+        ],
+        "size": [
+          1.1519999206066132,
+          2.2100000381469727,
+          1.171999980962162
+        ]
+      },
+      "bounds_sweep_281_samples": {
+        "min": [
+          -0.5759999454021454,
+          0.0,
+          -1.0459999826608943
+        ],
+        "max": [
+          0.5759999752044678,
+          2.2100000381469727,
+          0.12599999830126762
+        ]
+      },
+      "hinges": [
+        {
+          "node": "hinge_L",
+          "position": [
+            -0.49399998784065247,
+            0.0,
+            -0.057999998331069946
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "open_degrees": 90.00000965934632
+        }
+      ],
+      "min_triangle_area_m2": 1.2470426327126916e-06,
+      "min_normal_winding_alignment": 0.9999998211860657,
+      "uv_min_max": [
+        0.01171875,
+        0.98828125
+      ],
+      "mesh_budgets": [
+        {
+          "name": "closer_L_arm_a_mesh",
+          "triangles": 12,
+          "vertices": 24
+        },
+        {
+          "name": "closer_L_arm_b_mesh",
+          "triangles": 12,
+          "vertices": 24
+        },
+        {
+          "name": "closer_L_frame_bracket_mesh",
+          "triangles": 24,
+          "vertices": 48
+        },
+        {
+          "name": "frame_stock_mesh",
+          "triangles": 188,
+          "vertices": 384
+        },
+        {
+          "name": "leaf_L_closer_mesh",
+          "triangles": 72,
+          "vertices": 144
+        },
+        {
+          "name": "leaf_L_core_mesh",
+          "triangles": 44,
+          "vertices": 96
+        },
+        {
+          "name": "leaf_L_hinges_mesh",
+          "triangles": 120,
+          "vertices": 216
+        },
+        {
+          "name": "leaf_L_panic_hardware_mesh",
+          "triangles": 256,
+          "vertices": 504
+        }
+      ],
+      "topology": [
+        {
+          "mesh": "closer_L_arm_a_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 3.774000197154237e-05
+        },
+        {
+          "mesh": "closer_L_arm_b_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 3.689999994094251e-05
+        },
+        {
+          "mesh": "closer_L_frame_bracket_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.0001171100023782401
+        },
+        {
+          "mesh": "frame_stock_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 4,
+          "signed_volume_m3": 0.04207356912056959
+        },
+        {
+          "mesh": "leaf_L_closer_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.0014138814955657608
+        },
+        {
+          "mesh": "leaf_L_core_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.09460178995513502
+        },
+        {
+          "mesh": "leaf_L_hinges_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.00010748222009127062
+        },
+        {
+          "mesh": "leaf_L_panic_hardware_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.004731926076871673
+        }
+      ],
+      "gates_passed": [
+        "container/profile",
+        "6000 engine ceiling unchanged",
+        "1500 art budget",
+        "primitive/material/image/vertex caps",
+        "embedded standalone opaque PNG parity",
+        "finite nondegenerate outward normals",
+        "fitted UVs",
+        "closed stock",
+        "stable node identities",
+        "floor contact and centred closed footprint",
+        "281 upright rigid clip samples",
+        "281 closer-link endpoint samples <=0.3 mm",
+        "fixed frame and hinge origins",
+        "exact 90-degree mirrored leaves"
+      ],
+      "not_performed": [
+        "Places importer execution",
+        "native interaction/collision",
+        "editor placement",
+        "runtime lighting/floor grounding/self-shadow/reflections",
+        "Windows validation"
+      ]
+    },
+    {
+      "file": "hollow_metal_exit_door_double.glb",
+      "sha256": "d61ac7660d1059ee9f21ac89fdb8106830c8145e4646c7ae2ef311ea831a9c0a",
+      "bytes": 115324,
+      "variant": "double",
+      "triangles": 1268,
+      "vertices": 2496,
+      "primitives": 16,
+      "materials": [
+        "EXIT_STEEL",
+        "EXIT_PAINT"
+      ],
+      "images": [
+        {
+          "sha256": "d5414c201a66237fea86876bd38b4c4da8ecbca5a291757efd226ee97ad13c6d",
+          "bytes": 9474,
+          "size": [
+            256,
+            256
+          ],
+          "decoded_rgba_bytes": 262144
+        }
+      ],
+      "joints": 0,
+      "nodes": [
+        "closer_L_arm_a",
+        "closer_L_arm_b",
+        "closer_L_frame_bracket",
+        "closer_R_arm_a",
+        "closer_R_arm_b",
+        "closer_R_frame_bracket",
+        "frame_stock",
+        "leaf_L_closer",
+        "leaf_L_core",
+        "leaf_L_hinges",
+        "leaf_L_panic_hardware",
+        "hinge_L",
+        "leaf_R_closer",
+        "leaf_R_core",
+        "leaf_R_hinges",
+        "leaf_R_panic_hardware",
+        "hinge_R",
+        "exit_door_double"
+      ],
+      "clip": {
+        "name": "exit_open",
+        "duration_seconds": 1.100000023841858,
+        "channels": [
+          {
+            "node": "closer_L_arm_a",
+            "path": "translation"
+          },
+          {
+            "node": "closer_L_arm_a",
+            "path": "rotation"
+          },
+          {
+            "node": "closer_L_arm_b",
+            "path": "translation"
+          },
+          {
+            "node": "closer_L_arm_b",
+            "path": "rotation"
+          },
+          {
+            "node": "closer_R_arm_a",
+            "path": "translation"
+          },
+          {
+            "node": "closer_R_arm_a",
+            "path": "rotation"
+          },
+          {
+            "node": "closer_R_arm_b",
+            "path": "translation"
+          },
+          {
+            "node": "closer_R_arm_b",
+            "path": "rotation"
+          },
+          {
+            "node": "hinge_L",
+            "path": "rotation"
+          },
+          {
+            "node": "hinge_R",
+            "path": "rotation"
+          }
+        ]
+      },
+      "bounds_closed": {
+        "min": [
+          -1.0260000228881836,
+          0.0,
+          -0.12600000202655792
+        ],
+        "max": [
+          1.0260000228881836,
+          2.2100000381469727,
+          0.12599999830126762
+        ],
+        "size": [
+          2.052000045776367,
+          2.2100000381469727,
+          0.25200000032782555
+        ]
+      },
+      "max_closer_endpoint_gap_m": 0.00013668606567398433,
+      "bounds_open_90": {
+        "min": [
+          -1.0260000228881836,
+          0.0,
+          -0.9989999917208012
+        ],
+        "max": [
+          1.0260000228881836,
+          2.2100000381469727,
+          0.12599999830126762
+        ],
+        "size": [
+          2.052000045776367,
+          2.2100000381469727,
+          1.1249999900220689
+        ]
+      },
+      "bounds_sweep_281_samples": {
+        "min": [
+          -1.0260000228881836,
+          0.0,
+          -0.9989999917208012
+        ],
+        "max": [
+          1.0260000228881836,
+          2.2100000381469727,
+          0.12599999830126762
+        ]
+      },
+      "hinges": [
+        {
+          "node": "hinge_L",
+          "position": [
+            -0.9440000057220459,
+            0.0,
+            -0.057999998331069946
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "open_degrees": 90.00000965934632
+        },
+        {
+          "node": "hinge_R",
+          "position": [
+            0.9440000057220459,
+            0.0,
+            -0.057999998331069946
+          ],
+          "axis": [
+            0,
+            1,
+            0
+          ],
+          "open_degrees": -90.00000965934632
+        }
+      ],
+      "min_triangle_area_m2": 1.2470426327126916e-06,
+      "min_normal_winding_alignment": 0.9999998211860657,
+      "uv_min_max": [
+        0.01171875,
+        0.98828125
+      ],
+      "mesh_budgets": [
+        {
+          "name": "closer_L_arm_a_mesh",
+          "triangles": 12,
+          "vertices": 24
+        },
+        {
+          "name": "closer_L_arm_b_mesh",
+          "triangles": 12,
+          "vertices": 24
+        },
+        {
+          "name": "closer_L_frame_bracket_mesh",
+          "triangles": 24,
+          "vertices": 48
+        },
+        {
+          "name": "closer_R_arm_a_mesh",
+          "triangles": 12,
+          "vertices": 24
+        },
+        {
+          "name": "closer_R_arm_b_mesh",
+          "triangles": 12,
+          "vertices": 24
+        },
+        {
+          "name": "closer_R_frame_bracket_mesh",
+          "triangles": 24,
+          "vertices": 48
+        },
+        {
+          "name": "frame_stock_mesh",
+          "triangles": 188,
+          "vertices": 384
+        },
+        {
+          "name": "leaf_L_closer_mesh",
+          "triangles": 72,
+          "vertices": 144
+        },
+        {
+          "name": "leaf_L_core_mesh",
+          "triangles": 44,
+          "vertices": 96
+        },
+        {
+          "name": "leaf_L_hinges_mesh",
+          "triangles": 120,
+          "vertices": 216
+        },
+        {
+          "name": "leaf_L_panic_hardware_mesh",
+          "triangles": 256,
+          "vertices": 504
+        },
+        {
+          "name": "leaf_R_closer_mesh",
+          "triangles": 72,
+          "vertices": 144
+        },
+        {
+          "name": "leaf_R_core_mesh",
+          "triangles": 44,
+          "vertices": 96
+        },
+        {
+          "name": "leaf_R_hinges_mesh",
+          "triangles": 120,
+          "vertices": 216
+        },
+        {
+          "name": "leaf_R_panic_hardware_mesh",
+          "triangles": 256,
+          "vertices": 504
+        }
+      ],
+      "topology": [
+        {
+          "mesh": "closer_L_arm_a_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 3.774000197154237e-05
+        },
+        {
+          "mesh": "closer_L_arm_b_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 3.689999994094251e-05
+        },
+        {
+          "mesh": "closer_L_frame_bracket_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.0001171100023782401
+        },
+        {
+          "mesh": "closer_R_arm_a_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 3.774000197154237e-05
+        },
+        {
+          "mesh": "closer_R_arm_b_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 3.689999994094251e-05
+        },
+        {
+          "mesh": "closer_R_frame_bracket_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.0001171100023782401
+        },
+        {
+          "mesh": "frame_stock_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 4,
+          "signed_volume_m3": 0.04992520345547291
+        },
+        {
+          "mesh": "leaf_L_closer_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.001413881491828306
+        },
+        {
+          "mesh": "leaf_L_core_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.09010120277093847
+        },
+        {
+          "mesh": "leaf_L_hinges_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.00010748220831757749
+        },
+        {
+          "mesh": "leaf_L_panic_hardware_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.004564560487764879
+        },
+        {
+          "mesh": "leaf_R_closer_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.0014138814952389112
+        },
+        {
+          "mesh": "leaf_R_core_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.09010120277093847
+        },
+        {
+          "mesh": "leaf_R_hinges_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.00010748221464851326
+        },
+        {
+          "mesh": "leaf_R_panic_hardware_mesh",
+          "boundary_edges": 0,
+          "compound_contact_edges": 0,
+          "signed_volume_m3": 0.0045645598628141215
+        }
+      ],
+      "gates_passed": [
+        "container/profile",
+        "6000 engine ceiling unchanged",
+        "1500 art budget",
+        "primitive/material/image/vertex caps",
+        "embedded standalone opaque PNG parity",
+        "finite nondegenerate outward normals",
+        "fitted UVs",
+        "closed stock",
+        "stable node identities",
+        "floor contact and centred closed footprint",
+        "281 upright rigid clip samples",
+        "281 closer-link endpoint samples <=0.3 mm",
+        "fixed frame and hinge origins",
+        "exact 90-degree mirrored leaves"
+      ],
+      "not_performed": [
+        "Places importer execution",
+        "native interaction/collision",
+        "editor placement",
+        "runtime lighting/floor grounding/self-shadow/reflections",
+        "Windows validation"
+      ]
+    }
+  ]
+}

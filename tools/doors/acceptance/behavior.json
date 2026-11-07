@@ -1,0 +1,525 @@
+[
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 100,
+    "action": {
+      "kind": "focus",
+      "focused": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 200,
+    "action": {
+      "kind": "checkpoint",
+      "name": "closed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 300,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 1000,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 1050,
+    "action": {
+      "kind": "checkpoint",
+      "name": "closed-blocked"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 1100,
+    "action": {
+      "kind": "capture",
+      "name": "01-closed-blocked"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 1250,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 1300,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 2800,
+    "action": {
+      "kind": "checkpoint",
+      "name": "single-open"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 2850,
+    "action": {
+      "kind": "capture",
+      "name": "02-single-open"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 3000,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 3800,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 3900,
+    "action": {
+      "kind": "checkpoint",
+      "name": "single-crossed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 4200,
+    "action": {
+      "kind": "player",
+      "position": [
+        -1.965,
+        1.63,
+        -0.2
+      ],
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 4250,
+    "action": {
+      "kind": "view_at",
+      "position": [
+        -2.44,
+        1.2,
+        -0.5
+      ]
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 4400,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 4450,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 5800,
+    "action": {
+      "kind": "checkpoint",
+      "name": "closing-obstructed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 5850,
+    "action": {
+      "kind": "capture",
+      "name": "03-obstructed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 6000,
+    "action": {
+      "kind": "activate",
+      "id": "single"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 6100,
+    "action": {
+      "kind": "player",
+      "position": [
+        0,
+        1.63,
+        2.5
+      ],
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 7500,
+    "action": {
+      "kind": "checkpoint",
+      "name": "reopened"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 7600,
+    "action": {
+      "kind": "activate",
+      "id": "single"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 8900,
+    "action": {
+      "kind": "checkpoint",
+      "name": "reclosed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 9000,
+    "action": {
+      "kind": "activate",
+      "id": "lock_single"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 9100,
+    "action": {
+      "kind": "activate",
+      "id": "single"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 9300,
+    "action": {
+      "kind": "checkpoint",
+      "name": "locked"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 9400,
+    "action": {
+      "kind": "activate",
+      "id": "unlock_single"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 9500,
+    "action": {
+      "kind": "activate",
+      "id": "single"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 10800,
+    "action": {
+      "kind": "activate",
+      "id": "single"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 12000,
+    "action": {
+      "kind": "navigation_goal",
+      "id": "walker",
+      "position": [
+        2,
+        0,
+        -1.8
+      ]
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 12500,
+    "action": {
+      "kind": "checkpoint",
+      "name": "npc-closed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 12600,
+    "action": {
+      "kind": "player",
+      "position": [
+        2.035,
+        1.63,
+        0.65
+      ],
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 12800,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 12850,
+    "action": {
+      "kind": "key",
+      "key": "E",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 12950,
+    "action": {
+      "kind": "player",
+      "position": [
+        0,
+        1.63,
+        2.3
+      ],
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 18500,
+    "action": {
+      "kind": "checkpoint",
+      "name": "npc-open"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 18600,
+    "action": {
+      "kind": "capture",
+      "name": "04-open-pair"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 19000,
+    "action": {
+      "kind": "player",
+      "position": [
+        2.035,
+        1.63,
+        1.2
+      ],
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 19100,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 19700,
+    "action": {
+      "kind": "key",
+      "key": "W",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 20000,
+    "action": {
+      "kind": "checkpoint",
+      "name": "pair-crossed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 20100,
+    "action": {
+      "kind": "player",
+      "position": [
+        0,
+        1.8,
+        3.5
+      ],
+      "yaw": 0,
+      "pitch": -3
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 20300,
+    "action": {
+      "kind": "quality",
+      "level": "low"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 20400,
+    "action": {
+      "kind": "lightmaps",
+      "quality": "static"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 20800,
+    "action": {
+      "kind": "capture",
+      "name": "05-low-static"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 20900,
+    "action": {
+      "kind": "checkpoint",
+      "name": "low-static"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 21000,
+    "action": {
+      "kind": "quality",
+      "level": "high"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 21100,
+    "action": {
+      "kind": "lightmaps",
+      "quality": "full"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 21400,
+    "action": {
+      "kind": "fixture",
+      "id": "front_light",
+      "on": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 22000,
+    "action": {
+      "kind": "capture",
+      "name": "06-rear-light"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 22200,
+    "action": {
+      "kind": "fixture",
+      "id": "front_light",
+      "on": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 22300,
+    "action": {
+      "kind": "fixture",
+      "id": "rear_light",
+      "on": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 23000,
+    "action": {
+      "kind": "capture",
+      "name": "07-front-light-reflection"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 23400,
+    "action": {
+      "kind": "activate",
+      "id": "reset"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 24000,
+    "action": {
+      "kind": "checkpoint",
+      "name": "reset"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 24200,
+    "action": {
+      "kind": "capture",
+      "name": "08-reset"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 25000,
+    "action": {
+      "kind": "quit"
+    }
+  }
+]

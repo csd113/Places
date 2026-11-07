@@ -1,0 +1,72 @@
+{
+  "files": [
+    {
+      "path": "runtime/hollow_metal_exit_door_double.glb",
+      "bytes": 115324,
+      "sha256": "d61ac7660d1059ee9f21ac89fdb8106830c8145e4646c7ae2ef311ea831a9c0a"
+    },
+    {
+      "path": "runtime/hollow_metal_exit_door_single.glb",
+      "bytes": 72372,
+      "sha256": "1982688f4cfc7e688f27c506c00411134a0993fa7d5a99d25532bae472f2ab48"
+    },
+    {
+      "path": "source/build_exit_doors.py",
+      "bytes": 13928,
+      "sha256": "bfec5442be6a64b91e6fcad4727cbd0def0930878118e9078c2e018a5ded6755"
+    },
+    {
+      "path": "source/exit_door_materials.xcf",
+      "bytes": 233415,
+      "sha256": "63fbb867b30804d4f4bd934b91d4dd4df2f13745354ded2f20656b2c17c7ea04"
+    },
+    {
+      "path": "source/exit_door_materials_master_1024.png",
+      "bytes": 26717,
+      "sha256": "6be2b021ba11c838d1c79151a483ed7b04fb633a38fedcaae914ae8e54bf4188"
+    },
+    {
+      "path": "source/hollow_metal_exit_door_double.blend",
+      "bytes": 749808,
+      "sha256": "f1082ed74ad56f23be60891cc80a328e1b5672695e53ea48ce96ff5066223898"
+    },
+    {
+      "path": "source/hollow_metal_exit_door_single.blend",
+      "bytes": 644968,
+      "sha256": "5c267ef550e07c2b3ad25a52ecefe90ca4f6a9404ff94a7b18880339408f5099"
+    },
+    {
+      "path": "source/package_preparation.py",
+      "bytes": 3330,
+      "sha256": "e0d16f92e5a8819c2bcd2d28c4e6e9f6350d90c2505f00a7fdf581666c1a0e72"
+    },
+    {
+      "path": "source/paint_exit_door_gimp.py",
+      "bytes": 3939,
+      "sha256": "861b2ef1ab420f9f32e851ad6929ae7485faad41a5c70384828d7444f2e63e26"
+    },
+    {
+      "path": "source/prepare_handoff.py",
+      "bytes": 6731,
+      "sha256": "219af09ea9adc1a078cda14366976273325b54d694a024feafa1339f89392629"
+    },
+    {
+      "path": "source/reopen_export_and_render.py",
+      "bytes": 3824,
+      "sha256": "aac3e165967466c146ecca62b715b1c239135804d055dbbdabb36e2e13a5ac73"
+    },
+    {
+      "path": "source/validate_exit_doors.py",
+      "bytes": 11777,
+      "sha256": "0255f4fea729eec9faa9b23a7e6354c48658665bbf48d4b8f6989438f8b6c825"
+    },
+    {
+      "path": "textures/exit_door_materials.png",
+      "bytes": 9474,
+      "sha256": "d5414c201a66237fea86876bd38b4c4da8ecbca5a291757efd226ee97ad13c6d"
+    }
+  ],
+  "unique_runtime_texture_bytes_decoded_rgba8": 262144,
+  "two_embedded_copies_before_engine_dedup_bytes_decoded_rgba8": 524288,
+  "pack_128MiB_budget_not_remeasured_here": true
+}

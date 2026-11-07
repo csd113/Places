@@ -324,6 +324,10 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
     }
     for (required, capability) in [
         (
+            requires_compound_door_actions(level),
+            "animated-door-actions-v1",
+        ),
+        (
             level
                 .sequences
                 .iter()
@@ -1206,4 +1210,12 @@ fn read_entry_checked<R: std::io::Read + std::io::Seek>(
         }
     }
     Ok(bytes)
+}
+
+fn requires_compound_door_actions(level: &LevelDef) -> bool {
+    level
+        .props
+        .iter()
+        .filter_map(|prop| prop.animated_door.as_ref())
+        .any(|door| door.locked || door.boxes.iter().any(|shape| !shape.grounding))
 }

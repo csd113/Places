@@ -896,3 +896,38 @@ pub(in crate::editor) fn array_mut<'a>(
         .as_array_mut()
         .ok_or_else(|| format!("Unsupported scene collection: {collection}"))
 }
+
+/// Install an exact built-in mechanism on a new, passive placement. An active
+/// prop must not silently lose its authored locks, bindings or custom state.
+pub(super) fn apply_door_preset(raw: &mut Value, id: ObjectId, model: &str) -> Result<(), String> {
+    let Some(preset) = crate::engine::animated_door::preset(model) else {
+        return Ok(());
+    };
+    let object = object_mut(raw, id)?;
+    if object.get("animated_door").is_some()
+        || ["components", "bindings"].iter().any(|key| {
+            object
+                .get(*key)
+                .and_then(Value::as_array)
+                .is_some_and(|items| !items.is_empty())
+        })
+    {
+        return Err(
+            "Place a new exit-door preset instead of replacing an active gameplay object".into(),
+        );
+    }
+    for key in [
+        "animated_door",
+        "components",
+        "bindings",
+        "display_name",
+        "occludes",
+        "size",
+        "solid",
+    ] {
+        if let Some(value) = preset.get(key) {
+            drop(object.insert(key.into(), value.clone()));
+        }
+    }
+    Ok(())
+}

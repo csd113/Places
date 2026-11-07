@@ -347,6 +347,7 @@ impl Document {
                 .size
                 .ok_or("The selected prop has no catalog dimensions")?;
             objects::set_prop_collision(&mut edited, id, size, entry.solid)?;
+            objects::apply_door_preset(&mut edited, id, model)?;
         }
         self.accept_edit(edited)?;
         Ok(id)

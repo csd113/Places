@@ -1,0 +1,136 @@
+[
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 100,
+    "action": {
+      "kind": "focus",
+      "focused": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 200,
+    "action": {
+      "kind": "player",
+      "position": [
+        2.035,
+        1.6,
+        3.5
+      ],
+      "yaw": 0,
+      "pitch": 0
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 300,
+    "action": {
+      "kind": "fixture",
+      "id": "front_light",
+      "on": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 350,
+    "action": {
+      "kind": "fixture",
+      "id": "rear_light",
+      "on": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 400,
+    "action": {
+      "kind": "navigation_goal",
+      "id": "walker",
+      "position": [
+        2,
+        0,
+        -1.8
+      ]
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 500,
+    "action": {
+      "kind": "key",
+      "key": "F",
+      "pressed": true
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 550,
+    "action": {
+      "kind": "key",
+      "key": "F",
+      "pressed": false
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 4500,
+    "action": {
+      "kind": "checkpoint",
+      "name": "npc-blocked-closed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 4550,
+    "action": {
+      "kind": "capture",
+      "name": "01-closed-flashlight"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 4700,
+    "action": {
+      "kind": "activate",
+      "id": "double"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 6200,
+    "action": {
+      "kind": "checkpoint",
+      "name": "open-flashlight"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 6250,
+    "action": {
+      "kind": "capture",
+      "name": "02-open-flashlight"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 10500,
+    "action": {
+      "kind": "checkpoint",
+      "name": "npc-traversed-open"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 10600,
+    "action": {
+      "kind": "capture",
+      "name": "03-traversed"
+    }
+  },
+  {
+    "after": "ready:exit_doors",
+    "delay_ms": 11000,
+    "action": {
+      "kind": "quit"
+    }
+  }
+]
