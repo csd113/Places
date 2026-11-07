@@ -153,6 +153,7 @@ impl Session {
                 self.enqueue_message(title, &lines, false)?;
             }
             WorldCommand::EndRun { won, title, detail } => {
+                self.game.entities_mut().cancel_cinematic();
                 let outcome = if won { "Completed." } else { "Run ended." };
                 self.enqueue_message(title, &[outcome.into(), detail], true)?;
             }

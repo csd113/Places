@@ -172,6 +172,7 @@ impl FrameLoop<'_> {
         } = event
             && self.game.app_state() == AppState::Playing
             && !self.console.is_open()
+            && !self.cinematic_controls_blocked()
             && self.console_runtime.representation.is_active()
         {
             let request = if *key == Keycode::R {

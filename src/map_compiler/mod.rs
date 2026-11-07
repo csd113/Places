@@ -742,6 +742,13 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         "collision".to_string(),
         "navigation".to_string(),
     ];
+    if level
+        .sequences
+        .iter()
+        .any(|sequence| sequence.cinematic.is_some())
+    {
+        required.push("live-cinematics-v1".to_string());
+    }
     if level.saving
         || !level.script_sources.is_empty()
         || crate::engine::loader::validation_has_checkpoints(&level)
@@ -2650,6 +2657,21 @@ pub(crate) fn lighting_fingerprint_with_revision(
     }
     // Luau runs only after load; these bytes cannot change prepared geometry,
     // lighting, collision or probes. They remain in the full package identity.
+    // Camera data cannot affect prepared geometry. Preserve existing action
+    // definitions: their target references participate in dynamic admission.
+    for sequence in &mut stripped.sequences {
+        sequence.cinematic = None;
+        sequence.steps.retain(|step| {
+            !matches!(
+                step,
+                crate::engine::entities::sequences::SequenceStepDef::Camera {
+                    seconds: _,
+                    motion: _,
+                    aim: _
+                }
+            )
+        });
+    }
     stripped.scripts.clear();
     stripped.script_sources.clear();
     strip_navigation_components(&mut stripped);

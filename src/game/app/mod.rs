@@ -780,6 +780,9 @@ struct FrameLoop<'a> {
     /// Simulation seconds accumulated since the world became ready, the clock
     /// `move_script` is scheduled against.
     ready_seconds: f32,
+    /// One publication drives the displayed eye, listener and capture metadata.
+    effective_camera: Option<(render::RenderCamera, bool)>,
+    cinematic_token: Option<crate::engine::entities::cinematics::CinematicToken>,
 }
 
 impl FrameLoop<'_> {
@@ -997,6 +1000,52 @@ impl FrameLoop<'_> {
             perf::startup_mark("input responsive");
         }
 
+        self.update_simulation_frame();
+        self.reconcile_gameplay_reset();
+        self.log_player_state();
+        self.reconcile_cinematic_input();
+        self.publish_frame_camera();
+        // Publish the current listener once, after movement and before any
+        // interaction can start a sound. A second mix later in this frame only
+        // repeated voice work and filled the bounded room-parameter queue.
+        self.update_audio_mix();
+        // One press is one interaction: consume the edge the movement update
+        // latched, resolve the object under the crosshair and run its
+        // map-authored actions. `window_focused` gates the key the same way it
+        // gates relative mouse mode.
+        self.dispatch_player_interactions();
+        self.dispatch_dev_interactions();
+        self.reconcile_cinematic_input();
+        self.reconcile_gameplay_reset();
+        // Door leaves follow the gameplay state: the drawn slab and the
+        // physical collider read the same angle, so a door can never stop the
+        // player where it is not drawn.
+        self.sync_mechanisms();
+        // Fixture switches are gameplay state too: hand the renderer any state
+        // that changed this frame (usually none) so it can re-light the
+        // affected charts and scale the fixture's own face emission.
+        self.sync_fixture_state();
+        // The entity runtime's spawn/despawn/move/material/audio commands are
+        // applied before this frame draws, so a spawn requested by a trigger
+        // or interaction is visible on the frame it happened.
+        self.apply_live_scene_commands();
+        self.reconcile_cinematic_input();
+        // Advance the dynamic objects (the demonstration drum and any other
+        // spawned object) once per frame: transform only, never a geometry or
+        // lightmap rebuild.
+        self.update_world_presentation();
+        self.update_game_audio();
+        self.write_nav_debug(false);
+        if self.gameplay_active() {
+            self.subtitles.tick(self.game.delta_seconds());
+        }
+        let frame_update_done = Instant::now();
+
+        self.render_and_present(frame_begin, frame_update_done);
+    }
+
+    /// Shared clock gate keeps the camera, NPCs and physical world running together.
+    fn update_simulation_frame(&mut self) {
         if self.load_intent.is_some() && self.game.app_state() == AppState::Playing {
             self.game.set_app_state(AppState::Paused);
             self.clear_loading_inputs(matches!(self.load_intent, Some(LoadIntent::Graphics)));
@@ -1026,47 +1075,11 @@ impl FrameLoop<'_> {
             self.ready_seconds = (self.ready_seconds + self.game.sim_delta_seconds()).min(1.0e6);
             self.game.update_menu_world();
         }
-        self.reconcile_gameplay_reset();
-        self.log_player_state();
-        // Publish the current listener once, after movement and before any
-        // interaction can start a sound. A second mix later in this frame only
-        // repeated voice work and filled the bounded room-parameter queue.
-        self.update_audio_mix();
-        // One press is one interaction: consume the edge the movement update
-        // latched, resolve the object under the crosshair and run its
-        // map-authored actions. `window_focused` gates the key the same way it
-        // gates relative mouse mode.
-        self.dispatch_player_interactions();
-        self.dispatch_dev_interactions();
-        self.reconcile_gameplay_reset();
-        // Door leaves follow the gameplay state: the drawn slab and the
-        // physical collider read the same angle, so a door can never stop the
-        // player where it is not drawn.
-        self.sync_mechanisms();
-        // Fixture switches are gameplay state too: hand the renderer any state
-        // that changed this frame (usually none) so it can re-light the
-        // affected charts and scale the fixture's own face emission.
-        self.sync_fixture_state();
-        // The entity runtime's spawn/despawn/move/material/audio commands are
-        // applied before this frame draws, so a spawn requested by a trigger
-        // or interaction is visible on the frame it happened.
-        self.apply_live_scene_commands();
-        // Advance the dynamic objects (the demonstration drum and any other
-        // spawned object) once per frame: transform only, never a geometry or
-        // lightmap rebuild.
-        self.update_world_presentation();
-        self.update_game_audio();
-        self.write_nav_debug(false);
-        if self.gameplay_active() {
-            self.subtitles.tick(self.game.delta_seconds());
-        }
-        let frame_update_done = Instant::now();
-
-        self.render_and_present(frame_begin, frame_update_done);
     }
 
     fn crosshair_visible(&self) -> bool {
         self.game.app_state() == AppState::Playing
+            && !self.cinematic_controls_blocked()
             && self.load_intent.is_none()
             && self.outcome.is_none()
             && self.message.is_none()
@@ -1105,6 +1118,37 @@ impl FrameLoop<'_> {
             self.subtitles.guidance_requested = None;
             self.update_item_triggers(true);
         }
+    }
+
+    fn cinematic_controls_blocked(&self) -> bool {
+        self.game.cinematic_owns_controls()
+            || self
+                .effective_camera
+                .is_some_and(|(_, cinematic)| cinematic)
+    }
+
+    fn reconcile_cinematic_input(&mut self) {
+        let token = self.game.entities().cinematic_token();
+        if self.cinematic_token != token {
+            self.cinematic_token = token;
+            self.input_handler.clear_gameplay_inputs();
+            self.items.input.invalidate();
+            self.items.target = None;
+            let _changed = self.game.reconcile_cinematic_control();
+            self.reset_movement_audio();
+            self.trace_world(if token.is_some() {
+                "cinematic_acquired"
+            } else {
+                "cinematic_released"
+            });
+        }
+    }
+
+    fn publish_frame_camera(&mut self) {
+        self.effective_camera = None;
+        self.game.entities_mut().refresh_cinematic_view();
+        let cinematic = self.game.cinematic_owns_controls();
+        self.effective_camera = Some((self.select_frame_camera(), cinematic));
     }
 
     fn update_world_presentation(&mut self) {
@@ -1285,12 +1329,16 @@ impl FrameLoop<'_> {
     /// frame after a world commit. Developer diagnostic; empty by default.
     fn dispatch_dev_interactions(&mut self) {
         if self.dev_interactions.is_empty()
+            || self.cinematic_controls_blocked()
             || self.game.app_state() != AppState::Playing
             || self.startup != StartupPhase::Ready
         {
             return;
         }
         for id in std::mem::take(&mut self.dev_interactions) {
+            if self.cinematic_controls_blocked() {
+                break;
+            }
             let Some(index) = self.game.interactables().index_of(&id) else {
                 crate::engine::logging::warn_once(
                     format!("interact-override:{id}"),
@@ -1313,6 +1361,9 @@ impl FrameLoop<'_> {
     /// The dispatcher itself is engine state ([`Game`]); this only narrates
     /// the outcome to the developer log, and never reaches into the renderer.
     fn dispatch_interaction(&mut self) {
+        if self.cinematic_controls_blocked() {
+            return;
+        }
         self.observe_held_item();
         if self.dispatch_item_interaction() {
             return;
@@ -1390,6 +1441,7 @@ impl FrameLoop<'_> {
                 }
                 crate::engine::entities::WorldCommand::EndRun { won, title, detail } => {
                     if self.outcome.is_none() {
+                        self.game.entities_mut().cancel_cinematic();
                         self.outcome = Some((won, title, detail));
                         self.subtitles.clear();
                         self.input_handler.clear_gameplay_inputs();
@@ -2804,6 +2856,10 @@ impl FrameLoop<'_> {
             return true;
         }
 
+        self.handle_player_or_menu_event(event)
+    }
+
+    fn handle_player_or_menu_event(&mut self, event: &Event) -> bool {
         // Modals own navigation independently of gameplay bindings.
         if self.game.app_state() == AppState::Playing && !self.ui_state.status_is_error {
             // 3. Gameplay active (AppState::Playing)
@@ -2820,9 +2876,11 @@ impl FrameLoop<'_> {
             {
                 self.input_handler.clear_gameplay_inputs();
                 self.game.handle_escape(); // Opens Pause menu
-            } else {
+            } else if !self.cinematic_controls_blocked() {
                 self.input_handler
                     .handle_gameplay_event(event, &self.settings.bindings);
+            } else {
+                self.input_handler.clear_gameplay_inputs();
             }
         } else if let Some(nav) = InputHandler::poll_menu_nav_event(event) {
             self.ui_state.pointer.keyboard();
@@ -2901,19 +2959,11 @@ impl FrameLoop<'_> {
     }
 
     fn handle_outcome_event(&mut self, event: &Event) -> bool {
-        if let Event::KeyDown {
-            keycode: Some(Keycode::F1),
-            repeat: false,
-            timestamp: _,
-            window_id: _,
-            scancode: _,
-            keymod: _,
-            which: _,
-            raw: _,
-        } = event
+        if crate::game::input::pressed_key(event) == Some(Keycode::F1)
             && self.game.app_state() == AppState::Playing
             && self.outcome.is_none()
             && self.message.is_none()
+            && !self.cinematic_controls_blocked()
         {
             self.subtitles.guidance_requested = Some(());
             self.game.request_hint();
@@ -3348,6 +3398,7 @@ impl FrameLoop<'_> {
     }
 
     fn unload_world_for_menu(&mut self) {
+        self.effective_camera = None;
         self.elevator_cargo = elevator_cargo::Ledger::default();
         self.renderer.end_transition();
         self.elevator_arrival = None;
@@ -3503,6 +3554,10 @@ impl FrameLoop<'_> {
         };
         match self.loader.request(request) {
             Ok(id) => {
+                if !matches!(intent, LoadIntent::Graphics) {
+                    self.game.entities_mut().cancel_cinematic();
+                    self.reconcile_cinematic_input();
+                }
                 if matches!(intent, LoadIntent::Play)
                     && self.game.app_state() == AppState::Playing
                     && self.current_level.is_some()
@@ -4039,6 +4094,31 @@ impl FrameLoop<'_> {
         ));
     }
 
+    fn trace_cinematic_camera(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "cinematic".into(),
+            serde_json::json!({
+                "control_active": self.game.cinematic_owns_controls(),
+                "presented": self.effective_camera.is_some_and(|(_, cinematic)| cinematic),
+                "camera": {"position": self.frame_camera().position.to_array(),
+                    "yaw": self.frame_camera().yaw, "pitch": self.frame_camera().pitch,
+                    "fov_degrees": self.frame_camera().vertical_fov_degrees},
+                "listener_position": self.listener_pose().0.to_array(),
+                "listener_forward": self.listener_pose().1.to_array(),
+            }),
+        ));
+    }
+
+    fn trace_runtime_snapshot_fields(
+        &self,
+        fields: &mut serde_json::Map<String, serde_json::Value>,
+    ) {
+        self.trace_character_preferences(fields);
+        self.trace_cinematic_camera(fields);
+        self.trace_map_ownership(fields);
+        self.trace_moving_solids(fields);
+    }
+
     fn record_world_snapshot(&mut self, event: &str) {
         let (renderer_level, renderer_quality, renderer_lightmaps) =
             self.renderer.installed_identity();
@@ -4056,7 +4136,7 @@ impl FrameLoop<'_> {
             "player_body": self.trace_player_body(),
             "view_direction": self.game.view_direction().to_array(),
             "interaction_target": self.interaction_target_snapshot(),
-            "interaction_hand_visible": self.items.hand_visible(),
+            "interaction_hand_visible": self.items.hand_visible() && !self.cinematic_controls_blocked(),
             "player_yaw": self.game.player_yaw, "player_pitch": self.game.player_pitch,
             "lighting": self.settings.lighting_quality().name(),
             "use_low_quality_lighting": self.settings.use_low_quality_lighting,
@@ -4074,9 +4154,7 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
-            self.trace_character_preferences(fields);
-            self.trace_map_ownership(fields);
-            self.trace_moving_solids(fields);
+            self.trace_runtime_snapshot_fields(fields);
             drop(fields.insert("crosshair_visible".into(), self.crosshair_visible().into()));
             drop(fields.insert(
                 "crosshair_override".into(),
@@ -4642,6 +4720,9 @@ impl FrameLoop<'_> {
         cam_yaw: f32,
         cam_pitch: f32,
     ) {
+        if self.cinematic_controls_blocked() {
+            return;
+        }
         if self.crosshair_visible() {
             ui::append_crosshair(self.ui_scratch, drawable);
         }
@@ -4780,16 +4861,9 @@ impl FrameLoop<'_> {
             return;
         }
         let player = self.game.player_position;
-        let eye = self
-            .bench
-            .camera_position_override()
-            .unwrap_or_else(|| player.to_array());
-        let (yaw, pitch) = self.bench.camera_override().unwrap_or_else(|| {
-            (
-                self.game.player_yaw.to_degrees(),
-                self.game.player_pitch.to_degrees(),
-            )
-        });
+        let camera = self.frame_camera();
+        let eye = camera.position.to_array();
+        let (yaw, pitch) = (camera.yaw.to_degrees(), camera.pitch.to_degrees());
         let doors: Vec<_> = self
             .game
             .doors()
@@ -4938,6 +5012,25 @@ impl FrameLoop<'_> {
 
     /// Draws the frame, handles the one-shot capture, presents and records it.
     fn frame_camera(&self) -> render::RenderCamera {
+        self.effective_camera
+            .map_or_else(|| self.select_frame_camera(), |(camera, _)| camera)
+    }
+
+    fn listener_pose(&self) -> (Vec3, Vec3) {
+        match self.effective_camera {
+            Some((camera, true)) => (
+                camera.position,
+                Vec3::new(
+                    camera.yaw.sin() * camera.pitch.cos(),
+                    camera.pitch.sin(),
+                    -camera.yaw.cos() * camera.pitch.cos(),
+                ),
+            ),
+            Some((_, false)) | None => (self.game.player_position, self.game.view_direction()),
+        }
+    }
+
+    fn select_frame_camera(&self) -> render::RenderCamera {
         let representation_camera = self.console_runtime.representation.camera(
             Vec3::new(
                 self.game.player_position.x,
@@ -4957,7 +5050,19 @@ impl FrameLoop<'_> {
             },
         );
         let (cam_pos, cam_yaw, cam_pitch) = match self.game.app_state() {
-            AppState::Playing | AppState::Paused | AppState::PauseSettings => representation_camera
+            AppState::Playing | AppState::Paused | AppState::PauseSettings => self
+                .game
+                .entities()
+                .cinematic_view()
+                .map(|view| {
+                    render::RenderCamera::new(
+                        view.position,
+                        view.yaw,
+                        view.pitch,
+                        self.settings.fov_degrees,
+                    )
+                })
+                .or(representation_camera)
                 .map_or_else(
                     || {
                         (
@@ -5371,6 +5476,11 @@ fn begin_player_trace() -> perf::loading::LoadTrace {
     trace
 }
 
+fn log_ready_catalog(manager: &loader::LevelManager) {
+    log_asset_catalog(manager);
+    perf::startup_mark("asset catalog");
+}
+
 fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut trace = begin_player_trace();
     let (sdl_context, video_subsystem, mut window, mut settings, mut bench) = bootstrap()?;
@@ -5383,12 +5493,10 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     };
     let mut level_manager = started.ready.manager;
     let mut ui_state = started.ready.ui;
-    log_asset_catalog(&level_manager);
-    perf::startup_mark("asset catalog");
+    log_ready_catalog(&level_manager);
     let mut timing = perf::loading::StageTimer::new("player-bootstrap");
     let mut input_handler = InputHandler::new();
-    let mut spawn_pos = Vec3::ZERO;
-    let mut spawn_yaw = 0.0;
+    let (mut spawn_pos, mut spawn_yaw) = (Vec3::ZERO, 0.0_f32);
     let mut game = Game::new(spawn_pos, spawn_yaw, CollisionWorld::default());
     let mut current_level = None;
     let mut display_status = DisplayStatus::default();
@@ -5476,6 +5584,8 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         dev_interactions: interact_overrides_from_env(),
         move_script: move_script_from_env(),
         ready_seconds: 0.0,
+        effective_camera: None,
+        cinematic_token: None,
     };
     frame_loop.start(initial_entry, direct);
 

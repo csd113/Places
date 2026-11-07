@@ -20,6 +20,7 @@
 
 use serde::{Deserialize, Serialize};
 
+use super::cinematics::{CameraAimDef, CameraMotionDef, CinematicDef, CinematicRun};
 use super::id::EntityHandle;
 use crate::engine::level::{ActionDef, EventKindName};
 
@@ -36,6 +37,8 @@ use crate::engine::level::{ActionDef, EventKindName};
 /// ```
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SequenceDef {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub cinematic: Option<CinematicDef>,
     /// Stable sequence id, unique per level; `start_sequence` names it.
     pub id: String,
     /// Restart from step 0 after the last step instead of completing.
@@ -49,6 +52,12 @@ pub struct SequenceDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "step", rename_all = "snake_case")]
 pub enum SequenceStepDef {
+    Camera {
+        seconds: f32,
+        motion: CameraMotionDef,
+        #[serde(default)]
+        aim: CameraAimDef,
+    },
     /// Run one ordinary action, then advance.
     Action {
         /// The action to run.
@@ -113,6 +122,11 @@ impl SequenceStepDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
+            Self::Camera {
+                seconds: _,
+                motion: _,
+                aim: _,
+            } => "camera",
             Self::Action { action: _ } => "action",
             Self::Wait { seconds: _ } => "wait",
             Self::Move {
@@ -140,7 +154,11 @@ impl SequenceStepDef {
     pub const fn is_delayed(&self) -> bool {
         matches!(
             self,
-            Self::Wait { seconds: _ }
+            Self::Camera {
+                seconds: _,
+                motion: _,
+                aim: _
+            } | Self::Wait { seconds: _ }
                 | Self::Move {
                     x: _,
                     y: _,
@@ -160,7 +178,12 @@ impl SequenceStepDef {
     pub fn actions(&self) -> Vec<&ActionDef> {
         match self {
             Self::Action { action } => vec![action],
-            Self::Wait { seconds: _ }
+            Self::Camera {
+                seconds: _,
+                motion: _,
+                aim: _,
+            }
+            | Self::Wait { seconds: _ }
             | Self::Move {
                 x: _,
                 y: _,
@@ -188,6 +211,7 @@ impl SequenceStepDef {
 )]
 #[derive(Clone, Debug, PartialEq)]
 pub struct SequenceRuntime {
+    pub(super) cinematic: Option<CinematicRun>,
     /// Identity assigned by the owning world; replacements receive a fresh value.
     pub(super) revision: u64,
     /// Id of the running sequence.
@@ -216,6 +240,7 @@ impl SequenceRuntime {
     #[must_use]
     pub fn new(def: &SequenceDef, owner: EntityHandle) -> Self {
         Self {
+            cinematic: None,
             revision: 0,
             sequence: def.id.clone(),
             owner,

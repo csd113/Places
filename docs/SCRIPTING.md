@@ -409,3 +409,14 @@ also refuse checkpoint resume until repaired or explicitly cleared. Freshly
 compiled scripted packages conservatively require `campaign-reset-v1`, matching
 the existing expanded-host policy; older players reject them by capability name.
 Existing packages without the new calls remain readable.
+
+## Scripts during live cinematics
+
+A cinematic Script row is an ordinary `SequenceStepDef::Action` / `run_script`
+call. It uses the same bounded atomic host, exported-handler validation, shared
+AI task keys and sandbox. Camera time never creates a coroutine or a second VM.
+A camera finishing does not imply a submitted NPC navigation task arrived, and
+camera cancellation does not roll back previous side effects or kill unrelated
+script/AI work. Existing state/task/animation events remain the synchronization
+mechanism. See [Live in-engine cinematics](CINEMATICS.md) for the keyed completion
+and interruption contract.

@@ -68,6 +68,10 @@ impl Audio {
 }
 
 impl FrameLoop<'_> {
+    pub(super) const fn reset_movement_audio(&mut self) {
+        self.audio.world.reset_movement();
+    }
+
     pub(super) const fn scripted_audio(&mut self, change: &super::actions::AudioAction) {
         self.settings.set_spatial_audio(if change.headphones {
             crate::engine::audio::SpatialMode::Headphones
@@ -78,12 +82,13 @@ impl FrameLoop<'_> {
         let _mute_changed = self.settings.set_muted(change.muted);
     }
     pub(super) fn update_audio_mix(&mut self) {
-        // The listener is the controlled player's ears in both camera modes.
-        // /become changes the visual, never the interaction/listener identity.
+        // A published cinematic eye owns presentation, never AI/body sensing.
+        // Ordinary /become modes retain the existing physical-player ears.
+        let (position, forward) = self.listener_pose();
         self.audio.system.update(
             Listener {
-                position: self.game.player_position,
-                forward: self.game.view_direction(),
+                position,
+                forward,
                 up: Vec3::Y,
             },
             !self.simulation_active(),
@@ -265,6 +270,7 @@ impl FrameLoop<'_> {
     }
 
     fn update_environment_audio(&mut self) {
+        let (listener_position, _) = self.listener_pose();
         if !self.menu_world()
             && let Some(loaded) = self.current_level.as_ref()
         {
@@ -278,7 +284,7 @@ impl FrameLoop<'_> {
             }
             if self.simulation_active() {
                 self.audio.world.update_environment(
-                    self.game.player_position,
+                    listener_position,
                     self.visual_delta_seconds(),
                     &mut self.audio.system,
                 );

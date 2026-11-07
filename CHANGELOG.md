@@ -13,6 +13,11 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Add reusable live in-engine cinematics through ordinary trigger/sequence
+  events, out-of-body move/follow/orbit/look-at shots and existing Luau NPC
+  actions. Add a small Advanced authoring sheet, exact-key completion/level
+  transitions, scoped input ownership and safe cancellation/queue-full recovery.
+
 - Add three original, opt-in tonal ambient loops: Threshold Air, Pale Signal
   and Below the Landing. Expose them through the normal sound picker without
   changing authored map selections. Preserve the original Empty Room master;

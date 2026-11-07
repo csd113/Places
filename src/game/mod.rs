@@ -490,6 +490,8 @@ pub struct Game {
     movement_debug: bool,
     /// Counters of the most recent entity-world tick.
     last_tick: WorldTick,
+    /// Only input/movement accumulators are restored at camera ownership edges.
+    cinematic_control: Option<crate::engine::entities::cinematics::CinematicToken>,
 }
 
 /// What one fixed vertical substep resolved to.
@@ -619,6 +621,7 @@ impl Game {
             ceiling_contact_this_frame: false,
             movement_debug: std::env::var("PLACES_MOVEMENT_DEBUG").is_ok_and(|value| value == "1"),
             last_tick: WorldTick::default(),
+            cinematic_control: None,
         };
         game.recover_spawn_overlap();
         game.refresh_ground_support();
@@ -803,6 +806,8 @@ impl Game {
     /// release, so a fresh press works immediately. A level load passes
     /// `false` because the frame loop has already released gameplay inputs.
     fn clear_run_state(&mut self, spawn_pos: Vec3, spawn_yaw: f32, suppress_held: bool) {
+        self.world.cancel_cinematic();
+        self.cinematic_control = None;
         self.local_elevator_trip = None;
         self.trigger_sweep = None;
         self.noclip = None;
@@ -1219,6 +1224,11 @@ impl Game {
         stance_clear: impl Fn(&Self) -> bool,
     ) {
         self.ceiling_contact_this_frame = false;
+        let changed = self.reconcile_cinematic_control();
+        let cinematic = self.cinematic_owns_controls();
+        if changed || cinematic {
+            input.release_all();
+        }
         // A press is consumed exactly once and never survives a non-Playing
         // frame: the interaction latch is re-derived below, and the frame loop
         // owns dispatch through [`Game::take_interact_press`].
@@ -1227,7 +1237,11 @@ impl Game {
         // The frame's relative motion is always consumed, even while paused or
         // in a menu, so motion collected around a pause is never applied later.
         let motion = input.take_mouse_motion();
-        let frame_input = *input;
+        let frame_input = if cinematic {
+            InputState::cinematic_body(self.stance == Stance::Crouched)
+        } else {
+            *input
+        };
         input.clear_presses();
         if self.movement_debug {
             crate::engine::logging::warn(format_args!(
@@ -1281,6 +1295,27 @@ impl Game {
                 self.ceiling_contact_this_frame
             ));
         }
+    }
+
+    /// Camera ownership suppresses control, not physics, world clocks or scripts.
+    #[must_use]
+    pub fn cinematic_owns_controls(&self) -> bool {
+        self.world.cinematic_token().is_some()
+    }
+
+    /// Discard old fixed-step input without teleporting or rewinding live bodies.
+    pub(crate) fn reconcile_cinematic_control(&mut self) -> bool {
+        let token = self.world.cinematic_token();
+        if self.cinematic_control == token {
+            return false;
+        }
+        self.cinematic_control = token;
+        self.movement_accumulator = 0.0_f64;
+        self.movement_input = InputState::default();
+        self.interact_pressed = false;
+        self.interact_latched = false;
+        self.jump_latched = false;
+        true
     }
 
     fn apply_movement_constraint(&mut self, constrained: Vec3) {

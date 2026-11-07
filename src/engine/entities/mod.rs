@@ -28,6 +28,7 @@ mod ai_runtime;
 mod audio;
 pub mod balloon;
 pub mod checkpoint;
+pub mod cinematics;
 pub mod components;
 pub mod developer;
 mod elevators;
@@ -5129,7 +5130,12 @@ impl EntityWorld {
                         clip: None,
                         timeout: _,
                     } => true,
-                    SequenceStepDef::Action { action: _ }
+                    SequenceStepDef::Camera {
+                        seconds: _,
+                        motion: _,
+                        aim: _,
+                    }
+                    | SequenceStepDef::Action { action: _ }
                     | SequenceStepDef::Wait { seconds: _ }
                     | SequenceStepDef::Move {
                         x: _,

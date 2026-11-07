@@ -25,6 +25,14 @@ impl EntityWorld {
         let Some(def) = self.sequences.get(sequence) else {
             return false;
         };
+        if super::cinematics::validate_cinematic(def).is_err()
+            || self.sequence_runs.iter().any(|run| {
+                run.cinematic.is_some()
+                    && (def.cinematic.is_some() || (run.owner == handle && run.finished))
+            })
+        {
+            return false;
+        }
         if self.sequence_runs.len() >= MAX_ACTIVE_SEQUENCES
             && !self.sequence_runs.iter().any(|run| run.owner == handle)
         {
@@ -46,6 +54,16 @@ impl EntityWorld {
         };
         let mut run = SequenceRuntime::new(def, handle);
         run.revision = self.next_sequence_revision;
+        run.cinematic = def.cinematic.as_ref().map(|camera| {
+            super::cinematics::CinematicRun::new(
+                camera.start,
+                super::cinematics::CinematicToken {
+                    generation: self.generation,
+                    owner: handle,
+                    revision: run.revision,
+                },
+            )
+        });
         self.next_sequence_revision = next_revision;
         let sequence_id = def.id.clone();
         self.sequence_runs.retain(|active| active.owner != handle);
@@ -70,7 +88,8 @@ impl EntityWorld {
             return false;
         };
         let previous = self.sequence_runs.len();
-        self.sequence_runs.retain(|run| run.owner != handle);
+        self.sequence_runs
+            .retain(|run| run.owner != handle || (run.cinematic.is_some() && run.finished));
         if let Some(control) = self.components.sequences.get_mut(handle) {
             control.running = false;
         }
@@ -114,7 +133,17 @@ impl EntityWorld {
                     .physics_actors
                     .contains_key(self.id_of(owner).unwrap_or_default())
             {
-                continue;
+                if run.cinematic.is_some() && !run.finished {
+                    run.stop();
+                } else if !run.finished {
+                    continue;
+                }
+            }
+            if let Some(camera) = run.cinematic.as_mut() {
+                camera.elapsed += ctx.delta_seconds;
+                if !run.finished && camera.elapsed > 600.0 {
+                    run.stop();
+                }
             }
             if !run.finished && !run.stopped {
                 run.step_time += ctx.delta_seconds;
@@ -170,6 +199,11 @@ impl EntityWorld {
                     merge_action_report(tick, &report);
                     true
                 }
+                SequenceStepDef::Camera {
+                    seconds,
+                    motion,
+                    aim,
+                } => self.cinematic_step(run, seconds, &motion, &aim),
                 SequenceStepDef::Wait { seconds } => run.step_time >= seconds,
                 SequenceStepDef::Move { x, y, z, speed } => {
                     let target = Vec3::new(x, y.unwrap_or(f32::NAN), z);
@@ -239,6 +273,17 @@ impl EntityWorld {
                 *active = run;
             }
             return;
+        }
+        if run.cinematic.is_some() && run.finished && !run.stopped {
+            if let Some(control) = self.components.sequences.get_mut(run.owner) {
+                control.running = false;
+            }
+            if self.events.remaining_capacity() == 0 {
+                if let Some(active) = self.sequence_runs.get_mut(index) {
+                    *active = run;
+                }
+                return;
+            }
         }
         let _removed = self.sequence_runs.remove(index);
         if let Some(control) = self.components.sequences.get_mut(run.owner) {

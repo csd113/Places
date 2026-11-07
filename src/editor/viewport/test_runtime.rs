@@ -39,6 +39,12 @@ impl Viewport {
     pub const fn runtime_active(&self) -> bool {
         self.testing.session.is_some()
     }
+    pub fn runtime_cinematic(&self) -> bool {
+        self.testing
+            .session
+            .as_deref()
+            .is_some_and(crate::editor::test_session::Session::cinematic_controls_blocked)
+    }
     pub const fn runtime_preparing(&self) -> bool {
         self.testing.requested.is_some() && self.testing.session.is_none()
     }

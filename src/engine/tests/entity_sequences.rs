@@ -472,3 +472,234 @@ fn sequence_pose_reaches_ai_and_render_frames_and_survives_release() -> Result<(
     );
     Ok(())
 }
+
+// These three cinematic regressions exercise unique ownership boundaries not
+// covered by ordinary sequence tests: exclusive view leases, completion queue
+// backpressure, and generational live camera references. They reuse two tiny
+// metadata entities, no models/GPU/bake; only the queue test fills the existing
+// bounded 4096-entry FIFO once.
+const CINEMATIC: &str = r#"[{"id":"shot","cinematic":{"start":{"position":[0,2,0],"yaw_degrees":0,"pitch_degrees":0}},"steps":[{"step":"camera","seconds":1,"motion":{"kind":"move","position":[2,2,0],"easing":"linear"}},{"step":"stop"}]}]"#;
+
+#[test]
+fn cinematic_lease_rejects_restart_pauses_and_restores_on_cancel() -> Result<(), String> {
+    let (mut world, floor) = fixture(CINEMATIC, "[]")?;
+    start(&mut world, "first", "shot");
+    let token = world.cinematic_token().ok_or("missing start lease")?;
+    for owner in ["first", "second"] {
+        let report = world.dispatch_on(
+            owner,
+            &[ActionDef::StartSequence {
+                sequence: "shot".into(),
+                target: None,
+            }],
+        );
+        assert_eq!(
+            report.sequences_started, 0,
+            "busy cinematics must not restart or steal a lease"
+        );
+    }
+    let _half = tick(&mut world, 0.5, &floor);
+    let halfway = world.cinematic_view().ok_or("missing halfway view")?;
+    assert!(
+        (halfway.position.x - 1.0).abs() < 0.001,
+        "camera must interpolate from the authored start"
+    );
+    let _paused = tick(&mut world, 0.0, &floor);
+    world.refresh_cinematic_view();
+    assert_eq!(
+        world.cinematic_view(),
+        Some(halfway),
+        "pause/render sampling must not advance time"
+    );
+    assert!(
+        world.checkpoint().is_err(),
+        "an active cinematic is not a resumable checkpoint"
+    );
+    world.cancel_cinematic();
+    assert!(
+        world.cinematic_token().is_none() && idle(&world, "first"),
+        "cancel releases view and sequence ownership"
+    );
+    assert_eq!(
+        tick(&mut world, 1.0, &floor).sequences_completed,
+        0,
+        "cancel emits no success"
+    );
+    start(&mut world, "first", "shot");
+    assert_ne!(
+        world.cinematic_token(),
+        Some(token),
+        "re-entry receives a fresh revision"
+    );
+    world.reset_runtime();
+    assert!(
+        world.cinematic_view().is_none(),
+        "reset drops camera ownership"
+    );
+    Ok(())
+}
+
+#[test]
+fn cinematic_finish_retries_full_queue_once_without_replaying_steps() -> Result<(), String> {
+    use crate::engine::entities::events::{EventKind, EventQueue};
+    let (mut world, floor) = fixture(CINEMATIC, "[]")?;
+    start(&mut world, "first", "shot");
+    let owner = world.handle_of("first").ok_or("missing owner")?;
+    for _ in 0..EventQueue::MAX_QUEUED_EVENTS {
+        assert!(
+            world.emit(EventKind::Timer, owner, "filler", None),
+            "bounded fixture fill fits exactly"
+        );
+    }
+    let first = tick(&mut world, 1.0, &floor);
+    assert_eq!(
+        first.sequences_completed, 0,
+        "full queue must defer success rather than lose it"
+    );
+    assert_eq!(
+        world.sequence_count(),
+        1,
+        "only the finishing run retains bounded retry state"
+    );
+    assert!(
+        world.cinematic_token().is_none(),
+        "finishing must immediately release player controls"
+    );
+    assert!(
+        world.checkpoint().is_err(),
+        "pending terminal delivery is not checkpointable"
+    );
+    world.cancel_cinematic();
+    let _stop = world.dispatch_on("first", &[ActionDef::StopSequence { target: None }]);
+    let rejected = world.dispatch_on(
+        "second",
+        &[ActionDef::StartSequence {
+            sequence: "shot".into(),
+            target: None,
+        }],
+    );
+    assert_eq!(
+        rejected.sequences_started, 0,
+        "pending completion still reserves admission"
+    );
+    assert_eq!(
+        tick(&mut world, 0.0, &floor).sequences_completed,
+        0,
+        "pause must not retry delivery"
+    );
+    assert_eq!(
+        tick(&mut world, 0.1, &floor).sequences_completed,
+        1,
+        "positive tick delivers preserved success"
+    );
+    assert_eq!(
+        world.sequence_count(),
+        0,
+        "accepted completion removes the run before callbacks"
+    );
+    assert_eq!(
+        tick(&mut world, 0.1, &floor).sequences_completed,
+        0,
+        "success cannot be emitted twice"
+    );
+    Ok(())
+}
+
+#[test]
+fn cinematic_live_target_refresh_is_generation_safe() -> Result<(), String> {
+    let (mut world, floor) = fixture(
+        r#"[{"id":"shot","cinematic":{"start":{"position":[0,2,0],"yaw_degrees":0,"pitch_degrees":0}},"steps":[{"step":"camera","seconds":10,"motion":{"kind":"follow","target":{"kind":"entity","id":"second"},"offset":[0,2,0]},"aim":{"kind":"look_at","target":{"kind":"entity","id":"second"}}}]}]"#,
+        "[]",
+    )?;
+    start(&mut world, "first", "shot");
+    let _first = tick(&mut world, 0.1, &floor);
+    let target = world.handle_of("second").ok_or("missing target")?;
+    let pose = world
+        .components_mut()
+        .transforms
+        .get_mut(target)
+        .ok_or("missing target transform")?;
+    pose.position.x = 3.0;
+    world.refresh_cinematic_view();
+    let view = world.cinematic_view().ok_or("missing follow camera")?;
+    assert!(
+        (view.position.x - 3.0).abs() < 0.001
+            && view.yaw.is_finite()
+            && (view.pitch.to_degrees() + 89.0).abs() < 0.001,
+        "late sampling tracks transforms and vertical look-at stays finite"
+    );
+    world
+        .components_mut()
+        .renderables
+        .get_mut(target)
+        .ok_or("missing target renderable")?
+        .dynamic = true;
+    let despawn = world.dispatch_on(
+        "first",
+        &[ActionDef::DespawnEntity {
+            target: "second".into(),
+        }],
+    );
+    assert_eq!(despawn.despawned, 1, "fixture target removal must succeed");
+    world.refresh_cinematic_view();
+    assert!(
+        world.cinematic_token().is_none(),
+        "missing generational target cancels before frame publication"
+    );
+    assert_eq!(
+        tick(&mut world, 0.1, &floor).sequences_completed,
+        0,
+        "target loss is not success"
+    );
+    Ok(())
+}
+
+// Numeric/schema admission is cheap serde plus bounded iteration. It protects
+// malformed authored camera data and old-map roundtrips, independently of the
+// runtime lifecycle tests above.
+#[test]
+fn cinematic_admission_bounds_and_optional_serialization() -> Result<(), String> {
+    use crate::engine::entities::cinematics::validate_cinematic;
+    use crate::engine::entities::sequences::{SequenceDef, SequenceStepDef};
+    let definitions: Vec<SequenceDef> =
+        serde_json::from_str(CINEMATIC).map_err(|error| error.to_string())?;
+    let definition = definitions.first().ok_or("missing fixture definition")?;
+    validate_cinematic(definition)?;
+    for duration in [0.0, -1.0, 120.1, f32::NAN, f32::INFINITY] {
+        let mut invalid = definition.clone();
+        if let Some(SequenceStepDef::Camera {
+            seconds,
+            motion: _,
+            aim: _,
+        }) = invalid.steps.first_mut()
+        {
+            *seconds = duration;
+        }
+        assert!(
+            validate_cinematic(&invalid).is_err(),
+            "invalid camera duration must refuse: {duration}"
+        );
+    }
+    let mut missing = definition.clone();
+    missing.cinematic = None;
+    assert!(
+        validate_cinematic(&missing).is_err(),
+        "camera steps cannot silently acquire a gameplay camera"
+    );
+    let mut looped = definition.clone();
+    looped.looped = true;
+    assert!(
+        validate_cinematic(&looped).is_err(),
+        "cinematic cannot loop forever"
+    );
+    let ordinary: SequenceDef =
+        serde_json::from_str(r#"{"id":"ordinary","steps":[{"step":"wait","seconds":1}]}"#)
+            .map_err(|error| error.to_string())?;
+    assert!(
+        !serde_json::to_string(&ordinary)
+            .map_err(|error| error.to_string())?
+            .contains("cinematic"),
+        "old maps retain absent optional metadata"
+    );
+    Ok(())
+}

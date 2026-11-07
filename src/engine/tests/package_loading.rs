@@ -478,3 +478,48 @@ fn scripts_and_shared_ai_data_require_current_capability() -> Result<(), String>
     world::validate_semantics(&reader, &manifest, &level)?;
     Ok(())
 }
+
+// A tiny semantic package protects old-host refusal and prevents camera-only
+// edits from causing expensive lighting solves. Unlike runtime tests, this
+// crosses the package/loader admission boundary; no assets, bake or GPU.
+#[test]
+fn cinematic_semantics_require_capability_without_rebaking_camera_edits() -> Result<(), String> {
+    let mut manifest = minimal_manifest()?;
+    let bytes = fixture_archive(&manifest)?;
+    let reader = crate::engine::package::PackageReader::new(Cursor::new(bytes))
+        .map_err(|error| error.to_string())?;
+    let mut level = crate::engine::level::LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"package_snapshot","name":"Cinematic","spawn":{"x":1,"z":1},"rooms":[{"width":4,"depth":4}],"sequences":[{"id":"shot","cinematic":{"start":{"position":[0,2,0],"yaw_degrees":0,"pitch_degrees":0}},"steps":[{"step":"camera","seconds":1,"motion":{"kind":"move","position":[2,2,0]}},{"step":"stop"}]}]}"#).map_err(|error| error.to_string())?;
+    let error = world::validate_semantics(&reader, &manifest, &level)
+        .err()
+        .ok_or("cinematic admitted without capability")?;
+    assert!(
+        error.contains("live-cinematics-v1"),
+        "old players must explicitly refuse unsupported camera semantics: {error}"
+    );
+    manifest
+        .required_capabilities
+        .push("live-cinematics-v1".into());
+    world::validate_semantics(&reader, &manifest, &level)?;
+    let before = crate::map_compiler::lighting_fingerprint_with_revision(&level, &[], &[], 1)?;
+    let sequence = level.sequences.first_mut().ok_or("missing sequence")?;
+    sequence
+        .cinematic
+        .as_mut()
+        .ok_or("missing start")?
+        .start
+        .position = [20.0, 3.0, 10.0];
+    if let Some(crate::engine::entities::sequences::SequenceStepDef::Camera {
+        seconds,
+        motion: _,
+        aim: _,
+    }) = sequence.steps.first_mut()
+    {
+        *seconds = 10.0;
+    }
+    assert_eq!(
+        before,
+        crate::map_compiler::lighting_fingerprint_with_revision(&level, &[], &[], 1)?,
+        "camera positions/timing must not invalidate lighting preparation"
+    );
+    Ok(())
+}

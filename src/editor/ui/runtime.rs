@@ -49,7 +49,11 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
     );
     text(
         vertices,
-        "WASD move | E use/pickup/drop | F light | F1 hint | Space jump | Ctrl crouch | Esc return",
+        if app.viewport.runtime_cinematic() {
+            "Cinematic camera | Player controls suspended | Esc returns to editing"
+        } else {
+            "WASD move | E use/pickup/drop | F light | F1 hint | Space jump | Ctrl crouch | Esc return"
+        },
         7.0,
         258.0,
         MUTED,
@@ -62,7 +66,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
     );
     let modal_start = vertices.len();
     let message = app.runtime_message();
-    if app.runtime_active() && message.is_none() {
+    if app.runtime_active() && message.is_none() && !app.viewport.runtime_cinematic() {
         crosshair(vertices);
     }
     if let Some(view) = message {

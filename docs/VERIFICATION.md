@@ -68,6 +68,40 @@ when scope changes, and label any partial distribution **validation-only**.
 Final release packages retain their existing intact Static/Full, dependency,
 source recovery and currency requirements; this budget does not weaken them.
 
+## Scoped live-cinematic acceptance
+
+Use a private, compact two-level project, not a new production map campaign.
+In one level, an ordinary player trigger starts a cinematic sequence containing
+a bounded NPC Luau action and Move, live Follow/Look-at and Orbit shots. Export
+the complete project with Static/Full variants, validate it, and verify both
+levels current. Confirm `live-cinematics-v1` in the manifest. Play the package
+on the actual native backend and inspect captures from the remote room while
+the physical player stays behind. Record the shared effective camera/listener,
+NPC motion, unchanged body/picking/flashlight ownership, and exactly one keyed
+completion reaching the second level.
+
+In a separate short run, pause and compare unchanged simulation/camera samples,
+resume, cancel through ordinary `stop_sequence`, verify fresh input works,
+reenter, then return to the menu during the camera lease. Check that no camera,
+actor or world sound survives unload. Use muted private settings if sound is
+not under perceptual review; listener/pan/path telemetry is not human listening.
+
+Exercise the actual visible Advanced Cinematics controls on an isolated project:
+capture start/endpoint, order a Script/Move/Wait, choose a destination and Apply.
+Compare one Undo/Redo, saved source and unchanged sibling/script data. Embedded
+Test must use the remote view/listener, hide player targeting chrome during the
+lease, report its existing cross-level boundary explicitly and restore editing
+without changing the document or editor view. Repeat Test/Stop with fresh state.
+Use the ordinary final package for actual travel, not a new embedded loader.
+
+Focused CPU regressions cover malformed/bounded/optional data, lease identity,
+target generation, pause/cancel/reentry, input versus live physics, full-queue
+completion retry without replay, capability admission, camera-only bake reuse,
+and atomic/stale-safe editor wiring. These need no renderer or full map bake.
+Retain exact binary/source/package identities and distinguish executed evidence
+from plans. Native Windows and broad performance/release campaigns remain
+separate gates; do not infer them from macOS or refresh unrelated renderer proofs.
+
 ## Full desktop gate
 
 ```sh

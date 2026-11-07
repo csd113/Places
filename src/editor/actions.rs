@@ -28,6 +28,7 @@ pub(super) enum Popup {
     Lighting,
     Template,
     Behavior,
+    Cinematics,
     Stairs(Box<super::stairs::Wizard>),
     DoorAssets,
     Bakes,
@@ -104,6 +105,10 @@ impl Popup {
         }
         if matches!(self, Self::Template) {
             super::templates::draw(app, v, hits);
+            return;
+        }
+        if matches!(self, Self::Cinematics) {
+            super::cinematics::draw(app, v, hits);
             return;
         }
         if matches!(self, Self::Behavior) {
@@ -205,6 +210,7 @@ impl Popup {
             | Self::Flicker
             | Self::Template
             | Self::Behavior
+            | Self::Cinematics
             | Self::Stairs(_)
             | Self::Bakes
             | Self::Elevators
@@ -397,6 +403,7 @@ impl App {
             || self.flicker_action(action)?
             || self.template_action(action)?
             || self.behavior_action(action)?
+            || self.cinematic_action(action)?
             || self.stair_action(action)?
             || self.elevator_action(action)?
             || self.authoring_action(action)?

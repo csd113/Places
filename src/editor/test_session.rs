@@ -52,6 +52,8 @@ pub(super) struct Session {
     seen_diagnostics: usize,
     audio_stats: crate::engine::audio::AudioStats,
     audio: crate::game::audio::WorldAudio,
+    cinematic_token: Option<crate::engine::entities::cinematics::CinematicToken>,
+    effective_camera: Option<(RenderCamera, bool)>,
 }
 
 impl Session {
@@ -102,6 +104,8 @@ impl Session {
             seen_diagnostics: 0,
             audio_stats: audio.stats(),
             audio: prepared.audio,
+            cinematic_token: None,
+            effective_camera: None,
         };
         session.audio.light_toggles(&session.game.light_states());
         session.physics.update_triggers(&mut session.game, true);
@@ -111,7 +115,14 @@ impl Session {
     }
 
     pub fn event(&mut self, event: &Event) {
+        self.reconcile_cinematic_input();
         if self.message_event(event) {
+            return;
+        }
+
+        if self.cinematic_controls_blocked() {
+            self.input.clear_gameplay_inputs();
+            self.throw_requested = false;
             return;
         }
 
@@ -143,13 +154,15 @@ impl Session {
         renderer: &mut Renderer,
         audio: &mut AudioSystem,
     ) -> Result<(), String> {
+        self.reconcile_cinematic_input();
         if self.pause_for_message(audio) {
             return Ok(());
         }
 
         self.game.update_timing();
         self.game.set_benchmark_simulation_delta(seconds);
-        if self.input.state().was_pressed(Control::Flashlight) {
+        if !self.cinematic_controls_blocked() && self.input.state().was_pressed(Control::Flashlight)
+        {
             self.flashlight = !self.flashlight;
         }
         self.game
@@ -172,15 +185,19 @@ impl Session {
             physics::player_context(&self.game),
             self.game.door_colliders(),
         );
-        if self.game.take_interact_press() {
+        if self.game.take_interact_press() && !self.cinematic_controls_blocked() {
             self.interact(audio)?;
         }
         self.apply_commands(renderer, audio)?;
+        self.reconcile_cinematic_input();
         self.update_script_status()?;
         if self.pause_for_message(audio) {
             return Ok(());
         }
-        if std::mem::take(&mut self.throw_requested) && self.physics.world.held().is_some() {
+        if std::mem::take(&mut self.throw_requested)
+            && !self.cinematic_controls_blocked()
+            && self.physics.world.held().is_some()
+        {
             self.status = if self.physics.world.throw(self.game.view_direction()) {
                 "Threw held item".into()
             } else {
@@ -207,10 +224,12 @@ impl Session {
         self.audio.light_toggles(&toggles);
         self.physics.step(&mut self.game, seconds, renderer);
         self.apply_commands(renderer, audio)?;
+        self.reconcile_cinematic_input();
         self.update_script_status()?;
         if self.pause_for_message(audio) {
             return Ok(());
         }
+        self.publish_camera();
         self.advance_presentation(seconds, renderer);
         if let Some(step) = self.audio.footstep(&mut self.game, &self.physics.world) {
             let _played = audio.play(step.cue, step.request());
@@ -221,8 +240,9 @@ impl Session {
             audio,
             |_, _, _| {},
         );
+        let (listener_position, _) = self.listener_pose();
         self.audio
-            .update_environment(self.game.player_position, seconds, audio);
+            .update_environment(listener_position, seconds, audio);
         self.update_audio(audio, false);
         self.update_script_status()?;
         if !self.game.is_running() {
@@ -342,10 +362,11 @@ impl Session {
     }
 
     fn update_audio(&mut self, audio: &mut AudioSystem, paused: bool) {
+        let (position, forward) = self.listener_pose();
         audio.update(
             Listener {
-                position: self.game.player_position,
-                forward: self.game.view_direction(),
+                position,
+                forward,
                 up: Vec3::Y,
             },
             paused,
@@ -363,13 +384,68 @@ impl Session {
         self.audio_stats = audio.stats();
     }
 
-    pub const fn camera(&self) -> RenderCamera {
-        RenderCamera::new(
-            self.game.player_position,
-            self.game.player_yaw,
-            self.game.player_pitch,
-            self.settings.fov_degrees,
+    pub fn camera(&self) -> RenderCamera {
+        self.effective_camera.map_or_else(
+            || {
+                RenderCamera::new(
+                    self.game.player_position,
+                    self.game.player_yaw,
+                    self.game.player_pitch,
+                    self.settings.fov_degrees,
+                )
+            },
+            |(camera, _)| camera,
         )
+    }
+
+    pub fn cinematic_controls_blocked(&self) -> bool {
+        self.game.cinematic_owns_controls()
+            || self
+                .effective_camera
+                .is_some_and(|(_, cinematic)| cinematic)
+    }
+
+    fn reconcile_cinematic_input(&mut self) {
+        let token = self.game.entities().cinematic_token();
+        if self.cinematic_token != token {
+            self.cinematic_token = token;
+            self.input.clear_gameplay_inputs();
+            self.throw_requested = false;
+            self.audio.reset_movement();
+            let _changed = self.game.reconcile_cinematic_control();
+        }
+    }
+
+    fn publish_camera(&mut self) {
+        self.effective_camera = None;
+        self.game.entities_mut().refresh_cinematic_view();
+        let presentation = self.game.entities().cinematic_view();
+        let camera = presentation.map_or_else(
+            || self.camera(),
+            |view| {
+                RenderCamera::new(
+                    view.position,
+                    view.yaw,
+                    view.pitch,
+                    self.settings.fov_degrees,
+                )
+            },
+        );
+        self.effective_camera = Some((camera, presentation.is_some()));
+    }
+
+    fn listener_pose(&self) -> (Vec3, Vec3) {
+        match self.effective_camera {
+            Some((camera, true)) => (
+                camera.position,
+                Vec3::new(
+                    camera.yaw.sin() * camera.pitch.cos(),
+                    camera.pitch.sin(),
+                    -camera.yaw.cos() * camera.pitch.cos(),
+                ),
+            ),
+            Some((_, false)) | None => (self.game.player_position, self.game.view_direction()),
+        }
     }
 
     pub fn warning(&self) -> &str {
@@ -414,6 +490,10 @@ impl Session {
         serde_json::json!({
             "hearing": hearing,
             "eye": self.game.player_position.to_array(),
+            "cinematic_control_active": self.game.cinematic_owns_controls(),
+            "effective_camera": {"position": self.camera().position.to_array(),
+                "yaw": self.camera().yaw,"pitch":self.camera().pitch},
+            "listener_position": self.listener_pose().0.to_array(),
             "yaw": self.game.player_yaw,
             "pitch": self.game.player_pitch,
             "feet_y": self.game.feet_y(),
@@ -443,6 +523,8 @@ impl Session {
     }
 
     pub fn stop(&mut self, audio: &mut AudioSystem) {
+        self.game.entities_mut().cancel_cinematic();
+        self.effective_camera = None;
         self.input.clear_gameplay_inputs();
         self.throw_requested = false;
         self.messages.clear();

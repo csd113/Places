@@ -123,6 +123,7 @@ impl App {
             || self.flicker_event(event)
             || self.template_event(event)
             || self.behavior_event(event, window, hits)
+            || self.cinematic_event(event, window, hits)
             || self.stair_event(event)
             || self.drag_event(event, window)
             || self.authoring_event(event)

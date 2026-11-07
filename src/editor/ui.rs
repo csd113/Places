@@ -84,6 +84,7 @@ pub(super) enum Action {
     ProjectMigrate,
     Scripts,
     Behavior(super::behavior::Command),
+    Cinematic(super::cinematics::Command),
     Template(super::templates::Command),
     ScriptNew,
     ScriptOpen(usize),

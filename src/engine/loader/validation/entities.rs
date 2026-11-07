@@ -2182,10 +2182,30 @@ pub(super) fn validate_sequences(level: &LevelDef, index: &LevelIndex<'_>) -> Re
                 sequence.steps.len()
             ));
         }
+        crate::engine::entities::cinematics::validate_cinematic(sequence)
+            .map_err(|error| format!("{context}: {error}"))?;
         let owners: &[String] = index.sequence_owners.get(id).map_or(&[], Vec::as_slice);
         for (j, step) in sequence.steps.iter().enumerate() {
             let step_context = format!("{context} step {j} (`{}`)", step.kind());
             match step {
+                SequenceStepDef::Camera {
+                    motion,
+                    aim,
+                    seconds: _,
+                } => {
+                    for target in crate::engine::entities::cinematics::camera_targets(motion, aim) {
+                        if let crate::engine::entities::cinematics::CameraTargetDef::Entity {
+                            id: target_id,
+                            offset: _,
+                        } = target
+                            && !index.entities.contains_key(target_id)
+                        {
+                            return Err(format!(
+                                "{step_context}: unknown camera target `{target_id}`"
+                            ));
+                        }
+                    }
+                }
                 SequenceStepDef::Action { action } => {
                     let action_context = ActionContext {
                         context: &step_context,

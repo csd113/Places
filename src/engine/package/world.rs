@@ -324,6 +324,13 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
     }
     for (required, capability) in [
         (
+            level
+                .sequences
+                .iter()
+                .any(|sequence| sequence.cinematic.is_some()),
+            "live-cinematics-v1",
+        ),
+        (
             level.props.iter().any(|prop| {
                 prop.tall_guest
                     .as_ref()

@@ -3,6 +3,7 @@
 //! therefore survive ordinary edits and saves.
 
 pub(crate) mod behavior;
+pub(crate) mod cinematics;
 pub(crate) mod circuits;
 pub(crate) mod components;
 mod dragging;

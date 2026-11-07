@@ -9949,3 +9949,15 @@ restriction. Source/native acceptance is separate from this authoring contract.
 six-actor conversation/cheering and lifecycle control. It is outside the shipped
 lineup and ordinary CI never bakes it. It constructs no final demo, elevator
 quest, party room or cinematic.
+
+### Live in-engine cinematics (0.13.1)
+
+Build ordinary geometry, triggers and NPCs, then opt an ordinary sequence into
+`cinematic` camera ownership. Bounded camera rows move, follow and orbit while
+existing Luau/NPC actions run; exact-key `sequence_complete` bindings can request
+the next declared project member. **Advanced / All tools > Cinematics** provides
+the ordered authoring sheet. Camera paths are free presentation, not player
+teleports, automatic wall avoidance or a timeline/video editor. Existing maps
+without this metadata are unchanged. See [the complete source/ownership and
+authoring contract](CINEMATICS.md), including interruption, busy/reentry policy,
+checkpoint boundaries and `live-cinematics-v1` package admission.

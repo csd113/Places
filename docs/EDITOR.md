@@ -1157,3 +1157,12 @@ a smaller pillar or a gap that intrudes into an adjacent room is refused with
 shell. The edit saves ordinary architectural pieces and the elevator together;
 one Undo restores the original solid host. Existing links and other rooms are
 preserved. See [dimensions and clearance](ELEVATORS.md#space-and-artwork).
+
+## Advanced live cinematics
+
+**Advanced / All tools > Cinematics** edits ordered camera and existing Script
+rows on ordinary sequences, using a normal player Trigger as controller. Capture
+start/end views, choose a completion destination and Apply as one undoable edit.
+Test runs camera/NPC behavior; Build+Play proves complete-project transitions.
+See [Live in-engine cinematics](CINEMATICS.md) for camera fields, busy/once policy,
+interruption behavior and the source contract.

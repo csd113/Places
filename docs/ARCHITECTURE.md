@@ -686,3 +686,15 @@ world time is stopped. Physics pause affects physical impacts without freezing
 other world audio. Shared trigger occupancy includes bounded physical substep
 paths and exact actor filters. See [audio assets](assets/AUDIO.md) and
 [the sound-stage report](reports/release-0.11.0.md#sound-0110) for authoring and evidence.
+
+### Opt-in cinematic sequence ownership
+
+`engine::entities::cinematics` supplies bounded renderer-neutral shot data/math
+and a generation/owner/revision token inside the ordinary `SequenceRuntime`.
+It introduces no second action queue, script VM, timeline or renderer branch.
+The shared Game controller suppresses user control but retains live physical
+simulation. Native and embedded editor adapters publish one effective view for
+presentation/audio while player/AI/item/flashlight ownership remains physical.
+Finishing runs retain a bounded pending completion until the ordinary event
+queue accepts it; cancellation is not successful completion. Existing active
+sequence checkpoint refusal remains. See [Cinematics](CINEMATICS.md).

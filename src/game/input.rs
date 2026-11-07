@@ -252,11 +252,21 @@ impl InputState {
 
     /// Releases every held control and discards pending mouse motion, leaving
     /// the quit flag alone.
-    const fn release_all(&mut self) {
+    pub(crate) const fn release_all(&mut self) {
         self.held = 0;
         self.pressed = 0;
         self.mouse_dx = 0.0;
         self.mouse_dy = 0.0;
+    }
+
+    /// Neutral locomotion still preserves the body's current crouched stance.
+    pub(crate) fn cinematic_body(crouched: bool) -> Self {
+        let mut input = Self::default();
+        if crouched {
+            input.set_held(Control::Crouch, true);
+        }
+        input.clear_presses();
+        input
     }
 
     /// True while `control` is held.

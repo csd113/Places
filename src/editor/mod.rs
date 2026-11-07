@@ -7,6 +7,7 @@ mod authoring;
 mod bakes;
 mod behavior;
 mod browser;
+mod cinematics;
 mod component_actions;
 mod construction;
 pub mod document;
@@ -128,6 +129,7 @@ struct App {
     popup: Option<Popup>,
     script_feedback: String,
     behavior: Option<behavior::Draft>,
+    cinematics: Option<cinematics::Draft>,
     template: Option<templates::Draft>,
     flicker: Option<flicker::Draft>,
     lighting: lighting::Draft,
@@ -215,6 +217,7 @@ impl App {
         self.placement = None;
         self.wall_drag = None;
         self.behavior = None;
+        self.cinematics = None;
         self.template = None;
         self.flicker = None;
         self.component_selection = component_actions::Selection::default();
@@ -320,6 +323,7 @@ impl App {
                     Popup::Template
                         | Popup::Flicker
                         | Popup::Behavior
+                        | Popup::Cinematics
                         | Popup::Number { field: _, value: _ }
                         | Popup::ProjectText { field: _, value: _ }
                         | Popup::ComponentText {
@@ -591,6 +595,7 @@ fn create_app(
         popup: None,
         script_feedback: String::new(),
         behavior: None,
+        cinematics: None,
         template: None,
         flicker: None,
         lighting: lighting::Draft::default(),

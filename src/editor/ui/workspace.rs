@@ -6,7 +6,7 @@ use crate::engine::render::Vertex;
 pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     rect(v, [130.0, 65.0, 260.0, 177.0], PANEL);
     text(v, "CUSTOMIZE YOUR SPACE", 140.0, 74.0, ACCENT, 62);
-    text(v, "Deeper authoring tools", 140.0, 85.0, MUTED, 68);
+
     button(
         v,
         hits,
@@ -21,6 +21,14 @@ pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit
     );
     text(v, "BUILD AND APPEARANCE", 140.0, 99.0, INK, 32);
     text(v, "BEHAVIOR AND PROJECT", 264.0, 99.0, INK, 32);
+    button(
+        v,
+        hits,
+        [140.0, 85.0, 116.0, 11.0],
+        "Cinematics >",
+        Action::Cinematic(crate::editor::cinematics::Command::Open),
+        true,
+    );
     appearance(app, v, hits);
     project_tools(app, v, hits);
     text(

@@ -540,6 +540,7 @@ impl FrameLoop<'_> {
             pressed,
             crate::game::app::item_input::MouseContext {
                 gameplay: self.game.app_state() == AppState::Playing
+                    && !self.cinematic_controls_blocked()
                     && self.window_focused
                     && !self.console.is_open()
                     && self.load_intent.is_none(),
@@ -595,7 +596,10 @@ impl FrameLoop<'_> {
     }
 
     pub(super) fn dispatch_player_interactions(&mut self) {
-        if self.outcome.is_some() || self.message.is_some() {
+        if self.outcome.is_some() || self.message.is_some() || self.cinematic_controls_blocked() {
+            self.items.input.invalidate();
+            self.items.target = None;
+            let _pressed = self.game.take_interact_press();
             return;
         }
         self.refresh_interaction_target();
@@ -651,6 +655,7 @@ impl FrameLoop<'_> {
             .entities_mut()
             .set_navigation_obstacles(self.items.world.navigation_obstacles());
         if self.window_focused
+            && !self.cinematic_controls_blocked()
             && self.load_intent.is_none()
             && self.game.app_state() == crate::game::AppState::Playing
             && self

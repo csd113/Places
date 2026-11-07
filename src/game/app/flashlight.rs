@@ -100,12 +100,21 @@ impl crate::game::app::FrameLoop<'_> {
                 | crate::game::AppState::Paused
                 | crate::game::AppState::PauseSettings
         );
+        let (source_eye, source_yaw, source_pitch) = if self.cinematic_controls_blocked() {
+            (
+                self.game.view_position(),
+                self.game.player_yaw,
+                self.game.player_pitch,
+            )
+        } else {
+            (eye, yaw, pitch)
+        };
         install(
             self.renderer,
             self.flashlight.is_on() && in_world,
-            eye,
-            yaw,
-            pitch,
+            source_eye,
+            source_yaw,
+            source_pitch,
         );
         // Observe the exact prepared meshes/source used by this rendered frame.
         // AI consumes that observation on the following simulation tick.
@@ -116,7 +125,7 @@ impl crate::game::app::FrameLoop<'_> {
             let delta = self.game.world_delta_seconds();
             self.game
                 .entities_mut()
-                .update_light_observations(delta, eye, |id, point| {
+                .update_light_observations(delta, source_eye, |id, point| {
                     self.renderer
                         .flashlight_illumination(point.to_array(), Some(id))
                 });
