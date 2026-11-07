@@ -5,7 +5,7 @@
 //! into a display image:
 //!
 //! ```text
-//! scene ──▶ emissive-only pass (scene size, scene depth) ──▶ blur H, blur V ──▶ bloom
+//! scene ──▶ emissive-only pass ──▶ area prefilter ──▶ blur H, blur V ──▶ bloom
 //!      └──▶ resolve (scene + bloom, exposure, tone, grade) or present copy ──▶ target
 //! ```
 //!
@@ -50,6 +50,15 @@ mod probe;
 #[cfg(feature = "visual-diagnostics")]
 pub(super) fn run_present_probe(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<(), String> {
     probe::run(device, queue)
+}
+
+#[cfg(feature = "visual-diagnostics")]
+#[path = "bloom_probe.rs"]
+mod bloom_probe;
+
+#[cfg(feature = "visual-diagnostics")]
+pub(super) fn run_bloom_probe(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<(), String> {
+    bloom_probe::run(device, queue)
 }
 
 /// The post shader, from the file next to this module.
@@ -179,7 +188,7 @@ impl PostParams {
 
 /// The blur step uniform: one texel of the *source* image, per axis.
 ///
-/// `xy` is the step; `zw` is unused padding so the struct is one 16-byte
+/// `xy` is the step (or destination dimensions for prefilter); `zw` is padding in one 16-byte
 /// uniform slot. WGSL layout: `vec4<f32>` at offset 0, 16 bytes.
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
@@ -188,18 +197,28 @@ struct BlurParams {
 }
 
 impl BlurParams {
+    fn prefilter(destination: DrawableSize) -> Self {
+        Self {
+            texel: [
+                dimension_f32(destination.width),
+                dimension_f32(destination.height),
+                0.0,
+                0.0,
+            ],
+        }
+    }
+
     /// The step for one blur pass, one texel of `source` along one axis.
     ///
     /// The reference passes `(x / source_width, y / source_height)` with `(x, y)`
-    /// either `(1, 0)` or `(0, 1)`, so a full-resolution emissive image feeding
-    /// a quarter-resolution buffer steps in source texels and downsamples by
-    /// four as it blurs.
+    /// either `(1, 0)` or `(0, 1)`. Horizontal retains the scene-pixel radius;
+    /// vertical retains the quarter-resolution radius after area reduction.
     #[must_use]
     fn step(source: DrawableSize, horizontal: bool) -> Self {
         let width = dimension_f32(source.width).max(1.0);
         let height = dimension_f32(source.height).max(1.0);
         let texel = if horizontal {
-            [1.0 / width, 0.0, 1.0, 0.0]
+            [1.0 / width, 0.0, 0.0, 0.0]
         } else {
             [0.0, 1.0 / height, 0.0, 0.0]
         };
@@ -322,6 +341,7 @@ struct PostPipelines {
     linear_present_raw: wgpu::RenderPipeline,
     present: wgpu::RenderPipeline,
     blur: wgpu::RenderPipeline,
+    prefilter: wgpu::RenderPipeline,
 }
 
 impl PostPipelines {
@@ -369,6 +389,14 @@ impl PostPipelines {
                 &layouts.present,
                 surface_present_fragment_entry(surface_format),
                 surface_format,
+            ),
+            prefilter: build_pass_pipeline(
+                device,
+                "places-wgpu-bloom-prefilter",
+                &shader,
+                &layouts.blur,
+                "fs_prefilter",
+                BLOOM_FORMAT,
             ),
             blur: build_pass_pipeline(
                 device,
@@ -459,10 +487,10 @@ struct PostTargets {
     /// would reject the wrong emitters.
     _emissive_texture: wgpu::Texture,
     emissive_view: wgpu::TextureView,
-    /// Blur pass 1's destination, at the scene size divided by four.
+    /// Prefilter and final vertical-blur destination, at quarter scene edges.
     _blur_a_texture: wgpu::Texture,
     blur_a_view: wgpu::TextureView,
-    /// Blur pass 2's destination and the resolve's bloom source.
+    /// Horizontal-blur scratch destination.
     _blur_b_texture: wgpu::Texture,
     blur_b_view: wgpu::TextureView,
     /// The tone-mapped, display-space image the UI blends into: the backend's
@@ -476,12 +504,13 @@ struct PostTargets {
     scene_size: DrawableSize,
     /// The presented target size these were created at (the drawable).
     presented_size: DrawableSize,
-    /// Pass 1: the emissive image into buffer A, one **source** texel
-    /// horizontally.
+    /// Prefilter: complete emission footprints into A.
+    prefilter_bind: wgpu::BindGroup,
+    _prefilter_size: wgpu::Buffer,
     blur_h_bind: wgpu::BindGroup,
-    /// Pass 2: buffer A into buffer B, one **source** texel vertically.
+    /// Vertical blur: B into A, one quarter-resolution texel per step.
     blur_v_bind: wgpu::BindGroup,
-    /// The two blur step uniforms, kept alongside their bind groups.
+    /// The blur step uniforms, kept alongside their bind groups.
     _horizontal_step: wgpu::Buffer,
     _vertical_step: wgpu::Buffer,
     /// One resolve binding per [`RESOLVE_VARIANTS`] entry, in the same order.
@@ -741,7 +770,7 @@ impl PostProcess {
         }))
     }
 
-    /// Records the two blur passes (emissive→A horizontally, A→B vertically).
+    /// Reduces emission into A, then blurs A→B horizontally and B→A vertically.
     ///
     /// A no-op when the targets do not exist or `bloom_strength` is zero, so a
     /// caller may invoke it unconditionally for the frame's settings.
@@ -759,8 +788,17 @@ impl PostProcess {
         };
         encode_fullscreen(
             encoder,
-            "places-wgpu-bloom-h",
+            "places-wgpu-bloom-prefilter",
             &targets.blur_a_view,
+            &self.pipelines.prefilter,
+            &targets.prefilter_bind,
+            &self.quad_buffer,
+            timer,
+        );
+        encode_fullscreen(
+            encoder,
+            "places-wgpu-bloom-h",
+            &targets.blur_b_view,
             &self.pipelines.blur,
             &targets.blur_h_bind,
             &self.quad_buffer,
@@ -769,7 +807,7 @@ impl PostProcess {
         encode_fullscreen(
             encoder,
             "places-wgpu-bloom-v",
-            &targets.blur_b_view,
+            &targets.blur_a_view,
             &self.pipelines.blur,
             &targets.blur_v_bind,
             &self.quad_buffer,
@@ -1040,6 +1078,27 @@ impl PostProcess {
         })
     }
 
+    fn prefilter_binding(
+        &self,
+        device: &wgpu::Device,
+        emissive_view: &wgpu::TextureView,
+        bloom_size: DrawableSize,
+    ) -> (wgpu::Buffer, wgpu::BindGroup) {
+        let prefilter_size = create_uniform_buffer(
+            device,
+            "places-wgpu-bloom-size",
+            &BlurParams::prefilter(bloom_size),
+        );
+        let prefilter_bind = self.blur_bind(
+            device,
+            "places-wgpu-bloom-prefilter",
+            emissive_view,
+            &self.nearest_sampler,
+            &prefilter_size,
+        );
+        (prefilter_size, prefilter_bind)
+    }
+
     /// Creates the whole size-dependent target set and its bindings.
     fn create_targets(
         &self,
@@ -1071,23 +1130,14 @@ impl PostProcess {
             EMISSIVE_FORMAT,
             attachment,
         );
-        let (scratch_texture, scratch_view) = create_target_texture(
-            device,
-            "places-wgpu-bloom-a",
-            bloom_size,
-            BLOOM_FORMAT,
-            attachment,
-        );
-        let (bloom_texture, bloom_view) = create_target_texture(
-            device,
-            "places-wgpu-bloom-b",
-            bloom_size,
-            BLOOM_FORMAT,
-            attachment,
-        );
-        // One source texel per step: horizontally out of the scene-sized
-        // emissive image (which also downsamples by four), vertically out of
-        // the scratch buffer.
+        let bloom_target =
+            |label| create_target_texture(device, label, bloom_size, BLOOM_FORMAT, attachment);
+        let (scratch_texture, scratch_view) = bloom_target("places-wgpu-bloom-a");
+        let (bloom_texture, bloom_view) = bloom_target("places-wgpu-bloom-b");
+        let (prefilter_size, prefilter_bind) =
+            self.prefilter_binding(device, &emissive_view, bloom_size);
+        // Preserve the authored horizontal source-pixel and vertical quarter-pixel
+        // radii. Linear sampling bridges the horizontal subtexel step after reduction.
         let horizontal_step = create_uniform_buffer(
             device,
             "places-wgpu-blur-h",
@@ -1098,26 +1148,24 @@ impl PostProcess {
             "places-wgpu-blur-v",
             &BlurParams::step(bloom_size, false),
         );
-        // The emissive image is NEAREST (the reference's non-linear colour
-        // target); the scratch buffer is LINEAR (the reference's blur target).
         let horizontal_bind = self.blur_bind(
             device,
             "places-wgpu-bloom-h",
-            &emissive_view,
-            &self.nearest_sampler,
+            &scratch_view,
+            &self.linear_sampler,
             &horizontal_step,
         );
         let vertical_bind = self.blur_bind(
             device,
             "places-wgpu-bloom-v",
-            &scratch_view,
+            &bloom_view,
             &self.linear_sampler,
             &vertical_step,
         );
         let resolve_binds = self
             .post_uniforms
             .iter()
-            .map(|params| self.resolve_bind(device, &scene_view, &bloom_view, params))
+            .map(|params| self.resolve_bind(device, &scene_view, &scratch_view, params))
             .collect();
         let (presented_texture, presented_view) = create_target_texture(
             device,
@@ -1146,6 +1194,8 @@ impl PostProcess {
             _vertical_step: vertical_step,
             scene_size,
             presented_size,
+            prefilter_bind,
+            _prefilter_size: prefilter_size,
             blur_h_bind: horizontal_bind,
             blur_v_bind: vertical_bind,
             resolve_binds,

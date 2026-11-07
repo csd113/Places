@@ -1026,14 +1026,8 @@ impl WgpuRenderer {
             "[wgpu] memory allocator policy: {:?}",
             device_memory_hints()
         ));
-        // Explicit native shader acceptance probe. It uses this window's Metal
-        // device and never allocates or waits in a normal game/benchmark run.
         #[cfg(feature = "visual-diagnostics")]
-        if std::env::var("PLACES_BENCH").is_ok_and(|value| value == "1")
-            && std::env::var("PLACES_BENCH_PRESENT_PROBE").is_ok_and(|value| value == "1")
-        {
-            super::postprocess::run_present_probe(&device, &queue)?;
-        }
+        Self::run_native_shader_probes(&device, &queue)?;
         let device_lost = Self::watch_device_loss(&device);
         let (width, height) = window.size_in_pixels();
         validate_drawable(
@@ -1058,6 +1052,23 @@ impl WgpuRenderer {
         pump()?;
         renderer.window = Some(retained_window);
         Ok(renderer)
+    }
+
+    #[cfg(feature = "visual-diagnostics")]
+    fn run_native_shader_probes(device: &wgpu::Device, queue: &wgpu::Queue) -> Result<(), String> {
+        // Explicit native shader acceptance probe. It uses this window's Metal
+        // device and never allocates or waits in a normal game/benchmark run.
+        if std::env::var("PLACES_BENCH").is_ok_and(|value| value == "1")
+            && std::env::var("PLACES_BENCH_PRESENT_PROBE").is_ok_and(|value| value == "1")
+        {
+            super::postprocess::run_present_probe(device, queue)?;
+        }
+        if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_BLOOM_PROBE").as_deref() == Ok("1")
+        {
+            super::postprocess::run_bloom_probe(device, queue)?;
+        }
+        Ok(())
     }
 
     /// Builds a window-free renderer for the offline probe capture.
@@ -5996,18 +6007,13 @@ impl WgpuRenderer {
             let _accepted = attached_lights.insert(light.clone());
         }
         let lights = DynamicLightsUniform::with_flashlight(&attached_lights, self.flashlight);
-        if let Some(pipeline) = self.capture_pipeline.as_mut() {
-            pipeline.update_light_uniform(&self.queue, &lights);
-        }
-        for pipeline in [
-            &mut self.decal_pipeline,
-            &mut self.decal_scene_pipeline,
-            &mut self.decal_reflection_pipeline,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            pipeline.update_light_uniform(&self.queue, &lights);
+        if plane_index.is_some() {
+            if let Some(pipeline) = self.capture_pipeline.as_mut() {
+                pipeline.update_light_uniform(&self.queue, &lights);
+            }
+            if let Some(pipeline) = self.decal_reflection_pipeline.as_mut() {
+                pipeline.update_light_uniform(&self.queue, &lights);
+            }
         }
         let captured = plane_index.is_some_and(|index| self.encode_planar_capture(&frame, index));
         // The main pass samples the frame's real reflection sources (the
@@ -6050,45 +6056,8 @@ impl WgpuRenderer {
             };
             let _update_stats = environment.update(&self.queue, &view_uniform);
         }
-        if let Some(pipeline) = self.world_pipeline.as_mut() {
-            #[cfg(feature = "visual-diagnostics")]
-            pipeline.set_visual_diagnostic(self.visual_diagnostic);
-            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
-        }
-        if let Some(pipeline) = self.decal_pipeline.as_mut() {
-            pipeline.upload_camera(
-                &self.queue,
-                super::world::CameraUniform::new(frame.view_projection, frame.eye),
-                &environment_template,
-            );
-        }
-        if let Some(pipeline) = self.scene_pipeline.as_mut() {
-            #[cfg(feature = "visual-diagnostics")]
-            pipeline.set_visual_diagnostic(self.visual_diagnostic);
-            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
-        }
-        if let Some(pipeline) = self.emissive_pipeline.as_mut() {
-            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
-        }
-        // Every target uses this frame's exact attached lights. Empty sets clear
-        // the preceding state; unchanged sets need no queue write.
-        for pipeline in [
-            &mut self.world_pipeline,
-            &mut self.scene_pipeline,
-            &mut self.emissive_pipeline,
-        ]
-        .into_iter()
-        .flatten()
-        {
-            pipeline.update_light_uniform(&self.queue, &lights);
-        }
-        if let Some(pipeline) = self.decal_scene_pipeline.as_mut() {
-            pipeline.upload_camera(
-                &self.queue,
-                super::world::CameraUniform::new(frame.view_projection, frame.eye),
-                &environment_template,
-            );
-        }
+        let offscreen = self.ensure_post_targets();
+        self.prepare_main_view(&frame, &lights, &environment_template, offscreen);
         if let Some(sky) = self.sky.as_ref()
             && let Some(pipeline) = self.sky_pipeline.as_mut()
         {
@@ -6097,12 +6066,6 @@ impl WgpuRenderer {
                 crate::engine::render::common::snow::SnowScene::sky_storm,
             );
             pipeline.upload_camera_with_storm(&self.queue, frame.view_projection, sky, storm);
-        }
-        if let Some(pipeline) = self.effects_pipeline.as_mut() {
-            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
-        }
-        if let Some(pipeline) = self.effects_scene_pipeline.as_mut() {
-            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
         }
         // The effect billboards face this frame's camera, so they are synced
         // here, where the prepared frame and the neutral scene are both in
@@ -6136,7 +6099,6 @@ impl WgpuRenderer {
                 frame.eye,
             );
         }
-        let _ensure_post_targets_status = self.ensure_post_targets();
         self.prepare_water_frame(&frame);
         self.last_frame = Some(frame);
         // A frame whose present was skipped (`PLACES_BENCH_NOSWAP`) must not
@@ -6173,6 +6135,52 @@ impl WgpuRenderer {
                 self.record_render_stats(totals, &frame);
             }
             Acquired::Skip => {}
+        }
+    }
+
+    /// Prepare only the family the same frame encoder will consume. A later
+    /// fallback/toggle refreshes its full state, including clearing stale lights.
+    fn prepare_main_view(
+        &mut self,
+        frame: &super::world::WorldFrame,
+        lights: &DynamicLightsUniform,
+        environment: &EnvironmentUniform,
+        offscreen: bool,
+    ) {
+        let emission = offscreen && self.bloom_requested && self.presentation_settings().blooms();
+        let (world, decals, effects) = if offscreen {
+            (
+                &mut self.scene_pipeline,
+                &mut self.decal_scene_pipeline,
+                &mut self.effects_scene_pipeline,
+            )
+        } else {
+            (
+                &mut self.world_pipeline,
+                &mut self.decal_pipeline,
+                &mut self.effects_pipeline,
+            )
+        };
+        if let Some(pipeline) = world.as_mut() {
+            #[cfg(feature = "visual-diagnostics")]
+            pipeline.set_visual_diagnostic(self.visual_diagnostic);
+            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+            pipeline.update_light_uniform(&self.queue, lights);
+        }
+        if let Some(pipeline) = decals.as_mut() {
+            pipeline.upload_camera(
+                &self.queue,
+                super::world::CameraUniform::new(frame.view_projection, frame.eye),
+                environment,
+            );
+            pipeline.update_light_uniform(&self.queue, lights);
+        }
+        if let Some(pipeline) = effects.as_mut() {
+            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+        }
+        if emission && let Some(pipeline) = self.emissive_pipeline.as_mut() {
+            pipeline.upload_camera(&self.queue, frame.view_projection, frame.eye);
+            pipeline.update_light_uniform(&self.queue, lights);
         }
     }
 

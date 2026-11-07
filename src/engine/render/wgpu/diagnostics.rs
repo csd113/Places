@@ -271,6 +271,7 @@ pub fn world_shader_source(production: &'static str) -> Cow<'static, str> {
 pub fn capture_submission(totals: &super::world::WorldDrawTotals) -> serde_json::Value {
     serde_json::json!({
         "draw_calls": totals.draw_calls,
+        "effective_emission_visible": totals.emissive_visible,
         "frustum_visible_batches": totals.visible_batches,
         "frustum_visible_distinct_vertices": totals.visible_vertices,
         "submitted_indices": totals.visible_indices,

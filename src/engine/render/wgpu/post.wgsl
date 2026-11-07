@@ -111,28 +111,40 @@ fn fs_present(in: QuadOut) -> @location(0) vec4<f32> {
     return vec4<f32>(srgb_to_linear(color), 1.0);
 }
 
-// The reference's five-tap bloom blur with one threshold extraction:
-//
-//     vec2 step0 = u_texel * 1.0;
-//     vec2 step1 = u_texel * 2.0;
-//     vec3 sum = texture2D(u_source, v_uv).rgb * 0.375;
-//     sum += (texture2D(u_source, v_uv + step0).rgb + texture2D(u_source, v_uv - step0).rgb) * 0.25;
-//     sum += (texture2D(u_source, v_uv + step1).rgb + texture2D(u_source, v_uv - step1).rgb) * 0.0625;
-//     gl_FragColor = vec4(sum, 1.0);
-//
-// `u_texel` is one texel of the *source*: pass 1 reads the scene-sized emissive
-// image into the quarter-size buffer A (so the down-sample and the horizontal
-// blur are one pass), pass 2 reads buffer A vertically into buffer B. The
-// Source and target are linear RGBA16F; no transfer function is applied.
-// Threshold emission before the first blur; ordinary surfaces cannot enter this
-// target. The soft knee starts at 0.5 and reaches its linear tail at 1.5 HDR.
-fn bloom_source(uv: vec2<f32>) -> vec3<f32> {
-    let color = textureSample(source_texture, source_sampler, uv).rgb;
-    if (blur.texel.z < 0.5) { return color; }
+// Extract the authored soft-knee emission before reducing its complete pixel
+// footprint. Sampling one source row per destination loses thin emitters.
+fn bloom_threshold(color: vec3<f32>) -> vec3<f32> {
     let peak = max(color.r, max(color.g, color.b));
     let soft = clamp(peak - 0.5, 0.0, 1.0);
     let contribution = max(peak - 1.0, soft * soft * 0.5);
     return color * contribution / max(peak, 1.0e-6);
+}
+
+@fragment
+fn fs_prefilter(in: QuadOut) -> @location(0) vec4<f32> {
+    let source_size = textureDimensions(source_texture);
+    let scale = vec2<f32>(source_size) / blur.texel.xy;
+    let lower = floor(in.clip.xy) * scale;
+    let upper = min(lower + scale, vec2<f32>(source_size));
+    let first = vec2<u32>(floor(lower));
+    let end = min(vec2<u32>(ceil(upper)), source_size);
+    var sum = vec3<f32>(0.0);
+    // Quarter-edge targets bound each footprint to at most seven source texels
+    // per axis, including odd and sub-four dimensions. Every edge is weighted.
+    for (var y = first.y; y < end.y; y += 1u) {
+        let wy = max(0.0, min(f32(y + 1u), upper.y) - max(f32(y), lower.y));
+        for (var x = first.x; x < end.x; x += 1u) {
+            let wx = max(0.0, min(f32(x + 1u), upper.x) - max(f32(x), lower.x));
+            sum += bloom_threshold(textureLoad(source_texture, vec2<i32>(i32(x), i32(y)), 0).rgb) * wx * wy;
+        }
+    }
+    return vec4<f32>(sum / (scale.x * scale.y), 1.0);
+}
+
+// Preserve the existing five-tap kernel and configured axis radii. The new
+// prefilter has already applied the soft knee; never threshold this blur again.
+fn bloom_source(uv: vec2<f32>) -> vec3<f32> {
+    return textureSample(source_texture, source_sampler, uv).rgb;
 }
 
 @fragment
