@@ -360,7 +360,7 @@ impl PosedVisibility {
                     return Err("Posed ambient vertex range exceeds exact indexing".into());
                 }
                 if refresh_ambient {
-                    append_ambient(character, root, &mut frame.ambient);
+                    append_ambient(character, &cached.geometry.points, root, &mut frame.ambient)?;
                 }
             }
         }
@@ -406,9 +406,10 @@ impl PosedVisibility {
 
 fn append_ambient(
     character: &crate::engine::render::common::character::Character,
+    points: &[Vec3],
     root: f32,
     output: &mut Vec<super::posed_ambient::Vertex>,
-) {
+) -> Result<(), String> {
     let model = &character.asset().model;
     let transform = character.transform();
     let normal_transform = transform.inverse().transpose();
@@ -421,11 +422,11 @@ fn append_ambient(
     for (index, vertex) in model.vertices.iter().enumerate() {
         let joints = model.joints.get(index).copied().unwrap_or([0; 4]);
         let weights = model.weights.get(index).copied().unwrap_or([0.0; 4]);
-        let point = transform.transform_point3(Vec3::from_array(
-            character
-                .animator()
-                .skin_position(joints, weights, vertex.pos),
-        ));
+        let local = points
+            .get(index)
+            .copied()
+            .ok_or("Current posed ambient position is unavailable")?;
+        let point = transform.transform_point3(local);
         bounds.expand(point.to_array());
         let normal = normal_transform
             .transform_vector3(Vec3::from_array(vertex.normal.map_or([0.0; 3], |normal| {
@@ -446,6 +447,7 @@ fn append_ambient(
     for vertex in output.iter_mut().skip(first) {
         vertex.reach[0] = reach;
     }
+    Ok(())
 }
 
 fn append_transformed(

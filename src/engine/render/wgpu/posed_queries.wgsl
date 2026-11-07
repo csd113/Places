@@ -1,3 +1,8 @@
+// Preparation and fragment traversal have different register/branch costs.
+// Keep the fragment's original early parallel rejection; the ambient compute
+// program specializes this constant to defer edge lengths until a candidate hit.
+const POSED_DEFER_PARALLEL_TEST:bool = false;
+
 const POSED_DIRECTIONS = array<vec3<f32>, 64>(
         vec3<f32>(0.9998779222, 0.0000000000, 0.0156250000),
         vec3<f32>(-0.9998779222, -0.0000000000, -0.0156250000),
@@ -114,8 +119,15 @@ fn posed_character_visible(point: vec3<f32>, normal: vec3<f32>, source: vec3<f32
             let edge1 = triangle.edge1.xyz;
             let p = cross(ray, edge1);
             let determinant = dot(edge0, p);
-            let tolerance = 1.0e-7 * length(edge0) * length(edge1) * ray_length;
-            if (abs(determinant) <= tolerance) { continue; }
+            // A zero determinant cannot intersect. Reject barycentric/segment
+            // misses before evaluating the scale-aware parallel tolerance;
+            // only a candidate hit needs the two edge lengths.
+            if (POSED_DEFER_PARALLEL_TEST) {
+                if (determinant == 0.0) { continue; }
+            } else {
+                let tolerance = 1.0e-7 * length(edge0) * length(edge1) * ray_length;
+                if (abs(determinant) <= tolerance) { continue; }
+            }
             let offset = origin - triangle.a_solid.xyz;
             let u = dot(offset, p) / determinant;
             let q = cross(offset, edge0);
@@ -123,6 +135,10 @@ fn posed_character_visible(point: vec3<f32>, normal: vec3<f32>, source: vec3<f32
             let t = dot(edge1, q) / determinant;
             if (u >= -1.0e-6 && v >= -1.0e-6 && u + v <= 1.000001 &&
                 t > 0.00005 * scale / ray_length && t < 1.0 - 0.00001 * scale / ray_length) {
+                if (POSED_DEFER_PARALLEL_TEST) {
+                    let tolerance = 1.0e-7 * length(edge0) * length(edge1) * ray_length;
+                    if (abs(determinant) <= tolerance) { continue; }
+                }
                 return false;
             }
         }

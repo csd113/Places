@@ -5949,7 +5949,6 @@ impl WgpuRenderer {
         }
         let frame = prepare_world_frame(camera, self.drawable_size)
             .with_occlusion(self.world.as_ref(), self.culling);
-        self.flush_posed_ambient(true);
         // Animated emissions are level data; advancing them is a handful of
         // uniform writes, and a still material writes nothing.
         if let Some(materials) = self.world_materials.as_mut() {
@@ -5980,6 +5979,18 @@ impl WgpuRenderer {
             None
         };
         self.active_plane = plane_index;
+        // Pending receiver work survives skipped views. A later visible frame
+        // consumes the latest uploaded pose before its first draw. Any active
+        // planar capture conservatively requests all receivers; a flashlight
+        // depth pass needs geometry, not these receiving-light queries.
+        if plane_index.is_some()
+            || self
+                .world_characters
+                .as_ref()
+                .is_some_and(|characters| characters.posed_visibility_needed(&frame, self.culling))
+        {
+            self.flush_posed_ambient(true);
+        }
         // Select the probe nearest the camera every frame.
         self.active_probe = if self.reflections_enabled {
             crate::engine::render::common::reflections::nearest_probe(

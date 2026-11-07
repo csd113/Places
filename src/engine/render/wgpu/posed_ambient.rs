@@ -51,15 +51,14 @@ impl Ambient {
     }
 
     fn pipeline(device: &wgpu::Device) -> wgpu::ComputePipeline {
+        let queries = super::posed_visibility::query_source().replace(
+            "const POSED_DEFER_PARALLEL_TEST:bool = false;",
+            "const POSED_DEFER_PARALLEL_TEST:bool = true;",
+        );
         let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("places-posed-ambient"),
             source: wgpu::ShaderSource::Wgsl(
-                format!(
-                    "{}{}",
-                    super::posed_visibility::query_source(),
-                    include_str!("posed_ambient.wgsl")
-                )
-                .into(),
+                format!("{}{}", queries, include_str!("posed_ambient.wgsl")).into(),
             ),
         });
         device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {

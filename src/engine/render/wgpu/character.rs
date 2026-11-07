@@ -1232,6 +1232,17 @@ impl WgpuCharacters {
         })
     }
 
+    /// Self-lighting is consumed only by a drawn receiving character. Use the
+    /// same current posed bounds as the draw list; shadow-only geometry does
+    /// not sample these receiver resources.
+    pub fn posed_visibility_needed(&self, frame: &super::world::WorldFrame, cull: bool) -> bool {
+        self.characters.iter().any(|entry| {
+            entry.visible
+                && entry.environment.uploaded_uniform().entity_bounds_extent[3] != 0.0
+                && (!cull || frame.visible(&entry.world_bounds))
+        })
+    }
+
     /// One character's world bounds.
     #[must_use]
     pub fn world_bounds(&self, character: usize) -> Option<Aabb> {

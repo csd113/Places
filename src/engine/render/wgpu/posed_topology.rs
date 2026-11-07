@@ -16,6 +16,8 @@ struct Face {
 pub(super) struct Geometry {
     pub nodes: Vec<Node>,
     pub triangles: Vec<Triangle>,
+    /// Exact local posed positions shared by topology and ambient preparation.
+    pub points: Vec<Vec3>,
     faces: Vec<Face>,
 }
 
@@ -26,31 +28,28 @@ fn point(points: &[Vec3], index: u16) -> Result<Vec3, String> {
         .ok_or_else(|| "Posed topology vertex is unavailable".into())
 }
 
-fn positions(character: &Character) -> Result<Vec<Vec3>, String> {
+fn positions(character: &Character, output: &mut Vec<Vec3>) -> Result<(), String> {
+    output.clear();
     let model = &character.asset().model;
-    model
-        .vertices
-        .iter()
-        .enumerate()
-        .map(|(index, vertex)| {
-            let p = Vec3::from_array(character.animator().skin_position(
-                model.joints.get(index).copied().unwrap_or([0; 4]),
-                model.weights.get(index).copied().unwrap_or([0.0; 4]),
-                vertex.pos,
-            ));
-            if p.is_finite() {
-                Ok(p)
-            } else {
-                Err("Nonfinite posed visibility vertex".into())
-            }
-        })
-        .collect()
+    for (index, vertex) in model.vertices.iter().enumerate() {
+        let point = Vec3::from_array(character.animator().skin_position(
+            model.joints.get(index).copied().unwrap_or([0; 4]),
+            model.weights.get(index).copied().unwrap_or([0.0; 4]),
+            vertex.pos,
+        ));
+        if !point.is_finite() {
+            return Err("Nonfinite posed visibility vertex".into());
+        }
+        output.push(point);
+    }
+    Ok(())
 }
 
 impl Geometry {
     pub fn new(character: &Character) -> Result<Self, String> {
         let model = &character.asset().model;
-        let points = positions(character)?;
+        let mut points = Vec::with_capacity(model.vertices.len());
+        positions(character, &mut points)?;
         let mut faces = Vec::new();
         for part in model
             .submeshes
@@ -91,14 +90,21 @@ impl Geometry {
         let mut result = Self {
             nodes,
             triangles: Vec::with_capacity(faces.len()),
+            points: Vec::new(),
             faces,
         };
         result.refit_points(&points)?;
+        result.points = points;
         Ok(result)
     }
 
     pub fn refit(&mut self, character: &Character) -> Result<(), String> {
-        self.refit_points(&positions(character)?)
+        // Keep this allocation and skin each vertex once. Ambient sampling
+        // consumes the same positions after the topology has been refitted.
+        let mut points = std::mem::take(&mut self.points);
+        let result = positions(character, &mut points).and_then(|()| self.refit_points(&points));
+        self.points = points;
+        result
     }
 
     fn refit_points(&mut self, points: &[Vec3]) -> Result<(), String> {
