@@ -13,6 +13,33 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — Unreleased
 
+- Correct illumination from flashlights and other attached lights on dark,
+  pre-lit surfaces. Keep surface marks and details behind transparent objects and
+  blend them into fog properly. Show the sky and celestial objects in mirrors and
+  apply weather effects more consistently to reflected characters. Make thin
+  glowing details less likely to disappear from the glow effect. Preserve
+  individual prop colour tints and texture edges when generating smaller texture
+  versions.
+
+- Avoid rebuilding unrelated objects' resources when characters or props are
+  added or removed, helping avoid scene-change hitches. Reduce repeated work for
+  transparent objects, reflections and views that are not being displayed.
+  Prepare flashlight effects earlier to reduce first-use hitches, and move some
+  sky preparation and graphics setup away from moments that could interrupt
+  gameplay. Skip objects that cannot appear in a reflection and characters
+  outside an auxiliary view earlier.
+
+- Improve recovery from display interruptions without presenting an untouched
+  frame during normal recovery. Detect oversized lighting data before graphics
+  allocation fails, fix handling of certain texture sizes and reduce unnecessary
+  temporary allocations.
+
+Matched M2 Pro/Metal tests at 1920×1080, High/Full, reflections off and glow on
+show nearly unchanged average FPS in the close-up and doorway scenes, with
+substantially improved worst close-up frame times. A six-ghost scene is about
+1.8% slower; a focused control points to the corrected glow effect as the added
+cost. These scene-specific results do not establish a general FPS gain.
+
 - Integrate the benevolent Feltling guide with authored routes, wait/resume and
   strictly-over-20-metre attention gestures, reusable conversation/celebration
   hooks, native animation ownership, checkpoints and original spatial babble.
