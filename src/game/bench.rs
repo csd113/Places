@@ -295,6 +295,8 @@ pub enum GraphicsChange {
     Bloom(bool),
     /// Independent Low lighting override, preserving texture quality.
     LowLighting(bool),
+    /// `self-shadows=<on|off>`: the ordinary Advanced preference.
+    SelfShadows(bool),
 }
 
 /// Parses one `PLACES_BENCH_GRAPHICS_CYCLE` entry, `[<setting>=<value>]`.
@@ -321,6 +323,7 @@ pub fn parse_graphics_change(value: &str) -> Option<GraphicsChange> {
         "reflections" => ReflectionQuality::parse(setting_value).map(GraphicsChange::Reflections),
         "bloom" => parse_on_off(setting_value).map(GraphicsChange::Bloom),
         "low-lighting" => parse_on_off(setting_value).map(GraphicsChange::LowLighting),
+        "self-shadows" => parse_on_off(setting_value).map(GraphicsChange::SelfShadows),
         _ => None,
     }
 }

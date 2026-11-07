@@ -55,5 +55,28 @@ fn buried_contact_rejects_overhead_floors_without_losing_supported_casters() -> 
         shadow(-0.1, 0.55).is_some(),
         "partly embedded visible casters remain eligible"
     );
+    // Regression: a downward residual lobe displaced Tall Guest's grounding
+    // footprint by over three metres although it stood on this floor.
+    let downward = contact_shadow(
+        Aabb {
+            min: [-0.7, 0.0, -0.5],
+            max: [0.7, 3.5, 0.5],
+        },
+        &surfaces,
+        [-0.245_791_63, -0.730_540_16, -0.637_100_8],
+    )
+    .ok_or("lost grounded character under residual floor light")?;
+    assert_eq!(downward.incoming, [0.0, 1.0, 0.0, 1.0]);
+    let overhead = contact_shadow(
+        Aabb {
+            min: [-0.7, 0.0, -0.5],
+            max: [0.7, 3.5, 0.5],
+        },
+        &surfaces,
+        [0.6, 0.8, 0.0],
+    )
+    .ok_or("lost valid overhead projection")?;
+    assert!((overhead.incoming[0] - 0.6).abs() < 0.000_001);
+    assert!((overhead.incoming[1] - 0.8).abs() < 0.000_001);
     Ok(())
 }

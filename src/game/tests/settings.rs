@@ -231,3 +231,30 @@ fn presentation_choices_preserve_independent_quality_and_master_zero()
     );
     Ok(())
 }
+
+// The opt-in must never silently enable itself on upgrade or a quality change.
+#[test]
+fn character_self_shadow_opt_in_persists_and_defaults_off() -> Result<(), Box<dyn std::error::Error>>
+{
+    let directory = SettingsDirectory::new()?;
+    let path = directory.0.join("self-shadows.json");
+    fs::write(&path, r#"{"quality":"high","lightmaps":"full"}"#)?;
+    let mut settings = Settings::load_or_default_from_path(&path);
+    assert!(!settings.real_character_self_shadows);
+    for enabled in [true, false, true] {
+        assert!(settings.set_real_character_self_shadows(enabled));
+        assert!(settings.take_pending_apply().graphics);
+        assert!(!settings.set_real_character_self_shadows(enabled));
+        assert!(!settings.take_pending_apply().graphics);
+        let _quality_changed = settings.set_quality(QualityLevel::Low);
+        let _lighting_changed = settings.set_lightmap_quality(LightmapQuality::Off);
+        let _reflections_changed = settings.set_reflection_quality(ReflectionQuality::Off);
+        assert_eq!(settings.real_character_self_shadows, enabled);
+        settings.save_to_path(&path)?;
+        settings = Settings::load_or_default_from_path(&path);
+        assert_eq!(settings.real_character_self_shadows, enabled);
+    }
+    settings.restore_defaults();
+    assert!(!settings.real_character_self_shadows);
+    Ok(())
+}

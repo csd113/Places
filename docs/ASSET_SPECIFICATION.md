@@ -976,6 +976,21 @@ normal runtime texture         256x 256 native
   [MAP_AUTHORING_GUIDE.md section 16](MAP_AUTHORING_GUIDE.md#16-props-and-models).
 
 
+The reviewed Tall Guest has a separate `cavity_visibility.bin` lighting-data
+sidecar beside its original GLB. It contains one quantized scalar accessibility
+per decoded vertex (5,138 bytes), in the original primitive/vertex order. Only
+the 624 inner-mouth vertices of primitive/material 1 carry the fixed
+64-direction bake; all 4,514 exterior/body vertices retain unity. This is computed lighting data, not a new
+texture or modified geometry. The original model/PNG/rig/clip bytes stay intact.
+The loader's exact-export hash check and the vertex-count gate bind it to the
+reviewed asset; renamed/material-variant assets receive no baked attenuation.
+`cavity_visibility.json` records source identity, bake reference and limitations.
+The inner material is matte for this path, so an independent sheen cannot undo
+the cavity attenuation. This intentionally trades dynamic interior shadow
+response for fixed shading that moves with the existing mesh. Enabling Advanced
+`Real character self shadows (WARNING major performance hit)` restores the
+original albedo and material response and uses the retained realtime path.
+
 ### 8.6 Replacing a model texture
 
 The November 2026 [NPC texture refresh](art-style/npc-textures-2026-11-03.md)

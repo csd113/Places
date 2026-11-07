@@ -169,7 +169,15 @@ pub fn contact_shadow(
     if !half.is_finite() || half.min_element() <= 0.0 {
         return None;
     }
-    let direction = Vec3::from_array(incoming).normalize_or(Vec3::Y);
+    let incoming_direction = Vec3::from_array(incoming).normalize_or(Vec3::Y);
+    // Residual probes can be dominated by light bouncing up from the floor.
+    // That below-receiver lobe cannot project a cast shadow down onto the
+    // same floor. Keep its ambient grounding footprint beneath the subject.
+    let direction = if incoming_direction.y > 0.0 {
+        incoming_direction
+    } else {
+        Vec3::Y
+    };
     let grounded = (1.0 - (minimum.y - floor_y).max(0.0) / 0.5).clamp(0.0, 1.0);
     if grounded <= 0.0 {
         return None;

@@ -357,8 +357,7 @@ fn settings_layout(
 ) {
     let rows = settings_rows(ui.settings_page, settings, display, ui.advanced_expanded);
     let total = rows.len().saturating_sub(1);
-    let is_controls = ui.settings_page == SettingsPage::Controls;
-    let visible = if is_controls { 7 } else { total };
+    let visible = total.min(7);
     let offset = visible_offset(ui.settings_scroll, ui.settings_idx, total, visible);
     let height = if ui.settings_page == SettingsPage::Root {
         24.0
@@ -370,20 +369,19 @@ fn settings_layout(
     } else {
         17.0
     };
-    for (position, (index, setting)) in rows
-        .iter()
-        .enumerate()
-        .skip(offset)
-        .take(visible)
-        .enumerate()
-    {
+    let mut top = 70.0;
+    for (index, setting) in rows.iter().enumerate().skip(offset).take(visible) {
+        let warning =
+            setting.kind == SettingsRowKind::Value(SettingsValue::RealCharacterSelfShadows);
+        let extra = if warning { 10.0 } else { 0.0 };
         let mut entry = row(
             index,
             setting.label.clone(),
             setting.value.clone(),
-            row_y(position, spacing, 70.0),
-            height,
+            top,
+            height + extra,
         );
+        top += spacing + extra;
         entry.adjustable = matches!(setting.kind, SettingsRowKind::Value(_));
         entry.slider = setting.kind == SettingsRowKind::Value(SettingsValue::MasterVolume);
         entry.enabled = match setting.kind {
@@ -403,7 +401,7 @@ fn settings_layout(
     layout
         .rows
         .push(row(total, "Back".to_string(), String::new(), 208.0, 16.0));
-    if is_controls {
+    if total > visible {
         layout.scroll = Some((offset, visible, total));
     }
 }
@@ -568,6 +566,10 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
             } else {
                 236.0
             };
+            if draw_warning_label(vertices, entry, color) {
+                draw_value(vertices, entry, ui, color);
+                continue;
+            }
             let scale = if main { 1.4 } else { 1.0 };
             draw_text(
                 vertices,
@@ -582,6 +584,31 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
     }
     draw_scroll(vertices, layout, ui);
 }
+/// Keep the complete opt-in warning on two lines inside its taller hit target.
+fn draw_warning_label(vertices: &mut Vec<Vertex>, entry: &MenuRow, color: [f32; 3]) -> bool {
+    let Some((label, warning)) = entry.label.split_once(" (WARNING ") else {
+        return false;
+    };
+    let bounds = entry.bounds;
+    draw_text(
+        vertices,
+        label,
+        bounds.left + 8.0,
+        bounds.top + 4.0,
+        1.0,
+        color,
+    );
+    draw_text(
+        vertices,
+        &format!("(WARNING {warning}"),
+        bounds.left + 8.0,
+        bounds.top + 15.0,
+        0.75,
+        color,
+    );
+    true
+}
+
 fn draw_scroll(vertices: &mut Vec<Vertex>, layout: &MenuLayout, ui: &UiState) {
     if let Some((offset, visible, total)) = layout.scroll {
         let first = offset.saturating_add(1);
@@ -757,7 +784,9 @@ fn description(
                 Some(SettingsRowKind::Binding(_)) => {
                     "Select a binding, then press a key. Esc cancels."
                 }
-                Some(SettingsRowKind::Advanced) => "Texture filtering and reflections.",
+                Some(SettingsRowKind::Advanced) => {
+                    "Character self shadows, texture filtering and reflections."
+                }
                 Some(SettingsRowKind::Value(value)) => match value {
                     SettingsValue::VisualStyle => {
                         "Standard, CRT, Legacy or VHS. Applies immediately; quality stays independent."
@@ -780,6 +809,9 @@ fn description(
                         "Static or Full lighting; keeps your texture preferences."
                     }
                     SettingsValue::Reflections => "Reflected surroundings on shiny surfaces.",
+                    SettingsValue::RealCharacterSelfShadows => {
+                        "Realtime body and mouth self shadows. Major performance hit; floor shadows stay enabled."
+                    }
                     SettingsValue::WindowMode => "Windowed or borderless fullscreen.",
                     SettingsValue::Resolution if display.mode == WindowMode::Fullscreen => {
                         "Fullscreen uses your display's size."

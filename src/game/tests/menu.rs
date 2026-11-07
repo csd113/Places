@@ -1,6 +1,7 @@
 //! Essential regression coverage for full error retention, modal input ownership,
 //! and four-card paging. Tiny strings/rows only; no assets, GPU or map bake.
 use super::*;
+use crate::game::ui::activate_settings_item;
 
 #[test]
 fn full_error_pages_retain_long_unicode_paths_and_own_input() {
@@ -231,4 +232,51 @@ fn odd_grid_rows_reach_pinned_actions_and_scroll_the_selected_card() {
     ui.level_select_idx = 0;
     ui.move_level_row(true);
     assert_eq!(ui.level_select_idx, 2);
+}
+
+// The long warning must remain reachable and must not cover the Back button.
+#[test]
+fn advanced_self_shadows_have_a_complete_warning_and_live_toggle() -> Result<(), String> {
+    let mut settings = Settings::default();
+    let display = DisplayStatus::default();
+    let mut ui = UiState::new();
+    ui.settings_page = SettingsPage::Graphics;
+    ui.advanced_expanded = true;
+    let rows = settings_rows(ui.settings_page, &settings, &display, true);
+    assert_eq!(rows.len(), ui.settings_page.item_count(true));
+    let (index, preference) = rows
+        .iter()
+        .enumerate()
+        .find(|(_, row)| {
+            row.kind == SettingsRowKind::Value(SettingsValue::RealCharacterSelfShadows)
+        })
+        .ok_or("missing advanced preference")?;
+    assert_eq!(
+        preference.label,
+        "Real character self shadows (WARNING major performance hit)"
+    );
+    ui.settings_idx = index;
+    for expected in [true, false] {
+        let _action = activate_settings_item(
+            SettingsPage::Graphics,
+            index,
+            &mut ui,
+            &mut settings,
+            &display,
+            0,
+        );
+        assert_eq!(settings.real_character_self_shadows, expected);
+        assert!(settings.take_pending_apply().graphics);
+    }
+    for selected in 0..rows.len() {
+        ui.settings_idx = selected;
+        let layout = menu_layout(AppState::Settings, &ui, &settings, &display);
+        assert!(layout.rows.iter().any(|row| row.index == selected));
+        assert!(
+            layout.rows.windows(2).all(
+                |pair| matches!(pair, [left, right] if left.bounds.bottom <= right.bounds.top)
+            )
+        );
+    }
+    Ok(())
 }

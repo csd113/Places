@@ -53,7 +53,7 @@ impl SettingsPage {
     ///
     /// The Graphics page's Advanced group changes the count: collapsed it is
     /// one row (`Advanced`), expanded it includes Texture Filtering and
-    /// Reflections. Lighting remains visible when collapsed. [`settings_rows`]
+    /// Reflections and character self shadows. Lighting remains visible when collapsed. [`settings_rows`]
     /// generates exactly this many rows; a unit test pins the two together.
     #[must_use]
     pub const fn item_count(self, advanced_expanded: bool) -> usize {
@@ -61,7 +61,7 @@ impl SettingsPage {
             Self::Root | Self::Audio => 6,
             Self::Graphics => {
                 if advanced_expanded {
-                    10
+                    11
                 } else {
                     8
                 }
@@ -112,6 +112,7 @@ pub enum SettingsValue {
     Bloom,
     Blood,
     Reflections,
+    RealCharacterSelfShadows,
     Lightmaps,
     Vsync,
     Filtering,
@@ -307,6 +308,7 @@ fn ui_signature(
     settings.lightmap_quality().hash(&mut hasher);
     settings.quality_level().hash(&mut hasher);
     settings.use_low_quality_lighting.hash(&mut hasher);
+    settings.real_character_self_shadows.hash(&mut hasher);
     settings.window_mode().hash(&mut hasher);
     settings.texture_filtering_preset().hash(&mut hasher);
     settings.window_size().hash(&mut hasher);
@@ -767,6 +769,12 @@ fn graphics_rows(settings: &Settings, advanced_expanded: bool) -> Vec<SettingsRo
     if advanced_expanded {
         push_row(
             &mut rows,
+            "Real character self shadows (WARNING major performance hit)",
+            selector(on_off(settings.real_character_self_shadows)),
+            SettingsRowKind::Value(SettingsValue::RealCharacterSelfShadows),
+        );
+        push_row(
+            &mut rows,
             "Texture Filtering",
             selector(filtering_label(settings.texture_filtering_preset())),
             SettingsRowKind::Value(SettingsValue::Filtering),
@@ -987,6 +995,15 @@ pub fn activate_settings_row(
     activate_settings_item(page, idx, ui_state, settings, display, 0)
 }
 
+fn adjust_self_shadows(ui_state: &mut UiState, settings: &mut Settings) {
+    let enabled = !settings.real_character_self_shadows;
+    let _changed = settings.set_real_character_self_shadows(enabled);
+    ui_state.set_status(
+        format!("Real character self shadows: {}", on_off(enabled)),
+        false,
+    );
+}
+
 /// Applies one left/right or Enter step to an adjustable option.
 fn adjust_value(
     value: SettingsValue,
@@ -1019,6 +1036,7 @@ fn adjust_value(
                 ui_state.set_status(format!("Reflections: {}", next.label()), false);
             }
         }
+        SettingsValue::RealCharacterSelfShadows => adjust_self_shadows(ui_state, settings),
         SettingsValue::Lightmaps => adjust_lightmaps(ui_state, settings, direction),
         SettingsValue::Vsync => {
             let next = settings.toggle_vsync();

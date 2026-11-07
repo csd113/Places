@@ -1,0 +1,33 @@
+{
+  "source_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
+  "visibility_source": "candidate4-capture-tall/game.log: posed-ambient values",
+  "samples": 64,
+  "vertex_count": 5138,
+  "scope": "Fixed inner-mouth accessibility only (primitive/material 1, 624 vertices); all 4,514 exterior/body vertices remain unity. Scalar attenuation follows the mesh, not moving directional occlusion.",
+  "sha256": "65e99c3a66f60086f64021a7be6052d950f03f9fb6f8e569280a13b930dbe92c",
+  "data_sha256": "65e99c3a66f60086f64021a7be6052d950f03f9fb6f8e569280a13b930dbe92c",
+  "reproduce": "Run isolated Tall Guest held-idle reference with PLACES_BENCH=1 real_character_self_shadows=true in settings PLACES_POSED_AMBIENT_DUMP=1, then python3 tools/entities/bake_tall_guest_cavity.py --log <game.log> --model assets/entities/tall_guest/model/tall_guest.glb --output <new-directory>.",
+  "reference": {
+    "player_sha256": "1b958c91da6b0b30be985ce6cbaa65724395da1f0893876fe95ccb128ed81070",
+    "fixture_sha256": "685e5211fe78b0a369136c83c906d14760e37bfe79f3e835aac3a52ae2768dae",
+    "model_position": [
+      0,
+      0,
+      22
+    ],
+    "model_yaw": 0,
+    "scale": 1,
+    "camera": [
+      0,
+      2.9,
+      25
+    ],
+    "held": true,
+    "initial_fixed_delta_seconds": 0.016666667,
+    "capture_frame": 80,
+    "primitive_vertices": [
+      4514,
+      624
+    ]
+  }
+}

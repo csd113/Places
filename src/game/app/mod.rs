@@ -399,6 +399,7 @@ fn create_renderer(
     // their `PLACES_*` startup overrides already folded in). Filtering is
     // recorded before the level upload so the load-time texture diagnostic
     // names the preset actually in force.
+    renderer.set_real_character_self_shadows(settings.real_character_self_shadows);
     renderer.set_bloom_enabled(settings.bloom_enabled());
     renderer.set_texture_filtering(settings.texture_filtering_preset());
     renderer.set_culling(!bench.no_cull());
@@ -1801,6 +1802,8 @@ impl FrameLoop<'_> {
         self.renderer
             .set_reflection_quality(self.settings.reflection_quality());
         self.renderer
+            .set_real_character_self_shadows(self.settings.real_character_self_shadows);
+        self.renderer
             .set_bloom_enabled(self.settings.bloom_enabled());
         self.renderer
             .set_texture_filtering(self.settings.texture_filtering_preset());
@@ -1815,6 +1818,7 @@ impl FrameLoop<'_> {
                     "quality": self.settings.quality_level().name(),
                     "lighting": self.settings.lighting_quality().name(),
                     "use_low_quality_lighting": self.settings.use_low_quality_lighting,
+                "real_character_self_shadows": self.settings.real_character_self_shadows,
                     "lightmaps": self.requested_graphics().lightmaps.name(),
                     "reflections": self.settings.reflection_quality().name(),
                     "bloom": self.settings.bloom_enabled(),
@@ -1846,6 +1850,7 @@ impl FrameLoop<'_> {
                 "quality": self.settings.quality_level().name(),
                 "lighting": self.settings.lighting_quality().name(),
                 "use_low_quality_lighting": self.settings.use_low_quality_lighting,
+                "real_character_self_shadows": self.settings.real_character_self_shadows,
                 "lightmaps": self.requested_graphics().lightmaps.name(),
                 "reflections": self.settings.reflection_quality().name(),
                 "bloom": self.settings.bloom_enabled(),
@@ -1905,6 +1910,9 @@ impl FrameLoop<'_> {
             }
             bench::GraphicsChange::Bloom(enabled) => {
                 let _ = self.settings.set_bloom(enabled);
+            }
+            bench::GraphicsChange::SelfShadows(enabled) => {
+                let _ = self.settings.set_real_character_self_shadows(enabled);
             }
             bench::GraphicsChange::LowLighting(enabled) => {
                 let _ = self.settings.set_use_low_quality_lighting(enabled);
@@ -4024,6 +4032,13 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn trace_character_preferences(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "real_character_self_shadows".into(),
+            self.settings.real_character_self_shadows.into(),
+        ));
+    }
+
     fn record_world_snapshot(&mut self, event: &str) {
         let (renderer_level, renderer_quality, renderer_lightmaps) =
             self.renderer.installed_identity();
@@ -4059,6 +4074,7 @@ impl FrameLoop<'_> {
             "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
         });
         if let Some(fields) = state.as_object_mut() {
+            self.trace_character_preferences(fields);
             self.trace_map_ownership(fields);
             self.trace_moving_solids(fields);
             drop(fields.insert("crosshair_visible".into(), self.crosshair_visible().into()));

@@ -890,6 +890,7 @@ pub struct WgpuRenderer {
     /// actors. Rebuilt on level install and graphics changes; advanced by
     /// `sync_characters`.
     characters: CharacterScene,
+    real_character_self_shadows: bool,
     /// The GPU side of the character scene: shared index buffers, one mutable
     /// skinned vertex buffer per character and one environment per character.
     world_characters: Option<WgpuCharacters>,
@@ -1342,6 +1343,7 @@ impl WgpuRenderer {
             installed_level: None,
             world_dynamic: None,
             characters: CharacterScene::new(),
+            real_character_self_shadows: false,
             world_characters: None,
             character_skin_pipeline: None,
             character_pipeline_job: None,
@@ -3527,6 +3529,7 @@ impl WgpuRenderer {
         let planar = &self.planar_fallback_view;
         let environment = self.level_environment();
         let mut ctx = CharacterUploadContext {
+            real_self_shadows: self.real_character_self_shadows,
             device: &self.device,
             queue: &self.queue,
             cache: &mut self.textures,
@@ -4789,6 +4792,8 @@ impl WgpuRenderer {
                 build.probes.as_deref(),
             )
         });
+        self.characters
+            .set_real_self_shadows(self.real_character_self_shadows);
         let claimed_characters = self.characters.claimed_models().to_vec();
         let world_props = uploaded_props.unwrap_or_else(|| {
             WgpuProps::upload_with_blacklight(
@@ -5781,6 +5786,24 @@ impl WgpuRenderer {
             filtering.name(),
             filtering.anisotropy()
         ));
+    }
+
+    /// Switches character self-occlusion and the reviewed mouth fallback together.
+    /// A rare preference change rebuilds character materials and pose buffers;
+    /// immutable textures and compiled pipelines remain shared. Gameplay poses,
+    /// world lighting and floor grounding are untouched.
+    pub fn set_real_character_self_shadows(&mut self, enabled: bool) {
+        if self.real_character_self_shadows == enabled {
+            return;
+        }
+        self.real_character_self_shadows = enabled;
+        self.characters.set_real_self_shadows(enabled);
+        self.static_visibility
+            .posed
+            .update(&self.device, &self.queue, &self.characters);
+        self.world_characters = None;
+        self.upload_characters_gpu();
+        self.ensure_character_blend_pipelines();
     }
 
     /// Records whether bloom is enabled.
@@ -7579,10 +7602,12 @@ impl WgpuRenderer {
                     "native_marker_stride": field.probes.len().div_ceil(2048).max(1),
                 })),
                 "runtime_visibility_scene": self.dynamic_transport.is_some(),
+                "real_character_self_shadows": self.real_character_self_shadows,
                 "posed_self_visibility": {"nodes":self.static_visibility.posed.node_count,"triangles":self.static_visibility.posed.triangle_count,"generation":self.static_visibility.posed.generation,"ambient_vertices":self.static_visibility.posed.ambient.vertex_count(),"ambient_device_bytes":self.static_visibility.posed.ambient.device_bytes(),"error":self.static_visibility.posed.error},
                 "movable_visibility": self.dynamic_visibility.stats(),
                 "movable_visibility_error": self.dynamic_visibility_error,
                 "contact_subjects": self.contact_shadow_count,
+                "contact_uniforms": self.contact_shadows.get(..self.contact_shadow_count).unwrap_or(&[]).iter().map(|shadow| serde_json::json!({"position_floor":shadow.position_floor,"half_height":shadow.half_height,"incoming":shadow.incoming,"receiver_plane":shadow.receiver_plane})).collect::<Vec<_>>(),
                 "contact_shadows": self.contact_shadows.get(..self.contact_shadow_count).unwrap_or(&[]).iter().map(|shadow| shadow.position_floor).collect::<Vec<_>>(),
                 "entity_uniform_bytes": std::mem::size_of::<EnvironmentUniform>(),
             },

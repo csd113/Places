@@ -1171,6 +1171,29 @@ receiver is outside the view. The ambient compute query rejects barycentric and
 segment misses before evaluating edge lengths, retaining the same parallel
 tolerance; fragment queries retain their original evaluation order.
 
+Realtime opaque-character self-visibility is an explicit opt-in under Graphics >
+Advanced: `Real character self shadows (WARNING major performance hit)`.
+The persisted `real_character_self_shadows` boolean defaults to false, including
+older settings files without this key. Texture quality, lighting and reflection
+changes preserve the choice. The realtime implementation remains available;
+turning it on restores original character albedo/materials and current-pose
+ambient/practical self-occlusion. Turning it off clears pending self-visibility
+work and receiver selectors; ordinary lighting, world/rigid occlusion, animation,
+flashlight casting and floor grounding remain active in both modes.
+
+With this option off, only the exact reviewed Tall Guest export receives fixed,
+mesh-attached cavity accessibility on its 624 inner-mouth vertices (material 1)
+and a matte inner-mouth response. All 4,514 exterior/body vertices retain their
+original albedo. Other characters have no added baked shading. This deliberately
+trades changing directional interior shadows for a dark cavity that follows the
+rig; diffuse light still responds to the environment. The renderer rebuilds
+character materials/pose buffers on a live preference change while retaining
+shared textures and compiled pipelines. No world bake is required.
+
+Grounding footprints use a centred fallback for a downward residual-light lobe,
+which represents floor bounce rather than an overhead shadow-casting source.
+This correction is independent of the character self-shadow preference.
+
 A character's per-instance opacity (the level's fade component; `1.0` without one) travels in its group-3 environment, where the shader multiplies it into fragment coverage (including transparent emission blending) — a faded ghost covers and blooms proportionally less. `WgpuCharacters::sync_with_blacklight` compares the complete environment, including transform, opacity and refreshed lighting, and writes only when that payload changed; that ordinary sync writes nothing for a settled pose with unchanged lighting. The compatible per-view batch stream is described below. A submesh whose glTF material is `alphaMode: "BLEND"` (the sheet ghost) draws in the shared back-to-front order across world/prop/dynamic/character transparency, with the translucent pipeline (blend, depth writes off) and the scene index as the deterministic tie-break; a `MASK` submesh uses the same cutout pipeline as static and movable content, and translucent character submeshes are included in the emissive pass so their bloom fades with them.
 
 Up to `MAX_CHARACTERS` (128) characters are drawn per level. Each owns one posed vertex buffer and one group-3 environment, both sized by its own model's bounded vertex count, so the budget is a per-frame skinning bound rather than one fixed GPU allocation; a level that places more keeps the extras in the static prop batch in their bind pose and reports the budget.

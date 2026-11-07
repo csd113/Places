@@ -28,6 +28,7 @@ fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
         animator,
         albedo: Vec::new(),
         albedo_revision: 0,
+        albedo_tint: [1.0; 3],
         entity_lighting: EntityLighting {
             prepared: None,
             display: [1.0; 3],

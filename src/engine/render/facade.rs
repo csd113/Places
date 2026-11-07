@@ -392,6 +392,11 @@ impl Renderer {
         self.renderer.set_reflection_quality(quality);
     }
 
+    /// Selects realtime character self-occlusion; floor grounding is independent.
+    pub fn set_real_character_self_shadows(&mut self, enabled: bool) {
+        self.renderer.set_real_character_self_shadows(enabled);
+    }
+
     /// Switches bloom on or off.
     ///
     /// The gate applies at the next frame's post settings: with bloom off no

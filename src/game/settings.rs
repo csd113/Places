@@ -586,6 +586,9 @@ pub struct Settings {
     /// rewriting the saved lighting path; the visible selector clears it.
     #[serde(default)]
     pub use_low_quality_lighting: bool,
+    /// Expensive realtime opaque-character self-occlusion. Explicit opt-in.
+    #[serde(default)]
+    pub real_character_self_shadows: bool,
     /// Windowed or borderless fullscreen. Persisted as `"windowed"` /
     /// `"fullscreen"`; an unknown value falls back to `"windowed"` rather than
     /// invalidating the file.
@@ -713,6 +716,7 @@ impl Default for Settings {
             reflections: ReflectionQuality::DEFAULT.name().to_string(),
             lightmaps: LightmapQuality::DEFAULT.name().to_string(),
             use_low_quality_lighting: false,
+            real_character_self_shadows: false,
             window_mode: default_window_mode(),
             window_width: default_window_width(),
             window_height: default_window_height(),
@@ -984,6 +988,16 @@ impl Settings {
         } else {
             QualityLevel::High
         }
+    }
+
+    /// Selects realtime character self-shadows without changing other graphics preferences.
+    pub const fn set_real_character_self_shadows(&mut self, enabled: bool) -> bool {
+        let changed = self.real_character_self_shadows != enabled;
+        self.real_character_self_shadows = enabled;
+        if changed {
+            self.pending.graphics = true;
+        }
+        changed
     }
 
     /// Selects the persistent Low lighting override and requests a live

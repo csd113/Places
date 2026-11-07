@@ -372,6 +372,7 @@ pub struct CharacterUploadContext<'a> {
     pub planar_fallback: &'a wgpu::TextureView,
     pub level: QualityLevel,
     pub lighting_level: QualityLevel,
+    pub real_self_shadows: bool,
 }
 
 /// Bounds follow the submitted pose, with only a numeric guard for CPU/GPU
@@ -715,6 +716,9 @@ impl WgpuCharacters {
                 .and_then(|index| textures.get(index).cloned())
                 .unwrap_or_else(|| ctx.cache.fallback());
             let uv_mask = Self::upload_response_mask(ctx, asset, source.response.fluorescence);
+            let cavity_interior = !ctx.real_self_shadows
+                && source.material == 1
+                && crate::engine::render::common::character::baked_cavity(asset).is_some();
             value.materials.push(GpuMaterial::model_with_fluorescence(
                 ctx.device,
                 ctx.queue,
@@ -726,7 +730,15 @@ impl WgpuCharacters {
                     albedo_tint: [1.0; 3],
                     emission: record,
                     alpha: source.alpha,
-                    response: source.response,
+                    response: if cavity_interior {
+                        crate::engine::materials::MaterialResponse {
+                            specular: [0.0; 3],
+                            roughness: 1.0,
+                            ..source.response
+                        }
+                    } else {
+                        source.response
+                    },
                     response_enabled: ctx.lighting_level.draws_surface_response(),
                 },
             ));

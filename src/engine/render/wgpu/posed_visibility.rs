@@ -128,7 +128,12 @@ impl PosedVisibility {
     /// A settled pose/placement reuses its BVH and uploads nothing. Alpha-tested
     /// and blended faces preserve the existing opaque snapshot's exclusion.
     pub fn update(&mut self, device: &wgpu::Device, queue: &wgpu::Queue, scene: &CharacterScene) {
-        if diagnostic_mode() == "disabled" {
+        if !scene.real_self_shadows() || diagnostic_mode() == "disabled" {
+            self.keys.clear();
+            self.geometry.clear();
+            self.node_count = 0;
+            self.triangle_count = 0;
+            self.error = None;
             self.roots.clear();
             self.ambient_bases.clear();
             self.ambient.clear();
