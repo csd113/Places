@@ -1,15 +1,19 @@
 {
-  "source_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
-  "visibility_source": "task-3/native/cavity-v05/game.log: current v0.3 held-idle native GPU posed-ambient",
+  "source_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
+  "visibility_source": "head-repair/native/final-cavity-held/game.log: freshly regenerated current-source native held-idle GPU dump",
+  "generated_utc": "2026-11-07T20:17:07.608102+00:00",
   "samples": 64,
   "vertex_count": 5138,
   "scope": "Fixed inner-mouth accessibility only (primitive/material 1, 624 vertices); all 4,514 exterior/body vertices remain unity. Scalar attenuation follows the mesh, not moving directional occlusion.",
   "sha256": "64ff904435eb53a17b2a3abef44d15dc17e17bed84d844cd8a3ce3bd440cae8b",
   "data_sha256": "64ff904435eb53a17b2a3abef44d15dc17e17bed84d844cd8a3ce3bd440cae8b",
+  "generator_sha256": "415f269d29d022c573e97c1987a2efccd707dd81c5a6d40f7b9542250e094565",
+  "native_log_sha256": "fbff6ce27a9b4df678744ce4f3e61411c718c1d1f94bf08f4c110409784412b5",
+  "native_dump_record_sha256": "3effae031581c463e8f2a45f9814bf4431085e715873e0fc9308ba70ace70c36",
   "reproduce": "Run isolated Tall Guest held-idle reference with PLACES_BENCH=1 real_character_self_shadows=true in settings PLACES_POSED_AMBIENT_DUMP=1, then python3 tools/entities/bake_tall_guest_cavity.py --log <game.log> --model assets/entities/tall_guest/model/tall_guest.glb --output <new-directory>.",
   "reference": {
-    "player_sha256": "6d4db339e69766fd0b9ae974859ab595fd2850f2923be5c3776a837da0273bab",
-    "fixture_sha256": "1cfa93a5fab301bc3a5d57d5f9817cb914ff30e5b23bba5486af243f92d8acfd",
+    "player_sha256": "3b299938ec2032b33abc693db85b12b876193ddcbe1637a6883a43cfc770f407",
+    "fixture_sha256": "e9ae537db906a126c72b91189ef8dab9534f44e86827d08c23d2310080b1842d",
     "model_position": [
       0,
       0,
@@ -30,9 +34,16 @@
       624
     ],
     "skin_joints": 127,
-    "source_geometry_grouping": "Unmodified GLB POSITION/NORMAL before bind arithmetic; corner-angle final-triangle normals."
+    "source_geometry_grouping": "Unmodified GLB POSITION/NORMAL before bind arithmetic; corner-angle final-triangle normals.",
+    "candidate_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3"
   },
   "interior_attenuated": 562,
   "interior_unity": 62,
-  "exterior_unity": 4514
+  "exterior_unity": 4514,
+  "previous_certificate": {
+    "source_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+    "data_sha256": "64ff904435eb53a17b2a3abef44d15dc17e17bed84d844cd8a3ce3bd440cae8b",
+    "preserved_as": "Baseline historical evidence; not relabeled."
+  },
+  "native_visual_acceptance": "Accepted in bright native six-view clips, complete chase/capture/swallow/recovery and explicitly enabled realtime comparisons."
 }

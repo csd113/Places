@@ -538,4 +538,10 @@
     "Future replacement must revalidate source identity and cavity vertex mapping.",
     "Exact shader/settings/reflection acceptance at 98aed14d and aac1c97a reused where unchanged; not repeated for documentation."
   ]
+,
+  "tall_guest_followup": {
+  "status": "Historical v0.3 survey entry retained; superseded for Tall Guest by docs/reports/tall-guest-head-repair.md",
+  "current_model_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
+  "current_cavity_sha256": "64ff904435eb53a17b2a3abef44d15dc17e17bed84d844cd8a3ce3bd440cae8b"
+}
 }

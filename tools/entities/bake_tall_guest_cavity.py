@@ -19,7 +19,7 @@ parser.add_argument('--model', type=Path, required=True)
 parser.add_argument('--output', type=Path, required=True)
 args = parser.parse_args()
 source = args.model.read_bytes()
-assert hashlib.sha256(source).hexdigest() == '74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1'
+assert hashlib.sha256(source).hexdigest() == 'c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3'
 length = struct.unpack_from('<I', source, 12)[0]
 gltf = json.loads(source[20:20+length])
 binary = source[28+length:]

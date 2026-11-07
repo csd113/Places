@@ -1,15 +1,15 @@
 {
   "asset": {
-    "filename": "Tall_Guest_Capture_Swallow_v0_3.glb",
-    "sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
-    "bytes": 5232580,
-    "version": "0.3.0"
+    "filename": "Tall_Guest_Head_Repair_v0_4_2.glb",
+    "sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
+    "bytes": 5238672,
+    "version": "0.4.2-approach-blend-repair"
   },
   "contract": {
-    "asset": "Tall_Guest_Capture_Swallow_v0_3.glb",
-    "asset_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
-    "version": "0.3.0",
-    "status": "Native integration and acceptance required",
+    "asset": "Tall_Guest_Head_Repair_v0_4_2.glb",
+    "asset_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
+    "version": "0.4.2-approach-blend-repair",
+    "status": "Accepted in current-source Mac native game; multi-angle approach, capture, swallow, recovery, default and realtime comparison.",
     "units": "metres, seconds; right-handed +Y up, +Z forward; scale unchanged",
     "clips": {
       "capture_prey": {
@@ -62,9 +62,9 @@
     },
     "integration_baseline": {
       "repository": "csd113/Places",
-      "commit": "d117080e31aa6d0db0bb42bbf5e94a26434caac9",
+      "commit": "d4e2cb1f6e8819719346bcacd4a2de3c2c99c1fa",
       "version": "0.13.1-dev",
-      "scope": "Read-only engine inspection; this asset has not been accepted in the native game."
+      "scope": "Canonical task-30 Mac checkout; no final duck map work."
     },
     "lifecycle_notes": [
       "Before capture begins, stop at the validated intercept and smoothly settle the prey into the verified stationary bind pose. Do not snap a running pose into the attachment.",
@@ -72,12 +72,19 @@
       "Preserve the full prey geometry and scale through the 2.55-second swallow event. Update rendering and physical geometry from the same final pose.",
       "Interruptions, save/load and recovery require explicit native validation. Preserve exactly-once consumed identity after the event; any release/drop route before the event needs its own safe placement and geometry checks."
     ],
-    "qa_entrypoint": "qa/geometry/README.md"
+    "qa_entrypoint": "README.md",
+    "existing_native_recovery_invariant": "Preserve checked obstruction reversal, safe living-prey release and exactly-once consumption. Asset changes do not authorize weakening them; native regression is mandatory.",
+    "runtime_entry": {
+      "method": "Match actual outgoing head translation/orientation to a pre-contact capture phase; blend full outgoing local TRS into the advancing bow over0.3seconds. No upright time-zero prelude. Root orientation remains the actual validated intercept orientation.",
+      "observed_phase_seconds": 0.8318055272102356,
+      "contact_seconds": 1.25,
+      "clearance": "All blended substeps retain ordinary physical clearance, exact prey setup and rollback. No forced contact or relaxed geometry thresholds."
+    }
   },
   "prey_profiles": [
     {
       "id": "feltling_reference_v1",
-      "asset_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+      "asset_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
       "reference_prey_geometry_sha256": "d13ccb3fa1c86e132914e9ee549c228e1ff9b055ded6b824bf2886197d4bbb0a",
       "integrated_lossless_consolidation_sha256": "f89602b39812c5112007e324ee358bdef523a8ba9bc697d2636824aea4ee1d7b",
       "reference_triangles": 2990,
@@ -160,369 +167,188 @@
     }
   ],
   "asset_geometry_qa": {
-    "asset": {
-      "filename": "Tall_Guest_Capture_Swallow_v0_3.glb",
-      "sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
-      "bytes": 5232580,
-      "triangles": 5970,
-      "joints": 127,
-      "source_unchanged_at_qa_completion": true
+    "asset_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
+    "dense_static_poses": 1094,
+    "fresh_changed_pair_continuous_families": 5,
+    "source_parity": {
+      "poses": 1096,
+      "max_m": 1.9227118173148483e-06,
+      "blender_version": "5.2.3 LTS",
+      "sample_scope": "Complete capture/swallow at120Hz plus exact float32 export tails"
     },
-    "status": {
-      "continuous_collision": "PASS_WITH_STATED_SOURCE_EXCLUSIONS",
-      "continuous_sole_planting": "PASS",
-      "front_knee_flip": "REMOVED",
-      "posed_normals": "EXPLICIT_SIX_FACE_IVORY_EXCEPTION; NO_NORMAL_THRESHOLD_OR_EXEMPTION_CHANGE",
-      "overall": "Geometry and planting pass. Ivory normal regression remains explicitly reported for visual review, not waived."
-    },
-    "fresh_geometry_coverage": {
+    "legacy_world_motion": {
+      "door_enter": {
+        "poses": 145,
+        "max_m": 0.0007956004279374121,
+        "worst_pose_rms_m": 0.0002462781309949501
+      },
+      "door_exit": {
+        "poses": 145,
+        "max_m": 0.0007954516274469302,
+        "worst_pose_rms_m": 0.0002462401938060239
+      },
+      "door_squeeze": {
+        "poses": 217,
+        "max_m": 1.2004560249143082e-06,
+        "worst_pose_rms_m": 3.417448656376053e-07
+      },
+      "howl_echo": {
+        "poses": 385,
+        "max_m": 9.519613838212456e-06,
+        "worst_pose_rms_m": 1.932776890576791e-06
+      },
+      "idle_listen": {
+        "poses": 361,
+        "max_m": 2.286106214632055e-06,
+        "worst_pose_rms_m": 3.793690487107741e-07
+      },
+      "inspect_prop": {
+        "poses": 577,
+        "max_m": 0.0007922775611902529,
+        "worst_pose_rms_m": 0.00023688561397066754
+      },
+      "lost_prey_agony": {
+        "poses": 481,
+        "max_m": 0.00018735591154420947,
+        "worst_pose_rms_m": 4.319450626543797e-05
+      },
+      "run_pursuit": {
+        "poses": 97,
+        "max_m": 2.62104954320331e-06,
+        "worst_pose_rms_m": 8.811756825306557e-07
+      },
+      "walk_slow": {
+        "poses": 217,
+        "max_m": 1.7914263481076227e-06,
+        "worst_pose_rms_m": 5.851903104624213e-07
+      },
       "capture_prey": {
-        "affected_ivory_self": {
-          "interval_count": 564,
-          "from_seconds": 0.0,
-          "through_seconds": 3.200000047683716
-        },
-        "affected_ivory_lining": {
-          "interval_count": 385,
-          "from_seconds": 0.0,
-          "through_seconds": 3.200000047683716
-        },
-        "affected_ivory_prey": {
-          "interval_count": 385,
-          "from_seconds": 0.0,
-          "through_seconds": 3.200000047683716
-        }
+        "poses": 385,
+        "max_m": 0.00034076798700363666,
+        "worst_pose_rms_m": 0.00011105546157859043
       },
       "swallow_prey": {
-        "affected_ivory_self": {
-          "interval_count": 1039,
-          "from_seconds": 0.0,
-          "through_seconds": 5.900000095367432
-        },
-        "affected_ivory_lining": {
-          "interval_count": 709,
-          "from_seconds": 0.0,
-          "through_seconds": 5.900000095367432
-        },
-        "affected_ivory_prey": {
-          "interval_count": 306,
-          "from_seconds": 0.0,
-          "through_seconds": 2.55
-        }
+        "poses": 709,
+        "max_m": 0.00034057065789421675,
+        "worst_pose_rms_m": 0.00011102947397969978
       }
     },
-    "fresh_static_collision": {
-      "schedule_hz": 120,
-      "poses": 1094,
-      "collision_families": 5,
-      "proper_or_touching_hits": 0,
-      "exact_exported_endpoints_and_float32_tail_intervals_checked": true
-    },
-    "exact_proof_transfer": {
-      "baseline_sha256": "8251747ddc0eae9351a4ed3d5e5bffa8a5d0898a7dd67bc7f092a354bb89a22d",
-      "baseline_summary": "../sweep_qa/final_geometry_summary.json",
-      "verified_identical": "All node defaults/hierarchy, inverse binds, vertex attributes/indices, and 2,758 animation channels. Exactly six front upper/lower channels change. Nine legacy clips are exactly unchanged.",
-      "affected_vertices_ivory": 1247,
-      "affected_triangles_ivory": 1930,
-      "affected_pink_vertices": 0,
-      "transferred": "Every pair involving only unchanged ivory triangles; entire pink self, prey/pink, and continuous containment/lip-cap proof. Head-dependent rigid prey transform is identical. Transfer is based on exact influence/ancestor functions, not sampled proximity.",
-      "independently_retested": "Every pair with at least one of the 1,930 affected ivory triangles, against all ivory, all pink, and full active prey. Fresh affected proof adds no pair exemptions."
-    },
-    "clearances_mm": {
-      "scope": "Fresh measurements at 1,094 sampled poses. Source-shared seam pairs excluded. These minima are not asserted continuous global minima; the between-sample proof separately retains a 10 \u00b5m numerical guard.",
-      "all_nonshared_pink_ivory_minimum": 1.8627184937133217,
-      "all_nonshared_minimum_location": "Rolled-rim wall; pink875 versus ivory3364.",
-      "lumen_excluding_rolled_rim_minimum": 11.769770238291843,
-      "deep_lumen_minimum": {
-        "clip": "swallow_prey",
-        "time": 3.5,
-        "distance_m": 0.011769770238291842,
-        "closest_pairs": [
-          {
-            "pink_triangle": 1031,
-            "ivory_triangle": 2651,
-            "distance_m": 0.011769770238291842
-          },
-          {
-            "pink_triangle": 1031,
-            "ivory_triangle": 2706,
-            "distance_m": 0.011769770238291842
-          },
-          {
-            "pink_triangle": 1030,
-            "ivory_triangle": 2651,
-            "distance_m": 0.011769770238291842
-          },
-          {
-            "pink_triangle": 1030,
-            "ivory_triangle": 2706,
-            "distance_m": 0.011769770238291842
-          }
+    "legacy_channels": "1,694 existing control channels intentionally rebaked;1,070 channels unchanged; all2,764 channels/key times retained. Legacy pure world-space difference below0.8mm, pursuit2.63micrometres; not byte-identical legacy TRS.",
+    "exclusions": "Same63 inherited ivory pairs and rest-shared welded seam exclusions.10micrometre conservative double guard, not formal directed rounding.",
+    "native_full_pose": "70 checkpoints/9,100 node matrices, zero physical/render matrix error and zero lining/shell crossings.",
+    "entry_replay": "30/60/120Hz actual full-pose handoffs, zero lining/shell crossings; head rises at most13.15mm at30Hz and never rises at60/120Hz; no root-yaw jump.",
+    "socket": "945 visible attached replay poses, maximum matrix component error1.111e-6."
+  },
+  "native_acceptance": "Accepted: docs/reports/tall-guest-head-repair.md; source/build/media identity receipts retained outside reproducible target.",
+  "source_contract_provenance": {
+    "library_file_id": "libfile_fde3_f-9ae8df2c77548191991fb8b93dea0f44_2e37728cdad08191acacf8a0401feb09",
+    "version": 1,
+    "sha256": "4e70b1c3040d761e302b77e2ed13e9529f9df64b524f427e5a0f2cdee10f7eb1",
+    "original_integration_baseline": {
+      "repository": "csd113/Places",
+      "commit": "d117080e31aa6d0db0bb42bbf5e94a26434caac9",
+      "version": "0.13.1-dev",
+      "scope": "Read-only engine inspection; this asset has not been accepted in the native game."
+    }
+  },
+  "historical_v03_preparation": {
+    "legacy_summary": {
+      "current_runtime_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+      "comparison_source_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
+      "samples": 2625,
+      "sample_rate_hz": 120,
+      "deep_lining_max_m": 0.0013594565695060094,
+      "lining_region_max_m_and_clip": {
+        "0": [
+          0.0,
+          "walk_slow"
+        ],
+        "1": [
+          0.0,
+          "walk_slow"
+        ],
+        "2": [
+          1.1389416104518226e-07,
+          "howl_echo"
+        ],
+        "3": [
+          1.0328207161578568e-07,
+          "lost_prey_agony"
+        ],
+        "4": [
+          1.0044299393873976e-07,
+          "lost_prey_agony"
+        ],
+        "5": [
+          9.737759324996214e-08,
+          "howl_echo"
+        ],
+        "6": [
+          1.1583358255273689e-07,
+          "idle_listen"
+        ],
+        "7": [
+          0.0013594565695060094,
+          "lost_prey_agony"
+        ],
+        "8": [
+          0.0005915480833603127,
+          "door_enter"
+        ],
+        "9": [
+          0.0004358285939054872,
+          "door_enter"
+        ],
+        "10": [
+          0.0003955868231418694,
+          "door_enter"
         ]
       },
-      "prey_lining_grip_minimum": 0.31483138837768193,
-      "fully_inside_prey_lining_minimum": 13.993052918312754,
-      "prey_ivory_sampled_lower_bound": 30.0
+      "foot_region_max_m": 0.0,
+      "outer_hood_max_m": 0.014555464937723937,
+      "native_doorway_and_overlay_validation": "Required; these comparisons do not establish runtime behavior equivalence."
     },
-    "containment": {
-      "continuous_from_swallow_seconds": 1.95,
-      "through_removal_seconds": 2.55,
-      "prey_vertices": 2204,
-      "prey_triangles": 2990,
-      "method": "Exact transfer of actual-lining and moving-analysis-cap separation plus inside winding. Not a visual-occlusion claim."
+    "archive": {
+      "filename": "Tall_Guest_Capture_Swallow_v0_3_Source_QA.zip",
+      "sha256": "3f07413c9817aa7123ec1d4fee99634d9c5c15aafc175772164fecae08d18e0c",
+      "bytes": 30701899
     },
-    "knee_and_sole": {
-      "maximum_front_lower_key_angle_degrees": 1.5419168882982646,
-      "maximum_front_lower_angular_speed_bound_rad_s": 1.6147174926075594,
-      "previous_front_lower_key_angle_degrees_approx": 121,
-      "continuous_fixed_sole_support_vertices": 33,
-      "sampled_sole_point_motion_m": 0.0,
-      "proof": "Unit foot_front weights and exactly constant foot/ancestor channels establish continuous planting.",
-      "original_minimum_sole_y_m": -0.0001243358274222449,
-      "original_ground_offset_retained": true,
-      "capture_to_swallow_maximum_ivory_boundary_difference_m": 2.1748095249043917e-07
-    },
-    "normal_exception": {
-      "scope": "Fresh matched old/new 120 Hz plus all actual source-key times; sampled normals, not continuous rendering acceptance.",
-      "clips": {
-        "capture_prey": {
-          "poses": 565,
-          "ivory_max_opposed_faces_dot_below_minus_005": 6,
-          "baseline_same_schedule_max": 5,
-          "strict_dot_below_zero_max_both_versions": 6,
-          "worst_changed_face": 674,
-          "worst_changed_time_seconds": 1.1,
-          "worst_changed_angle_degrees": 127.3962998816655,
-          "pink_opposed_faces": 0,
-          "degenerate_triangles": 0,
-          "invalid_reconstructed_normals": 0
-        },
-        "swallow_prey": {
-          "poses": 1040,
-          "ivory_max_opposed_faces_dot_below_minus_005": 6,
-          "baseline_same_schedule_max": 5,
-          "strict_dot_below_zero_max_both_versions": 6,
-          "worst_changed_face": 674,
-          "worst_changed_time_seconds": 4.8,
-          "worst_changed_angle_degrees": 127.39630100182046,
-          "pink_opposed_faces": 0,
-          "degenerate_triangles": 0,
-          "invalid_reconstructed_normals": 0
+    "review": {
+      "runtime_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+      "review_sha256": "7ad334256f379d5093adb7ea0344f7117bb9076a9d4329d70b6a2ad25e4f443f",
+      "review_bytes": 3393887,
+      "probe": {
+        "programs": [],
+        "stream_groups": [],
+        "streams": [
+          {
+            "codec_name": "h264",
+            "width": 1280,
+            "height": 800,
+            "pix_fmt": "yuv420p",
+            "r_frame_rate": "24/1",
+            "nb_frames": "243",
+            "nb_read_frames": "243"
+          }
+        ],
+        "format": {
+          "duration": "10.125000",
+          "size": "3393887"
         }
       },
-      "changed_opposed_faces": [
-        548,
-        674,
-        693
-      ],
-      "smoothing_neighbor_opposed_faces": [
-        2082,
-        2090
-      ],
-      "unrelated_existing_opposed_face": 607,
-      "normal_influence_faces_including_neighbors": 2207,
-      "worst_cases": [
-        {
-          "primitive": 0,
-          "face_id": 674,
-          "vertex_ids": [
-            3429,
-            19,
-            26
-          ],
-          "clip": "capture_prey",
-          "time_seconds": 1.1,
-          "region": "changed_geometry",
-          "dot": -0.6073245357582815,
-          "angle_degrees": 127.3962998816655,
-          "baseline_same_time_dot": 0.2247765510812515,
-          "world_centroid_m": [
-            -0.25508789154524497,
-            0.7367872580618178,
-            0.09758029531044965
-          ]
-        },
-        {
-          "primitive": 0,
-          "face_id": 693,
-          "vertex_ids": [
-            3149,
-            3231,
-            68
-          ],
-          "clip": "capture_prey",
-          "time_seconds": 1.25,
-          "region": "changed_geometry",
-          "dot": -0.37471932441677736,
-          "angle_degrees": 112.00696643843133,
-          "baseline_same_time_dot": 0.994152315567886,
-          "world_centroid_m": [
-            -0.14479347339988488,
-            0.7383696435955157,
-            0.32598303040688187
-          ]
-        },
-        {
-          "primitive": 0,
-          "face_id": 674,
-          "vertex_ids": [
-            3429,
-            19,
-            26
-          ],
-          "clip": "swallow_prey",
-          "time_seconds": 4.8,
-          "region": "changed_geometry",
-          "dot": -0.6073245512901655,
-          "angle_degrees": 127.39630100182046,
-          "baseline_same_time_dot": 0.22477800208011886,
-          "world_centroid_m": [
-            -0.25508789229846185,
-            0.7367872250988242,
-            0.09758029253350602
-          ]
-        },
-        {
-          "primitive": 0,
-          "face_id": 693,
-          "vertex_ids": [
-            3149,
-            3231,
-            68
-          ],
-          "clip": "swallow_prey",
-          "time_seconds": 4.349999904632568,
-          "region": "changed_geometry",
-          "dot": -0.37471927205029787,
-          "angle_degrees": 112.00696320226017,
-          "baseline_same_time_dot": 0.9941523183004018,
-          "world_centroid_m": [
-            -0.14479347327810457,
-            0.738369644414794,
-            0.32598303023647984
-          ]
-        }
-      ],
-      "interpretation": "Opposed angle-weighted face-average normals are shading-risk metrics, not alone evidence of triangle intersection. Strict dot<0 maxima remain six in both versions; at unchanged prior criterion dot<-0.05 maxima rise from five to six. No normal acceptance broadening or new exemptions."
-    },
-    "exclusions_and_limits": {
-      "shared_source_seam": "Triangle pairs sharing a source-rest vertex welded by coordinates rounded to 1e-6 m are filtered. This does not prove adjacent-face foldover freedom.",
-      "inherited_pairs": "Exactly 63 listed original ivory triangle pairs, derived from 88 original directional edge hits. No entire anatomical region is excluded.",
-      "numerical_clearance_guard_m": 1e-05,
-      "arithmetic": "Conservative double-precision geometric/motion bounds, not formal directed-rounding interval arithmetic.",
-      "not_covered": "Other asset hashes, changed prey transforms/timing, arbitrary runtime clip blending, shader displacement, or native-engine/render acceptance."
-    },
-    "detail_reports": [
-      "geometry_identity.json",
-      "affected_shell_prey.json",
-      "affected_self_capture.json",
-      "affected_self_swallow.json",
-      "exact_endpoints.json",
-      "sampled_clearances.json",
-      "sampled_deep_wall_clearances.json",
-      "motion_and_sole.json",
-      "normal_audit/normal_summary.json"
-    ]
+      "geometry_sample_count": 111,
+      "geometry_sampling": "12 Hz with exact clip endpoints, time-aligned and duplicated to24fps; approximately one-second final review hold.",
+      "normal_method": "Corner-angle-weighted unit normals from actual final posed triangles, preserving original smoothing groups.",
+      "scope": "Blender asset-authoring review, not native-engine acceptance."
+    }
   },
-  "legacy_summary": {
-    "current_runtime_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
-    "comparison_source_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
-    "samples": 2625,
-    "sample_rate_hz": 120,
-    "deep_lining_max_m": 0.0013594565695060094,
-    "lining_region_max_m_and_clip": {
-      "0": [
-        0.0,
-        "walk_slow"
-      ],
-      "1": [
-        0.0,
-        "walk_slow"
-      ],
-      "2": [
-        1.1389416104518226e-07,
-        "howl_echo"
-      ],
-      "3": [
-        1.0328207161578568e-07,
-        "lost_prey_agony"
-      ],
-      "4": [
-        1.0044299393873976e-07,
-        "lost_prey_agony"
-      ],
-      "5": [
-        9.737759324996214e-08,
-        "howl_echo"
-      ],
-      "6": [
-        1.1583358255273689e-07,
-        "idle_listen"
-      ],
-      "7": [
-        0.0013594565695060094,
-        "lost_prey_agony"
-      ],
-      "8": [
-        0.0005915480833603127,
-        "door_enter"
-      ],
-      "9": [
-        0.0004358285939054872,
-        "door_enter"
-      ],
-      "10": [
-        0.0003955868231418694,
-        "door_enter"
-      ]
-    },
-    "foot_region_max_m": 0.0,
-    "outer_hood_max_m": 0.014555464937723937,
-    "native_doorway_and_overlay_validation": "Required; these comparisons do not establish runtime behavior equivalence."
-  },
-  "source_rebuild": {
-    "reference_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
-    "rebuilt_sha256": "e11546613c1f6c5941591bf16b5a4dad8a8b5d8cd91bc1c4acf2ed89803e4dd7",
-    "content_exact": true,
-    "differences": [],
-    "note": "Unused accessors and buffer layout may differ. Compared data directly controls runtime geometry, materials, nodes and animation."
-  },
-  "editable_source_check": {
-    "samples": 55,
-    "maximum_m": 1.3811133029955189e-06
-  },
-  "archive": {
-    "filename": "Tall_Guest_Capture_Swallow_v0_3_Source_QA.zip",
-    "sha256": "3f07413c9817aa7123ec1d4fee99634d9c5c15aafc175772164fecae08d18e0c",
-    "bytes": 30701899
-  },
-  "review": {
-    "runtime_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
-    "review_sha256": "7ad334256f379d5093adb7ea0344f7117bb9076a9d4329d70b6a2ad25e4f443f",
-    "review_bytes": 3393887,
-    "probe": {
-      "programs": [],
-      "stream_groups": [],
-      "streams": [
-        {
-          "codec_name": "h264",
-          "width": 1280,
-          "height": 800,
-          "pix_fmt": "yuv420p",
-          "r_frame_rate": "24/1",
-          "nb_frames": "243",
-          "nb_read_frames": "243"
-        }
-      ],
-      "format": {
-        "duration": "10.125000",
-        "size": "3393887"
-      }
-    },
-    "geometry_sample_count": 111,
-    "geometry_sampling": "12 Hz with exact clip endpoints, time-aligned and duplicated to24fps; approximately one-second final review hold.",
-    "normal_method": "Corner-angle-weighted unit normals from actual final posed triangles, preserving original smoothing groups.",
-    "scope": "Blender asset-authoring review, not native-engine acceptance."
-  },
-  "native_acceptance": "Required. Do not mistake this asset-authoring review for the requested final Places gameplay video."
+  "head_approach_repair": {
+    "source_blender_sha256": "c5422d603435e26594560d13b31f0d51f2391a48225c3d04f1fb227cb8904a37",
+    "authoring_tool": "Blender5.2.3LTS",
+    "method": "Anatomical rest-height falloff replaces the rejected rigid low-neck projection. Reparent77 existing root-parented hood/deep-lining controls to head and rebake their local transforms in all11 clips, retaining rest globals and original skin bind basis. Ordinary pursuit/inspection blends now share the head transform. No shell inflation, renderer counter-deformation, mesh, weights, topology, texture, inverse-bind, vertex order, primitive, socket, prey scale or key-time change.",
+    "exact_saved_source_export_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
+    "exporter": "Supplied custom output-accessor patcher with original D source bind basis. Never use generic glTF export.",
+    "original_preparation_library_file_id": "libfile_fde3_f-4e31847df74c8191902b57b1006f75be_2e37728cdad08191acacf8a0401feb09",
+    "rejected_cloud_candidate_sha256": "054e48394ebf1764dd6922867a13a27675ba3470f4964515ffee7cdfb4dd0445"
+  }
 }

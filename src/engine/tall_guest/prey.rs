@@ -3,7 +3,7 @@
 use crate::engine::collision::DoorCollider;
 use glam::{Mat4, Quat, Vec3};
 
-pub const HUNTER_SHA256: &str = "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1";
+pub const HUNTER_SHA256: &str = "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3";
 
 pub const SETUP: Vec3 = Vec3::new(0.000_048_861_653, 0.0, 1.702_853_8);
 pub const SOCKET: &str = "mouth_capture_socket";

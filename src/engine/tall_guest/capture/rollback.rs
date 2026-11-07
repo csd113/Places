@@ -28,7 +28,7 @@ impl Guest {
     ) -> bool {
         let mut left = ctx.delta_seconds.clamp(0.0, 0.1) * 1.5;
         for _ in 0_u8..32 {
-            if action.clock <= 0.220_001 {
+            if action.clock <= action.entry_phase + 0.000_001 {
                 if !action.released && !action.consumed {
                     if !target
                         .as_mut()
@@ -50,11 +50,13 @@ impl Guest {
             if left <= 0.000_001 {
                 break;
             }
-            let contact = 0.22 + action.profile.contact_seconds;
+            let contact = action.profile.contact_seconds;
             let boundary = if action.clock > contact + 0.000_001 {
                 contact
+            } else if action.clock > action.entry_phase + action.entry_blend_seconds + 0.000_001 {
+                action.entry_phase + action.entry_blend_seconds
             } else {
-                0.22
+                action.entry_phase
             };
             let sub = left.min(1.0 / 120.0).min(action.clock - boundary);
             left -= sub;

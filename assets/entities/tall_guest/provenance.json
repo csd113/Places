@@ -1,7 +1,7 @@
 {
   "library_file_id": "libfile_d908a1076348819198b001257034611f",
   "zip_sha256": "ab0f6d8abf4336d15cfc64486935b257aad14ba62379ac55017ccaa808013390",
-  "runtime_glb_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1",
+  "runtime_glb_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
   "runtime_audio_cues": [
     "tg_click_single_01",
     "tg_click_single_02",
@@ -21,7 +21,7 @@
   ],
   "other_audio": "Reference composites, gait loops, patterns and optional attack/release stay in the original pack; never layered with runtime stems.",
   "decoded_catalog_bytes": 66863584,
-  "art_budget_review": "Exact reviewed 5,970-triangle / 1024 texture export; 127 joints and 2,764 channels remain under existing caps. See docs/reports/tall-guest-swallow.md.",
+  "art_budget_review": "5,970triangles/127skin joints/130nodes/11clips/2,764channels; mesh/skin/images/indices/inverse binds exact. See docs/reports/tall-guest-head-repair.md.",
   "original_runtime_glb_sha256": "a2d5f54c79bc9842428b1948c04175101d69d60adb51111d5f389b51d266ad92",
   "capture_swallow_extension": {
     "revision": "v0.3",
@@ -36,7 +36,28 @@
     "clips": 11,
     "animation_channels": 2764,
     "verified_prey_sha256": "f89602b39812c5112007e324ee358bdef523a8ba9bc697d2636824aea4ee1d7b",
-    "scope": "Unchanged full-size Feltling bind geometry only. Other prey require a new geometry certificate/profile. Original nine 90-channel animation sets and source attributes are preserved; additional compensation channels maintain the extension. Six ivory face-average opposed-normal exceptions and inherited/source-seam exclusions remain explicit in the supplied QA."
+    "scope": "Unchanged full-size Feltling bind geometry only. Other prey require a new geometry certificate/profile. Original nine 90-channel animation sets and source attributes are preserved; additional compensation channels maintain the extension. Six ivory face-average opposed-normal exceptions and inherited/source-seam exclusions remain explicit in the supplied QA.",
+    "status": "Historical v0.3 source lineage; current head-space control reparent/rebake is documented below."
   },
-  "new_audio": "None; existing bank cap and cues retained."
+  "new_audio": "None; existing bank cap and cues retained.",
+  "posterior_neck_repair": {
+    "source_blender_sha256": "c5422d603435e26594560d13b31f0d51f2391a48225c3d04f1fb227cb8904a37",
+    "authoring_tool": "Blender 5.2.3 LTS",
+    "method": "Anatomical rest-height falloff replaces the rejected rigid low-neck projection. Reparent77 existing root-parented hood/deep-lining controls to head and rebake their local transforms in all11 clips, retaining rest globals and original skin bind basis. Ordinary pursuit/inspection blends now share the head transform. No shell inflation, renderer counter-deformation, mesh, weights, topology, texture, inverse-bind, vertex order, primitive, socket, prey scale or key-time change.",
+    "rejected_cloud_candidate_sha256": "054e48394ebf1764dd6922867a13a27675ba3470f4964515ffee7cdfb4dd0445",
+    "original_preparation_library_file_id": "libfile_fde3_f-4e31847df74c8191902b57b1006f75be_2e37728cdad08191acacf8a0401feb09",
+    "original_preparation_zip_sha256": "fe13075af26b86c8cdf6753fa50814c42a0141ed28bc1b401a689e2b55012bb3",
+    "baseline_v03_runtime_sha256": "74bc2d7882f1952ac2a97db4a3e5d4cab4e3f769e82c362b4fff866625611be1"
+  },
+  "head_approach_repair": {
+    "source_blender_sha256": "c5422d603435e26594560d13b31f0d51f2391a48225c3d04f1fb227cb8904a37",
+    "authoring_tool": "Blender5.2.3LTS",
+    "method": "Anatomical rest-height falloff replaces the rejected rigid low-neck projection. Reparent77 existing root-parented hood/deep-lining controls to head and rebake their local transforms in all11 clips, retaining rest globals and original skin bind basis. Ordinary pursuit/inspection blends now share the head transform. No shell inflation, renderer counter-deformation, mesh, weights, topology, texture, inverse-bind, vertex order, primitive, socket, prey scale or key-time change.",
+    "exact_saved_source_export_sha256": "c1391f93a44c8f19e58f5595bb92b2a23e5bcae4328661542bbafbf06351b4a3",
+    "exporter": "Supplied custom output-accessor patcher with original D source bind basis. Never use generic glTF export.",
+    "original_preparation_library_file_id": "libfile_fde3_f-4e31847df74c8191902b57b1006f75be_2e37728cdad08191acacf8a0401feb09",
+    "rejected_cloud_candidate_sha256": "054e48394ebf1764dd6922867a13a27675ba3470f4964515ffee7cdfb4dd0445",
+    "version": "0.4.2-approach-blend-repair",
+    "report": "docs/reports/tall-guest-head-repair.md"
+  }
 }

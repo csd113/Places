@@ -8,6 +8,8 @@ use crate::engine::feltling::Feltling;
 use glam::{Quat, Vec3};
 mod rollback;
 
+const ENTRY_BLEND_SECONDS: f32 = 0.3;
+
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Direction {
     Forward,
@@ -21,6 +23,8 @@ pub struct Capture {
     profile: &'static prey::CaptureProfile,
     start: (Vec3, f32),
     from: Vec<JointPose>,
+    entry_phase: f32,
+    entry_blend_seconds: f32,
     clock: f32,
     latched: bool,
     consumed: bool,
@@ -32,12 +36,12 @@ pub struct Capture {
 impl Capture {
     fn substep(&self, left: f32) -> f32 {
         let next_boundary = [
-            0.22,
-            0.22 + self.profile.contact_seconds,
-            0.22 + self.profile.capture_seconds,
-            0.22 + self.profile.capture_seconds + self.profile.inside_seconds,
-            0.22 + self.profile.capture_seconds + self.profile.consume_seconds,
-            0.22 + self.profile.capture_seconds + self.profile.swallow_seconds,
+            self.entry_phase + self.entry_blend_seconds,
+            self.profile.contact_seconds,
+            self.profile.capture_seconds,
+            self.profile.capture_seconds + self.profile.inside_seconds,
+            self.profile.capture_seconds + self.profile.consume_seconds,
+            self.profile.capture_seconds + self.profile.swallow_seconds,
         ]
         .into_iter()
         .find(|boundary| *boundary > self.clock + 0.000_001)
@@ -46,7 +50,7 @@ impl Capture {
     }
 
     pub(super) fn diagnostics(&self) -> serde_json::Value {
-        serde_json::json!({"key":self.key,"prey":self.prey_id,"clock":self.clock,"latched":self.latched,"consumed":self.consumed,"recovering":self.direction == Direction::Reverse,"released":self.released,"blocked_seconds":self.blocked_seconds})
+        serde_json::json!({"key":self.key,"prey":self.prey_id,"clock":self.clock,"entry_phase":self.entry_phase,"entry_blend_seconds":self.entry_blend_seconds,"elapsed":self.clock-self.entry_phase,"latched":self.latched,"consumed":self.consumed,"recovering":self.direction == Direction::Reverse,"released":self.released,"blocked_seconds":self.blocked_seconds})
     }
 }
 
@@ -130,13 +134,20 @@ impl Guest {
         {
             return false;
         }
+        let from = self.animator.joint_pose();
+        let Some((entry_phase, entry_blend_seconds)) = self.capture_entry_phase(profile, &from)
+        else {
+            return false;
+        };
         self.capture = Some(Capture {
             key,
             profile,
             prey_id: target.state.id.clone(),
             start: (target.state.position, target.state.yaw),
-            from: self.animator.joint_pose(),
-            clock: 0.0,
+            from,
+            entry_phase,
+            entry_blend_seconds,
+            clock: entry_phase,
             latched: false,
             consumed: false,
             direction: Direction::Forward,
@@ -148,8 +159,53 @@ impl Guest {
         self.state.plants = [const { None }; 3];
         self.state.speed = 0.0;
         self.voice(None, 0.0);
-        self.log("capture_started", &serde_json::json!({"prey":target.state.id,"key":key,"setup_error_m":expected.distance(target.state.position),"scale":1_u8}));
+        self.log("capture_started", &serde_json::json!({"prey":target.state.id,"key":key,"setup_error_m":expected.distance(target.state.position),"scale":1_u8,"entry_phase":entry_phase,"entry_blend_seconds":entry_blend_seconds,"root_yaw":self.state.yaw}));
         true
+    }
+
+    /// Match the already visible head pose before contact, then overlap the
+    /// complete outgoing pose with the advancing bow. No upright prelude is
+    /// inserted. Every resulting substep still passes ordinary clearance.
+    fn capture_entry_phase(
+        &mut self,
+        profile: &prey::CaptureProfile,
+        from: &[JointPose],
+    ) -> Option<(f32, f32)> {
+        if !from.iter().all(JointPose::is_valid) {
+            return None;
+        }
+        let (_, outgoing_rotation, outgoing_position) = self
+            .animator
+            .node_global("head")?
+            .to_scale_rotation_translation();
+        let blend_seconds = ENTRY_BLEND_SECONDS.min(profile.contact_seconds - 1.0 / 120.0);
+        if blend_seconds <= 0.0 {
+            return None;
+        }
+        let latest = (profile.contact_seconds - blend_seconds - 1.0 / 120.0).max(0.0);
+        let mut best = (f32::MAX, 0.0);
+        for step in 0_u8..=120 {
+            let phase = latest * (f32::from(step) / 120.0);
+            let _sampled = self
+                .animator
+                .sample_fraction(profile.capture_clip, phase / profile.capture_seconds);
+            if let Some(head) = self.animator.node_global("head") {
+                let (_, rotation, position) = head.to_scale_rotation_translation();
+                let angle = outgoing_rotation.angle_between(rotation);
+                let score =
+                    0.04_f32.mul_add(angle * angle, outgoing_position.distance_squared(position));
+                if score < best.0 {
+                    best = (score, phase);
+                }
+            }
+        }
+        self.animator
+            .restore_physical_pose(
+                &self.state.clip,
+                self.state.clip_time / super::duration(&self.state.clip),
+                from,
+            )
+            .then_some((best.1, blend_seconds))
     }
 
     /// Before contact a moved prey invalidates the setup without being frozen.
@@ -246,14 +302,12 @@ impl Guest {
     }
 
     fn sample_capture(&mut self, action: &Capture, clock: f32) -> Step {
-        let (clip, time) = if clock < 0.22 {
-            (action.profile.capture_clip, 0.0)
-        } else if clock < 0.22 + action.profile.capture_seconds {
-            (action.profile.capture_clip, clock - 0.22)
+        let (clip, time) = if clock < action.profile.capture_seconds {
+            (action.profile.capture_clip, clock)
         } else {
             (
                 action.profile.swallow_clip,
-                (clock - 0.22 - action.profile.capture_seconds).min(action.profile.swallow_seconds),
+                (clock - action.profile.capture_seconds).min(action.profile.swallow_seconds),
             )
         };
         let seconds = if clip == action.profile.capture_clip {
@@ -262,22 +316,23 @@ impl Guest {
             action.profile.swallow_seconds
         };
         let _sampled = self.animator.sample_fraction(clip, time / seconds);
-        if clock < 0.22 {
-            let weight = prey::smooth(clock / 0.22);
+        if clock < action.entry_phase + action.entry_blend_seconds {
+            let weight = prey::smooth((clock - action.entry_phase) / action.entry_blend_seconds);
             let mut pose = self.animator.joint_pose();
             for (joint, from) in pose.iter_mut().zip(&action.from) {
                 joint.translation = from.translation.lerp(joint.translation, weight);
                 joint.rotation = from.rotation.slerp(joint.rotation, weight);
+                joint.scale = from.scale.lerp(joint.scale, weight);
             }
-            let _restored = self.animator.restore_physical_pose(clip, 0.0, &pose);
+            let _restored = self
+                .animator
+                .restore_physical_pose(clip, time / seconds, &pose);
         }
         self.fill_vertices();
         let contacting =
             clip == action.profile.capture_clip && time >= action.profile.contact_seconds;
         let root = if !action.consumed && !action.released && (action.latched || contacting) {
-            if action.direction == Direction::Reverse
-                && clock <= 0.22 + action.profile.contact_seconds
-            {
+            if action.direction == Direction::Reverse && clock <= action.profile.contact_seconds {
                 Some((action.start.0, Quat::from_rotation_y(action.start.1)))
             } else {
                 self.socket(action.profile.socket).map(|socket| {

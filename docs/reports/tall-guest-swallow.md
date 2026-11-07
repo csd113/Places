@@ -1,3 +1,5 @@
+> Historical v0.3 integration evidence. The delivered chase video was rejected for approach lining protrusion and the upright capture reset. Current asset, native acceptance and replacement video are documented in [Tall Guest head repair](tall-guest-head-repair.md). Original hashes below remain historical.
+
 # Tall Guest whole-prey integration
 
 The opt-in controller follows a native Feltling using correlated sampled
