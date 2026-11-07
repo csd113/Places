@@ -42,6 +42,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
                 self.skipTest('Windows directory-symlink privilege is unavailable; no host policy is changed')
             raise
 
+    @unittest.skipIf(os.name == "nt", "Unix exporter fixture requires POSIX shebang execution; Windows uses package-windows.py")
     def test_map_free_export_validates_menu_without_baking_gameplay_maps(self):
         # A tiny fake release player protects script dependency boundaries on
         # every CI run, without Rust compilation, SDL or a production-map bake.

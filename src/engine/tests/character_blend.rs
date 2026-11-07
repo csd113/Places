@@ -103,3 +103,20 @@ fn blend_copy_waits_for_a_consuming_view_and_catches_up_on_return() {
         "another view only changes order, not copied geometry"
     );
 }
+
+// Exact Windows native failure: a CRLF checkout left the opaque-only ambient
+// declaration in BLEND, exceeding DX12's varying budget. Both inputs stay tiny
+// in-memory source transforms; native acceptance owns actual pipeline validation.
+#[test]
+fn blend_shader_omits_opaque_varying_with_either_checkout_line_ending() -> Result<(), String> {
+    let lf = crate::engine::render::wgpu::world::WORLD_SHADER_SRC.replace("\r\n", "\n");
+    for source in [lf.clone(), lf.replace('\n', "\r\n")] {
+        let compact = super::without_opaque_accessibility(&source)
+            .ok_or("current BLEND shader splice must remain available")?;
+        assert!(
+            !compact.contains("self_ambient"),
+            "opaque accessibility must not consume a BLEND fragment varying"
+        );
+    }
+    Ok(())
+}

@@ -25,8 +25,8 @@ impl Containment {
         })
     }
 
-    pub(super) fn exited(&self, _child: &mut Child) -> io::Result<bool> {
-        self.leader_exited()
+    pub(super) fn exited(tree: &Self, _child: &mut Child) -> io::Result<bool> {
+        tree.leader_exited()
     }
 
     fn leader_exited(&self) -> io::Result<bool> {

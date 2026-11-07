@@ -97,12 +97,13 @@ impl Containment {
         // SAFETY: job is live; limits is the exact repr(C) class-9 structure.
         if unsafe {
             SetInformationJobObject(job.as_raw_handle(), 9, (&raw const limits).cast(), size)
-        } == 0
+        } == 0_i32
         {
             return Err(io::Error::last_os_error());
         }
         // SAFETY: the owned child is still suspended and cannot spawn descendants.
-        if unsafe { AssignProcessToJobObject(job.as_raw_handle(), child.as_raw_handle()) } == 0 {
+        if unsafe { AssignProcessToJobObject(job.as_raw_handle(), child.as_raw_handle()) } == 0_i32
+        {
             return Err(io::Error::last_os_error());
         }
         let result = Self(job);
@@ -110,13 +111,13 @@ impl Containment {
         Ok(result)
     }
 
-    pub(super) fn exited(&self, child: &mut Child) -> io::Result<bool> {
+    pub(super) fn exited(_tree: &Self, child: &mut Child) -> io::Result<bool> {
         child.try_wait().map(|status| status.is_some())
     }
 
     pub(super) fn terminate(&self) -> io::Result<()> {
         // SAFETY: this unique job contains only this operation and its descendants.
-        if unsafe { TerminateJobObject(self.0.as_raw_handle(), 1) } == 0 {
+        if unsafe { TerminateJobObject(self.0.as_raw_handle(), 1) } == 0_i32 {
             return Err(io::Error::last_os_error());
         }
         Ok(())
@@ -132,7 +133,7 @@ fn resume(process: u32) -> io::Result<()> {
     };
     // SAFETY: entry has the required size and exclusive storage; snapshot is live.
     let mut found = unsafe { Thread32First(snapshot.as_raw_handle(), &raw mut entry) };
-    while found != 0 {
+    while found != 0_i32 {
         if entry.owner == process {
             // SAFETY: the still-owned suspended child anchors this thread id.
             let thread = owned(unsafe { OpenThread(0x0002, 0, entry.id) })?;
@@ -148,10 +149,6 @@ fn resume(process: u32) -> io::Result<()> {
     Err(io::Error::other(
         "suspended tool initial thread was not found",
     ))
-}
-
-pub(super) const fn configure_pipe(_stream: &impl AsRawHandle) -> io::Result<()> {
-    Ok(())
 }
 
 pub(super) fn read(

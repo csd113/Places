@@ -213,6 +213,8 @@ impl CapturedChild {
         stream: impl containment::Pipe + Send + 'static,
         output: Output,
     ) -> Result<(), String> {
+        // Windows polls the existing pipe with PeekNamedPipe, without setup.
+        #[cfg(not(windows))]
         containment::configure_pipe(&stream)
             .map_err(|error| format!("Could not configure tool output: {error}"))?;
         let interruptible = InterruptiblePipe {
@@ -279,8 +281,7 @@ impl CapturedChild {
         };
         if self.exited.is_none()
             && let Some(tree) = &self.tree
-            && tree
-                .exited(child)
+            && containment::Containment::exited(tree, child)
                 .map_err(|error| format!("Could not inspect tool: {error}"))?
         {
             self.exited = Some(Instant::now());
@@ -347,10 +348,9 @@ impl Cleanup {
         // All reads are interruptible, and only this bounded reaper owns them.
         // The UI never joins a live reader or waits through cancellation grace.
         loop {
-            let exited = self
-                .tree
-                .as_ref()
-                .is_none_or(|tree| tree.exited(&mut self.child).unwrap_or(true));
+            let exited = self.tree.as_ref().is_none_or(|tree| {
+                containment::Containment::exited(tree, &mut self.child).unwrap_or(true)
+            });
             if exited || self.stopped.elapsed() >= CANCEL_GRACE {
                 break;
             }

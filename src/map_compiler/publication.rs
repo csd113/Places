@@ -57,7 +57,7 @@ fn destination_path(path: &Path) -> Result<PathBuf, String> {
 }
 
 enum Inputs {
-    Project(PathBuf, ProjectFolder, BTreeMap<ProjectPath, Vec<u8>>),
+    Project(PathBuf, Box<ProjectFolder>, BTreeMap<ProjectPath, Vec<u8>>),
     Standalone(PathBuf, FileIdentity),
 }
 
@@ -78,7 +78,7 @@ impl Guard {
             for path in sources.keys() {
                 reject_alias(&folder.resolve(path)?, &destination, original.as_ref())?;
             }
-            Inputs::Project(source.into(), folder, sources)
+            Inputs::Project(source.into(), Box::new(folder), sources)
         } else {
             let canonical = fs::canonicalize(source).map_err(|e| e.to_string())?;
             reject_alias(&canonical, &destination, original.as_ref())?;

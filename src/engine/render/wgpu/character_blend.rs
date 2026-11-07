@@ -665,7 +665,9 @@ fn without_opaque_accessibility(source: &str) -> Option<String> {
         .checked_add(start)?;
     let mut output = source.to_owned();
     output.replace_range(start..end, "");
-    output = output.replace("    @location(15) self_ambient: vec4<f32>,\n", "");
+    // Git's Windows checkout may use CRLF. Remove the field itself, not its
+    // newline, or an unused opaque varying exceeds DX12's fragment input limit.
+    output = output.replace("    @location(15) self_ambient: vec4<f32>,", "");
     output = output.replace("in.self_ambient", "vec4<f32>(0.0)");
     Some(output)
 }

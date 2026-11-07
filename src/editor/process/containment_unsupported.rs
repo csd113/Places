@@ -15,7 +15,7 @@ impl Containment {
             "native tool containment is unavailable on this target",
         ))
     }
-    pub(super) fn exited(&self, _child: &mut Child) -> io::Result<bool> {
+    pub(super) fn exited(_tree: &Self, _child: &mut Child) -> io::Result<bool> {
         Err(io::Error::new(
             io::ErrorKind::Unsupported,
             "native tools are unavailable",
