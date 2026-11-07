@@ -1972,6 +1972,10 @@ impl FrameLoop<'_> {
                 bench::lighting_sequence::LightingAction::Presence { id, visible } => {
                     self.renderer.set_character_visible(id, *visible)
                 }
+                bench::lighting_sequence::LightingAction::Appearance { key, texture } => self
+                    .renderer
+                    .set_runtime_character_texture(&format!("bench#{key}"), texture.as_deref())
+                    .is_ok(),
                 bench::lighting_sequence::LightingAction::Despawn { key } => {
                     self.renderer.despawn_runtime_model(*key)
                         || self

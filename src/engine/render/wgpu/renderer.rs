@@ -2176,14 +2176,21 @@ impl WgpuRenderer {
     /// demonstration objects are not addressed by runtime keys and are never
     /// touched.
     pub fn despawn_runtime_model(&mut self, key: u64) -> bool {
+        self.despawn_runtime_models(&[key]) != 0
+    }
+
+    /// Removes a group and publishes its GPU membership only once.
+    pub fn despawn_runtime_models(&mut self, keys: &[u64]) -> usize {
         if self.check_device_lost() {
-            return false;
+            return 0;
         }
-        let Some(id) = self.runtime_objects.remove(&key) else {
-            return false;
-        };
-        let removed = self.dynamic.despawn(id);
-        if removed {
+        let mut removed = 0usize;
+        for key in keys {
+            if let Some(id) = self.runtime_objects.remove(key) {
+                removed = removed.saturating_add(usize::from(self.dynamic.despawn(id)));
+            }
+        }
+        if removed > 0 {
             self.upload_dynamic();
         }
         removed
@@ -3082,7 +3089,18 @@ impl WgpuRenderer {
             level: self.quality,
             lighting_level: self.lighting_quality,
         };
-        self.world_dynamic = Some(WgpuDynamic::upload(&mut ctx, &self.dynamic));
+        self.world_dynamic = Some(WgpuDynamic::upload(
+            &mut ctx,
+            &self.dynamic,
+            self.world_dynamic.take(),
+        ));
+        if let Some(dynamic) = &self.world_dynamic {
+            let stats = dynamic.stats();
+            logging::info(format!(
+                "[wgpu] dynamic reconcile: {} live, {} mesh uploads, {} object uploads",
+                stats.objects, stats.mesh_uploads, stats.object_uploads,
+            ));
+        }
     }
 
     /// Advances poses before callers resolve socket-attached props. Lighting
@@ -3494,7 +3512,7 @@ impl WgpuRenderer {
         self.world_characters = Some(WgpuCharacters::upload(
             &mut ctx,
             &self.characters,
-            self.world_characters.as_ref(),
+            self.world_characters.take(),
             self.character_skin_pipeline.clone(),
         ));
         self.character_skin_pipeline = self
@@ -3504,8 +3522,13 @@ impl WgpuRenderer {
         if let Some(characters) = self.world_characters.as_ref() {
             let stats = characters.stats();
             logging::info(format!(
-                "[wgpu] characters: {} character(s), {} mesh(es), {} source range(s), {} vertices",
-                stats.characters, stats.meshes, stats.draws, stats.vertices
+                "[wgpu] characters: {} character(s), {} mesh(es), {} source range(s), {} vertices; {} mesh uploads, {} actor uploads",
+                stats.characters,
+                stats.meshes,
+                stats.draws,
+                stats.vertices,
+                stats.mesh_uploads,
+                stats.character_uploads
             ));
         }
         self.ensure_character_blend_pipelines();
@@ -4959,11 +4982,13 @@ impl WgpuRenderer {
         // error. A quality rebuild keeps the neutral character scene; the GPU
         // side is re-uploaded against the new level resources.
         mark("probes");
+        self.world_characters = None;
         self.upload_characters_gpu();
         // A quality rebuild keeps the neutral dynamic scene; re-upload it
         // against the new level resources so no draw references a stale
         // resource.
         mark("characters");
+        self.world_dynamic = None;
         self.upload_dynamic();
         // The effect scene rides the same lifecycle: its GPU buffers and
         // sheets are rebuilt against the resources just installed, while the

@@ -25,6 +25,7 @@ struct BatchTriangle {
 
 pub(in crate::engine::render::wgpu) struct BlendBatch {
     members: Vec<usize>,
+    births: Vec<u64>,
     copied_poses: Vec<Option<(usize, Option<u64>, u64)>>,
     pub vertices: wgpu::Buffer,
     pub attributes: wgpu::Buffer,
@@ -169,6 +170,10 @@ impl BlendBatch {
         };
         let copied_poses = vec![None; members.len()];
         Some(Self {
+            births: members
+                .iter()
+                .filter_map(|slot| characters.get(*slot).map(|entry| entry.birth))
+                .collect(),
             members,
             copied_poses,
             vertices: allocate(
@@ -366,6 +371,7 @@ impl WgpuCharacters {
         // Additional batching residency is capped across the complete scene.
         // Admission over this budget retains correct general triangle draws.
         let mut remaining = 64_u64 * 1024 * 1024;
+        let mut previous = std::mem::take(&mut self.blend_batches);
         for mesh in 0..self.meshes.len() {
             let members: Vec<_> = self
                 .characters
@@ -384,21 +390,40 @@ impl WgpuCharacters {
             let Some(emission) = vertex_emission(&character.asset().model) else {
                 continue;
             };
-            if let Some(mut batch) = BlendBatch::new(
-                ctx,
-                &self.characters,
-                members,
-                &emission,
-                character.asset().model.indices.len(),
-                remaining,
-            ) {
+            let reusable = previous.iter().position(|batch| {
+                batch.births.len() == members.len()
+                    && batch.births.iter().zip(&members).all(|(birth, member)| {
+                        self.characters
+                            .get(*member)
+                            .is_some_and(|entry| entry.birth == *birth)
+                    })
+            });
+            let prepared = if let Some(index) = reusable {
+                let mut retained = previous.remove(index);
+                retained.members = members;
+                // Owner slots may have changed even though these batch members survived.
+                retained.copied_poses.fill(None);
+                Some(retained)
+            } else {
+                BlendBatch::new(
+                    ctx,
+                    &self.characters,
+                    members,
+                    &emission,
+                    character.asset().model.indices.len(),
+                    remaining,
+                )
+            };
+            if let Some(mut batch) = prepared {
                 let triangles = batch.members.len().saturating_mul(
                     self.meshes
                         .get(mesh)
                         .map_or(0, |model| model.blend_triangles.len()),
                 );
-                batch.triangles = Vec::with_capacity(triangles);
-                batch.ordered_indices = Vec::with_capacity(triangles.saturating_mul(3));
+                batch.triangles.clear();
+                batch.triangles.reserve(triangles);
+                batch.ordered_indices.clear();
+                batch.ordered_indices.reserve(triangles.saturating_mul(3));
                 remaining = remaining.saturating_sub(batch.gpu_bytes());
                 let slot = self.blend_batches.len();
                 for member in &batch.members {

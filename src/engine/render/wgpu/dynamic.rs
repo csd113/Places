@@ -16,6 +16,7 @@
 //! uniforms and
 //! reuses the buffers, materials and bind groups uploaded with the level.
 
+use std::collections::HashMap;
 use std::sync::Arc;
 
 use super::environment::EnvironmentBindings;
@@ -32,6 +33,7 @@ use crate::engine::spatial::Aabb;
 
 /// One distinct model uploaded in model space.
 struct DynamicMeshGpu {
+    source: Arc<DynamicMesh>,
     vertex_buffer: wgpu::Buffer,
     index_buffer: wgpu::Buffer,
     vertex_count: u32,
@@ -79,6 +81,7 @@ struct DynamicObjectGpu {
     materials: Vec<usize>,
     /// True per submesh after the object's emission override is applied.
     emissive: Vec<bool>,
+    albedo_tint: [f32; 3],
     emission: Option<MaterialEmission>,
     emission_scale: f32,
     uv_reactive: bool,
@@ -91,6 +94,10 @@ struct DynamicObjectGpu {
 pub struct DynamicGpuStats {
     /// Distinct models uploaded.
     pub meshes: usize,
+    /// Geometry allocations in the latest membership publication.
+    pub mesh_uploads: usize,
+    /// Object material/environment allocations in that publication.
+    pub object_uploads: usize,
     /// Live objects.
     pub objects: usize,
     /// Unculled per-object primitive ranges; actual commands are reported by `RenderStats`.
@@ -121,6 +128,8 @@ pub struct WgpuDynamic {
 /// fragment lighting and material state. Otherwise ordinary draws retain each
 /// object's original environment. Geometry is shared on either path.
 pub struct RigidInstanceGroup {
+    source: Arc<DynamicMesh>,
+    member_ids: Vec<DynamicId>,
     pub objects: Vec<usize>,
     pub environment: EnvironmentBindings,
     pub instances: super::prop_instances::DynamicInstances,
@@ -182,13 +191,44 @@ impl WgpuDynamic {
         clippy::too_many_lines,
         reason = "One cohesive level upload: the per-model loop and the per-object loop share the same counters and context."
     )]
-    pub fn upload(ctx: &mut DynamicUploadContext<'_>, scene: &DynamicScene) -> Self {
+    pub fn upload(
+        ctx: &mut DynamicUploadContext<'_>,
+        scene: &DynamicScene,
+        previous: Option<Self>,
+    ) -> Self {
         let mut timer = crate::engine::perf::loading::StageTimer::new("dynamic-upload");
         let mut value = Self::default();
         if scene.is_empty() {
             return value;
         }
-        for mesh in scene.meshes() {
+        // Source Arcs keep identities alive while old slots are reconciled.
+        // Only live meshes survive; registered but unused neutral slots cost no GPU memory.
+        let old = previous.unwrap_or_default();
+        let mut old_meshes: HashMap<_, _> = old
+            .meshes
+            .into_iter()
+            .map(|mesh| (Arc::as_ptr(&mesh.source).addr(), mesh))
+            .collect();
+        let mut old_objects: HashMap<_, _> = old
+            .objects
+            .into_iter()
+            .map(|object| (object.id, object))
+            .collect();
+        let mut old_materials: Vec<_> = old.materials.into_iter().map(Some).collect();
+        value.instance_groups = old.instance_groups;
+        let mut mesh_slots = HashMap::new();
+        for object in scene.objects() {
+            let mesh = object.mesh();
+            let identity = Arc::as_ptr(mesh).addr();
+            if mesh_slots.contains_key(&identity) {
+                continue;
+            }
+            let _previous = mesh_slots.insert(identity, value.meshes.len());
+            if let Some(retained) = old_meshes.remove(&identity) {
+                value.meshes.push(retained);
+                continue;
+            }
+            value.stats.mesh_uploads = value.stats.mesh_uploads.saturating_add(1);
             let mut mesh_timer = crate::engine::perf::loading::StageTimer::new("dynamic-mesh");
             let mut textures: Vec<Arc<GpuTexture>> = Vec::with_capacity(mesh.textures.len());
             for (index, image) in mesh.textures.iter().enumerate() {
@@ -279,11 +319,26 @@ impl WgpuDynamic {
         }
         timer.step("meshes");
         for object in scene.objects() {
-            let Some(mesh_index) =
-                Some(object.mesh_index()).filter(|index| *index < value.meshes.len())
+            let Some(mesh_index) = mesh_slots.get(&Arc::as_ptr(object.mesh()).addr()).copied()
             else {
                 continue;
             };
+            if let Some(mut retained) = old_objects.remove(&object.id()).filter(|entry| {
+                entry.albedo_tint.map(f32::to_bits) == object.albedo_tint().map(f32::to_bits)
+                    && entry.emission == object.emission()
+                    && entry.emission_scale.to_bits() == object.emission_scale().to_bits()
+            }) {
+                retained.mesh = mesh_index;
+                for slot in &mut retained.materials {
+                    if let Some(material) = old_materials.get_mut(*slot).and_then(Option::take) {
+                        *slot = value.materials.len();
+                        value.materials.push(material);
+                    }
+                }
+                value.objects.push(retained);
+                continue;
+            }
+            value.stats.object_uploads = value.stats.object_uploads.saturating_add(1);
             let environment = EnvironmentBindings::new(
                 ctx.device,
                 ctx.queue,
@@ -351,6 +406,7 @@ impl WgpuDynamic {
                 world_bounds: object.world_bounds(),
                 materials,
                 emissive,
+                albedo_tint: object.albedo_tint(),
                 emission: object.emission(),
                 emission_scale: object.emission_scale(),
                 uv_reactive: mesh
@@ -374,6 +430,7 @@ impl WgpuDynamic {
             return;
         }
         let specialized = super::world::specialized_instances();
+        let mut previous = std::mem::take(&mut self.instance_groups);
         for (mesh_slot, mesh) in self.meshes.iter().enumerate() {
             // Sorted transparency retains one independently ordered object.
             if mesh.submeshes.iter().any(|part| {
@@ -395,6 +452,18 @@ impl WgpuDynamic {
             if objects.len() < 2 {
                 continue;
             }
+            let member_ids: Vec<_> = objects
+                .iter()
+                .filter_map(|slot| self.objects.get(*slot).map(|object| object.id))
+                .collect();
+            if let Some(index) = previous.iter().position(|group| {
+                Arc::ptr_eq(&group.source, &mesh.source) && group.member_ids == member_ids
+            }) {
+                let mut retained = previous.remove(index);
+                retained.objects = objects;
+                self.instance_groups.push(retained);
+                continue;
+            }
             let environment = EnvironmentBindings::new(
                 ctx.device,
                 ctx.queue,
@@ -410,6 +479,8 @@ impl WgpuDynamic {
             );
             let instances = super::prop_instances::DynamicInstances::new(ctx.device, objects.len());
             self.instance_groups.push(RigidInstanceGroup {
+                source: Arc::clone(&mesh.source),
+                member_ids,
                 objects,
                 environment,
                 instances,
@@ -431,6 +502,8 @@ impl WgpuDynamic {
             group.compatible = group.objects.iter().all(|slot| {
                 self.objects.get(*slot).is_some_and(|object| {
                     object.culling_reflected == reference.culling_reflected
+                        && object.albedo_tint.map(f32::to_bits)
+                            == reference.albedo_tint.map(f32::to_bits)
                         && object.emission == reference.emission
                         && object.emission_scale.to_bits() == reference.emission_scale.to_bits()
                         && same_fragment_environment(uniform, object.environment.uploaded_uniform())
@@ -530,7 +603,7 @@ impl WgpuDynamic {
     /// Uploads one model's buffers.
     fn upload_mesh(
         ctx: &DynamicUploadContext<'_>,
-        mesh: &DynamicMesh,
+        mesh: &Arc<DynamicMesh>,
         textures: Vec<Arc<GpuTexture>>,
         uv_masks: Vec<Option<Arc<GpuTexture>>>,
         submeshes: Vec<DynamicSubmeshGpu>,
@@ -559,6 +632,7 @@ impl WgpuDynamic {
             "places-wgpu-dynamic-indices",
         );
         DynamicMeshGpu {
+            source: Arc::clone(mesh),
             vertex_buffer,
             index_buffer,
             vertex_count: u32::try_from(mesh.vertices.len()).unwrap_or(u32::MAX),

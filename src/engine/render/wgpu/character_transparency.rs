@@ -54,7 +54,7 @@ pub(super) struct CharacterTransparency {
     pub buffer: wgpu::Buffer,
     positions: Vec<Vec3>,
     revision: Option<u64>,
-    view: Option<(Vec3, Mat4)>,
+    view: Option<(Vec3, Mat4, bool)>,
     pub order: Vec<OrderedTriangle>,
     indices: Vec<u16>,
 }
@@ -118,12 +118,14 @@ impl CharacterTransparency {
             self.revision = Some(animator.revision());
             self.view = None;
         }
-        if self.view == Some((eye, transform)) {
+        // Appearance can move an unchanged pose out of a shared batch. Its
+        // private buffer has not necessarily been written in this view yet.
+        if self.view == Some((eye, transform, separate_indices)) {
             return;
         }
         triangle_keys(triangles, &self.positions, transform, eye, &mut self.order);
         if !separate_indices {
-            self.view = Some((eye, transform));
+            self.view = Some((eye, transform, separate_indices));
             return;
         }
         sort_triangles(&mut self.order);
@@ -137,7 +139,7 @@ impl CharacterTransparency {
             }
         }
         queue.write_buffer(&self.buffer, 0, bytemuck::cast_slice(&self.indices));
-        self.view = Some((eye, transform));
+        self.view = Some((eye, transform, separate_indices));
     }
 }
 

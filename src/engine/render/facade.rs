@@ -523,6 +523,11 @@ impl Renderer {
         self.renderer.despawn_runtime_model(key)
     }
 
+    /// Removes runtime models in one GPU membership publication.
+    pub fn despawn_runtime_models(&mut self, keys: &[u64]) -> usize {
+        self.renderer.despawn_runtime_models(keys)
+    }
+
     /// Moves a live runtime object; returns whether it was live.
     ///
     /// The object keeps its mesh, scale and material. The write reaches the

@@ -47,6 +47,7 @@ use crate::engine::spatial::Aabb;
 
 /// One distinct model uploaded in model space.
 struct CharacterMeshGpu {
+    source: Arc<crate::engine::props::LoadedPropAsset>,
     skin_source: Option<SkinSource>,
     /// Triangle indices, shared by every character of this model.
     index_buffer: wgpu::Buffer,
@@ -161,8 +162,21 @@ impl CharacterKey {
     }
 }
 
+fn same_appearance(
+    left: Option<&Arc<crate::engine::loader::RawImage>>,
+    right: Option<&Arc<crate::engine::loader::RawImage>>,
+) -> bool {
+    match (left, right) {
+        (Some(a), Some(b)) => Arc::ptr_eq(a, b),
+        (None, None) => true,
+        _ => false,
+    }
+}
+
 /// One live character's GPU state.
 struct CharacterGpu {
+    birth: u64,
+    texture_image: Option<Arc<crate::engine::loader::RawImage>>,
     shared_pose: Option<usize>,
     transparency: Option<CharacterTransparency>,
     blend_batch: Option<usize>,
@@ -291,6 +305,10 @@ impl CharacterVertexState {
 pub struct CharacterGpuStats {
     /// Distinct models uploaded.
     pub meshes: usize,
+    /// Shared geometry created in this publication.
+    pub mesh_uploads: usize,
+    /// New per-actor pose/environment resources in this publication.
+    pub character_uploads: usize,
     /// Live characters.
     pub characters: usize,
     /// Unculled source primitive ranges; actual view draws can merge or split them.
@@ -460,7 +478,7 @@ impl WgpuCharacters {
     pub(super) fn upload(
         ctx: &mut CharacterUploadContext<'_>,
         scene: &CharacterScene,
-        previous: Option<&Self>,
+        previous: Option<Self>,
         pipeline: Option<SkinPipeline>,
     ) -> Self {
         let mut value = Self::default();
@@ -470,8 +488,25 @@ impl WgpuCharacters {
         value.fallback = Some(ctx.cache.fallback());
         // Runtime admission rebuilds character bindings on the same device.
         // Retain its compiled deformation pipeline across those rebuilds.
-        value.skin_pipeline = Some(Self::reuse_skin_pipeline(ctx.device, previous, pipeline));
-        let mut mesh_index_by_path: HashMap<String, usize> = HashMap::new();
+        value.skin_pipeline = Some(Self::reuse_skin_pipeline(
+            ctx.device,
+            previous.as_ref(),
+            pipeline,
+        ));
+        let old = previous.unwrap_or_default();
+        let mut old_meshes: HashMap<_, _> = old
+            .meshes
+            .into_iter()
+            .map(|mesh| (Arc::as_ptr(&mesh.source).addr(), mesh))
+            .collect();
+        let mut old_characters: HashMap<_, _> = old
+            .characters
+            .into_iter()
+            .map(|character| (character.birth, character))
+            .collect();
+        let mut old_materials: Vec<_> = old.materials.into_iter().map(Some).collect();
+        value.blend_batches = old.blend_batches;
+        let mut mesh_slots = HashMap::new();
         let entries = scene
             .characters()
             .iter()
@@ -483,88 +518,127 @@ impl WgpuCharacters {
                     .map(|id| (CharacterKey::Runtime(id.to_string()), character))
             }));
         for (key, character) in entries {
-            let model_path = character.asset().model_path.clone();
-            let mesh_index = if let Some(index) = mesh_index_by_path.get(&model_path).copied() {
+            let identity = Arc::as_ptr(character.asset()).addr();
+            let mesh_index = if let Some(index) = mesh_slots.get(&identity).copied() {
                 index
             } else {
-                let Some(mesh) = Self::upload_mesh(ctx, &mut value, character.asset()) else {
+                let mesh = if let Some(mut retained) = old_meshes.remove(&identity) {
+                    for slot in &mut retained.materials {
+                        if let Some(material) = old_materials.get_mut(*slot).and_then(Option::take)
+                        {
+                            *slot = value.materials.len();
+                            value.materials.push(material);
+                        }
+                    }
+                    retained
+                } else if let Some(created) = Self::upload_mesh(ctx, &mut value, character.asset())
+                {
+                    value.stats.mesh_uploads = value.stats.mesh_uploads.saturating_add(1);
+                    created
+                } else {
                     continue;
                 };
+                let index = value.meshes.len();
                 value.meshes.push(mesh);
-                let index = value.meshes.len().saturating_sub(1);
-                let _previous_value = mesh_index_by_path.insert(model_path, index);
+                let _previous_value = mesh_slots.insert(identity, index);
                 index
             };
-            let Some(mesh) = value.meshes.get(mesh_index) else {
+            if let Some(mut retained) = old_characters.remove(&character.blood_identity()) {
+                retained.mesh = mesh_index;
+                retained.key = key;
+                retained.blend_batch = None;
+                if !same_appearance(retained.texture_image.as_ref(), character.texture()) {
+                    retained.texture = Self::upload_appearance(ctx, &mut value, character);
+                    retained.texture_image = character.texture().cloned();
+                }
+                value.characters.push(retained);
                 continue;
-            };
-            let vertex_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
-                label: Some("places-wgpu-character-vertices"),
-                size: u64::from(mesh.vertex_count)
-                    .saturating_mul(WORLD_VERTEX_STRIDE)
-                    .max(4),
-                usage: wgpu::BufferUsages::VERTEX
-                    | wgpu::BufferUsages::COPY_DST
-                    | wgpu::BufferUsages::COPY_SRC
-                    | wgpu::BufferUsages::STORAGE,
-                mapped_at_creation: false,
-            });
-            let pending_environment = ctx
-                .environment
-                .with_model(character.transform())
-                .with_entity_lighting(Some(character.entity_lighting()))
-                .with_spatial_lighting(character.spatial_lighting())
-                .with_opacity(character.opacity());
-            let environment = EnvironmentBindings::new(
-                ctx.device,
-                ctx.queue,
-                ctx.environment_layout,
-                ctx.cache,
-                ctx.lightmaps,
-                ctx.probes,
-                ctx.planar,
-                ctx.probe_fallback,
-                ctx.planar_fallback,
-                ctx.caustics,
-                &pending_environment,
-            );
-            let pose = CharacterVertexState::uploaded(
-                ctx,
-                mesh,
-                value.skin_pipeline.as_ref(),
-                character,
-                &vertex_buffer,
-            );
-            let world_bounds = posed_world_bounds(&pose.bounds, &character.transform());
-            let transparency = mesh.transparency(ctx.device, character);
-            let texture = Self::upload_appearance(ctx, &mut value, character);
-            value.characters.push(CharacterGpu {
-                shared_pose: None,
-                transparency,
-                blend_batch: None,
-                texture,
-                mesh: mesh_index,
-                key,
-                vertex_buffer,
-                environment,
-                pose,
-                uploaded_transform: character.transform(),
-                world_bounds,
-                pending_environment,
-                uv_reactive: character
-                    .asset()
-                    .model
-                    .submeshes
-                    .iter()
-                    .any(|submesh| submesh.response.fluorescence.strength > 0.0),
-                uv_receiver: BlacklightReceiverCache::default(),
-                visible: character.is_visible(),
-                casts_flashlight_shadow: character.casts_flashlight_shadow(),
-            });
+            }
+            value.stats.character_uploads = value.stats.character_uploads.saturating_add(1);
+            if let Some(created) =
+                Self::upload_character(ctx, &mut value, key, character, mesh_index)
+            {
+                value.characters.push(created);
+            }
         }
         value.upload_blend_batches(ctx, scene);
         value.finish_stats();
         value
+    }
+
+    fn upload_character(
+        ctx: &mut CharacterUploadContext<'_>,
+        value: &mut Self,
+        key: CharacterKey,
+        character: &Character,
+        mesh_index: usize,
+    ) -> Option<CharacterGpu> {
+        let mesh = value.meshes.get(mesh_index)?;
+        let vertex_buffer = ctx.device.create_buffer(&wgpu::BufferDescriptor {
+            label: Some("places-wgpu-character-vertices"),
+            size: u64::from(mesh.vertex_count)
+                .saturating_mul(WORLD_VERTEX_STRIDE)
+                .max(4),
+            usage: wgpu::BufferUsages::VERTEX
+                | wgpu::BufferUsages::COPY_DST
+                | wgpu::BufferUsages::COPY_SRC
+                | wgpu::BufferUsages::STORAGE,
+            mapped_at_creation: false,
+        });
+        let pending_environment = ctx
+            .environment
+            .with_model(character.transform())
+            .with_entity_lighting(Some(character.entity_lighting()))
+            .with_spatial_lighting(character.spatial_lighting())
+            .with_opacity(character.opacity());
+        let environment = EnvironmentBindings::new(
+            ctx.device,
+            ctx.queue,
+            ctx.environment_layout,
+            ctx.cache,
+            ctx.lightmaps,
+            ctx.probes,
+            ctx.planar,
+            ctx.probe_fallback,
+            ctx.planar_fallback,
+            ctx.caustics,
+            &pending_environment,
+        );
+        let pose = CharacterVertexState::uploaded(
+            ctx,
+            mesh,
+            value.skin_pipeline.as_ref(),
+            character,
+            &vertex_buffer,
+        );
+        let world_bounds = posed_world_bounds(&pose.bounds, &character.transform());
+        let transparency = mesh.transparency(ctx.device, character);
+        let texture = Self::upload_appearance(ctx, value, character);
+        Some(CharacterGpu {
+            birth: character.blood_identity(),
+            texture_image: character.texture().cloned(),
+            shared_pose: None,
+            transparency,
+            blend_batch: None,
+            texture,
+            mesh: mesh_index,
+            key,
+            vertex_buffer,
+            environment,
+            pose,
+            uploaded_transform: character.transform(),
+            world_bounds,
+            pending_environment,
+            uv_reactive: character
+                .asset()
+                .model
+                .submeshes
+                .iter()
+                .any(|submesh| submesh.response.fluorescence.strength > 0.0),
+            uv_receiver: BlacklightReceiverCache::default(),
+            visible: character.is_visible(),
+            casts_flashlight_shadow: character.casts_flashlight_shadow(),
+        })
     }
 
     fn upload_appearance(
@@ -604,7 +678,7 @@ impl WgpuCharacters {
     fn upload_mesh(
         ctx: &mut CharacterUploadContext<'_>,
         value: &mut Self,
-        asset: &crate::engine::props::LoadedPropAsset,
+        asset: &Arc<crate::engine::props::LoadedPropAsset>,
     ) -> Option<CharacterMeshGpu> {
         let model = &asset.model;
         if model.indices.is_empty() || model.submeshes.is_empty() {
@@ -676,6 +750,7 @@ impl WgpuCharacters {
             "places-wgpu-character-indices",
         );
         Some(CharacterMeshGpu {
+            source: Arc::clone(asset),
             skin_source: SkinSource::new(ctx.device, ctx.queue, model),
             index_buffer,
             index_count: u32::try_from(model.indices.len()).unwrap_or(u32::MAX),

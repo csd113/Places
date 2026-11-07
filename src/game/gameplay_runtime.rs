@@ -319,14 +319,19 @@ impl Runtime {
             })
             .collect();
         let mut removed = 0_usize;
+        let mut rigid_keys = Vec::with_capacity(keys.len());
         for key in &keys {
             if !context.physics.remove_movable(*key) {
                 continue;
             }
             if let Some(prop) = self.given.iter().find(|prop| prop.key == *key) {
-                despawn_visual(prop, context.renderer);
+                if let Some(id) = prop.character.as_deref() {
+                    let _removed = context.renderer.despawn_runtime_character(id);
+                } else {
+                    rigid_keys.push(*key);
+                }
             } else {
-                let _visual_removed = context.renderer.despawn_runtime_model(*key);
+                rigid_keys.push(*key);
                 if let Some((_, id, _)) = context
                     .authored
                     .iter()
@@ -340,6 +345,7 @@ impl Runtime {
             }
             removed = removed.saturating_add(1);
         }
+        let _visual_removed = context.renderer.despawn_runtime_models(&rigid_keys);
         self.given.retain(|prop| !keys.contains(&prop.key));
         context.authored.retain(|(key, _, _)| !keys.contains(key));
         Ok(format!(

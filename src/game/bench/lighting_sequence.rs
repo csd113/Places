@@ -28,6 +28,11 @@ pub enum LightingAction {
         id: String,
         visible: bool,
     },
+    /// Fitted appearance switch through the ordinary runtime API.
+    Appearance {
+        key: u64,
+        texture: Option<String>,
+    },
     Despawn {
         key: u64,
     },
@@ -86,6 +91,9 @@ impl LightingAction {
                 pitch,
             } => position.iter().all(|v| v.is_finite()) && yaw.is_finite() && pitch.is_finite(),
             Self::Presence { id, visible: _ } | Self::Door { id, open: _ } => !id.is_empty(),
+            Self::Appearance { texture, key: _ } => {
+                texture.as_ref().is_none_or(|id| !id.is_empty())
+            }
             Self::Despawn { key: _ }
             | Self::ToggleFixture {
                 fixture: _,

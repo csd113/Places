@@ -2173,6 +2173,14 @@ impl CharacterScene {
         let Some(actor) = self.runtime_character_mut(id) else {
             return false;
         };
+        let unchanged = match (&actor.texture, &texture) {
+            (Some(current), Some(requested)) => Arc::ptr_eq(current, requested),
+            (None, None) => true,
+            _ => false,
+        };
+        if unchanged {
+            return true;
+        }
         actor.texture = texture;
         self.runtime_generation = self.runtime_generation.wrapping_add(1);
         true

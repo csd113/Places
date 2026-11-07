@@ -385,3 +385,62 @@ fn suspended_character_defers_lighting_and_refreshes_immediately_on_restore() ->
     );
     Ok(())
 }
+
+// A tiny synthetic image/rig protects appearance invalidation without a GPU:
+// repeat requests preserve pose/birth and do not republish scene membership.
+#[test]
+fn appearance_changes_preserve_birth_and_repeated_requests_do_not_dirty_membership()
+-> Result<(), String> {
+    let mut scene = CharacterScene {
+        runtime: vec![actor("skin", tiny_rig())?],
+        ..CharacterScene::default()
+    };
+    let image = Arc::new(crate::engine::loader::RawImage::new(1, 1, vec![255; 4]));
+    let birth = scene
+        .runtime_character("skin")
+        .ok_or("actor")?
+        .blood_identity();
+    let pose = scene
+        .runtime_character("skin")
+        .ok_or("actor")?
+        .animator()
+        .revision();
+    assert!(scene.set_runtime_character_texture("skin", Some(Arc::clone(&image))));
+    let generation = scene.runtime_generation();
+    assert!(scene.set_runtime_character_texture("skin", Some(image)));
+    assert_eq!(
+        scene.runtime_generation(),
+        generation,
+        "same source is a no-op"
+    );
+    assert_eq!(
+        scene
+            .runtime_character("skin")
+            .ok_or("actor")?
+            .blood_identity(),
+        birth
+    );
+    assert_eq!(
+        scene
+            .runtime_character("skin")
+            .ok_or("actor")?
+            .animator()
+            .revision(),
+        pose
+    );
+    assert!(scene.set_runtime_character_texture("skin", None));
+    assert_ne!(
+        scene.runtime_generation(),
+        generation,
+        "restoring the model sheet must publish"
+    );
+    let restored = scene.runtime_generation();
+    assert!(scene.set_runtime_character_texture("skin", None));
+    assert!(!scene.set_runtime_character_texture("absent", None));
+    assert_eq!(
+        scene.runtime_generation(),
+        restored,
+        "empty and missing requests are no-ops"
+    );
+    Ok(())
+}
