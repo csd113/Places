@@ -29,6 +29,8 @@ AGENTS.md
 /docs/**/*.gz
 /docs/**/*.json
 !/docs/asset-presets/*.json
+# Curated authoring inventory, not raw native run receipts.
+!/docs/assets/shadow-inventory-2026-11-07.json
 !/docs/archive/levels/places_demo.json
 !/docs/archive/levels/model_zoo.json
 /docs/**/*.png

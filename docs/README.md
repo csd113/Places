@@ -9,6 +9,7 @@ what you are changing:
 | Understand rendering and diagnostics | [Renderer](RENDERER.md) |
 | Author maps, placement, lights and materials | [Map authoring](MAP_AUTHORING_GUIDE.md) |
 | Create or replace PNGs, models and source masters | [Asset specification](ASSET_SPECIFICATION.md) |
+| Author model lighting, cavity shading and grounding | [Shadow convention](assets/SHADOWS.md) |
 | Select a generator or offline check | [Python tooling](OFFLINE_TOOLING.md) |
 | Run source, package or native acceptance | [Verification](VERIFICATION.md) |
 | Inspect archive formats and safety limits | [Package format](PACKAGE_FORMAT.md) |

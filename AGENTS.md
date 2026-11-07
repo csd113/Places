@@ -45,6 +45,14 @@ loads and references those files. This is a repository-wide requirement:
   material images used by those models should still be stored as normal
   asset files where applicable.
 
+## Model Shadow Authoring
+
+Before adding or replacing a prop, character or generated door model, read
+`docs/assets/SHADOWS.md`. Preserve the ordinary-lighting default, limit fixed
+character attenuation to reviewed interior cavities, and validate grounding
+separately from self-shadowing. Revalidate model-specific cavity data after a
+GLB/rig replacement; vertex-count equality is not proof that its mapping is safe.
+
 ## Linting Standards (Clippy)
 
 This project enforces a strict Clippy configuration, declared in
