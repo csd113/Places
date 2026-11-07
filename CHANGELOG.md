@@ -379,6 +379,36 @@ and the player-facing visual, smoothness and measured-performance entries above.
 This record ends at `2c47601b`. Later Tall Guest/Feltling character self-lighting
 and mouth/floor lighting/visibility work is outside this completed-review record.
 
+
+### Rust test-value review (7 November 2026)
+
+Reviewed all 678 repository-owned Rust files and 528 test definitions at
+`624e4da`, then reconciled every one of the 30 changed Rust files through
+`228c24a`, including the new Flee-policy regression. Retain all **529 tests**:
+small fixtures protect distinct behavior, validation, compatibility, resource,
+geometry/lighting, lifecycle, input/physics/AI, script and platform contracts.
+Shared names or setup alone did not justify a whole-test deletion or merge.
+
+Remove four nonessential assertion sites: a by-value local-copy tautology, two
+toy alpha-compositor checks after exact production order is asserted, and a
+package fixture self-check that did not inspect output. Keep actual ordering,
+copy-predicate, byte-exact recovery and overwrite-refusal guards; clarify test
+names. Replace 32 identical immutable form-fit queries with one while keeping
+the pose comparison and both movement sequences. Move the unchanged three-case
+Feltling planner regression into its owning tests folder. Production behavior,
+assets and non-Rust/native acceptance fixtures are unchanged. No suite-speedup
+claim or test-count target is inferred.
+
+Full per-test, helper and case inventories are preserved in the private
+`Places_Rust_test_value_review_624e4da_2026-11-07.zip` and its current-source
+reconciliation receipts. This dated assessment avoids repeating an unchanged
+full audit; later changes and new evidence still need targeted review. Native
+capture/swallow/obstruction proof remains separate from ordinary Rust tests.
+Fresh Mac gates pass: 529 Rust tests, strict debug/release Clippy, locked
+all-feature workspace builds and 11 production Luau refusals. Six Unix-only
+tests account for the expected Windows source count of 523; Windows execution
+is a separate pending gate. No new native or FPS acceptance is claimed.
+
 ## 0.13.0 — 2026-10-28
 
 - Ship seven playable projects in the Windows portable distribution: **The

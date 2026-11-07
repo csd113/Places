@@ -32,9 +32,7 @@ fn small_body_crosses_header_and_failed_human_expansion_preserves_pose() -> Resu
         game.body_half(),
         game.body_height(),
     );
-    for _ in 0_u8..32 {
-        assert!(!game.form_fits(PlayerShape::human()));
-    }
+    assert!(!game.form_fits(PlayerShape::human()));
     assert_eq!(
         before,
         (

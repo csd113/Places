@@ -315,7 +315,7 @@ fn check_ambiguous_package_paths(
 }
 
 #[test]
-fn project_recovers_exact_sources_and_preserves_shared_record_identity() -> Result<(), String> {
+fn project_recovers_exact_sources_and_refuses_existing_destination() -> Result<(), String> {
     let fixture = fixture()?;
     let package = fixture.write()?;
     project::validate(&package, &|| Ok(()))?;
@@ -336,26 +336,6 @@ fn project_recovers_exact_sources_and_preserves_shared_record_identity() -> Resu
             "raw source and all editor/unknown data survive byte-exact recovery"
         );
     }
-    let record = fixture
-        .index
-        .levels
-        .first()
-        .and_then(|level| {
-            level
-                .records
-                .iter()
-                .find(|(name, _)| name.ends_with(".fixture"))
-        })
-        .map(|(_, value)| value)
-        .ok_or("Missing shared record")?;
-    assert!(
-        fixture
-            .index
-            .levels
-            .iter()
-            .all(|level| level.records.values().any(|value| value == record)),
-        "all levels reference the one common prepared record"
-    );
     assert!(
         project::recover(&package, &restored, &|| Ok(())).is_err(),
         "repeated recovery must refuse an existing project"
