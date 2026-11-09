@@ -217,7 +217,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 7;
+pub const SOLVER_REVISION: u64 = 8;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -481,8 +481,9 @@ pub struct TransportEmitter {
     pub height_factor: f32,
     /// True when this is a ceiling-mounted fixture: its reach is measured
     /// horizontally from the emitting shape (the historical directional pool),
-    /// so a tall chamber's floor stays lit, and the receiver's own normal
-    /// supplies the incidence falloff through the directional reconstruction.
+    /// so a tall chamber's floor stays lit. Its downward emitting face and
+    /// the receiver each supply their own cosine: a wall level with a panel
+    /// must not receive full source energy and reflect it onto the ceiling.
     pub directional: bool,
     /// `Some(light_index)` when this emitter is a switchable fixture: its
     /// contribution is solved separately so a runtime switch can select it.
@@ -560,6 +561,17 @@ impl PreparedGlobalLight {
 }
 
 impl TransportEmitter {
+    /// Projected emission of a ceiling face, independently of receiver angle.
+    /// `incoming` points from the receiver towards a source tap; the source's
+    /// downward normal therefore gives this positive vertical cosine.
+    fn emission_factor(&self, incoming: [f32; 3]) -> f32 {
+        if self.directional {
+            incoming[1].max(0.0)
+        } else {
+            1.0
+        }
+    }
+
     fn is_valid(&self) -> bool {
         self.position
             .iter()
@@ -765,9 +777,10 @@ impl TransportEmitter {
                 continue;
             }
             let direction = scale(delta, 1.0 / length);
+            let emission = self.emission_factor(direction);
             let weight = attenuate(
                 self.color
-                    .map(|color| color * strength * throughput / count),
+                    .map(|color| color * strength * throughput * emission / count),
                 attenuation,
             );
             if let Some(surface_normal) = normal {
@@ -785,6 +798,7 @@ impl TransportEmitter {
         point: [f32; 3],
         ray_origin: [f32; 3],
         taps: u8,
+        emission_weighted: bool,
     ) -> (f32, [f32; 3]) {
         let total = f32::from(
             u8::try_from(self.shape.sample_count(taps))
@@ -801,12 +815,18 @@ impl TransportEmitter {
             if throughput <= 0.0 {
                 return;
             }
-            transmitted += throughput;
             let to_light = sub(sample, point);
             let distance = length(to_light);
             if distance > 1.0e-6 {
                 let unit = scale(to_light, 1.0 / distance);
-                direction = add(direction, scale(unit, throughput));
+                let weight = throughput
+                    * if emission_weighted {
+                        self.emission_factor(unit)
+                    } else {
+                        1.0
+                    };
+                transmitted += weight;
+                direction = add(direction, scale(unit, weight));
                 if first {
                     centre_direction = unit;
                     first = false;
@@ -845,7 +865,7 @@ impl TransportEmitter {
         if !self.reaches(point) {
             return ([0.0; 3], [0.0; 3], 0.0);
         }
-        let (visible_fraction, average) = self.visibility(scene, point, ray_origin, taps);
+        let (visible_fraction, average) = self.visibility(scene, point, ray_origin, taps, true);
         if visible_fraction <= 0.0 {
             return ([0.0; 3], [0.0; 3], 0.0);
         }
@@ -3112,7 +3132,9 @@ impl TransportScene {
                 }
                 // Visibility is at most one, so this source cannot improve the
                 // existing maximum when its unoccluded support is already lower.
-                let visible = support * emitter.visibility(self, point, ray_origin, 3).0;
+                // Authored room fill uses geometric source support, not the
+                // projected emission used by physical direct/bounce transport.
+                let visible = support * emitter.visibility(self, point, ray_origin, 3, false).0;
                 if visible.is_finite() {
                     best.max(visible)
                 } else {
@@ -5638,3 +5660,7 @@ mod tests;
 #[cfg(test)]
 #[path = "../tests/transport_probes.rs"]
 mod probe_tests;
+
+#[cfg(test)]
+#[path = "../tests/transport_emission.rs"]
+mod emission_tests;

@@ -528,8 +528,11 @@ fn entity_direct_term_with_weights(in: VsOut, normal: vec3<f32>, weights: Entity
             let distance_to_tap = length(incoming);
             if (distance_to_tap > 1.0e-6) {
                 let ndl = max(dot(normal, incoming / distance_to_tap), 0.0);
+                // Match offline transport: the downward source face has a
+                // projected emission cosine separate from receiver incidence.
+                let emitted = select(1.0, max(incoming.y / distance_to_tap, 0.0), extent_falloff.w > 0.5);
                 if (ndl > 0.0 && (visibility_mask & (1u << (index*4u+tap))) != 0u) {
-                    cosine += sample.w * visibility[tap] * ndl;
+                    cosine += sample.w * visibility[tap] * ndl * emitted;
                 }
             }
         }

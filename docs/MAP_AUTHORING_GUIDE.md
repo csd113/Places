@@ -3925,6 +3925,14 @@ contacts. The indirect denoiser uses opposite supported neighbours with one
 shared bilateral weight per pair, preserving the sample centre at physical
 boundaries. Neither correction adds corner attenuation or changes authored
 light strength, material reflectance, direct visibility, or runtime sampling.
+Solver revision 8 projects each ceiling fixture tap's downward emitting face
+independently of the receiver's incidence cosine. Previously a wall almost level
+with a panel could receive its full source strength and reflect it onto the
+ceiling, producing a bright contact patch. The emitted weight now tends to zero
+at the panel's horizon and is zero above it; the live selected-source path uses
+the same angular response. Nadir strength, authored range/falloff, isotropic
+sources and geometric support for room fill are unchanged. Affected packages
+require rebuilding.
 Full integrates every 4×4 receiver-footprint sample. Differing actual visibility
 signatures additionally integrate 8×8 within the same footprint, retaining all
 original samples in a weighted 80-position estimate. Uniform areas remain exact
