@@ -1,0 +1,52 @@
+[
+  {
+    "name": "home-open",
+    "player_position": [
+      13.0,
+      1.600000023841858,
+      5.527480125427246
+    ],
+    "state": "Playing",
+    "doors": [
+      {
+        "angle_degrees": 90.0,
+        "id": "editor_1",
+        "locked": false,
+        "obstructed": false,
+        "phase": "Open"
+      },
+      {
+        "angle_degrees": 90.0,
+        "id": "editor_2",
+        "locked": false,
+        "obstructed": false,
+        "phase": "Open"
+      }
+    ]
+  },
+  {
+    "name": "home-entry",
+    "player_position": [
+      13.0,
+      1.600000023841858,
+      1.717020034790039
+    ],
+    "state": "Playing",
+    "doors": [
+      {
+        "angle_degrees": 90.0,
+        "id": "editor_1",
+        "locked": false,
+        "obstructed": false,
+        "phase": "Open"
+      },
+      {
+        "angle_degrees": 90.0,
+        "id": "editor_2",
+        "locked": false,
+        "obstructed": false,
+        "phase": "Open"
+      }
+    ]
+  }
+]

@@ -1,0 +1,145 @@
+{
+  "visible_controls": [
+    {
+      "action": "Author(Create(Elevator))",
+      "center": [
+        211.66665649414062,
+        88.5
+      ]
+    },
+    {
+      "action": "Author(Open(Ramp))",
+      "center": [
+        353.33331298828125,
+        88.5
+      ]
+    },
+    {
+      "action": "Author(Open(Stairs))",
+      "center": [
+        211.66665649414062,
+        103.5
+      ]
+    },
+    {
+      "action": "Author(Open(Rail))",
+      "center": [
+        353.33331298828125,
+        103.5
+      ]
+    },
+    {
+      "action": "Author(Open(Water))",
+      "center": [
+        211.66665649414062,
+        118.5
+      ]
+    },
+    {
+      "action": "Author(Open(Sky))",
+      "center": [
+        353.33331298828125,
+        118.5
+      ]
+    },
+    {
+      "action": "Author(Open(Weather))",
+      "center": [
+        211.66665649414062,
+        133.5
+      ]
+    },
+    {
+      "action": "Author(Open(Sun))",
+      "center": [
+        353.33331298828125,
+        133.5
+      ]
+    },
+    {
+      "action": "Author(Open(Ceiling))",
+      "center": [
+        211.66665649414062,
+        148.5
+      ]
+    },
+    {
+      "action": "Author(Open(LocalFloor))",
+      "center": [
+        353.33331298828125,
+        148.5
+      ]
+    },
+    {
+      "action": "Author(Open(GlobalPatch))",
+      "center": [
+        211.66665649414062,
+        163.5
+      ]
+    },
+    {
+      "action": "Author(Open(GlobalRegion))",
+      "center": [
+        353.33331298828125,
+        163.5
+      ]
+    },
+    {
+      "action": "Author(Open(Route))",
+      "center": [
+        211.66665649414062,
+        178.5
+      ]
+    },
+    {
+      "action": "Author(Open(AcousticMaterial))",
+      "center": [
+        353.33331298828125,
+        178.5
+      ]
+    },
+    {
+      "action": "Author(Open(Shaft))",
+      "center": [
+        211.66665649414062,
+        193.5
+      ]
+    },
+    {
+      "action": "Author(Open(Light))",
+      "center": [
+        353.33331298828125,
+        193.5
+      ]
+    },
+    {
+      "action": "ClosePopup",
+      "center": [
+        375.4166564941406,
+        209.75
+      ]
+    }
+  ],
+  "drawable": [
+    2880,
+    1676
+  ],
+  "window": [
+    1440,
+    838
+  ],
+  "camera_eye": [
+    3.0,
+    12.0,
+    5.0
+  ],
+  "camera_target": [
+    3.0,
+    -25.492095947265625,
+    -1.6108700037002563
+  ],
+  "status": "Opened project / room_1794198460938",
+  "step": 14,
+  "selected": null,
+  "compile_feedback": null
+}

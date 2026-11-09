@@ -1,0 +1,117 @@
+{
+  "visible_controls": [
+    {
+      "action": "Add(Room)",
+      "center": [
+        205.0,
+        102.66666412353516
+      ]
+    },
+    {
+      "action": "Add(Wall)",
+      "center": [
+        308.3333435058594,
+        102.66666412353516
+      ]
+    },
+    {
+      "action": "Add(Ramp)",
+      "center": [
+        205.0,
+        120.16666412353516
+      ]
+    },
+    {
+      "action": "Add(FloorRegion)",
+      "center": [
+        308.3333435058594,
+        120.16666412353516
+      ]
+    },
+    {
+      "action": "Author(Hub)",
+      "center": [
+        205.0,
+        136.4166717529297
+      ]
+    },
+    {
+      "action": "Author(Create(Column))",
+      "center": [
+        205.0,
+        148.91665649414062
+      ]
+    },
+    {
+      "action": "Author(Create(Pillar))",
+      "center": [
+        308.3333435058594,
+        148.91665649414062
+      ]
+    },
+    {
+      "action": "StairWizard",
+      "center": [
+        308.3333435058594,
+        136.4166717529297
+      ]
+    },
+    {
+      "action": "Author(Create(Wall))",
+      "center": [
+        231.6666717529297,
+        226.0
+      ]
+    },
+    {
+      "action": "Author(Open(RailPath))",
+      "center": [
+        205.0,
+        200.1666717529297
+      ]
+    },
+    {
+      "action": "Place(RailPath)",
+      "center": [
+        205.0,
+        212.6666717529297
+      ]
+    },
+    {
+      "action": "Place(Tunnel)",
+      "center": [
+        308.3333435058594,
+        212.6666717529297
+      ]
+    },
+    {
+      "action": "ClosePopup",
+      "center": [
+        335.8333435058594,
+        226.0
+      ]
+    }
+  ],
+  "drawable": [
+    2880,
+    1676
+  ],
+  "window": [
+    1440,
+    838
+  ],
+  "camera_eye": [
+    3.0,
+    12.0,
+    5.0
+  ],
+  "camera_target": [
+    3.0,
+    -25.492095947265625,
+    -1.6108700037002563
+  ],
+  "status": "Opened project / room_1794198460938",
+  "step": 10,
+  "selected": null,
+  "compile_feedback": null
+}

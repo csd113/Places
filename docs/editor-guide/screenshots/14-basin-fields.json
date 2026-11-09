@@ -1,0 +1,89 @@
+{
+  "visible_controls": [
+    {
+      "action": "Author(Field(6))",
+      "center": [
+        350.83331298828125,
+        83.50000762939453
+      ]
+    },
+    {
+      "action": "Author(Preview)",
+      "center": [
+        188.75,
+        209.75
+      ]
+    },
+    {
+      "action": "Author(Apply)",
+      "center": [
+        282.08331298828125,
+        209.75
+      ]
+    },
+    {
+      "action": "ClosePopup",
+      "center": [
+        375.4166564941406,
+        209.75
+      ]
+    },
+    {
+      "action": "Author(Page(false))",
+      "center": [
+        165.0,
+        177.6666717529297
+      ]
+    },
+    {
+      "action": "Author(Record(false))",
+      "center": [
+        250.8333282470703,
+        177.6666717529297
+      ]
+    },
+    {
+      "action": "Author(Record(true))",
+      "center": [
+        277.5,
+        177.6666717529297
+      ]
+    },
+    {
+      "action": "Author(New)",
+      "center": [
+        304.1666564941406,
+        177.6666717529297
+      ]
+    },
+    {
+      "action": "Author(Delete)",
+      "center": [
+        375.4166564941406,
+        177.6666717529297
+      ]
+    }
+  ],
+  "drawable": [
+    2880,
+    1676
+  ],
+  "window": [
+    1440,
+    838
+  ],
+  "camera_eye": [
+    24.0,
+    12.0,
+    8.0
+  ],
+  "camera_target": [
+    24.0,
+    -25.44134521484375,
+    1.3980786800384521
+  ],
+  "status": "Assigned material core:pool_ceiling_01",
+  "step": 62,
+  "selected": "Room(2)",
+  "compile_feedback": null
+}

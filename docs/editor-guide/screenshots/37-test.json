@@ -1,0 +1,33 @@
+{
+  "visible_controls": [
+    {
+      "action": "Stop",
+      "center": [
+        352.08331298828125,
+        5.916666507720947
+      ]
+    }
+  ],
+  "drawable": [
+    2880,
+    1676
+  ],
+  "window": [
+    1440,
+    838
+  ],
+  "camera_eye": [
+    3.0,
+    12.0,
+    5.0
+  ],
+  "camera_target": [
+    3.0,
+    -25.492095947265625,
+    -1.6108700037002563
+  ],
+  "status": "Preparing first-person test in this editor / no lighting bake",
+  "step": 31,
+  "selected": "Light(4)",
+  "compile_feedback": null
+}

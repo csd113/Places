@@ -1,0 +1,96 @@
+{
+  "visible_controls": [
+    {
+      "action": "TransformField(0)",
+      "center": [
+        187.0833282470703,
+        108.08333587646484
+      ]
+    },
+    {
+      "action": "TransformField(1)",
+      "center": [
+        187.0833282470703,
+        133.0833282470703
+      ]
+    },
+    {
+      "action": "TransformField(2)",
+      "center": [
+        187.0833282470703,
+        158.08334350585938
+      ]
+    },
+    {
+      "action": "TransformField(3)",
+      "center": [
+        279.5833435058594,
+        108.08333587646484
+      ]
+    },
+    {
+      "action": "TransformField(6)",
+      "center": [
+        372.0833435058594,
+        108.08333587646484
+      ]
+    },
+    {
+      "action": "TransformField(7)",
+      "center": [
+        372.0833435058594,
+        133.0833282470703
+      ]
+    },
+    {
+      "action": "TransformField(8)",
+      "center": [
+        372.0833435058594,
+        158.08334350585938
+      ]
+    },
+    {
+      "action": "TransformPreview",
+      "center": [
+        187.0833282470703,
+        205.58334350585938
+      ]
+    },
+    {
+      "action": "TransformApply",
+      "center": [
+        280.4166564941406,
+        205.58334350585938
+      ]
+    },
+    {
+      "action": "ClosePopup",
+      "center": [
+        373.75,
+        205.58334350585938
+      ]
+    }
+  ],
+  "drawable": [
+    2880,
+    1676
+  ],
+  "window": [
+    1440,
+    838
+  ],
+  "camera_eye": [
+    24.799999237060547,
+    12.0,
+    8.5
+  ],
+  "camera_target": [
+    24.799999237060547,
+    -25.492095947265625,
+    1.8891299962997437
+  ],
+  "status": "Added prop. Click values or use +/- to transform.",
+  "step": 61,
+  "selected": "Prop(7)",
+  "compile_feedback": null
+}

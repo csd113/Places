@@ -1,0 +1,1014 @@
+[
+  {
+    "title": "Beginner’s Guide to Your First Places Space",
+    "steps": [
+      "<b>Build a small world you can explore.</b>",
+      "Start with an empty project. Enclose a Backrooms room, furnish it, then link it by elevator to a Home room and a Pool room.",
+      "Along the way you will make walls, an open doorway, doors, pillars, lights, furniture and water.",
+      "<b>For Places 0.13.1.</b><br/>No previous editor experience needed. No entities or Luau required."
+    ],
+    "intro": "A practical, illustrated walkthrough • native macOS editor captures • keyboard equivalents for Windows",
+    "shot": {
+      "name": "43-backrooms-complete"
+    },
+    "note": "Keep this PDF beside the editor. Work through the numbered pages in order; save at each checkpoint.",
+    "caption": "Actual native Places 0.13.1 editor capture."
+  },
+  {
+    "title": "01  Plan your three rooms",
+    "steps": [
+      "<b>One level, three rooms, three linked elevator cabins.</b> The rooms sit side by side on the same floor. The elevator makes them feel like separate destinations; no extra project levels or scripts are needed.",
+      "A room supplies a floor and ceiling. <b>It does not supply walls.</b> You will build the enclosing walls explicitly, then add interior partitions.",
+      "<b>Metres:</b> X runs left/right, Z runs across the floor, and Y is height. Room and wall X/Z values locate their minimum corner. Props use their placement origin. Keep floors at Y = 0 and ceilings at 2.7 m.",
+      "<b>The route:</b> Backrooms → elevator → Home → elevator → Pool → elevator → Backrooms. The pool is shallow; the duck sits on its bench."
+    ],
+    "bottom_top": 220,
+    "note_top": 64,
+    "table": [
+      [
+        "Area",
+        "Floor rectangle",
+        "Main contents"
+      ],
+      [
+        "Backrooms",
+        "X 0, Z 0; 6 × 6 m",
+        "Desk, chair, three pillars, open doorway"
+      ],
+      [
+        "Home",
+        "X 10, Z 0; 6 × 6 m",
+        "Bed, kitchen, partition with door"
+      ],
+      [
+        "Pool",
+        "X 20, Z 0; 8 × 8 m",
+        "Shallow basin, bench, duck, janitor closet"
+      ]
+    ],
+    "note": "Leave the gaps between rooms empty. The elevator cabins occupy space behind each room’s south wall."
+  },
+  {
+    "title": "02  Start a new project",
+    "steps": [
+      "1. Open <b>places-editor</b> (Windows: <b>places-editor.exe</b>). Keep the installation’s assets folder and compiler in their supplied locations.",
+      "2. Click <b>New</b>. Choose a writable parent folder, such as Documents. The editor creates a new child project inside it.",
+      "3. The starter is a <b>6 × 6 m room</b> with one ceiling light and no walls. Its spawn is at X 3, Z 4.5.",
+      "4. Click <b>Save</b>. Keep the whole project folder; its JSON source is what you edit."
+    ],
+    "shot": {
+      "name": "01-starter",
+      "marks": [
+        {
+          "action": "New"
+        },
+        {
+          "action": "Save"
+        }
+      ]
+    },
+    "note": "You should see a square floor, a ceiling fixture and the Build / Assets / Lighting tabs. If you cannot see the room, press F to frame it.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "03  Learn the view and number fields",
+    "steps": [
+      "<b>Move the view:</b> right-drag orbits; middle-drag pans; the wheel zooms. Hold right mouse and W/A/S/D to fly; Q/E moves down/up.",
+      "<b>Select:</b> click an object. Its outline and properties appear. Press F or click Frame to centre it. Scene opens a searchable list.",
+      "<b>Enter a value:</b> click the field, press Cmd+A on Mac or Ctrl+A on Windows, type, then Enter.",
+      "<b>Precise edits:</b> Exact transform opens all pose fields. Preview shows the result; Apply pose commits it. Escape cancels a draft."
+    ],
+    "shot": {
+      "name": "10-desk-pose",
+      "crop": [
+        0.28,
+        0.25,
+        0.91,
+        0.81
+      ]
+    },
+    "note": "Cmd/Ctrl+Z undoes a completed edit. Cmd/Ctrl+S saves. Do not rely on the apparent screen distance: use the supplied numeric values.",
+    "caption": "Actual native Places 0.13.1 editor capture."
+  },
+  {
+    "title": "04  Find the wall tools",
+    "steps": [
+      "1. Click <b>Tools &gt;</b> in the top bar.",
+      "2. Choose <b>Geometry / stairs &gt;</b>. Then choose <b>Wall: enter coordinates &gt;</b> at the bottom of that sheet.",
+      "3. This guide uses numeric walls so every room and doorway can be reproduced exactly.",
+      "<b>For freehand work later:</b> Build &gt; Wall starts a wall on a floor click. A second click ends it. Chain continues connected segments; Escape stops."
+    ],
+    "shot": {
+      "name": "32-tools-menu",
+      "crop": [
+        0.29,
+        0.27,
+        0.76,
+        0.82
+      ],
+      "marks": [
+        {
+          "action": "Geometry"
+        }
+      ]
+    },
+    "note": "The numeric form is titled Wall / numeric placement. It has X, Z, two extents, base Y and height. The next page gives the first four walls.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps.",
+    "detail": {
+      "name": "33-geometry-menu",
+      "crop": [
+        0.29,
+        0.785,
+        0.61,
+        0.875
+      ],
+      "marks": [
+        {
+          "action": "Author(Create(Wall))"
+        }
+      ]
+    },
+    "detail_text": "<b>Inside Geometry / stairs</b><br/>Choose Wall: enter coordinates to open the six-field form on the next page."
+  },
+  {
+    "title": "05  Enclose the Backrooms room",
+    "steps": [
+      "1. Fill the first row of the table below. Leave <b>World base Y = 0</b> and <b>Height blank</b> so the wall follows the ceiling.",
+      "2. Click <b>Preview</b>, then <b>Apply</b>. The wall becomes part of your scene.",
+      "3. Reopen Tools &gt; Geometry / stairs &gt; Wall: enter coordinates for each remaining row. Each opening of that command creates a new wall.",
+      "4. Leave the second-page material blank here: the default is the yellow Backrooms wallpaper. Save."
+    ],
+    "note_top": 58,
+    "shot": {
+      "name": "02-wall-fields",
+      "crop": [
+        0.28,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "Author(Preview)"
+        },
+        {
+          "action": "Author(Apply)"
+        }
+      ]
+    },
+    "table": [
+      [
+        "Wall",
+        "West X",
+        "North Z",
+        "X extent",
+        "Z extent"
+      ],
+      [
+        "North",
+        "0",
+        "0",
+        "6",
+        "0.2"
+      ],
+      [
+        "South",
+        "0",
+        "5.8",
+        "6",
+        "0.2"
+      ],
+      [
+        "West",
+        "0",
+        "0.2",
+        "0.2",
+        "5.6"
+      ],
+      [
+        "East",
+        "5.8",
+        "0.2",
+        "0.2",
+        "5.6"
+      ]
+    ],
+    "note": "Four walls meet without overlapping corners. Looking down hides the ceiling so you can inspect the inside.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "06  Make an open doorway",
+    "steps": [
+      "1. Add one more numeric wall: <b>X 0.2, Z 3.6, X extent 5.6, Z extent 0.2</b>. Keep base Y 0 and height blank.",
+      "2. This partition splits the room into a furnished area and a small elevator lobby.",
+      "3. Choose <b>Build &gt; Doorway opening</b>. Point at the partition near its centre, X 3. You should see an opening preview.",
+      "4. Click to cut the opening. This makes an <b>open passage</b>; no door leaf is added. Save."
+    ],
+    "shot": {
+      "name": "24-backrooms-doorway-preview",
+      "marks": [
+        {
+          "action": "Place(Doorway)"
+        }
+      ]
+    },
+    "note": "Check that you can see through the partition. An opening belongs to its wall: do not delete the wall to make a doorway.",
+    "caption": "Doorway preview on the partition. This reference view already includes furniture added in later steps.",
+    "detail": {
+      "name": "24-backrooms-doorway-preview",
+      "crop": [
+        0,
+        0.29448687350835323,
+        0.2,
+        0.42448687350835324
+      ],
+      "marks": [
+        {
+          "action": "Place(Doorway)"
+        }
+      ]
+    },
+    "detail_text": "<b>Control close-up</b><br/>This is a magnified crop of the same native screenshot. Match the tab and command label before clicking."
+  },
+  {
+    "title": "07  Add three pillars",
+    "steps": [
+      "1. Open <b>Tools &gt; Geometry / stairs &gt; Rectangular pillar</b>.",
+      "2. Enter <b>X 1.5, Z 2.5, Width 0.4, Depth 0.4</b>. Leave Base Y and Height blank: the pillar spans floor to ceiling.",
+      "3. Click <b>Preview</b>, then <b>Apply</b>. Reopen Rectangular pillar to create the second one.",
+      "4. Repeat at <b>X 4.1, Z 2.5</b>, then at <b>X 1.5, Z 1</b>. Use the same 0.4 × 0.4 m footprint for all three. Save."
+    ],
+    "shot": {
+      "name": "04-pillar-fields",
+      "crop": [
+        0.28,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "Author(Apply)"
+        }
+      ]
+    },
+    "note": "There is a clear centre route between the three pillars and through the doorway. Keep that path free of furniture.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "08a  Choose a furnishing prop",
+    "shot": {
+      "name": "11-backrooms-furniture",
+      "crop": [
+        0,
+        0.07,
+        0.23,
+        0.75
+      ],
+      "marks": [
+        {
+          "action": "DockTab(Assets)",
+          "rx": 0.025
+        },
+        {
+          "action": "DockCatalog(Models)",
+          "rx": 0.022
+        },
+        {
+          "action": "BrowserSearch"
+        },
+        {
+          "action": "Add(Prop)"
+        }
+      ]
+    },
+    "steps": [
+      "1. Click an empty patch of room floor to clear any prop selection.",
+      "2. Open the <b>Assets</b> tab, then choose <b>Props</b>. The search box now filters models.",
+      "3. Click the search box. Press Cmd/Ctrl+A, type <b>core:desk</b>, then Enter. Click the matching tile.",
+      "4. Click <b>Place chosen prop</b>. It appears near your view target. Use the next page to set its exact position."
+    ],
+    "caption": "Magnified native catalog view. The captured example has core:chair selected; use core:desk first.",
+    "note": "Do not click a new model tile while another prop is selected unless you intend to replace that prop. Select clear floor first."
+  },
+  {
+    "title": "08b  Place the desk and chair",
+    "steps": [
+      "1. From above, click <b>empty floor</b>. Open Assets, choose Props, and search for <b>core:desk</b>. Click its tile, then <b>Place chosen prop</b>.",
+      "2. The new prop appears near the view target. With it selected, click <b>Exact transform &gt;</b>. Enter the desk values below, Preview, then Apply pose.",
+      "3. Click empty floor again before searching for <b>core:chair</b>. Place it and enter the chair values.",
+      "<b>Important:</b> choosing a model while a prop is selected replaces that prop. Selecting floor first protects your existing furniture."
+    ],
+    "note_top": 74,
+    "shot": {
+      "name": "10-desk-pose",
+      "crop": [
+        0.28,
+        0.25,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "TransformPreview"
+        },
+        {
+          "action": "TransformApply"
+        }
+      ]
+    },
+    "table": [
+      [
+        "Prop / search ID",
+        "X",
+        "Y",
+        "Z",
+        "Scale / Yaw"
+      ],
+      [
+        "core:desk",
+        "3",
+        "0",
+        "1",
+        "1 / 0°"
+      ],
+      [
+        "core:chair",
+        "3",
+        "0",
+        "2",
+        "1 / 180°"
+      ]
+    ],
+    "note": "Keep Pitch and Roll at 0. Prop Y is above the supporting floor; ordinary floor furniture uses Y = 0.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "09  Light the Backrooms lobby",
+    "steps": [
+      "1. The starter light already illuminates the furnished side. Add a second fixture for the space behind the partition.",
+      "2. Click the <b>Lighting</b> tab, then <b>Place light fixture</b>. Point at the lobby floor near <b>X 3, Z 4.6</b>.",
+      "3. The preview places a real fixture at the ceiling above that floor point. Click to place it; Escape cancels an unfinished placement.",
+      "4. Select it to inspect its power, range and colour. Keep the defaults for now, then Save."
+    ],
+    "shot": {
+      "name": "35-place-light-preview",
+      "marks": [
+        {
+          "action": "DockTab(Lighting)"
+        },
+        {
+          "action": "Place(Light)"
+        }
+      ]
+    },
+    "note": "Inspect view uses neutral editing light. Test in editor uses approximate lighting; the final build computes the finished lighting and shadows.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps.",
+    "detail": {
+      "name": "35-place-light-preview",
+      "crop": [
+        0,
+        0.06178996930543448,
+        0.2,
+        0.2514558518075146
+      ],
+      "marks": [
+        {
+          "action": "DockTab(Lighting)"
+        },
+        {
+          "action": "Place(Light)"
+        }
+      ]
+    },
+    "detail_text": "<b>Control close-up</b><br/>This is a magnified crop of the same native screenshot. Match the tab and command label before clicking."
+  },
+  {
+    "title": "10  Create the Home room",
+    "steps": [
+      "1. Choose <b>Build &gt; Room</b>. In the room form enter West X 10, North Z 0, Width 6, Depth 6, Floor elevation 0 and Room height 2.7.",
+      "2. Click Preview, then Apply. This is a new floor and ceiling, with no automatic walls.",
+      "3. Enclose it using the four numeric wall rows below. Base Y stays 0; Height stays blank.",
+      "4. For each wall click <b>Page &gt;</b> and set its material to <b>home:wall_paint_offwhite_01</b> before Preview / Apply."
+    ],
+    "note_top": 58,
+    "shot": {
+      "name": "06-home-room",
+      "crop": [
+        0.28,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "Author(Apply)"
+        }
+      ]
+    },
+    "table": [
+      [
+        "Wall",
+        "West X",
+        "North Z",
+        "X extent",
+        "Z extent"
+      ],
+      [
+        "North",
+        "10",
+        "0",
+        "6",
+        "0.2"
+      ],
+      [
+        "South",
+        "10",
+        "5.8",
+        "6",
+        "0.2"
+      ],
+      [
+        "West",
+        "10",
+        "0.2",
+        "0.2",
+        "5.6"
+      ],
+      [
+        "East",
+        "15.8",
+        "0.2",
+        "0.2",
+        "5.6"
+      ]
+    ],
+    "note": "Both rooms have the same floor elevation. Their four-metre separation leaves room for independent enclosure.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "11  Give Home its own surfaces",
+    "steps": [
+      "1. Orbit to a steep overhead view. Click clear floor inside Home. Confirm the properties describe a <b>Room</b>, not a wall or prop.",
+      "2. Choose <b>Assets &gt; Surface</b>. Search <b>home:hardwood_oak_01</b> and click its tile to apply it to the floor.",
+      "3. To change a ceiling, select the room, then open <b>Tools &gt; Surface material &gt;</b>. Click the Surface / Ceiling switch to choose Ceiling.",
+      "4. Search <b>home:ceiling_white_01</b> and choose its tile. Reopen the picker and switch back to Surface before later floor assignments."
+    ],
+    "shot": {
+      "name": "12-home-material",
+      "marks": [
+        {
+          "action": "DockTab(Assets)"
+        },
+        {
+          "action": "DockCatalog(Materials)"
+        },
+        {
+          "action": "BrowserSearch"
+        }
+      ]
+    },
+    "note": "Material IDs are exact catalog search terms. If you see no results, clear the search with Cmd/Ctrl+A and check that All themes is selected.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps.",
+    "detail": {
+      "name": "12-home-material",
+      "crop": [
+        0,
+        0.06178996930543448,
+        0.2,
+        0.30217183315668583
+      ],
+      "marks": [
+        {
+          "action": "DockTab(Assets)"
+        },
+        {
+          "action": "DockCatalog(Materials)"
+        },
+        {
+          "action": "BrowserSearch"
+        }
+      ]
+    },
+    "detail_text": "<b>Control close-up</b><br/>This is a magnified crop of the same native screenshot. Match the tab and command label before clicking."
+  },
+  {
+    "title": "12  Furnish the Home room",
+    "steps": [
+      "1. Repeat the Assets &gt; Props workflow. Select empty floor before choosing each new model.",
+      "2. Use Place chosen prop, then Exact transform. Enter each row below with Scale 1, Yaw 0, Pitch 0 and Roll 0.",
+      "3. The cabinet, sink unit and cooker form a small kitchen along the north wall; the bed sits to its left.",
+      "4. Add Home’s ceiling light using the numeric fixture workflow in Step 19. Save before continuing."
+    ],
+    "note_top": 58,
+    "shot": {
+      "name": "44-home-complete"
+    },
+    "table": [
+      [
+        "Model search ID",
+        "X",
+        "Y",
+        "Z"
+      ],
+      [
+        "core:bed",
+        "11.7",
+        "0",
+        "2"
+      ],
+      [
+        "home:cabinet_base",
+        "14.6",
+        "0",
+        "1"
+      ],
+      [
+        "home:sink",
+        "13.9",
+        "0",
+        "1"
+      ],
+      [
+        "home:stove",
+        "13.2",
+        "0",
+        "1"
+      ]
+    ],
+    "note": "Leave room to stand in front of the kitchen. These are static furnishing props; no interaction components are required.",
+    "caption": "Actual native Places 0.13.1 editor capture."
+  },
+  {
+    "title": "13  Fit a door in Home",
+    "steps": [
+      "1. Add a partition wall at <b>X 10.2, Z 3.6</b>, with X extent 5.6 and Z extent 0.2. Use Home’s wall material.",
+      "2. Choose <b>Build &gt; Door</b>. Point at the centre of the partition, around <b>X 13</b>.",
+      "3. Inspect the preview, then click. Door creates a fitted opening <b>and</b> an interactive door leaf in one action.",
+      "4. Keep the initial door style. In play, press E to open, step back while it swings, then centre yourself in the opening and walk through."
+    ],
+    "shot": {
+      "name": "26-home-door-preview",
+      "marks": [
+        {
+          "action": "Place(Door)"
+        }
+      ]
+    },
+    "note": "Doorway opening (Step 6) cuts only a hole. Door adds the leaf too, and can also fit a leaf into a suitable existing doorway.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps.",
+    "detail": {
+      "name": "26-home-door-preview",
+      "crop": [
+        0,
+        0.21095464483365806,
+        0.2,
+        0.34095464483365806
+      ],
+      "marks": [
+        {
+          "action": "Place(Door)"
+        }
+      ]
+    },
+    "detail_text": "<b>Control close-up</b><br/>This is a magnified crop of the same native screenshot. Match the tab and command label before clicking."
+  },
+  {
+    "title": "14  Build the Pool room shell",
+    "steps": [
+      "1. Build &gt; Room: enter <b>X 20, Z 0, Width 8, Depth 8, Floor elevation 0, Height 2.7</b>. Preview and Apply.",
+      "2. Add the four walls below. On their second form page, set <b>core:pool_tile_wall_01</b>. Base Y is 0; Height is blank.",
+      "3. Select the floor and assign <b>core:pool_tile_deck_01</b> through Assets &gt; Surface.",
+      "4. Through the room’s Surface material picker, switch to Ceiling and assign <b>core:pool_ceiling_01</b>. Switch back to Surface afterwards."
+    ],
+    "note_top": 58,
+    "shot": {
+      "name": "08-pool-room",
+      "crop": [
+        0.28,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "Author(Apply)"
+        }
+      ]
+    },
+    "table": [
+      [
+        "Wall",
+        "West X",
+        "North Z",
+        "X extent",
+        "Z extent"
+      ],
+      [
+        "North",
+        "20",
+        "0",
+        "8",
+        "0.2"
+      ],
+      [
+        "South",
+        "20",
+        "7.8",
+        "8",
+        "0.2"
+      ],
+      [
+        "West",
+        "20",
+        "0.2",
+        "0.2",
+        "7.6"
+      ],
+      [
+        "East",
+        "27.8",
+        "0.2",
+        "0.2",
+        "7.6"
+      ]
+    ],
+    "note": "Keep the room floor at Y = 0. The next step lowers only the basin area.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "15  Recess the shallow pool basin",
+    "steps": [
+      "1. Open <b>Tools &gt; Environment / space &gt;</b>, then <b>GLOBAL surface region</b>.",
+      "2. Enter <b>X 21.5, Z 2, Width 3, Depth 3</b>. Set <b>Offset on ALL carriers = -0.4</b>.",
+      "3. Set Surface material ID to <b>core:pool_tile_basin_01</b>. On Page &gt;, set Edge material ID to the same value.",
+      "4. Preview and Apply. The basin is now 40 cm below the deck. This operation changes solid floor geometry; it does not add water."
+    ],
+    "shot": {
+      "name": "14-basin-fields",
+      "crop": [
+        0.28,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "Author(Apply)"
+        }
+      ]
+    },
+    "note": "This deliberately shallow basin stays within the player’s 0.45 m step allowance. Global regions affect overlapping floor carriers, so do not stack another room over this tutorial basin.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps.",
+    "detail": {
+      "name": "34-environment-menu",
+      "crop": [
+        0.52,
+        0.54,
+        0.93,
+        0.65
+      ],
+      "marks": [
+        {
+          "action": "Author(Open(GlobalRegion))"
+        }
+      ]
+    },
+    "detail_text": "<b>Inside Environment / space</b><br/>Choose GLOBAL surface region. This edits the floor geometry beneath the water."
+  },
+  {
+    "title": "16  Fill the basin with water",
+    "steps": [
+      "1. Open <b>Tools &gt; Environment / space &gt; Water volume</b>.",
+      "2. Match the basin: <b>X 21.5, Z 2, Width 3, Depth 3</b>.",
+      "3. Set <b>World surface Y = -0.1</b> and <b>World bottom Y = -0.4</b>. Keep the remaining default settings.",
+      "4. Preview and Apply. The water surface sits 10 cm below the deck, with 30 cm of water above the basin floor. Save."
+    ],
+    "shot": {
+      "name": "15-water-fields",
+      "crop": [
+        0.28,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "Author(Preview)"
+        },
+        {
+          "action": "Author(Apply)"
+        }
+      ]
+    },
+    "note": "Water is separate from the solid basin. Keep its footprint inside the recess; water by itself does not make a hole or a supporting floor.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "17  Make a small janitor closet",
+    "steps": [
+      "1. Reserve the northeast corner of the Pool room. Two new walls use the existing north and east walls to enclose a closet.",
+      "2. Add the two numeric walls below with <b>core:pool_tile_wall_01</b>. Keep base Y 0 and Height blank.",
+      "3. Choose <b>Build &gt; Door</b>. Point at the closet’s south wall near <b>X 26.5, Z 2.8</b>. Check the preview and click.",
+      "4. Add the fixture in Step 19. In play, open with E, step back, then centre yourself in the opening before walking in. The swing can nudge you sideways."
+    ],
+    "note_top": 74,
+    "shot": {
+      "name": "17-door-preview",
+      "marks": [
+        {
+          "action": "Place(Door)"
+        }
+      ]
+    },
+    "table": [
+      [
+        "Closet wall",
+        "West X",
+        "North Z",
+        "X extent",
+        "Z extent"
+      ],
+      [
+        "West partition",
+        "25.3",
+        "0.2",
+        "0.2",
+        "2.6"
+      ],
+      [
+        "South partition",
+        "25.3",
+        "2.8",
+        "2.5",
+        "0.2"
+      ]
+    ],
+    "note": "The closet uses the Pool room’s existing floor and ceiling. Do not place a second coplanar room inside it.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "18  Add the bench and rubber duck",
+    "steps": [
+      "1. Select clear floor, search <b>pool:pool_bench</b> in Assets &gt; Props, and place it. Apply the bench pose below.",
+      "2. Select clear floor again, search <b>core:rubber_duck</b>, and place it. Use Exact transform to apply the duck pose.",
+      "3. The duck sits on the bench at <b>Y 0.45</b>. This is a static decoration; no floating behaviour or script is needed.",
+      "4. Save, then check the side view: bench feet touch the deck, and the duck rests on the seat."
+    ],
+    "note_top": 74,
+    "shot": {
+      "name": "20-duck-pose",
+      "crop": [
+        0.28,
+        0.25,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "TransformApply"
+        }
+      ]
+    },
+    "table": [
+      [
+        "Model",
+        "X",
+        "Y",
+        "Z",
+        "Scale / Yaw"
+      ],
+      [
+        "pool:pool_bench",
+        "26.7",
+        "0",
+        "5",
+        "1 / 90°"
+      ],
+      [
+        "core:rubber_duck",
+        "26.7",
+        "0.45",
+        "4.8",
+        "1 / 0°"
+      ]
+    ],
+    "note": "Keep Pitch and Roll at 0. The duck is small at its real catalog scale; zoom in rather than enlarging it.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "19  Light Home, Pool and closet",
+    "steps": [
+      "1. Open <b>Tools &gt; Environment / space &gt; Light / numeric placement</b>. The form provides exact placement and fixture IDs.",
+      "2. Click <b>New</b> to add a fixture. Enter the first row below. Leave <b>World ceiling Y blank</b> for automatic ceiling mounting. Set Power to 1; leave Range blank.",
+      "3. Preview and Apply. To add another fixture, reopen the form and choose <b>New</b> before entering the next row.",
+      "4. Repeat for the Pool room and closet, then Save. Each enclosed area now has a fixture."
+    ],
+    "note_top": 65,
+    "shot": {
+      "name": "22-light-fields",
+      "crop": [
+        0.28,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "Author(Apply)"
+        }
+      ]
+    },
+    "table": [
+      [
+        "Area",
+        "X",
+        "Z",
+        "Fixture / catalog ID"
+      ],
+      [
+        "Home",
+        "13",
+        "3",
+        "home:ceiling_light_round"
+      ],
+      [
+        "Pool",
+        "23",
+        "4",
+        "core:pool_light_round"
+      ],
+      [
+        "Closet",
+        "26.5",
+        "1.5",
+        "core:pool_light_round"
+      ]
+    ],
+    "note": "Leave Alignment at none and Yaw at 0. A decorative lamp model is not a substitute for a placed light fixture.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "20  Place three elevator cabins",
+    "steps": [
+      "1. Go inside the Backrooms lobby and face its south wall. Choose <b>Build &gt; Elevator</b>.",
+      "2. Point near <b>X 3, Z 5.8</b> on that wall. The preview fits the cabin and opening to the actual wall face. Click to place.",
+      "3. In the elevator sheet choose <b>Name</b>, type Backrooms and press Enter. Close the sheet.",
+      "4. Repeat in Home at <b>X 13, Z 5.8</b> and Pool at <b>X 24, Z 7.8</b>. Name those stops Home and Pool."
+    ],
+    "shot": {
+      "name": "28-elevator-preview-0",
+      "marks": [
+        {
+          "action": "Elevator(Place)"
+        }
+      ]
+    },
+    "note": "Place from the room side so the cabin extends behind the wall. The fitted opening is 1.50 × 2.25 m. Keep each cabin’s doorway and the space behind the wall clear.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps.",
+    "detail": {
+      "name": "28-elevator-preview-0",
+      "crop": [
+        0,
+        0.12742242981539706,
+        0.2,
+        0.2574224298153971
+      ],
+      "marks": [
+        {
+          "action": "Elevator(Place)"
+        }
+      ]
+    },
+    "detail_text": "<b>Control close-up</b><br/>This is a magnified crop of the same native screenshot. Match the tab and command label before clicking."
+  },
+  {
+    "title": "21  Link the elevator destinations",
+    "steps": [
+      "1. Choose <b>Build &gt; Elevator</b>, then click the Backrooms cabin to open its sheet. Choose <b>Link selected</b>, move to Home, and click Home’s cabin.",
+      "2. The connection is bidirectional. In the cabin sheet, select Backrooms from the cabin list and choose Link selected again.",
+      "3. Click the Pool cabin. The group now contains all three stops; each cabin has the other two as destinations.",
+      "4. Save. Reopen the project later to confirm the links persist. Do not add a fourth cabin to this group."
+    ],
+    "shot": {
+      "name": "31-three-stops",
+      "marks": [
+        {
+          "action": "Elevator(Link)"
+        }
+      ],
+      "crop": [
+        0.28,
+        0.27,
+        0.91,
+        0.82
+      ]
+    },
+    "note": "The current linked group supports three cabins. These three rooms share one level, so no Allowed transitions list or cross-level destination setup is needed.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "22  Save and test your space",
+    "steps": [
+      "1. Click Save or press <b>Cmd/Ctrl+S</b>. Then click <b>Test in editor</b> to start at the authored spawn.",
+      "2. Walk through the open Backrooms doorway. Check the chair and pillars do not block your route.",
+      "3. Test Home’s door and the closet door with E. Check the pool edge and bench placement. Use Here &gt; a floor pick to start a separate local test near another room if needed.",
+      "4. Press <b>Escape</b> to stop and return to editing. Quick testing is temporary; it does not save source or bake final lighting."
+    ],
+    "note_top": 64,
+    "shot": {
+      "name": "37-test"
+    },
+    "table": [
+      [
+        "Movement",
+        "Interaction",
+        "Editor return"
+      ],
+      [
+        "W/A/S/D; mouse look; Space jump",
+        "E use / pick up / drop; F flashlight",
+        "Escape stops the test"
+      ],
+      [
+        "Ctrl crouches",
+        "Left click throws a held item",
+        "Cmd/Ctrl+S saves source after editing"
+      ]
+    ],
+    "note": "Use the exported player build for the final elevator round trip. Quick tests are useful for local collision and door checks, not proof of final lighting.",
+    "caption": "Actual native Places 0.13.1 editor capture."
+  },
+  {
+    "title": "23  Compile and export",
+    "steps": [
+      "1. Stop testing. Click <b>Final build</b>. It saves dirty levels and compiles the selected level with production lighting.",
+      "2. Wait for success. The progress bar describes the <b>current pass</b>, not the whole job. Fix any reported error before continuing.",
+      "3. Open <b>Project &gt; Export all levels + sources</b>. Enter a full, absolute file path ending in <b>.placesmap</b> in a writable folder.",
+      "4. Apply and wait for successful export. Keep the editable project folder too. Source saves and compiled packages serve different purposes."
+    ],
+    "shot": {
+      "name": "39-project-export",
+      "crop": [
+        0.1,
+        0.2,
+        0.91,
+        0.81
+      ],
+      "marks": [
+        {
+          "action": "ProjectField(Export)"
+        }
+      ]
+    },
+    "note": "Example on Mac: /Users/your-name/Documents/first-space.placesmap. On Windows: C:/Users/your-name/Documents/first-space.placesmap. Replace your-name with your account folder.",
+    "caption": "Native Places 0.13.1 editor. Red circles and arrows mark the controls named in the steps."
+  },
+  {
+    "title": "24  Play the finished route",
+    "steps": [
+      "1. Open Places. In <b>Explore</b>, import your exported .placesmap, select it, then Play.",
+      "2. Walk into the Backrooms cabin. Aim at the destination control and press <b>E</b> or left click. Choose Home.",
+      "3. Let the doors close and the ride finish. Visit the bed and kitchen, then use Home’s cabin to reach Pool.",
+      "4. Enter the closet, walk into and out of the shallow basin, inspect the duck, then ride back to Backrooms. Try all return directions."
+    ],
+    "shot": {
+      "name": "41-player"
+    },
+    "note": "The separate green door-arrow button opens/closes doors at the current stop; it does not choose a destination. Clear the doorway if it keeps reopening.",
+    "caption": "The compiled tutorial in the player: elevator destination buttons inside the cabin."
+  },
+  {
+    "title": "25  Compare your finished Pool room",
+    "shots": [
+      {
+        "name": "46-pool-basin",
+        "caption": "Standing in the shallow basin. The deck remains above the water."
+      },
+      {
+        "name": "47-duck-bench",
+        "caption": "The small rubber duck rests on the bench seat at Y = 0.45."
+      }
+    ],
+    "steps": [
+      "<b>Pool:</b> your basin should be visibly recessed, with water below the deck. The 0.4 m drop lets the player walk back out.",
+      "<b>Furniture:</b> keep the bench on the deck and the duck on the seat. The duck is a static decorative prop in this tutorial.",
+      "<b>Closet:</b> open the door, give it space to swing, then align with the centre of the gap. Check that its ceiling light illuminates the interior."
+    ],
+    "note": "These are actual player captures from the compiled tutorial package. Editor inspect lighting will look different.",
+    "note_top": 77
+  },
+  {
+    "title": "26  Your final checks and next steps",
+    "steps": [
+      "<b>Geometry:</b> every room has four enclosing walls. The Backrooms passage is an opening without a leaf. Home and the janitor closet have usable doors. No double floors or flickering surfaces.",
+      "<b>Placement:</b> the desk, chair, bed and kitchen stand on the floor. The pillars leave a walkable centre route. The bench is grounded, with the duck on its seat.",
+      "<b>Lighting and water:</b> each enclosed area has a fixture. Water stays inside the recessed basin. Inspect the finished compiled result, then adjust and rebuild if needed.",
+      "<b>Travel and files:</b> all three cabin names and return routes work. Save the project, export a fresh package after changes, and retain a backup of the entire editable folder.",
+      "<b>If something goes wrong:</b> Escape cancels the current tool; Cmd/Ctrl+Z undoes the last edit. Check the footer’s message. If a material changes the wrong object, Undo, select clear floor or the correct wall, and try again.",
+      "<b>Continue learning:</b> docs/EDITOR.md covers editor tools; docs/MAP_AUTHORING_GUIDE.md explains geometry and lighting; docs/ELEVATORS.md explains cabin limits. The companion editor-guide folder retains this guide’s editable source and original screenshots."
+    ],
+    "note_top": 77,
+    "note": "This walkthrough is scoped to the 0.13.1 native editor. Exact screenshots and validation details are recorded in editor-guide/README.md."
+  }
+]

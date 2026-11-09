@@ -1,0 +1,173 @@
+{
+  "visible_controls": [
+    {
+      "action": "ProjectField(Name)",
+      "center": [
+        144.16665649414062,
+        83.91666412353516
+      ]
+    },
+    {
+      "action": "ProjectField(Author)",
+      "center": [
+        144.16665649414062,
+        94.75
+      ]
+    },
+    {
+      "action": "ProjectField(Description)",
+      "center": [
+        144.16665649414062,
+        105.58333587646484
+      ]
+    },
+    {
+      "action": "Thumbnail",
+      "center": [
+        144.16665649414062,
+        116.41666412353516
+      ]
+    },
+    {
+      "action": "ProjectField(AddLevel)",
+      "center": [
+        144.16665649414062,
+        127.25
+      ]
+    },
+    {
+      "action": "ProjectField(LevelTitle)",
+      "center": [
+        144.16665649414062,
+        138.08334350585938
+      ]
+    },
+    {
+      "action": "ProjectField(Version)",
+      "center": [
+        144.16665649414062,
+        148.9166717529297
+      ]
+    },
+    {
+      "action": "Components(10)",
+      "center": [
+        144.16665649414062,
+        190.58334350585938
+      ]
+    },
+    {
+      "action": "ProjectSelect(0)",
+      "center": [
+        144.16665649414062,
+        160.58334350585938
+      ]
+    },
+    {
+      "action": "ProjectEntry",
+      "center": [
+        144.16665649414062,
+        175.58334350585938
+      ]
+    },
+    {
+      "action": "MapCrosshair",
+      "center": [
+        280.83331298828125,
+        175.58334350585938
+      ]
+    },
+    {
+      "action": "MapSaving",
+      "center": [
+        370.8333435058594,
+        175.58334350585938
+      ]
+    },
+    {
+      "action": "ProjectField(Export)",
+      "center": [
+        325.83331298828125,
+        84.33333587646484
+      ]
+    },
+    {
+      "action": "ProjectField(Import)",
+      "center": [
+        325.83331298828125,
+        99.33333587646484
+      ]
+    },
+    {
+      "action": "ProjectCheck",
+      "center": [
+        325.83331298828125,
+        114.33333587646484
+      ]
+    },
+    {
+      "action": "BakeStatus",
+      "center": [
+        325.83331298828125,
+        129.3333282470703
+      ]
+    },
+    {
+      "action": "ProjectField(ImportJson)",
+      "center": [
+        325.83331298828125,
+        144.3333282470703
+      ]
+    },
+    {
+      "action": "ProjectField(Transitions)",
+      "center": [
+        325.83331298828125,
+        160.58334350585938
+      ]
+    },
+    {
+      "action": "ProjectMenuEntryOnly",
+      "center": [
+        325.83331298828125,
+        190.58334350585938
+      ]
+    },
+    {
+      "action": "ProjectMigrate",
+      "center": [
+        295.0,
+        210.1666717529297
+      ]
+    },
+    {
+      "action": "ClosePopup",
+      "center": [
+        388.3333435058594,
+        210.1666717529297
+      ]
+    }
+  ],
+  "drawable": [
+    2880,
+    1676
+  ],
+  "window": [
+    1440,
+    838
+  ],
+  "camera_eye": [
+    13.0,
+    12.0,
+    6.800000190734863
+  ],
+  "camera_target": [
+    13.0,
+    -25.492095947265625,
+    0.1891302466392517
+  ],
+  "status": "Project changes saved.",
+  "step": 29,
+  "selected": "Room(1)",
+  "compile_feedback": null
+}

@@ -1,0 +1,96 @@
+{
+  "visible_controls": [
+    {
+      "action": "TransformField(0)",
+      "center": [
+        187.0833282470703,
+        108.08333587646484
+      ]
+    },
+    {
+      "action": "TransformField(1)",
+      "center": [
+        187.0833282470703,
+        133.0833282470703
+      ]
+    },
+    {
+      "action": "TransformField(2)",
+      "center": [
+        187.0833282470703,
+        158.08334350585938
+      ]
+    },
+    {
+      "action": "TransformField(3)",
+      "center": [
+        279.5833435058594,
+        108.08333587646484
+      ]
+    },
+    {
+      "action": "TransformField(6)",
+      "center": [
+        372.0833435058594,
+        108.08333587646484
+      ]
+    },
+    {
+      "action": "TransformField(7)",
+      "center": [
+        372.0833435058594,
+        133.0833282470703
+      ]
+    },
+    {
+      "action": "TransformField(8)",
+      "center": [
+        372.0833435058594,
+        158.08334350585938
+      ]
+    },
+    {
+      "action": "TransformPreview",
+      "center": [
+        187.0833282470703,
+        205.58334350585938
+      ]
+    },
+    {
+      "action": "TransformApply",
+      "center": [
+        280.4166564941406,
+        205.58334350585938
+      ]
+    },
+    {
+      "action": "ClosePopup",
+      "center": [
+        373.75,
+        205.58334350585938
+      ]
+    }
+  ],
+  "drawable": [
+    2880,
+    1676
+  ],
+  "window": [
+    1440,
+    838
+  ],
+  "camera_eye": [
+    3.0,
+    12.0,
+    6.800000190734863
+  ],
+  "camera_target": [
+    3.0,
+    -25.44134521484375,
+    0.19807881116867065
+  ],
+  "status": "Added prop; adjust its mount: The model footprint extends beyond its supporting surface; adjust manually or move it inward",
+  "step": 55,
+  "selected": "Prop(0)",
+  "compile_feedback": null
+}
