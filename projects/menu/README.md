@@ -97,3 +97,10 @@ Current runtime bytes: **16,420,340**. SHA-256:
 `dc2e594527dde7789cc5d35bcf105abd3db0b92eb56b77af96f1e7c9d3b4da47`.
 See the final Windows section of `docs/reports/release-0.13.0.md` for the compiler,
 receipts, native acceptance, download inventory and preserved old resource.
+
+
+## Current native-editor rebuild (2026-11-09)
+
+The unchanged menu source was freshly rebuilt through the standalone native editor's visible **Final build** control using the revision-6 development compiler. Static/Full integrity and `verify --require-current` pass against canonical source. The installed resource is **16,839,785 bytes**, SHA-256 `56194e1f110e34401c60cafc89042d823e7bbe23fc8e52ee71c4264aab394312`.
+
+A subsequent standalone player run verifies the installed menu, Full lighting, blackout and staged circuit restoration with actual native frames. This bounded check does not repeat all seven event reviews or establish uncapped FPS. See [the rebuild report](../../docs/reports/menu-rebuild-2026-11-09.md) for method, evidence and remaining demo release gates. Earlier hashes above are historical.
