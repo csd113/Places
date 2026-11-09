@@ -61,6 +61,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
             for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
                 (source / name).write_text('fixture')
+            (source / 'LICENSE').write_text('project license fixture')
             for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels', 'audio', 'editor'):
                 (source / 'assets' / name).mkdir(parents=True)
             # Pool's nested environment resources must retain their
@@ -110,6 +111,9 @@ class PackageDestinationGuardTests(unittest.TestCase):
             self.assertFalse((source / 'levels').exists())
             self.assertFalse((output / 'Places/places-compile').exists(), 'validator need not be exported')
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
+                # Protect project-license custody in the existing tiny export
+                # fixture, with no additional bake or native-process cost.
+                self.assertEqual((payload / 'LICENSE').read_text(), 'project license fixture')
                 for name, data in runtime_metadata.items():
                     self.assertEqual((payload / 'assets' / name).read_bytes(), data)
                 for name, data in audio_payload.items():

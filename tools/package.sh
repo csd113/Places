@@ -207,7 +207,7 @@ fi
 if [ "$WITH_EDITOR" = 1 ]; then
     cp "$REPO/target/release/places-editor" "$STAGE/Places/places-editor"
 fi
-cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
+cp "$REPO/README.md" "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
 mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/docs"
 cp "$REPO/docs/INSTALLATION.md" "$STAGE/Places/docs/"
 if [ "$WITH_EDITOR" = 1 ]; then
@@ -258,7 +258,7 @@ cat >"$STAGE/Places.app/Contents/Info.plist" <<PLIST
 PLIST
 cp -R "$STAGE/Places/assets" "$STAGE/Places.app/Contents/Resources/assets"
 cp -R "$STAGE/Places/docs" "$STAGE/Places.app/Contents/Resources/docs"
-cp "$REPO/README.md" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
+cp "$REPO/README.md" "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
 
 python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-compile" \
     --assets "$STAGE/Places.app/Contents/Resources/assets" --project "$REPO/projects/menu"
