@@ -13,15 +13,17 @@ executable, for example with `Start-Process -Wait`. Debug game builds and the
 editor/compiler retain console entry points. Normal player errors still use the
 bounded diagnostics journal and native error notices described below.
 
-## 0.13.1 distribution layout (unreleased)
+## 0.13.1 distribution layout
 
-The planned downloads are `Places-0.13.1-Windows.zip` (game, editor and compiler),
-the separately prepared native Mac application package, and **one**
-`Places-0.13.1-Levels.zip` shared by both. Linux remains future scope. Each app
-distribution bundles `assets/shared/menu/scene.bin` and its shared runtime
-resources. Gameplay `.placesmap` files belong only in the levels ZIP; app
-archives contain an empty `assets/levels/` directory. A fresh app still opens
-the live menu, Settings, Credits and Explore's empty-library import guidance.
+The downloads are `Places-0.13.1-macOS-arm64.zip` (game, editor and compiler),
+`Places-0.13.1-Levels.zip`, and the illustrated beginner guide. The Mac archive
+contains both the application bundle and portable folder, with a bundled live
+menu and shared runtime resources. It requires macOS 27.2 or newer and uses
+ad-hoc signatures; it is not notarized. Gameplay `.placesmap` files belong only
+in the levels ZIP; both app layouts contain an empty `assets/levels/` directory.
+A fresh app opens the live menu, Settings, Credits and Explore's empty-library
+import guidance. Windows/Linux 0.13.1 binaries are not included; older Windows
+validation is historical, and the published 0.13.0 Windows download is preserved.
 
 Extract the levels ZIP separately. Import any `Maps/*.placesmap` through Explore,
 `places --import <package>`, or the writable `levels/` directory shown by
@@ -30,9 +32,9 @@ editable project packages: compiler `import-project <package> --out <new-folder>
 recovers their authoring sources. Shared textures, models and audio stay with
 the app and are not duplicated in the levels download.
 
-The current gameplay inventory is `tools/release-projects.json`: three packages,
-14 member maps and 28 Static/Full variants: Backrooms, the nine-member Quiet
-Collection and all four Beam chapters. Five retired projects retain their complete
+The current gameplay inventory is `tools/release-projects.json`: four packages,
+17 member maps and 34 Static/Full variants: Backrooms, the nine-member Quiet
+Collection, all four Beam chapters and the three-member Long Way Home. Five retired projects retain their complete
 editable content in the [tracked archive](../archive/projects/README.md). They are
 excluded together with development gyms, labs and fixtures. Existing user imports
 and published 0.13.0 downloads are preserved; archiving source does not uninstall maps.
@@ -63,10 +65,10 @@ required on the Mac; Windows preparation or cross-compilation cannot establish
 those results. A compiler preparation fingerprint can include its host target;
 the levels receipt identifies the actual preparing compiler.
 
-This layout does not publish a release or change the existing 0.13.0 downloads.
 The older portable-release instructions below describe their historical tested
-layout. See the [0.13.1 acceptance report](reports/release-0.13.1.md) for the exact
-current Windows scope and remaining native Mac dependency.
+layout. See the [0.13.1 acceptance report](reports/release-0.13.1.md) and the
+release asset inventory for current native scope and checks. The Windows
+packaging command above remains developer tooling, not a shipped Windows 0.13.1 artifact.
 
 ## Installed resources
 

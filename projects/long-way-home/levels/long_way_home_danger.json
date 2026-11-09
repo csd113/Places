@@ -1,0 +1,5803 @@
+{
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_light",
+      "x": 3.0,
+      "z": 3.0
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_1",
+      "rotation_degrees": 0,
+      "x": 9.5,
+      "y": 8,
+      "z": 47
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_2",
+      "rotation_degrees": 0,
+      "x": 61.5,
+      "y": 8,
+      "z": 47
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_3",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 8,
+      "z": 55
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_4",
+      "rotation_degrees": 0,
+      "x": 60,
+      "y": 8,
+      "z": 55
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_5",
+      "rotation_degrees": 0,
+      "x": 12,
+      "y": 3.8,
+      "z": 8
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_6",
+      "rotation_degrees": 0,
+      "x": 12,
+      "y": 3.8,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_7",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.8,
+      "z": 24
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_8",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.8,
+      "z": 32
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_9",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.8,
+      "z": 40
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_10",
+      "rotation_degrees": 0,
+      "x": 16,
+      "y": 3.8,
+      "z": 42
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_11",
+      "rotation_degrees": 0,
+      "x": 24,
+      "y": 3.8,
+      "z": 44
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_12",
+      "rotation_degrees": 0,
+      "x": 24,
+      "y": 3.8,
+      "z": 52
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_13",
+      "rotation_degrees": 0,
+      "x": 32,
+      "y": 3.8,
+      "z": 56
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_14",
+      "rotation_degrees": 0,
+      "x": 40,
+      "y": 3.8,
+      "z": 56
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_15",
+      "rotation_degrees": 0,
+      "x": 48,
+      "y": 3.8,
+      "z": 56
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_16",
+      "rotation_degrees": 0,
+      "x": 56,
+      "y": 3.8,
+      "z": 60
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_17",
+      "rotation_degrees": 0,
+      "x": 14,
+      "y": 3.8,
+      "z": 58
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_18",
+      "rotation_degrees": 0,
+      "x": 14,
+      "y": 3.8,
+      "z": 48
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_19",
+      "rotation_degrees": 0,
+      "x": 28,
+      "y": 3.8,
+      "z": 28,
+      "brightness": 1.15,
+      "range": 10
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_20",
+      "rotation_degrees": 0,
+      "x": 38,
+      "y": 3.8,
+      "z": 28,
+      "brightness": 1.15,
+      "range": 10
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_21",
+      "rotation_degrees": 0,
+      "x": 46,
+      "y": 3.8,
+      "z": 28
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_22",
+      "rotation_degrees": 0,
+      "x": 60,
+      "y": 8,
+      "z": 42
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_23",
+      "rotation_degrees": 0,
+      "x": 66,
+      "y": 8,
+      "z": 36,
+      "color": [
+        1,
+        0.95,
+        0.67
+      ],
+      "brightness": 0.8,
+      "range": 9
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_24",
+      "rotation_degrees": 0,
+      "x": 66,
+      "y": 8,
+      "z": 28,
+      "color": [
+        1,
+        0.95,
+        0.67
+      ],
+      "brightness": 0.8,
+      "range": 9
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_25",
+      "rotation_degrees": 0,
+      "x": 66,
+      "y": 8,
+      "z": 20,
+      "color": [
+        1,
+        0.95,
+        0.67
+      ],
+      "brightness": 0.8,
+      "range": 9
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_26",
+      "rotation_degrees": 0,
+      "x": 64,
+      "y": 8,
+      "z": 12,
+      "color": [
+        1,
+        0.95,
+        0.67
+      ],
+      "brightness": 0.8,
+      "range": 9
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_27",
+      "rotation_degrees": 0,
+      "x": 56,
+      "y": 8,
+      "z": 12
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_28",
+      "rotation_degrees": 0,
+      "x": 48,
+      "y": 8,
+      "z": 14
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_29",
+      "rotation_degrees": 0,
+      "x": 48,
+      "y": 8,
+      "z": 22
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_30",
+      "rotation_degrees": 0,
+      "x": 48,
+      "y": 8,
+      "z": 30
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_31",
+      "rotation_degrees": 0,
+      "x": 40,
+      "y": 8,
+      "z": 34
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_32",
+      "rotation_degrees": 0,
+      "x": 32,
+      "y": 8,
+      "z": 32
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_33",
+      "rotation_degrees": 0,
+      "x": 32,
+      "y": 8,
+      "z": 24
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_34",
+      "rotation_degrees": 0,
+      "x": 32,
+      "y": 8,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_35",
+      "rotation_degrees": 0,
+      "x": 24,
+      "y": 8,
+      "z": 12
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_36",
+      "rotation_degrees": 0,
+      "x": 16,
+      "y": 8,
+      "z": 12
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_37",
+      "rotation_degrees": 0,
+      "x": 12,
+      "y": 8,
+      "z": 20
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_38",
+      "rotation_degrees": 0,
+      "x": 12,
+      "y": 8,
+      "z": 28
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_39",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 8,
+      "z": 36
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_40",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 8,
+      "z": 42
+    },
+    {
+      "id": "duck_practical",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12,
+      "z": 12,
+      "y": 8,
+      "align": "none",
+      "brightness": 1.1,
+      "range": 5,
+      "color": [
+        1,
+        0.88,
+        0.66
+      ]
+    },
+    {
+      "id": "polish_east_stair_bay_panel",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 68.5,
+      "y": 8,
+      "z": 48,
+      "align": "none",
+      "rotation_degrees": 0
+    }
+  ],
+  "elevators": [
+    {
+      "id": "danger_lift",
+      "initial_stop": 0,
+      "rotation_degrees": 180,
+      "stops": [
+        {
+          "label": "G",
+          "y": 0.0
+        },
+        {
+          "arrival_elevator": "intro_lift",
+          "label": "1",
+          "level": "long_way_home_return",
+          "y": 0
+        }
+      ],
+      "x": 12,
+      "z": 4
+    }
+  ],
+  "floor_regions": [
+    {
+      "depth": 2,
+      "offset_y": 2.1,
+      "width": 6,
+      "x": 5,
+      "z": 50
+    },
+    {
+      "depth": 2,
+      "offset_y": 2.1,
+      "width": 6,
+      "x": 57,
+      "z": 50
+    }
+  ],
+  "format_version": 1,
+  "id": "long_way_home_danger",
+  "name": "The Long Way Home \u2014 Below",
+  "props": [
+    {
+      "id": "editor_prop_1",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 13.600000381469727,
+      "y": 0.0020000000949949026,
+      "z": 12.0
+    },
+    {
+      "id": "editor_prop_2",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 9.600000381469727,
+      "y": 0.0020000000949949026,
+      "z": 20.0
+    },
+    {
+      "id": "editor_prop_3",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 9.600000381469727,
+      "y": 0.0020000000949949026,
+      "z": 30.0
+    },
+    {
+      "id": "editor_prop_4",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 3.6,
+      "y": 0.0020000000949949026,
+      "z": 28
+    },
+    {
+      "id": "editor_prop_5",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 17.600000381469727,
+      "y": 0.0020000000949949026,
+      "z": 44.0
+    },
+    {
+      "id": "editor_prop_6",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 25.600000381469727,
+      "y": 0.0020000000949949026,
+      "z": 50.0
+    },
+    {
+      "id": "editor_prop_7",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 35.6,
+      "y": 0.0020000000949949026,
+      "z": 59.25
+    },
+    {
+      "id": "editor_prop_8",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 47.599998474121094,
+      "y": 0.0020000000949949026,
+      "z": 54.0
+    },
+    {
+      "id": "editor_prop_9",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 53.599998474121094,
+      "y": 0.0020000000949949026,
+      "z": 62.5
+    },
+    {
+      "id": "editor_prop_10",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 15.600000381469727,
+      "y": 0.0020000000949949026,
+      "z": 58.0
+    },
+    {
+      "id": "editor_prop_11",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 15.600000381469727,
+      "y": 0.0020000000949949026,
+      "z": 48.0
+    },
+    {
+      "id": "editor_prop_12",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 51.599998474121094,
+      "y": 0.0020000000949949026,
+      "z": 37.5
+    },
+    {
+      "id": "editor_prop_13",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 61.599998474121094,
+      "y": 4.202000141143799,
+      "z": 40.0
+    },
+    {
+      "id": "editor_prop_14",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 68.5999984741211,
+      "y": 4.202000141143799,
+      "z": 30.0
+    },
+    {
+      "id": "editor_prop_15",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 68.5999984741211,
+      "y": 4.202000141143799,
+      "z": 18.0
+    },
+    {
+      "id": "editor_prop_16",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 57.599998474121094,
+      "y": 4.202000141143799,
+      "z": 14.0
+    },
+    {
+      "id": "editor_prop_17",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 49.599998474121094,
+      "y": 4.202000141143799,
+      "z": 22.0
+    },
+    {
+      "id": "editor_prop_18",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 51.599998474121094,
+      "y": 4.202000141143799,
+      "z": 32.0
+    },
+    {
+      "id": "editor_prop_19",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 37.599998474121094,
+      "y": 4.202000141143799,
+      "z": 36.0
+    },
+    {
+      "id": "editor_prop_20",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 28.2,
+      "y": 4.202000141143799,
+      "z": 24.0
+    },
+    {
+      "id": "editor_prop_21",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 27.600000381469727,
+      "y": 4.202000141143799,
+      "z": 10.0
+    },
+    {
+      "id": "editor_prop_22",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 15.600000381469727,
+      "y": 4.202000141143799,
+      "z": 16.0
+    },
+    {
+      "id": "editor_prop_23",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 13.600000381469727,
+      "y": 4.202000141143799,
+      "z": 26.0
+    },
+    {
+      "id": "editor_prop_24",
+      "model": "home:mug",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.3199999928474426,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_1",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.05849999934434891,
+            0.04500000178813934,
+            0.039000000804662704
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11699999868869781,
+        0.09000000357627869,
+        0.07800000160932541
+      ],
+      "solid": false,
+      "x": 5.6,
+      "y": 4.202000141143799,
+      "z": 38.0
+    },
+    {
+      "id": "editor_prop_25",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 14.0,
+      "y": 0.0020000000949949026,
+      "z": 12.350000381469727
+    },
+    {
+      "id": "editor_prop_26",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 10.0,
+      "y": 0.0020000000949949026,
+      "z": 20.350000381469727
+    },
+    {
+      "id": "editor_prop_27",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 10.0,
+      "y": 0.0020000000949949026,
+      "z": 30.350000381469727
+    },
+    {
+      "id": "editor_prop_28",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 4,
+      "y": 0.0020000000949949026,
+      "z": 28.35
+    },
+    {
+      "id": "editor_prop_29",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 16.0,
+      "y": 0.0020000000949949026,
+      "z": 48.349998474121094
+    },
+    {
+      "id": "editor_prop_30",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 52.0,
+      "y": 0.0020000000949949026,
+      "z": 37.849998474121094
+    },
+    {
+      "id": "editor_prop_31",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 62.0,
+      "y": 4.202000141143799,
+      "z": 40.349998474121094
+    },
+    {
+      "id": "editor_prop_32",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 69.0,
+      "y": 4.202000141143799,
+      "z": 30.350000381469727
+    },
+    {
+      "id": "editor_prop_33",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 69.0,
+      "y": 4.202000141143799,
+      "z": 18.350000381469727
+    },
+    {
+      "id": "editor_prop_34",
+      "model": "arcade:litter_can",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.5,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.017999999225139618,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_2",
+        "restitution": 0.15000000596046448,
+        "shape": {
+          "half_height": 0.05999999865889549,
+          "kind": "cylinder",
+          "radius": 0.032999999821186066
+        },
+        "water": {
+          "angular_drag": 2.0,
+          "displaced_volume_m3": 1.9999999494757503e-05,
+          "linear_drag": 3.0
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.06599999964237213,
+        0.11999999731779099,
+        0.06599999964237213
+      ],
+      "solid": false,
+      "x": 58.0,
+      "y": 4.202000141143799,
+      "z": 14.350000381469727
+    },
+    {
+      "id": "editor_prop_35",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 18.0,
+      "y": 0.0020000000949949026,
+      "z": 44.349998474121094
+    },
+    {
+      "id": "editor_prop_36",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 26.0,
+      "y": 0.0020000000949949026,
+      "z": 50.349998474121094
+    },
+    {
+      "id": "editor_prop_37",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 36,
+      "y": 0.0020000000949949026,
+      "z": 59.35
+    },
+    {
+      "id": "editor_prop_38",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 48.0,
+      "y": 0.0020000000949949026,
+      "z": 54.349998474121094
+    },
+    {
+      "id": "editor_prop_39",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 54.0,
+      "y": 0.0020000000949949026,
+      "z": 62.849998474121094
+    },
+    {
+      "id": "editor_prop_40",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 16.0,
+      "y": 0.0020000000949949026,
+      "z": 58.349998474121094
+    },
+    {
+      "id": "editor_prop_41",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 50.0,
+      "y": 4.202000141143799,
+      "z": 22.350000381469727
+    },
+    {
+      "id": "editor_prop_42",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 52.0,
+      "y": 4.202000141143799,
+      "z": 32.349998474121094
+    },
+    {
+      "id": "editor_prop_43",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 38.0,
+      "y": 4.202000141143799,
+      "z": 36.349998474121094
+    },
+    {
+      "id": "editor_prop_44",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 28.6,
+      "y": 4.202000141143799,
+      "z": 24.350000381469727
+    },
+    {
+      "id": "editor_prop_45",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 28.0,
+      "y": 4.202000141143799,
+      "z": 10.350000381469727
+    },
+    {
+      "id": "editor_prop_46",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 16.0,
+      "y": 4.202000141143799,
+      "z": 16.350000381469727
+    },
+    {
+      "id": "editor_prop_47",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 14.0,
+      "y": 4.202000141143799,
+      "z": 26.350000381469727
+    },
+    {
+      "id": "editor_prop_48",
+      "model": "home:book_stack",
+      "physics": {
+        "angular_damping": 0.20000000298023224,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 1.100000023841858,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_3",
+        "restitution": 0.05000000074505806,
+        "shape": {
+          "half_extents": [
+            0.125,
+            0.027499999850988388,
+            0.09000000357627869
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.2619999945163727,
+        0.05700000002980232,
+        0.19699999690055847
+      ],
+      "solid": false,
+      "x": 6.0,
+      "y": 4.202000141143799,
+      "z": 38.349998474121094
+    },
+    {
+      "id": "editor_prop_49",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 14.399999618530273,
+      "y": 0.0020000000949949026,
+      "z": 11.850000381469727
+    },
+    {
+      "id": "editor_prop_50",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 10.399999618530273,
+      "y": 0.0020000000949949026,
+      "z": 19.850000381469727
+    },
+    {
+      "id": "editor_prop_51",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 10.399999618530273,
+      "y": 0.0020000000949949026,
+      "z": 29.850000381469727
+    },
+    {
+      "id": "editor_prop_52",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 4.4,
+      "y": 0.0020000000949949026,
+      "z": 27.85
+    },
+    {
+      "id": "editor_prop_53",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 16.399999618530273,
+      "y": 0.0020000000949949026,
+      "z": 47.849998474121094
+    },
+    {
+      "id": "editor_prop_54",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 52.400001525878906,
+      "y": 0.0020000000949949026,
+      "z": 37.349998474121094
+    },
+    {
+      "id": "editor_prop_55",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 62.400001525878906,
+      "y": 4.202000141143799,
+      "z": 39.849998474121094
+    },
+    {
+      "id": "editor_prop_56",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 69.4000015258789,
+      "y": 4.202000141143799,
+      "z": 29.850000381469727
+    },
+    {
+      "id": "editor_prop_57",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 69.4000015258789,
+      "y": 4.202000141143799,
+      "z": 17.850000381469727
+    },
+    {
+      "id": "editor_prop_58",
+      "model": "janitor:spray_cleaner_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 0.5,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_4",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057500001043081284,
+            0.1264999955892563,
+            0.039250001311302185
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.1260010004043579,
+        0.2529999911785126,
+        0.07900100201368332
+      ],
+      "solid": false,
+      "x": 58.400001525878906,
+      "y": 4.202000141143799,
+      "z": 13.850000381469727
+    },
+    {
+      "id": "editor_prop_59",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 18.399999618530273,
+      "y": 0.0020000000949949026,
+      "z": 43.849998474121094
+    },
+    {
+      "id": "editor_prop_60",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 26.399999618530273,
+      "y": 0.0020000000949949026,
+      "z": 49.849998474121094
+    },
+    {
+      "id": "editor_prop_61",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 36.4,
+      "y": 0.0020000000949949026,
+      "z": 59.15
+    },
+    {
+      "id": "editor_prop_62",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 48.400001525878906,
+      "y": 0.0020000000949949026,
+      "z": 53.849998474121094
+    },
+    {
+      "id": "editor_prop_63",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 54.400001525878906,
+      "y": 0.0020000000949949026,
+      "z": 62.349998474121094
+    },
+    {
+      "id": "editor_prop_64",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 16.399999618530273,
+      "y": 0.0020000000949949026,
+      "z": 57.849998474121094
+    },
+    {
+      "id": "editor_prop_65",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 50.400001525878906,
+      "y": 4.202000141143799,
+      "z": 21.850000381469727
+    },
+    {
+      "id": "editor_prop_66",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 52.400001525878906,
+      "y": 4.202000141143799,
+      "z": 31.850000381469727
+    },
+    {
+      "id": "editor_prop_67",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 38.400001525878906,
+      "y": 4.202000141143799,
+      "z": 35.849998474121094
+    },
+    {
+      "id": "editor_prop_68",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 28.6,
+      "y": 4.202000141143799,
+      "z": 23.850000381469727
+    },
+    {
+      "id": "editor_prop_69",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 28.399999618530273,
+      "y": 4.202000141143799,
+      "z": 9.850000381469727
+    },
+    {
+      "id": "editor_prop_70",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 16.399999618530273,
+      "y": 4.202000141143799,
+      "z": 15.850000381469727
+    },
+    {
+      "id": "editor_prop_71",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 14.399999618530273,
+      "y": 4.202000141143799,
+      "z": 25.850000381469727
+    },
+    {
+      "id": "editor_prop_72",
+      "model": "janitor:detergent_bottle",
+      "physics": {
+        "angular_damping": 0.30000001192092896,
+        "friction": 0.6499999761581421,
+        "linear_damping": 0.20000000298023224,
+        "mass_kg": 1.0,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_5",
+        "restitution": 0.029999999329447746,
+        "shape": {
+          "half_extents": [
+            0.057999998331069946,
+            0.1327499896287918,
+            0.047970000654459
+          ],
+          "kind": "cuboid"
+        }
+      },
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.11599999666213989,
+        0.265500009059906,
+        0.09594099968671799
+      ],
+      "solid": false,
+      "x": 6.4,
+      "y": 4.202000141143799,
+      "z": 37.849998474121094
+    },
+    {
+      "id": "editor_prop_73",
+      "model": "core:rubber_duck",
+      "physics": {
+        "angular_damping": 0.15000000596046448,
+        "friction": 0.6000000238418579,
+        "linear_damping": 0.05000000074505806,
+        "mass_kg": 0.06499999761581421,
+        "motion": "dynamic",
+        "pickup": true,
+        "reset_group": "editor_physics_6",
+        "restitution": 0.07999999821186066,
+        "shape": {
+          "half_extents": [
+            0.05000000074505806,
+            0.05999999865889549,
+            0.07249999791383743
+          ],
+          "kind": "cuboid"
+        },
+        "water": {
+          "angular_drag": 2.5,
+          "displaced_volume_m3": 0.0006500000017695129,
+          "linear_drag": 4.0
+        }
+      },
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 180.0,
+      "scale": 1.0,
+      "size": [
+        0.10000000149011612,
+        0.11999999731779099,
+        0.14000000059604645
+      ],
+      "solid": false,
+      "x": 12.0,
+      "y": 4.662,
+      "z": 12.0
+    },
+    {
+      "feltling": {
+        "mode": "wait",
+        "routes": [
+          {
+            "id": "escape",
+            "points": [
+              [
+                20,
+                0,
+                24
+              ],
+              [
+                24,
+                0,
+                28
+              ],
+              [
+                30,
+                0,
+                28
+              ],
+              [
+                40,
+                0,
+                28
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_74",
+      "model": "feltling",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 20.0,
+      "y": 0.0,
+      "z": 24.0,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "wait"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "escape"
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "waiting"
+        }
+      ]
+    },
+    {
+      "id": "editor_prop_75",
+      "model": "tall-guest",
+      "pitch_degrees": 0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90.0,
+      "scale": 1.0,
+      "size": [
+        1.4790738821029663,
+        3.4769580364227295,
+        0.9443342685699463
+      ],
+      "solid": false,
+      "tall_guest": {
+        "passages": [
+          {
+            "crouch_only": false,
+            "entry": [
+              24,
+              0,
+              45
+            ],
+            "exit": [
+              24,
+              0,
+              51
+            ],
+            "id": "DW1_D0"
+          },
+          {
+            "crouch_only": false,
+            "entry": [
+              41,
+              0,
+              56
+            ],
+            "exit": [
+              47,
+              0,
+              56
+            ],
+            "id": "DW2_D0"
+          },
+          {
+            "crouch_only": false,
+            "entry": [
+              14,
+              0,
+              49
+            ],
+            "exit": [
+              14,
+              0,
+              55
+            ],
+            "id": "DW3_D0"
+          },
+          {
+            "crouch_only": false,
+            "entry": [
+              48,
+              4.2,
+              15
+            ],
+            "exit": [
+              48,
+              4.2,
+              21
+            ],
+            "id": "DW4_D1"
+          },
+          {
+            "crouch_only": false,
+            "entry": [
+              32,
+              4.2,
+              17
+            ],
+            "exit": [
+              32,
+              4.2,
+              23
+            ],
+            "id": "DW5_D1"
+          },
+          {
+            "crouch_only": true,
+            "entry": [
+              4,
+              0,
+              29
+            ],
+            "exit": [
+              4,
+              0,
+              39
+            ],
+            "id": "R1_D0",
+            "protected": {
+              "max": [
+                6,
+                1.1,
+                38
+              ],
+              "min": [
+                2,
+                0,
+                30
+              ]
+            }
+          },
+          {
+            "crouch_only": true,
+            "entry": [
+              30,
+              0,
+              59
+            ],
+            "exit": [
+              36,
+              0,
+              59
+            ],
+            "id": "R2_D0",
+            "protected": {
+              "max": [
+                38,
+                1.1,
+                64
+              ],
+              "min": [
+                28,
+                0,
+                60
+              ]
+            }
+          },
+          {
+            "crouch_only": true,
+            "entry": [
+              63,
+              4.2,
+              32
+            ],
+            "exit": [
+              60,
+              4.2,
+              39.6
+            ],
+            "id": "R3_D1",
+            "protected": {
+              "max": [
+                62.24,
+                5.3,
+                38.6
+              ],
+              "min": [
+                56,
+                4.2,
+                31.4
+              ]
+            }
+          },
+          {
+            "crouch_only": true,
+            "entry": [
+              18,
+              4.2,
+              27
+            ],
+            "exit": [
+              18,
+              4.2,
+              33
+            ],
+            "id": "R4_D1",
+            "protected": {
+              "max": [
+                24,
+                5.3,
+                32
+              ],
+              "min": [
+                16,
+                4.2,
+                28
+              ]
+            }
+          }
+        ],
+        "patrol": [
+          [
+            23,
+            0,
+            27
+          ],
+          [
+            37,
+            0,
+            27
+          ],
+          [
+            24,
+            0,
+            42
+          ],
+          [
+            24,
+            0,
+            56
+          ],
+          [
+            52,
+            0,
+            56
+          ],
+          [
+            52,
+            0,
+            60
+          ],
+          [
+            60,
+            0,
+            60
+          ],
+          [
+            60,
+            0,
+            58.8
+          ],
+          [
+            60,
+            2.1,
+            51
+          ],
+          [
+            61.5,
+            2.1,
+            50.8
+          ],
+          [
+            61.5,
+            4.2,
+            43
+          ],
+          [
+            60,
+            4.2,
+            42
+          ],
+          [
+            66,
+            4.2,
+            42
+          ],
+          [
+            66,
+            4.2,
+            12
+          ],
+          [
+            48,
+            4.2,
+            12
+          ],
+          [
+            48,
+            4.2,
+            34
+          ],
+          [
+            32,
+            4.2,
+            34
+          ],
+          [
+            32,
+            4.2,
+            12
+          ],
+          [
+            14.4,
+            4.2,
+            12
+          ],
+          [
+            12,
+            4.2,
+            32
+          ],
+          [
+            9.5,
+            4.2,
+            32
+          ],
+          [
+            9.5,
+            4.2,
+            43
+          ],
+          [
+            9.5,
+            2.1,
+            50.8
+          ],
+          [
+            8,
+            2.1,
+            51
+          ],
+          [
+            8,
+            0,
+            58.8
+          ],
+          [
+            8,
+            0,
+            60
+          ],
+          [
+            14,
+            0,
+            60
+          ],
+          [
+            14,
+            0,
+            42
+          ],
+          [
+            8,
+            0,
+            42
+          ],
+          [
+            8,
+            0,
+            18
+          ],
+          [
+            12,
+            0,
+            18
+          ],
+          [
+            20,
+            0,
+            18
+          ]
+        ],
+        "prey_targets": [
+          "editor_prop_74"
+        ]
+      },
+      "x": 20.0,
+      "y": 0.0,
+      "z": 22.0,
+      "components": [
+        {
+          "component": "state",
+          "name": "visited",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "stage_ready",
+          "value": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "object_state",
+          "key": "stage_ready",
+          "once": true,
+          "when": [
+            {
+              "check": "state",
+              "target": "editor_prop_75",
+              "name": "visited",
+              "equals": false
+            }
+          ],
+          "actions": [
+            {
+              "action": "disable"
+            }
+          ]
+        },
+        {
+          "on": "object_state",
+          "actions": [
+            {
+              "action": "enable"
+            },
+            {
+              "action": "disable",
+              "target": "editor_prop_74"
+            }
+          ],
+          "key": "visited",
+          "when": [
+            {
+              "check": "state",
+              "target": "editor_prop_75",
+              "name": "visited",
+              "equals": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "dressing_0_0",
+      "model": "core:desk",
+      "x": 30.4,
+      "y": 0,
+      "z": 4,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "id": "dressing_0_1",
+      "model": "core:chair",
+      "x": 32.0,
+      "y": 0,
+      "z": 4,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ]
+    },
+    {
+      "id": "dressing_0_2",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 33.6,
+      "y": 0,
+      "z": 4,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ]
+    },
+    {
+      "id": "dressing_1_0",
+      "model": "core:desk",
+      "x": 62.4,
+      "y": -0.25,
+      "z": 4,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "id": "dressing_1_1",
+      "model": "core:chair",
+      "x": 64.0,
+      "y": 0,
+      "z": 4,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "roll_degrees": 12
+    },
+    {
+      "id": "dressing_1_2",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 65.6,
+      "y": 0,
+      "z": 4,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ]
+    },
+    {
+      "id": "dressing_2_0",
+      "model": "home:sofa",
+      "x": 38.4,
+      "y": 0,
+      "z": 46,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        2,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "dressing_2_1",
+      "model": "home:coffee_table",
+      "x": 40.0,
+      "y": 0,
+      "z": 46,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ]
+    },
+    {
+      "id": "dressing_2_2",
+      "model": "home:floor_lamp",
+      "x": 41.6,
+      "y": 0,
+      "z": 46,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": false,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ]
+    },
+    {
+      "id": "dressing_3_0",
+      "model": "home:sofa",
+      "x": 66.4,
+      "y": -0.25,
+      "z": 60,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        2,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "dressing_3_1",
+      "model": "home:coffee_table",
+      "x": 68.0,
+      "y": 0,
+      "z": 60,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ],
+      "roll_degrees": 12
+    },
+    {
+      "id": "dressing_3_2",
+      "model": "home:floor_lamp",
+      "x": 69.6,
+      "y": 0,
+      "z": 60,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": false,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ]
+    },
+    {
+      "id": "dressing_4_0",
+      "model": "home:dining_table",
+      "x": 40.4,
+      "y": 4.2,
+      "z": 6,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ]
+    },
+    {
+      "id": "dressing_4_1",
+      "model": "home:dining_chair",
+      "x": 42.0,
+      "y": 4.2,
+      "z": 6,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "dressing_4_2",
+      "model": "home:bookshelf",
+      "x": 43.6,
+      "y": 4.2,
+      "z": 6,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1,
+        1.8,
+        0.35
+      ]
+    },
+    {
+      "id": "dressing_5_0",
+      "model": "home:dining_table",
+      "x": 48.4,
+      "y": 3.95,
+      "z": 60,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ]
+    },
+    {
+      "id": "dressing_5_1",
+      "model": "home:dining_chair",
+      "x": 50.0,
+      "y": 4.2,
+      "z": 60,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "roll_degrees": 12
+    },
+    {
+      "id": "dressing_5_2",
+      "model": "home:bookshelf",
+      "x": 51.6,
+      "y": 4.2,
+      "z": 60,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1,
+        1.8,
+        0.35
+      ]
+    },
+    {
+      "id": "dressing_6_0",
+      "model": "core:desk",
+      "x": 22.4,
+      "y": 4.2,
+      "z": 46,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "id": "dressing_6_1",
+      "model": "core:chair",
+      "x": 24.0,
+      "y": 4.2,
+      "z": 46,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ]
+    },
+    {
+      "id": "dressing_6_2",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 25.6,
+      "y": 4.2,
+      "z": 46,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ]
+    },
+    {
+      "id": "dressing_7_0",
+      "model": "core:desk",
+      "x": 66.4,
+      "y": 3.95,
+      "z": 3,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "id": "dressing_7_1",
+      "model": "core:chair",
+      "x": 68.0,
+      "y": 4.2,
+      "z": 3,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ],
+      "roll_degrees": 12
+    },
+    {
+      "id": "dressing_7_2",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 69.6,
+      "y": 4.2,
+      "z": 3,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ]
+    },
+    {
+      "id": "chair_accumulation_0",
+      "model": "home:dining_chair_refined",
+      "x": 49,
+      "y": 0,
+      "z": 22,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_1",
+      "model": "home:dining_chair_refined",
+      "x": 51,
+      "y": 0,
+      "z": 28,
+      "rotation_degrees": 73,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_2",
+      "model": "home:dining_chair_refined",
+      "x": 57.8,
+      "y": 0,
+      "z": 20,
+      "rotation_degrees": 146,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_3",
+      "model": "home:dining_chair_refined",
+      "x": 58.5,
+      "y": 0,
+      "z": 22,
+      "rotation_degrees": 219,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_4",
+      "model": "home:dining_chair_refined",
+      "x": 58,
+      "y": 0,
+      "z": 24,
+      "rotation_degrees": 292,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_5",
+      "model": "home:dining_chair_refined",
+      "x": 58.4,
+      "y": 0,
+      "z": 26,
+      "rotation_degrees": 5,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_6",
+      "model": "home:dining_chair_refined",
+      "x": 58,
+      "y": 0,
+      "z": 28,
+      "rotation_degrees": 78,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_7",
+      "model": "home:dining_chair_refined",
+      "x": 58.4,
+      "y": 0,
+      "z": 30,
+      "rotation_degrees": 151,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_8",
+      "model": "home:dining_chair_refined",
+      "x": 57.6,
+      "y": 0,
+      "z": 31,
+      "rotation_degrees": 224,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ]
+    },
+    {
+      "id": "chair_accumulation_9",
+      "model": "home:dining_chair_refined",
+      "x": 57.8,
+      "y": 0.9,
+      "z": 23,
+      "rotation_degrees": 297,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "roll_degrees": 28,
+      "pitch_degrees": 10
+    },
+    {
+      "id": "chair_accumulation_10",
+      "model": "home:dining_chair_refined",
+      "x": 58.4,
+      "y": 0.9,
+      "z": 25,
+      "rotation_degrees": 10,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "roll_degrees": 28,
+      "pitch_degrees": 10
+    },
+    {
+      "id": "chair_accumulation_11",
+      "model": "home:dining_chair_refined",
+      "x": 58,
+      "y": 0.9,
+      "z": 27,
+      "rotation_degrees": 83,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.902,
+        0.49
+      ],
+      "roll_degrees": 28,
+      "pitch_degrees": 10
+    },
+    {
+      "id": "wrong_stop_0",
+      "model": "core:stop_sign",
+      "x": 30,
+      "y": 0,
+      "z": 37,
+      "rotation_degrees": 180,
+      "scale": 1.7,
+      "solid": true,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "roll_degrees": 8
+    },
+    {
+      "id": "wrong_stop_1",
+      "model": "core:stop_sign",
+      "x": 34,
+      "y": 0,
+      "z": 37,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "roll_degrees": -12
+    },
+    {
+      "id": "wrong_stop_2",
+      "model": "core:stop_sign",
+      "x": 38,
+      "y": 0,
+      "z": 37,
+      "rotation_degrees": 180,
+      "scale": 0.55,
+      "solid": true,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "roll_degrees": 18
+    },
+    {
+      "id": "wrong_stop_3",
+      "model": "core:stop_sign",
+      "x": 42,
+      "y": 0,
+      "z": 37,
+      "rotation_degrees": 180,
+      "scale": 0.3,
+      "solid": true,
+      "size": [
+        0.45,
+        1.8,
+        0.06
+      ],
+      "roll_degrees": -25
+    },
+    {
+      "id": "chair_annex_exit",
+      "model": "core:hollow_metal_exit_door_double",
+      "x": 53.45,
+      "y": 0,
+      "z": 33.788,
+      "rotation_degrees": 0,
+      "scale": 1.0,
+      "size": [
+        2.052,
+        2.21,
+        0.252
+      ],
+      "solid": false,
+      "animated_door": {
+        "clip": "exit_open",
+        "initial_open": false,
+        "boxes": [
+          {
+            "node": "exit_door_double",
+            "center": [
+              -0.984,
+              1.075,
+              0.0
+            ],
+            "size": [
+              0.084,
+              2.15,
+              0.196
+            ],
+            "grounding": true
+          },
+          {
+            "node": "exit_door_double",
+            "center": [
+              0.984,
+              1.075,
+              0.0
+            ],
+            "size": [
+              0.084,
+              2.15,
+              0.196
+            ],
+            "grounding": true
+          },
+          {
+            "node": "exit_door_double",
+            "center": [
+              0.0,
+              2.176,
+              0.0
+            ],
+            "size": [
+              2.052,
+              0.068,
+              0.196
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_arm_a",
+            "center": [
+              0.092500001,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.185000002,
+              0.012,
+              0.017000001
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_arm_b",
+            "center": [
+              0.102499999,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.204999998,
+              0.012,
+              0.015
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_frame_bracket",
+            "center": [
+              0.0,
+              -0.03700003,
+              0.001249997
+            ],
+            "size": [
+              0.052999999,
+              0.100000054,
+              0.067499995
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_R_arm_a",
+            "center": [
+              0.092500001,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.185000002,
+              0.012,
+              0.017000001
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_R_arm_b",
+            "center": [
+              0.102499999,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.204999998,
+              0.012,
+              0.015
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_R_frame_bracket",
+            "center": [
+              0.0,
+              -0.03700003,
+              0.001249997
+            ],
+            "size": [
+              0.052999999,
+              0.100000054,
+              0.067499995
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_L_closer",
+            "center": [
+              0.0,
+              0.019000035,
+              0.0
+            ],
+            "size": [
+              0.284999996,
+              0.112000071,
+              0.067000002
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_L_core",
+            "center": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.940999985,
+              2.128000021,
+              0.045000002
+            ],
+            "grounding": true
+          },
+          {
+            "node": "leaf_L_panic_hardware",
+            "center": [
+              0.004999965,
+              0.052000046,
+              0.017000001
+            ],
+            "size": [
+              0.877000034,
+              2.118000031,
+              0.072999999
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_R_closer",
+            "center": [
+              0.0,
+              0.019000035,
+              0.0
+            ],
+            "size": [
+              0.284999996,
+              0.112000071,
+              0.067000002
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_R_core",
+            "center": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.940999985,
+              2.128000021,
+              0.045000002
+            ],
+            "grounding": true
+          },
+          {
+            "node": "leaf_R_panic_hardware",
+            "center": [
+              -0.004999965,
+              0.052000046,
+              0.017000001
+            ],
+            "size": [
+              0.877000034,
+              2.118000031,
+              0.072999999
+            ],
+            "grounding": false
+          }
+        ]
+      },
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.0,
+          "prompt": "Open / close"
+        },
+        {
+          "component": "animation",
+          "clip": "exit_open",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ],
+      "occludes": false,
+      "display_name": "Flush hollow-metal exit door pair"
+    },
+    {
+      "id": "duck_table",
+      "model": "home:coffee_table",
+      "x": 12,
+      "y": 4.2,
+      "z": 12,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ],
+      "scale": 1,
+      "solid": true
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 64.0,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 4.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 1.6,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 6.0,
+      "x": 12.0,
+      "z": 0.0
+    },
+    {
+      "depth": 60.0,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 6.0,
+      "x": 12.0,
+      "z": 4
+    },
+    {
+      "depth": 2.4,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 4.800000000000001,
+      "x": 13.2,
+      "z": 1.6
+    },
+    {
+      "depth": 2.4,
+      "floor_y": -0.012,
+      "height": 3.811999952316284,
+      "width": 1.1999999999999993,
+      "x": 12.0,
+      "z": 1.6
+    },
+    {
+      "depth": 40.0,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 38,
+      "x": 18,
+      "z": 0.0
+    },
+    {
+      "depth": 24,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 38,
+      "x": 18,
+      "z": 40,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "depth": 64.0,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 8.0,
+      "x": 64.0,
+      "z": 0.0
+    },
+    {
+      "depth": 44.0,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 8.0,
+      "x": 56.0,
+      "z": 0.0
+    },
+    {
+      "depth": 4.8,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 8.0,
+      "x": 56.0,
+      "z": 59.2
+    },
+    {
+      "depth": 1.6,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 8.0,
+      "x": 4.0,
+      "z": 0.0
+    },
+    {
+      "depth": 40.0,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 8.0,
+      "x": 4.0,
+      "z": 4
+    },
+    {
+      "depth": 2.4,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 6.800000000000001,
+      "x": 4.0,
+      "z": 1.6
+    },
+    {
+      "depth": 2.4,
+      "floor_y": -0.012,
+      "height": 3.811999952316284,
+      "width": 1.1999999999999993,
+      "x": 10.8,
+      "z": 1.6
+    },
+    {
+      "depth": 4.8,
+      "floor_y": 0.0,
+      "height": 3.799999952316284,
+      "width": 8.0,
+      "x": 4.0,
+      "z": 59.2
+    },
+    {
+      "depth": 64.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 4.0,
+      "x": 0.0,
+      "z": 0.0
+    },
+    {
+      "depth": 64.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 4.0,
+      "x": 20,
+      "z": 0.0
+    },
+    {
+      "depth": 6.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 12.0,
+      "z": 0.0
+    },
+    {
+      "depth": 44.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 12.0,
+      "z": 20
+    },
+    {
+      "depth": 14,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 12.0,
+      "z": 6,
+      "material": "home:carpet_cream_01",
+      "ceiling_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "depth": 22.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 32.0,
+      "x": 24,
+      "z": 42
+    },
+    {
+      "depth": 42,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 32.0,
+      "x": 24,
+      "z": 0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "depth": 64.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 2.0,
+      "x": 70,
+      "z": 0.0
+    },
+    {
+      "depth": 6.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 6.0,
+      "x": 64.0,
+      "z": 0.0
+    },
+    {
+      "depth": 26.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 6.0,
+      "x": 64.0,
+      "z": 38
+    },
+    {
+      "depth": 32,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 6.0,
+      "x": 64.0,
+      "z": 6,
+      "material": "backrooms:carpet_olive_01"
+    },
+    {
+      "depth": 6.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 2.0,
+      "x": 62,
+      "z": 0.0
+    },
+    {
+      "depth": 6.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 2.0,
+      "x": 62,
+      "z": 38
+    },
+    {
+      "depth": 32,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 2.0,
+      "x": 62,
+      "z": 6,
+      "material": "backrooms:carpet_olive_01"
+    },
+    {
+      "depth": 2.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 6.0,
+      "x": 56.0,
+      "z": 42
+    },
+    {
+      "depth": 42,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 6.0,
+      "x": 56.0,
+      "z": 0,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "depth": 4.8,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 56.0,
+      "z": 59.2
+    },
+    {
+      "depth": 6.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 4,
+      "z": 0.0
+    },
+    {
+      "depth": 24.0,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 4,
+      "z": 20
+    },
+    {
+      "depth": 14,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 4,
+      "z": 6,
+      "material": "home:carpet_cream_01",
+      "ceiling_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "depth": 4.8,
+      "floor_y": 4.2,
+      "height": 3.8,
+      "width": 8.0,
+      "x": 4.0,
+      "z": 59.2
+    },
+    {
+      "depth": 15.2,
+      "floor_y": 0.0,
+      "height": 8.0,
+      "width": 8.0,
+      "x": 4.0,
+      "z": 44.0
+    },
+    {
+      "depth": 15.2,
+      "floor_y": 0.0,
+      "height": 8.0,
+      "width": 8.0,
+      "x": 56.0,
+      "z": 44.0
+    }
+  ],
+  "schema": "places-level",
+  "sound_emitters": [
+    {
+      "gain": 0.3199999928474426,
+      "id": "editor_1",
+      "looped": true,
+      "playing": true,
+      "sound": "below_the_landing",
+      "spatial": false,
+      "x": 36.0,
+      "y": 0.0,
+      "z": 32.0
+    },
+    {
+      "id": "buzz_0",
+      "sound": "fluorescent_buzz",
+      "x": 12,
+      "y": 3.6,
+      "z": 12,
+      "gain": 0.2,
+      "looped": true,
+      "playing": true,
+      "spatial": true
+    },
+    {
+      "id": "buzz_1",
+      "sound": "fluorescent_buzz",
+      "x": 24,
+      "y": 3.6,
+      "z": 44,
+      "gain": 0.2,
+      "looped": true,
+      "playing": true,
+      "spatial": true
+    },
+    {
+      "id": "buzz_2",
+      "sound": "fluorescent_buzz",
+      "x": 66,
+      "y": 7.8,
+      "z": 24,
+      "gain": 0.2,
+      "looped": true,
+      "playing": true,
+      "spatial": true
+    }
+  ],
+  "spawn": {
+    "x": 12,
+    "z": 3,
+    "yaw_degrees": 180
+  },
+  "stairs": [
+    {
+      "depth": 6,
+      "offset_y": 0,
+      "reverse": true,
+      "rise": 2.1,
+      "steps": 11,
+      "width": 3,
+      "x": 6.5,
+      "z": 52
+    },
+    {
+      "depth": 6,
+      "offset_y": 2.1,
+      "reverse": true,
+      "rise": 2.1,
+      "steps": 11,
+      "width": 3,
+      "x": 8,
+      "z": 44
+    },
+    {
+      "depth": 6,
+      "offset_y": 0,
+      "reverse": true,
+      "rise": 2.1,
+      "steps": 11,
+      "width": 3,
+      "x": 58.5,
+      "z": 52
+    },
+    {
+      "depth": 6,
+      "offset_y": 2.1,
+      "reverse": true,
+      "rise": 2.1,
+      "steps": 11,
+      "width": 3,
+      "x": 60,
+      "z": 44
+    }
+  ],
+  "transitions": [
+    "long_way_home_return"
+  ],
+  "walls": [
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 72,
+      "x": 0,
+      "y": 0,
+      "z": 0
+    },
+    {
+      "depth": 63.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 0,
+      "y": 0,
+      "z": 0.24
+    },
+    {
+      "depth": 63.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 71.76,
+      "y": 0,
+      "z": 0.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 72,
+      "x": 0,
+      "y": 0,
+      "z": 63.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 72,
+      "x": 0,
+      "y": 4.2,
+      "z": 0
+    },
+    {
+      "depth": 63.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 0,
+      "y": 4.2,
+      "z": 0.24
+    },
+    {
+      "depth": 63.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 71.76,
+      "y": 4.2,
+      "z": 0.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 72,
+      "x": 0,
+      "y": 4.2,
+      "z": 63.76
+    },
+    {
+      "depth": 6,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 17.88,
+      "y": 0,
+      "z": 20
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 3.88,
+      "x": 18.12,
+      "y": 0,
+      "z": 20
+    },
+    {
+      "depth": 8,
+      "height": 0.45,
+      "width": 0.24,
+      "x": 39.88,
+      "y": 0,
+      "z": 24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 5.76,
+      "x": 0.24,
+      "y": 0,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 12,
+      "x": 10,
+      "y": 0,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 8,
+      "x": 26,
+      "y": 0,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 4,
+      "x": 38,
+      "y": 0,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 6,
+      "x": 46,
+      "y": 0,
+      "z": 39.88
+    },
+    {
+      "depth": 6,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 33.88,
+      "y": 0,
+      "z": 44,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 6,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 45.88,
+      "y": 0,
+      "z": 42,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 1.2,
+      "width": 4,
+      "x": 34,
+      "y": 0,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 1.2,
+      "width": 4,
+      "x": 34,
+      "y": 2.6,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 1.2,
+      "width": 4,
+      "x": 42,
+      "y": 0,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 1.2,
+      "width": 4,
+      "x": 42,
+      "y": 2.6,
+      "z": 39.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 14,
+      "x": 46,
+      "y": 0,
+      "z": 18
+    },
+    {
+      "depth": 15.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 46,
+      "y": 0,
+      "z": 18.24
+    },
+    {
+      "depth": 15.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 59.76,
+      "y": 0,
+      "z": 18.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 6.5,
+      "x": 46,
+      "y": 0,
+      "z": 33.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 5.6,
+      "x": 54.4,
+      "y": 0,
+      "z": 33.76
+    },
+    {
+      "depth": 0.24,
+      "height": 1.55,
+      "width": 1.9,
+      "x": 52.5,
+      "y": 2.25,
+      "z": 33.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 5.25,
+      "x": 18,
+      "y": 0,
+      "z": 47.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 9.13,
+      "x": 24.75,
+      "y": 0,
+      "z": 47.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 1.6,
+      "width": 1.5,
+      "x": 23.25,
+      "y": 2.2,
+      "z": 47.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 3.25,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 43.88,
+      "y": 0,
+      "z": 52,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 3.25,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 43.88,
+      "y": 0,
+      "z": 56.75,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 1.5,
+      "height": 1.6,
+      "width": 0.24,
+      "x": 43.88,
+      "y": 2.2,
+      "z": 55.25,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.25,
+      "x": 12,
+      "y": 0,
+      "z": 51.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 3.25,
+      "x": 14.75,
+      "y": 0,
+      "z": 51.88
+    },
+    {
+      "depth": 0.24,
+      "height": 1.6,
+      "width": 1.5,
+      "x": 13.25,
+      "y": 2.2,
+      "z": 51.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 7.13,
+      "x": 40.12,
+      "y": 4.2,
+      "z": 17.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 13.25,
+      "x": 48.75,
+      "y": 4.2,
+      "z": 17.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 1.6,
+      "width": 1.5,
+      "x": 47.25,
+      "y": 6.4,
+      "z": 17.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 7.13,
+      "x": 24.12,
+      "y": 4.2,
+      "z": 19.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 7.13,
+      "x": 32.75,
+      "y": 4.2,
+      "z": 19.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 1.6,
+      "width": 1.5,
+      "x": 31.25,
+      "y": 6.4,
+      "z": 19.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 5.12,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 39.88,
+      "y": 4.2,
+      "z": 17.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 4,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 39.88,
+      "y": 4.2,
+      "z": 27,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 7,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 39.88,
+      "y": 4.2,
+      "z": 35,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 4,
+      "height": 1.2,
+      "width": 0.24,
+      "x": 39.88,
+      "y": 4.2,
+      "z": 23,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 4,
+      "height": 1.2,
+      "width": 0.24,
+      "x": 39.88,
+      "y": 6.8,
+      "z": 23,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 9.76,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 23.88,
+      "y": 4.2,
+      "z": 0.24
+    },
+    {
+      "depth": 9.88,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 23.88,
+      "y": 4.2,
+      "z": 14
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 10,
+      "x": 18,
+      "y": 4.2,
+      "z": 23.88
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 10,
+      "x": 44,
+      "y": 4.2,
+      "z": 41.88,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 16,
+      "x": 4,
+      "y": 4.2,
+      "z": 6
+    },
+    {
+      "depth": 13.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 4,
+      "y": 4.2,
+      "z": 6.24
+    },
+    {
+      "depth": 3.76,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 4.2,
+      "z": 6.24
+    },
+    {
+      "depth": 5.76,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 4.2,
+      "z": 14
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 6,
+      "x": 4,
+      "y": 4.2,
+      "z": 19.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 6,
+      "x": 14,
+      "y": 4.2,
+      "z": 19.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 8,
+      "x": 62,
+      "y": 4.2,
+      "z": 6
+    },
+    {
+      "depth": 31.52,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 69.76,
+      "y": 4.2,
+      "z": 6.24
+    },
+    {
+      "depth": 3.76,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 62,
+      "y": 4.2,
+      "z": 6.24
+    },
+    {
+      "depth": 17.4,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 62,
+      "y": 4.2,
+      "z": 14
+    },
+    {
+      "depth": 5.76,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 62,
+      "y": 4.2,
+      "z": 32.6
+    },
+    {
+      "depth": 1.2,
+      "height": 2.7,
+      "width": 0.24,
+      "x": 62,
+      "y": 5.3,
+      "z": 31.4
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 2,
+      "x": 68,
+      "y": 4.2,
+      "z": 37.76
+    },
+    {
+      "depth": 0.24,
+      "height": 2.7,
+      "width": 1.76,
+      "x": 62.24,
+      "y": 5.3,
+      "z": 37.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 6,
+      "x": 56,
+      "y": 4.2,
+      "z": 31.16,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 6.96,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 56,
+      "y": 4.2,
+      "z": 31.4,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 3.4,
+      "x": 56,
+      "y": 4.2,
+      "z": 38.36,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.64,
+      "x": 60.6,
+      "y": 4.2,
+      "z": 38.36,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 6.96,
+      "height": 2.7,
+      "width": 5.76,
+      "x": 56.24,
+      "y": 5.3,
+      "z": 31.4,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 2.7,
+      "width": 1.2,
+      "x": 59.4,
+      "y": 5.3,
+      "z": 38.36,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 8,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 2,
+      "y": 0,
+      "z": 30
+    },
+    {
+      "depth": 8,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 5.76,
+      "y": 0,
+      "z": 30
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 2.24,
+      "y": 0,
+      "z": 30
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 4.6,
+      "y": 0,
+      "z": 30
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 2.24,
+      "y": 0,
+      "z": 37.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 4.6,
+      "y": 0,
+      "z": 37.76
+    },
+    {
+      "depth": 7.52,
+      "height": 2.7,
+      "width": 3.52,
+      "x": 2.24,
+      "y": 1.1,
+      "z": 30.24
+    },
+    {
+      "depth": 3.76,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 28,
+      "y": 0,
+      "z": 60,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 3.76,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 37.76,
+      "y": 0,
+      "z": 60,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 28.24,
+      "y": 0,
+      "z": 60,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 4.8,
+      "x": 30.6,
+      "y": 0,
+      "z": 60,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 36.6,
+      "y": 0,
+      "z": 60,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 3.52,
+      "height": 2.7,
+      "width": 9.52,
+      "x": 28.24,
+      "y": 1.1,
+      "z": 60.24,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "depth": 4,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 16,
+      "y": 4.2,
+      "z": 28
+    },
+    {
+      "depth": 4,
+      "height": 3.8,
+      "width": 0.24,
+      "x": 23.76,
+      "y": 4.2,
+      "z": 28
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 16.24,
+      "y": 4.2,
+      "z": 28
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 5.16,
+      "x": 18.6,
+      "y": 4.2,
+      "z": 28
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 1.16,
+      "x": 16.24,
+      "y": 4.2,
+      "z": 31.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.8,
+      "width": 5.16,
+      "x": 18.6,
+      "y": 4.2,
+      "z": 31.76
+    },
+    {
+      "depth": 3.52,
+      "height": 2.7,
+      "width": 7.52,
+      "x": 16.24,
+      "y": 5.3,
+      "z": 28.24
+    },
+    {
+      "x": 62.35,
+      "y": 4.2,
+      "z": 8,
+      "width": 0.45,
+      "depth": 0.45,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 62.35,
+      "y": 4.2,
+      "z": 16,
+      "width": 0.45,
+      "depth": 0.45,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 62.35,
+      "y": 4.2,
+      "z": 24,
+      "width": 0.45,
+      "depth": 0.45,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 62.35,
+      "y": 4.2,
+      "z": 29,
+      "width": 0.45,
+      "depth": 0.45,
+      "height": 3.8,
+      "material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "x": 10.2,
+      "z": 3.8,
+      "width": 3.6,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.8,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.05,
+          "width": 1.5,
+          "height": 2.25
+        }
+      ]
+    },
+    {
+      "x": 10.2,
+      "z": 1.1,
+      "width": 0.24,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 13.56,
+      "z": 1.1,
+      "width": 0.24,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 10.44,
+      "z": 1.1,
+      "width": 3.12,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.8,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 3.4,
+      "z": 30,
+      "y": 1.1,
+      "width": 1.2,
+      "depth": 0.24,
+      "height": 2.7
+    },
+    {
+      "x": 3.4,
+      "z": 37.76,
+      "y": 1.1,
+      "width": 1.2,
+      "depth": 0.24,
+      "height": 2.7
+    },
+    {
+      "x": 29.4,
+      "z": 60,
+      "y": 1.1,
+      "width": 1.2,
+      "depth": 0.24,
+      "height": 2.7,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 35.4,
+      "z": 60,
+      "y": 1.1,
+      "width": 1.2,
+      "depth": 0.24,
+      "height": 2.7,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 17.4,
+      "z": 28,
+      "y": 5.3,
+      "width": 1.2,
+      "depth": 0.24,
+      "height": 2.7
+    },
+    {
+      "x": 17.4,
+      "z": 31.76,
+      "y": 5.3,
+      "width": 1.2,
+      "depth": 0.24,
+      "height": 2.7
+    }
+  ],
+  "saving": false,
+  "scripts": [
+    "scripts/danger.luau"
+  ],
+  "volumes": [
+    {
+      "id": "first_actual_elevator_exit",
+      "x": 10.5,
+      "z": 5.5,
+      "width": 3,
+      "depth": 1.5,
+      "bottom_y": -0.05,
+      "top_y": 2,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "sequence": "witness_exit"
+            }
+          ],
+          "once": true,
+          "when": [
+            {
+              "check": "state",
+              "target": "editor_prop_75",
+              "name": "visited",
+              "equals": false
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "sequences": [
+    {
+      "id": "witness_exit",
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "run_script",
+            "script": "scripts/danger.luau",
+            "handler": "mark_seen"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_74",
+            "name": "feltling_mode",
+            "value": "flee"
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "enable",
+            "target": "editor_prop_75"
+          }
+        }
+      ]
+    }
+  ],
+  "animated_emissions": [
+    {
+      "material": "core:fluorescent_panel_01",
+      "effect": "flicker",
+      "hz": 7,
+      "depth": 0.06,
+      "phase": 0.27
+    }
+  ]
+}

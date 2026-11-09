@@ -68,20 +68,21 @@ changed in Settings; Escape always pauses.
 
 ## About this version
 
-**Places 0.13.1** is the development version on `0.13.1-dev`.
-The shareable [0.13.0 Windows prerelease](https://github.com/csd113/Places/releases/tag/v0.13.0) includes the game,
-editor, compiler, runtime dependencies/assets and seven prepared project packages.
-Native 0.13.0 validation covers Windows x64/Direct3D 12 and macOS arm64/Metal.
-The [release report](docs/reports/release-0.13.0.md) records exact acceptance and
-remaining platform, performance and delivery limits.
+**Places 0.13.1** provides a native macOS arm64 prerelease with the game, editor,
+offline compiler and bundled live menu. The separate levels download contains
+Backrooms, the nine-map Quiet Collection, all four Beam chapters and the
+three-part Long Way Home. The application archive contains no gameplay maps.
 
-The 0.13.0 Windows prerelease includes the game EXE, native editor, offline compiler,
-dependencies, runtime assets, an always-bundled live menu scene and all seven
-approved project packages, including the nine-map Quiet Collection.
-See [portable installation](docs/INSTALLATION.md#windows-portable-game-and-authoring-tools)
-for launch and authoring instructions. The eight standalone environment demos are superseded by this
-single package. See the [collection handoff](docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
-for the exact retirement inventory, validation and remaining work.
+[Download 0.13.1](https://github.com/csd113/Places/releases/tag/v0.13.1) ·
+[Beginner’s Guide to Your First Places Space](docs/Beginners_Guide_to_Your_First_Places_Space.pdf) ·
+[Installation](docs/INSTALLATION.md) · [Acceptance and limits](docs/reports/release-0.13.1.md)
+
+This Mac package requires macOS **27.2 or newer** and is ad-hoc signed, not
+notarized. Windows and Linux binaries are not included in this download.
+The [0.13.0 Windows prerelease](https://github.com/csd113/Places/releases/tag/v0.13.0)
+remains available with its original seven project packages; use its matching maps.
+Earlier Windows validation retains its recorded source revisions and does not
+establish final 0.13.1 Windows coverage.
 
 To play an existing collection package with a matching player and asset library:
 

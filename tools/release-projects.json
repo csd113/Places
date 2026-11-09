@@ -12,6 +12,10 @@
     {
       "source": "projects/beam",
       "package": "beam.placesmap"
+    },
+    {
+      "source": "projects/long-way-home",
+      "package": "long-way-home.placesmap"
     }
   ],
   "excluded": [
@@ -22,7 +26,7 @@
     "archive/projects/relay-annex",
     "development gyms, labs and review fixtures"
   ],
-  "note": "The bundled menu is a separate runtime dependency. Beam stays active with all four chapters. Archived projects are source-only recovery material; new exports refuse their package and member identities. This release inventory is broader than levels/lineup.txt.",
+  "note": "The bundled menu is a separate runtime dependency. Backrooms, the nine-member Quiet Collection, all four Beam chapters and the three-member Long Way Home form the release inventory. Archived projects and development fixtures remain excluded.",
   "archived_projects": [
     {
       "source": "archive/projects/closing-time",

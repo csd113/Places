@@ -99,8 +99,13 @@ See the final Windows section of `docs/reports/release-0.13.0.md` for the compil
 receipts, native acceptance, download inventory and preserved old resource.
 
 
-## Current native-editor rebuild (2026-11-09)
+## Native-editor rebuild (2026-11-09, before final lighting corrections)
 
 The unchanged menu source was freshly rebuilt through the standalone native editor's visible **Final build** control using the revision-6 development compiler. Static/Full integrity and `verify --require-current` pass against canonical source. The installed resource is **16,839,785 bytes**, SHA-256 `56194e1f110e34401c60cafc89042d823e7bbe23fc8e52ee71c4264aab394312`.
 
 A subsequent standalone player run verifies the installed menu, Full lighting, blackout and staged circuit restoration with actual native frames. This bounded check does not repeat all seven event reviews or establish uncapped FPS. See [the rebuild report](../../docs/reports/menu-rebuild-2026-11-09.md) for method, evidence and remaining demo release gates. Earlier hashes above are historical.
+
+
+## Final compiler refresh (2026-11-09)
+
+The accepted ceiling-emitter/contact-lighting corrections changed preparation identity. The unchanged source was refreshed with the final release compiler through its ordinary build command. The installed Static/Full resource is 16581895 bytes, SHA-256 `f04f72c6fa3431a7aa650bc10dff13388c067e280021277eac18a79eb1b5255a`; integrity, dependencies and current-source verification pass. Final packaged native acceptance is recorded in the release-closing report.

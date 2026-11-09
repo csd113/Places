@@ -1,4 +1,4 @@
-# 0.13.1 acceptance (unreleased)
+# 0.13.1 acceptance
 
 The first phase added rectangular/circular pillars and fitted automatic trim.
 Its accepted source is `fa9a8b93cbfba0b0e8a1b1ee064c01cbbe1be9e1`; its receipt,
@@ -5437,3 +5437,66 @@ this is not a complete natural-input quest campaign or final-release Full map
 inventory. Raw evidence, matching tools and validation-only exports are retained
 in the local task-6 `script-repair-evidence` directory; its repair report and
 publication handoff record exact limits, remote/CI status and resource release.
+
+
+## Final Mac candidate and Long Way Home acceptance — 2026-11-09
+
+The closing candidate retains version 0.13.1. The release inventory now includes
+Backrooms, the nine-member Quiet Collection, four Beam chapters and the three-part
+Long Way Home: four complete projects, 17 members and 34 Static/Full variants.
+Long Way Home's original eight project/map/script files are preserved byte for
+byte under `projects/long-way-home`; its stable identities and version remain.
+No archived project or development fixture joins the release inventory.
+
+Current-code local gates pass strict workspace/all-target/all-feature Clippy,
+locked release workspace/all-feature build, formatting, **564 Rust tests** and
+**377 Python source tests** (three explicit skips). External-target Rust tests
+require the explicit repository asset root; the initial missing-root failures
+remain excluded. Asset/audio/prop/clip checks pass with existing art/layout
+advisories. These source gates do not bake shipped maps.
+
+Focused actual-map controller checks pass all **30 doorway cases**: five passages,
+both directions, pursuit, a live blocked corridor followed by clearance, and
+player occupancy followed by clearance. All **eight refuge cases** retain
+crouch-only exclusion and no published-body intrusion. They initialize diagnostic
+actor/player positions and use the real prepared collision/navigation and native
+posed rig; they are CPU controller evidence, not GPU or natural campaign claims.
+The accepted helper initializes all model assets; the earlier unused-prop-cache
+attempt is retained separately.
+
+The current production Mac bundle also completes an ordinary elevator-door exit,
+return to the cabin and authored patrol through all five physical passages.
+A separate native Homecoming run proves real physics-duck volume activation,
+Escape cancellation without spending completion, normal cake-interact retry,
+successful camera release and the authored winning ending. That focused lifecycle
+case uses explicit diagnostic player placements and `/give` setup; no quest or
+party state is assigned. Two obstructed scripted approaches are excluded, with no
+map or collision change. Earlier genuine whole campaigns and causal throw proofs
+retain their original revisions; they are not relabeled as a new full campaign.
+These focused runs identify the preserved revision-6 lighting package. Final map
+currency, intact lighting, geometry equality and current-package native starts
+are separate distribution gates, retained in the closing receipts.
+
+The accepted contact-lighting and ceiling-emitter corrections require current
+preparation. The unchanged menu was refreshed with the final compiler: 16,581,895
+bytes, SHA-256 `f04f72c6fa3431a7aa650bc10dff13388c067e280021277eac18a79eb1b5255a`.
+Integrity, dependencies and current-source checks pass. The earlier actual-editor
+menu rebuild remains historical evidence of that authoring path.
+Further bright-corner review is accepted for 0.14.0 in issue #49; issues #27–30
+also retain their deferred scope. Closing does not reopen those investigations.
+
+The 28-page illustrated beginner guide, its source, screenshots, example project
+and receipts are a separate exact-path commit `aef8dcad95cfca397842130d7c057d588c2ca6fc`.
+PDF SHA-256: `816604cea3e4df429b42428ccd5e774e5320d05a719ed6f2b44ff8d05d632a05`.
+The guide's native build/export, elevator cycle, both door entries and shallow
+basin checks retain their own explicit diagnostic setup and platform limits.
+
+Distribution gates require every final map to validate and verify current, intact
+Static/Full lighting, source recovery, a clean map-free Mac payload, native
+current-package starts and passing exact-candidate hosted CI before publication.
+Final package hashes, CI and publication identity belong to the GitHub release
+inventory and local `local/release-0.13.1/` closing receipts, outside Cargo targets.
+No Windows/Linux final native result, clean-OS/Gatekeeper acceptance, subjective
+listening or uncapped performance result is inferred. The downloadable app is
+Mac arm64, minimum macOS 27.2, ad-hoc signed and not notarized. Earlier Windows
+binaries and published 0.13.0 artifacts are preserved.

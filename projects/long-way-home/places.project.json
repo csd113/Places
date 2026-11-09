@@ -1,0 +1,27 @@
+{
+  "package_version": "1.0.0",
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "room_1794089199135",
+  "name": "The Long Way Home",
+  "entry_level": "room_1794089199135",
+  "levels": [
+    {
+      "id": "room_1794089199135",
+      "source": "levels/room_1794089199135.json",
+      "display_name": "The Long Way Home - Introduction"
+    },
+    {
+      "id": "long_way_home_danger",
+      "source": "levels/long_way_home_danger.json",
+      "display_name": "The Long Way Home - Below"
+    },
+    {
+      "id": "long_way_home_return",
+      "source": "levels/long_way_home_return.json",
+      "display_name": "The Long Way Home \u2014 Homecoming"
+    }
+  ],
+  "menu_entry_only": true,
+  "description": "A lost traveller, a small act of kindness, and a long way home."
+}

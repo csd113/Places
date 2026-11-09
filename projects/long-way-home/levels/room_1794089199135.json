@@ -1,0 +1,1977 @@
+{
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_light",
+      "x": 3.0,
+      "z": 3.0
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_1",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.5,
+      "z": 8
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_2",
+      "rotation_degrees": 0,
+      "x": 15,
+      "y": 3.5,
+      "z": 8
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_3",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.5,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_4",
+      "rotation_degrees": 0,
+      "x": 15,
+      "y": 3.5,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_5",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.5,
+      "z": 23
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_6",
+      "rotation_degrees": 0,
+      "x": 15,
+      "y": 3.5,
+      "z": 23
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_7",
+      "rotation_degrees": 0,
+      "x": 23,
+      "y": 3.5,
+      "z": 19.5
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_8",
+      "rotation_degrees": 0,
+      "x": 30,
+      "y": 3.5,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_9",
+      "rotation_degrees": 0,
+      "x": 35,
+      "y": 3.5,
+      "z": 15
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_10",
+      "rotation_degrees": 0,
+      "x": 37,
+      "y": 3.5,
+      "z": 18
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_11",
+      "rotation_degrees": 0,
+      "x": 23,
+      "y": 3.5,
+      "z": 25
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_12",
+      "rotation_degrees": 0,
+      "x": 24,
+      "y": 3.5,
+      "z": 31
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_13",
+      "rotation_degrees": 0,
+      "x": 24,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_14",
+      "rotation_degrees": 0,
+      "x": 31,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_15",
+      "rotation_degrees": 0,
+      "x": 39,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_16",
+      "rotation_degrees": 0,
+      "x": 47,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_17",
+      "rotation_degrees": 0,
+      "x": 53,
+      "y": 3.5,
+      "z": 36
+    },
+    {
+      "id": "tableau_duck_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 88,
+      "z": 6,
+      "y": 3.8,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.96,
+        0.88
+      ],
+      "switchable": false
+    },
+    {
+      "id": "tableau_guest_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 114,
+      "z": 6,
+      "y": 3.8,
+      "align": "none",
+      "brightness": 0.12,
+      "range": 8,
+      "color": [
+        0.75,
+        0.83,
+        1
+      ],
+      "switchable": true
+    },
+    {
+      "id": "service_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6,
+      "z": 40,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.5,
+      "range": 8,
+      "color": [
+        1,
+        0.96,
+        0.88
+      ],
+      "switchable": false
+    }
+  ],
+  "elevators": [
+    {
+      "id": "intro_lift",
+      "initial_stop": 0,
+      "rotation_degrees": 0,
+      "stops": [
+        {
+          "label": "G",
+          "y": 0.0
+        },
+        {
+          "arrival_elevator": "danger_lift",
+          "label": "1",
+          "level": "long_way_home_danger",
+          "y": 0
+        }
+      ],
+      "x": 52,
+      "z": 38
+    }
+  ],
+  "format_version": 1,
+  "id": "room_1794089199135",
+  "name": "The Long Way Home \u2014 Introduction",
+  "props": [
+    {
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "guide"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "to_friends"
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        }
+      ],
+      "feltling": {
+        "guide_recovery": {
+          "resume_metres": 20,
+          "stop_metres": 20
+        },
+        "mode": "guide",
+        "routes": [
+          {
+            "id": "to_friends",
+            "points": [
+              [
+                10,
+                0,
+                20
+              ],
+              [
+                20,
+                0,
+                20
+              ],
+              [
+                20.6,
+                0,
+                16.0
+              ],
+              [
+                29.5,
+                0,
+                16.0
+              ],
+              [
+                31,
+                0,
+                16.0
+              ],
+              [
+                31,
+                0,
+                18.5
+              ],
+              [
+                34,
+                0,
+                18.5
+              ]
+            ]
+          },
+          {
+            "id": "to_elevator",
+            "points": [
+              [
+                34,
+                0,
+                18.5
+              ],
+              [
+                31,
+                0,
+                18.5
+              ],
+              [
+                31,
+                0,
+                16.0
+              ],
+              [
+                29.5,
+                0,
+                16.0
+              ],
+              [
+                24,
+                0,
+                16.0
+              ],
+              [
+                24,
+                0,
+                28
+              ],
+              [
+                24,
+                0,
+                38
+              ],
+              [
+                38,
+                0,
+                38
+              ],
+              [
+                48,
+                0,
+                38
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_1",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 10.0,
+      "y": 0.0,
+      "z": 8.0
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": [
+          {
+            "id": "gather",
+            "points": [
+              [
+                33.5,
+                0,
+                13.2
+              ]
+            ]
+          },
+          {
+            "id": "hide",
+            "points": [
+              [
+                34.3,
+                0,
+                12.9
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_2",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 33.5,
+      "y": 0.0,
+      "z": 13.2,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "gather"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": [
+          {
+            "id": "gather",
+            "points": [
+              [
+                38,
+                0,
+                14
+              ]
+            ]
+          },
+          {
+            "id": "hide",
+            "points": [
+              [
+                37.2,
+                0,
+                12.9
+              ],
+              [
+                35.5,
+                0,
+                12.9
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_3",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 38,
+      "y": 0.0,
+      "z": 14,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "gather"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": [
+          {
+            "id": "gather",
+            "points": [
+              [
+                33.5,
+                0,
+                17.5
+              ]
+            ]
+          },
+          {
+            "id": "hide",
+            "points": [
+              [
+                34.8,
+                0,
+                19.1
+              ],
+              [
+                36.4,
+                0,
+                19.1
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_4",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 33.5,
+      "y": 0.0,
+      "z": 17.5,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "gather"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": [
+          {
+            "id": "gather",
+            "points": [
+              [
+                39,
+                0,
+                18.5
+              ]
+            ]
+          },
+          {
+            "id": "hide",
+            "points": [
+              [
+                39,
+                0,
+                19.1
+              ],
+              [
+                37.6,
+                0,
+                19.1
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_5",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 39,
+      "y": 0.0,
+      "z": 18.5,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "gather"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": [
+          {
+            "id": "gather",
+            "points": [
+              [
+                35,
+                0,
+                18.2
+              ]
+            ]
+          },
+          {
+            "id": "hide",
+            "points": [
+              [
+                39.1,
+                0,
+                14
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_6",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 35,
+      "y": 0.0,
+      "z": 18.2,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "gather"
+        }
+      ]
+    },
+    {
+      "components": [
+        {
+          "component": "interactable",
+          "enabled": true,
+          "prompt": "Listen to the Feltlings"
+        },
+        {
+          "component": "state",
+          "name": "duck_magic_complete",
+          "value": false
+        }
+      ],
+      "display_name": "Feltling",
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "wait",
+        "routes": []
+      },
+      "id": "editor_prop_7",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 36.0,
+      "y": 0.0,
+      "z": 16.0,
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "sequence": "duck_magic"
+            }
+          ],
+          "when": [
+            {
+              "check": "state",
+              "target": "editor_prop_7",
+              "name": "duck_magic_complete",
+              "equals": false
+            }
+          ]
+        },
+        {
+          "on": "sequence_complete",
+          "actions": [
+            {
+              "action": "set_state",
+              "name": "duck_magic_complete",
+              "value": true
+            },
+            {
+              "action": "run_script",
+              "script": "scripts/intro.luau",
+              "handler": "quest_done"
+            },
+            {
+              "action": "set_prompt",
+              "prompt": "Follow our friend to the elevator"
+            }
+          ],
+          "key": "duck_magic"
+        }
+      ]
+    },
+    {
+      "id": "duck_tableau",
+      "model": "core:rubber_duck",
+      "x": 88,
+      "y": 0.462,
+      "z": 6,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": false,
+      "size": [
+        0.1,
+        0.12,
+        0.14
+      ]
+    },
+    {
+      "id": "guest_tableau",
+      "model": "tall-guest",
+      "x": 114,
+      "y": 0,
+      "z": 6,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": false,
+      "size": [
+        1.47907389,
+        3.47695804,
+        0.94433427
+      ],
+      "tall_guest": {
+        "patrol": [],
+        "passages": []
+      }
+    },
+    {
+      "id": "foyer_desk",
+      "model": "core:desk",
+      "x": 5,
+      "y": 0,
+      "z": 15,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "id": "foyer_chair",
+      "model": "core:chair",
+      "x": 6.3,
+      "y": 0,
+      "z": 15,
+      "rotation_degrees": 270,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ]
+    },
+    {
+      "id": "foyer_cabinet",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 4,
+      "y": 0,
+      "z": 21,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ]
+    },
+    {
+      "id": "gather_sofa",
+      "model": "home:sofa",
+      "x": 35,
+      "y": 0,
+      "z": 14.2,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        2,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "gather_shelf",
+      "model": "home:bookshelf",
+      "x": 38,
+      "y": 0,
+      "z": 16,
+      "rotation_degrees": 270,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1,
+        1.8,
+        0.35
+      ]
+    },
+    {
+      "id": "service_exit",
+      "model": "core:hollow_metal_exit_door_single",
+      "x": 6,
+      "y": 0,
+      "z": 38.028,
+      "rotation_degrees": 0,
+      "scale": 1.0,
+      "size": [
+        1.152,
+        2.21,
+        0.252
+      ],
+      "solid": false,
+      "animated_door": {
+        "clip": "exit_open",
+        "initial_open": false,
+        "boxes": [
+          {
+            "node": "exit_door_single",
+            "center": [
+              -0.534,
+              1.075,
+              0.0
+            ],
+            "size": [
+              0.084,
+              2.15,
+              0.196
+            ],
+            "grounding": true
+          },
+          {
+            "node": "exit_door_single",
+            "center": [
+              0.534,
+              1.075,
+              0.0
+            ],
+            "size": [
+              0.084,
+              2.15,
+              0.196
+            ],
+            "grounding": true
+          },
+          {
+            "node": "exit_door_single",
+            "center": [
+              0.0,
+              2.176,
+              0.0
+            ],
+            "size": [
+              1.152,
+              0.068,
+              0.196
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_arm_a",
+            "center": [
+              0.092500001,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.185000002,
+              0.012,
+              0.017000001
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_arm_b",
+            "center": [
+              0.102499999,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.204999998,
+              0.012,
+              0.015
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_frame_bracket",
+            "center": [
+              0.0,
+              -0.03700003,
+              0.001249997
+            ],
+            "size": [
+              0.052999999,
+              0.100000054,
+              0.067499995
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_L_closer",
+            "center": [
+              0.0,
+              0.019000035,
+              0.0
+            ],
+            "size": [
+              0.284999996,
+              0.112000071,
+              0.067000002
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_L_core",
+            "center": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.987999976,
+              2.128000021,
+              0.045000002
+            ],
+            "grounding": true
+          },
+          {
+            "node": "leaf_L_panic_hardware",
+            "center": [
+              0.00499998,
+              0.052000046,
+              0.017000001
+            ],
+            "size": [
+              0.924000025,
+              2.118000031,
+              0.072999999
+            ],
+            "grounding": false
+          }
+        ]
+      },
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.0,
+          "prompt": "Open / close"
+        },
+        {
+          "component": "animation",
+          "clip": "exit_open",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ],
+      "occludes": false,
+      "display_name": "Flush hollow-metal exit door"
+    },
+    {
+      "id": "tableau_low_table",
+      "model": "home:coffee_table",
+      "x": 88,
+      "y": 0,
+      "z": 6,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ],
+      "scale": 1,
+      "solid": true
+    },
+    {
+      "id": "gather_south_sofa",
+      "model": "home:sofa",
+      "x": 37,
+      "y": 0,
+      "z": 18,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        2,
+        0.9,
+        0.9
+      ]
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 24.0,
+      "floor_y": 0.0,
+      "height": 3.5,
+      "width": 18.0,
+      "x": 2.0,
+      "z": 2.0
+    },
+    {
+      "depth": 6.840000152587891,
+      "floor_y": 0.0,
+      "height": 3.5,
+      "width": 8.0,
+      "x": 20.0,
+      "z": 15.15999984741211
+    },
+    {
+      "depth": 10,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 4,
+      "x": 28,
+      "z": 12
+    },
+    {
+      "depth": 8,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 8,
+      "x": 32,
+      "z": 12,
+      "material": "home:hardwood_oak_01",
+      "ceiling_material": "home:wall_paint_offwhite_01"
+    },
+    {
+      "depth": 6,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 6,
+      "x": 20,
+      "z": 22
+    },
+    {
+      "depth": 12,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 4,
+      "x": 22,
+      "z": 28
+    },
+    {
+      "depth": 6,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 30,
+      "x": 26,
+      "z": 34
+    },
+    {
+      "x": 80,
+      "z": 0,
+      "width": 16,
+      "depth": 12,
+      "floor_y": 0,
+      "height": 3.8,
+      "material": "home:hardwood_oak_01"
+    },
+    {
+      "x": 100,
+      "z": 0,
+      "width": 20,
+      "depth": 12,
+      "floor_y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 2,
+      "z": 38,
+      "width": 8,
+      "depth": 4,
+      "floor_y": 0,
+      "height": 3.5
+    }
+  ],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/intro.luau"
+  ],
+  "sound_emitters": [
+    {
+      "gain": 0.3199999928474426,
+      "id": "editor_2",
+      "looped": true,
+      "playing": true,
+      "sound": "threshold_air",
+      "spatial": false,
+      "x": 29.0,
+      "y": 0.0,
+      "z": 21.5
+    },
+    {
+      "id": "lights_out_bang",
+      "sound": "impact_metal",
+      "x": 114,
+      "y": 3,
+      "z": 6,
+      "gain": 1,
+      "looped": false,
+      "playing": false,
+      "spatial": true
+    },
+    {
+      "id": "buzz_0",
+      "sound": "fluorescent_buzz",
+      "x": 8,
+      "y": 3.3,
+      "z": 16,
+      "gain": 0.2,
+      "looped": true,
+      "playing": true,
+      "spatial": true
+    }
+  ],
+  "spawn": {
+    "x": 6,
+    "z": 6,
+    "yaw_degrees": 116.565
+  },
+  "transitions": [
+    "long_way_home_danger"
+  ],
+  "volumes": [
+    {
+      "id": "intro_greeting",
+      "x": 7.5,
+      "z": 5.5,
+      "width": 5,
+      "depth": 5,
+      "bottom_y": -0.05,
+      "top_y": 2,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "once": true,
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "Feltling",
+              "lines": [
+                "You are lost too? We need your help.",
+                "Come with me, through the small opening."
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "departure_notice",
+      "x": 45,
+      "z": 34,
+      "width": 10,
+      "depth": 8,
+      "bottom_y": -0.05,
+      "top_y": 2,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "once": true,
+          "actions": [
+            {
+              "action": "show_message",
+              "title": "Feltling",
+              "lines": [
+                "One of us is already looking below.",
+                "Bring our duck back. We will wait for you."
+              ]
+            }
+          ],
+          "when": [
+            {
+              "check": "state",
+              "target": "editor_prop_7",
+              "name": "duck_magic_complete",
+              "equals": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 18,
+      "x": 2,
+      "y": 0,
+      "z": 2
+    },
+    {
+      "depth": 23.52,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 2,
+      "y": 0,
+      "z": 2.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 17.76,
+      "x": 2,
+      "y": 0,
+      "z": 25.76
+    },
+    {
+      "depth": 13.16,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 0,
+      "z": 2.24
+    },
+    {
+      "depth": 3.76,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 0,
+      "z": 22
+    },
+    {
+      "depth": 0.23999999463558197,
+      "height": 3.5,
+      "width": 8.0,
+      "x": 20.0,
+      "y": 0.0,
+      "z": 15.15999984741211
+    },
+    {
+      "depth": 12.48,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 25.76,
+      "y": 0,
+      "z": 21.76
+    },
+    {
+      "depth": 2.24,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 0,
+      "z": 25.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 2.24,
+      "x": 20,
+      "y": 0,
+      "z": 27.76
+    },
+    {
+      "depth": 12,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 22,
+      "y": 0,
+      "z": 28
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 30,
+      "x": 26,
+      "y": 0,
+      "z": 34
+    },
+    {
+      "depth": 5.52,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 55.76,
+      "y": 0,
+      "z": 34.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 12,
+      "x": 28,
+      "y": 0,
+      "z": 12
+    },
+    {
+      "depth": 7.52,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 39.76,
+      "y": 0,
+      "z": 12.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 8,
+      "x": 32,
+      "y": 0,
+      "z": 19.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 4,
+      "x": 28,
+      "y": 0,
+      "z": 21.76
+    },
+    {
+      "depth": 3.16,
+      "height": 3.5,
+      "width": 1,
+      "x": 28,
+      "y": 0,
+      "z": 12.24
+    },
+    {
+      "depth": 5.16,
+      "height": 3.5,
+      "width": 1,
+      "x": 28,
+      "y": 0,
+      "z": 16.6
+    },
+    {
+      "depth": 1.2,
+      "height": 2.4,
+      "width": 1,
+      "x": 28,
+      "y": 1.1,
+      "z": 15.4
+    },
+    {
+      "depth": 1.76,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 31.76,
+      "y": 0,
+      "z": 12.24
+    },
+    {
+      "depth": 2,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 31.76,
+      "y": 0,
+      "z": 19.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 2,
+      "x": 26,
+      "y": 0,
+      "z": 21.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 27.96,
+      "x": 22.24,
+      "y": 0,
+      "z": 39.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 2.2,
+      "x": 53.8,
+      "y": 0,
+      "z": 39.76
+    },
+    {
+      "x": 80,
+      "z": 0,
+      "width": 16,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 80,
+      "z": 11.76,
+      "width": 16,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 80,
+      "z": 0.24,
+      "width": 0.24,
+      "depth": 11.52,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 95.76,
+      "z": 0.24,
+      "width": 0.24,
+      "depth": 11.52,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 100,
+      "z": 0,
+      "width": 20,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 100,
+      "z": 11.76,
+      "width": 20,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 100,
+      "z": 0.24,
+      "width": 0.24,
+      "depth": 11.52,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 119.76,
+      "z": 0.24,
+      "width": 0.24,
+      "depth": 11.52,
+      "y": 0,
+      "height": 3.8
+    },
+    {
+      "x": 2,
+      "z": 38,
+      "width": 8,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 3.5,
+          "width": 1,
+          "height": 2.25
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "z": 41.76,
+      "width": 8,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5
+    },
+    {
+      "x": 2,
+      "z": 38.24,
+      "width": 0.24,
+      "depth": 3.52,
+      "y": 0,
+      "height": 3.5
+    },
+    {
+      "x": 9.76,
+      "z": 38.24,
+      "width": 0.24,
+      "depth": 3.52,
+      "y": 0,
+      "height": 3.5
+    },
+    {
+      "x": 50.2,
+      "z": 38,
+      "width": 3.6,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.05,
+          "width": 1.5,
+          "height": 2.25
+        }
+      ]
+    },
+    {
+      "x": 50.2,
+      "z": 38.2,
+      "width": 0.24,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 53.56,
+      "z": 38.2,
+      "width": 0.24,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 50.44,
+      "z": 40.66,
+      "width": 3.12,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01"
+    }
+  ],
+  "saving": false,
+  "defaults": {
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "sequences": [
+    {
+      "id": "duck_magic",
+      "cinematic": {
+        "start": {
+          "position": [
+            88,
+            1.19,
+            4.9
+          ],
+          "yaw_degrees": 180,
+          "pitch_degrees": -30.58
+        }
+      },
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": true
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "show_message",
+            "title": "Feltlings",
+            "lines": [
+              "Our duck holds a protective magic.",
+              "It kept us safe. We lost it below."
+            ]
+          }
+        },
+        {
+          "step": "camera",
+          "seconds": 7,
+          "motion": {
+            "kind": "orbit",
+            "target": {
+              "kind": "point",
+              "position": [
+                88,
+                0.54,
+                6
+              ]
+            },
+            "radius": 1.1,
+            "height": 0.65,
+            "start_degrees": 0,
+            "sweep_degrees": 150
+          },
+          "aim": {
+            "kind": "look_at",
+            "target": {
+              "kind": "point",
+              "position": [
+                88,
+                0.54,
+                6
+              ]
+            }
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_2",
+            "name": "feltling_route",
+            "value": "hide"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_2",
+            "name": "feltling_mode",
+            "value": "flee"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_3",
+            "name": "feltling_route",
+            "value": "hide"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_3",
+            "name": "feltling_mode",
+            "value": "flee"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_4",
+            "name": "feltling_route",
+            "value": "hide"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_4",
+            "name": "feltling_mode",
+            "value": "flee"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_5",
+            "name": "feltling_route",
+            "value": "hide"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_5",
+            "name": "feltling_mode",
+            "value": "flee"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_6",
+            "name": "feltling_route",
+            "value": "hide"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_state",
+            "target": "editor_prop_6",
+            "name": "feltling_mode",
+            "value": "flee"
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "show_message",
+            "title": "Feltlings",
+            "lines": [
+              "We dropped it while fleeing that thing.",
+              "It is blind. Be careful what it hears."
+            ]
+          }
+        },
+        {
+          "step": "camera",
+          "seconds": 0.05,
+          "motion": {
+            "kind": "move",
+            "position": [
+              102,
+              1.6,
+              6
+            ],
+            "easing": "smooth"
+          },
+          "aim": {
+            "kind": "look_at",
+            "target": {
+              "kind": "point",
+              "position": [
+                114,
+                1.7,
+                6
+              ]
+            }
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 4
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": false
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": true
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 0.09
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "set_light",
+            "target": "tableau_guest_light",
+            "on": false
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "play_sound",
+            "target": "lights_out_bang"
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 1
+        },
+        {
+          "step": "camera",
+          "seconds": 0.05,
+          "motion": {
+            "kind": "move",
+            "position": [
+              33,
+              1.4,
+              17.5
+            ],
+            "easing": "smooth"
+          },
+          "aim": {
+            "kind": "look_at",
+            "target": {
+              "kind": "point",
+              "position": [
+                36,
+                0.45,
+                15.8
+              ]
+            }
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "show_message",
+            "title": "Feltlings",
+            "lines": [
+              "Please bring our duck back. Its magic",
+              "can send you home. Follow our friend."
+            ]
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 8
+        }
+      ]
+    }
+  ],
+  "animated_emissions": [
+    {
+      "material": "core:fluorescent_panel_01",
+      "effect": "flicker",
+      "hz": 7,
+      "depth": 0.06,
+      "phase": 0.27
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 50.8,
+      "z": 38,
+      "width": 2.4,
+      "depth": 2.4,
+      "offset_y": -0.012,
+      "edge_material": "core:wallpaper_yellow_01"
+    }
+  ]
+}

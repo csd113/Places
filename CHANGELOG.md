@@ -11,7 +11,18 @@ the numbering resets, tag coverage and evidence gaps. The
 [former detailed changelog](https://github.com/csd113/Places/blob/3fee560e484d5dbc61496b34c90cdef8292dbe2b/CHANGELOG.md)
 and linked reports retain historical implementation and validation details.
 
-## 0.13.1 — Unreleased
+## 0.13.1 — 2026-11-09
+
+- Add a 28-page illustrated beginner editor guide, with native screenshots,
+  marked controls, exact example values and its editable finished project.
+
+- Add The Long Way Home, a three-part journey with a Feltling guide, Tall Guest
+  pursuit, two-storey passages and crouch refuges, physical distractions and a
+  duck-carrying homecoming. Preserve its complete editable project in the release.
+- Expose native Feltling and Tall Guest authoring in the editor. Improve grounded
+  creature traversal, live obstacle replanning and player clearance; correct
+  ceiling-emitter projection and retain contact detail in baked lighting.
+  Further corner-light review is tracked for 0.14.0 in issue #49.
 
 - Add original single and paired flush hollow-metal exit doors with
   surface-mounted vertical-rod panic hardware, editable Blender/GIMP sources

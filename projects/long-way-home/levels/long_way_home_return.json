@@ -1,0 +1,1642 @@
+{
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "id": "editor_light",
+      "x": 3.0,
+      "z": 3.0
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_1",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.5,
+      "z": 8
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_2",
+      "rotation_degrees": 0,
+      "x": 15,
+      "y": 3.5,
+      "z": 8
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_3",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.5,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_4",
+      "rotation_degrees": 0,
+      "x": 15,
+      "y": 3.5,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_5",
+      "rotation_degrees": 0,
+      "x": 8,
+      "y": 3.5,
+      "z": 23
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_6",
+      "rotation_degrees": 0,
+      "x": 15,
+      "y": 3.5,
+      "z": 23
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_7",
+      "rotation_degrees": 0,
+      "x": 23,
+      "y": 3.5,
+      "z": 19.5
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_8",
+      "rotation_degrees": 0,
+      "x": 30,
+      "y": 3.5,
+      "z": 16
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_9",
+      "rotation_degrees": 0,
+      "x": 35,
+      "y": 3.5,
+      "z": 15
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_10",
+      "rotation_degrees": 0,
+      "x": 37,
+      "y": 3.5,
+      "z": 18
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_11",
+      "rotation_degrees": 0,
+      "x": 23,
+      "y": 3.5,
+      "z": 25
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_12",
+      "rotation_degrees": 0,
+      "x": 24,
+      "y": 3.5,
+      "z": 31
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_13",
+      "rotation_degrees": 0,
+      "x": 24,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_14",
+      "rotation_degrees": 0,
+      "x": 31,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_15",
+      "rotation_degrees": 0,
+      "x": 39,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_16",
+      "rotation_degrees": 0,
+      "x": 47,
+      "y": 3.5,
+      "z": 37
+    },
+    {
+      "align": "none",
+      "fixture": "core:fluorescent_panel_01",
+      "id": "fluorescent_panel_01_17",
+      "rotation_degrees": 0,
+      "x": 53,
+      "y": 3.5,
+      "z": 36
+    },
+    {
+      "id": "party_light_0",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 34,
+      "z": 9,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "party_light_1",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 42,
+      "z": 9,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "party_light_2",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 50,
+      "z": 9,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "party_light_3",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 44,
+      "z": 16,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "party_light_4",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 50,
+      "z": 16,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "party_light_5",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 34,
+      "z": 23,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "party_light_6",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 42,
+      "z": 23,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "party_light_7",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 50,
+      "z": 23,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.85,
+      "range": 8,
+      "color": [
+        1,
+        0.84,
+        0.63
+      ],
+      "switchable": false
+    },
+    {
+      "id": "service_light",
+      "fixture": "core:fluorescent_panel_01",
+      "x": 6,
+      "z": 40,
+      "y": 3.5,
+      "align": "none",
+      "brightness": 0.5,
+      "range": 8,
+      "color": [
+        1,
+        0.96,
+        0.88
+      ],
+      "switchable": false
+    }
+  ],
+  "elevators": [
+    {
+      "id": "intro_lift",
+      "initial_stop": 0,
+      "rotation_degrees": 0,
+      "stops": [
+        {
+          "label": "G",
+          "y": 0.0
+        },
+        {
+          "arrival_elevator": "danger_lift",
+          "label": "1",
+          "level": "long_way_home_danger",
+          "y": 0
+        }
+      ],
+      "x": 52,
+      "z": 38
+    }
+  ],
+  "format_version": 1,
+  "id": "long_way_home_return",
+  "name": "The Long Way Home \u2014 Homecoming",
+  "props": [
+    {
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "guide"
+        },
+        {
+          "component": "state",
+          "name": "feltling_route",
+          "value": "homeward"
+        },
+        {
+          "component": "state",
+          "name": "feltling_status",
+          "value": "greeting"
+        }
+      ],
+      "feltling": {
+        "guide_recovery": {
+          "resume_metres": 20,
+          "stop_metres": 20
+        },
+        "mode": "guide",
+        "routes": [
+          {
+            "id": "homeward",
+            "points": [
+              [
+                48,
+                0,
+                37
+              ],
+              [
+                38,
+                0,
+                37
+              ],
+              [
+                24,
+                0,
+                37
+              ],
+              [
+                24,
+                0,
+                28
+              ],
+              [
+                24,
+                0,
+                16.0
+              ],
+              [
+                29.5,
+                0,
+                16
+              ],
+              [
+                31,
+                0,
+                16
+              ],
+              [
+                31,
+                0,
+                18.5
+              ],
+              [
+                34,
+                0,
+                18.5
+              ]
+            ]
+          }
+        ]
+      },
+      "id": "editor_prop_1",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 90,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 50,
+      "y": 0,
+      "z": 36
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": []
+      },
+      "id": "editor_prop_2",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 34.0,
+      "y": 0.0,
+      "z": 14.0,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": []
+      },
+      "id": "editor_prop_3",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 38.0,
+      "y": 0.0,
+      "z": 14.0,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": []
+      },
+      "id": "editor_prop_4",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 34.0,
+      "y": 0.0,
+      "z": 20.5,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": []
+      },
+      "id": "editor_prop_5",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 38.0,
+      "y": 0.0,
+      "z": 18.0,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        }
+      ]
+    },
+    {
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": []
+      },
+      "id": "editor_prop_6",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 36.0,
+      "y": 0.0,
+      "z": 18.0,
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        }
+      ]
+    },
+    {
+      "components": [
+        {
+          "component": "state",
+          "name": "feltling_mode",
+          "value": "talk"
+        }
+      ],
+      "display_name": "Feltling",
+      "feltling": {
+        "look_at": [
+          36,
+          0.5,
+          16
+        ],
+        "mode": "talk",
+        "routes": []
+      },
+      "id": "editor_prop_7",
+      "model": "feltling",
+      "pitch_degrees": -0.0,
+      "roll_degrees": 0.0,
+      "rotation_degrees": 0.0,
+      "scale": 1.0,
+      "size": [
+        0.3310829997062683,
+        0.6098200082778931,
+        0.439301997423172
+      ],
+      "solid": false,
+      "x": 36.0,
+      "y": 0.0,
+      "z": 16.0
+    },
+    {
+      "id": "foyer_desk",
+      "model": "core:desk",
+      "x": 5,
+      "y": 0,
+      "z": 15,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.6,
+        0.75,
+        0.7
+      ]
+    },
+    {
+      "id": "foyer_chair",
+      "model": "core:chair",
+      "x": 6.3,
+      "y": 0,
+      "z": 15,
+      "rotation_degrees": 270,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        0.9,
+        0.5
+      ]
+    },
+    {
+      "id": "foyer_cabinet",
+      "model": "core:office_filing_cabinet_tall",
+      "x": 4,
+      "y": 0,
+      "z": 21,
+      "rotation_degrees": 90,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.5,
+        1.32,
+        0.5
+      ]
+    },
+    {
+      "id": "gather_sofa",
+      "model": "home:sofa",
+      "x": 37.5,
+      "y": 0,
+      "z": 13,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        2,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "gather_shelf",
+      "model": "home:bookshelf",
+      "x": 40.5,
+      "y": 0,
+      "z": 22.9,
+      "rotation_degrees": 180,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1,
+        1.8,
+        0.35
+      ]
+    },
+    {
+      "id": "party_table",
+      "model": "home:dining_table",
+      "x": 44,
+      "y": 0,
+      "z": 16,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.4,
+        0.75,
+        0.8
+      ]
+    },
+    {
+      "id": "homecoming_cake",
+      "model": "arcade:party_cake_lit",
+      "x": 44,
+      "y": 0.75,
+      "z": 16,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": false,
+      "size": [
+        0.36,
+        0.236,
+        0.36
+      ],
+      "components": [
+        {
+          "component": "interactable",
+          "enabled": true,
+          "prompt": "The cake is waiting"
+        },
+        {
+          "component": "state",
+          "name": "duck_returned",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "party_complete",
+          "value": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "start_sequence",
+              "sequence": "homecoming"
+            }
+          ],
+          "when": [
+            {
+              "check": "state",
+              "target": "homecoming_cake",
+              "name": "duck_returned",
+              "equals": true
+            },
+            {
+              "check": "state",
+              "target": "homecoming_cake",
+              "name": "party_complete",
+              "equals": false
+            }
+          ]
+        },
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/return.luau",
+              "handler": "eat"
+            }
+          ],
+          "when": [
+            {
+              "check": "state",
+              "target": "homecoming_cake",
+              "name": "party_complete",
+              "equals": true
+            }
+          ]
+        },
+        {
+          "on": "sequence_complete",
+          "actions": [
+            {
+              "action": "set_state",
+              "name": "party_complete",
+              "value": true
+            },
+            {
+              "action": "set_prompt",
+              "prompt": "Eat the cake \u2014 go home"
+            }
+          ],
+          "key": "homecoming"
+        }
+      ]
+    },
+    {
+      "id": "service_exit",
+      "model": "core:hollow_metal_exit_door_single",
+      "x": 6,
+      "y": 0,
+      "z": 38.028,
+      "rotation_degrees": 0,
+      "scale": 1.0,
+      "size": [
+        1.152,
+        2.21,
+        0.252
+      ],
+      "solid": false,
+      "animated_door": {
+        "clip": "exit_open",
+        "initial_open": false,
+        "boxes": [
+          {
+            "node": "exit_door_single",
+            "center": [
+              -0.534,
+              1.075,
+              0.0
+            ],
+            "size": [
+              0.084,
+              2.15,
+              0.196
+            ],
+            "grounding": true
+          },
+          {
+            "node": "exit_door_single",
+            "center": [
+              0.534,
+              1.075,
+              0.0
+            ],
+            "size": [
+              0.084,
+              2.15,
+              0.196
+            ],
+            "grounding": true
+          },
+          {
+            "node": "exit_door_single",
+            "center": [
+              0.0,
+              2.176,
+              0.0
+            ],
+            "size": [
+              1.152,
+              0.068,
+              0.196
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_arm_a",
+            "center": [
+              0.092500001,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.185000002,
+              0.012,
+              0.017000001
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_arm_b",
+            "center": [
+              0.102499999,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.204999998,
+              0.012,
+              0.015
+            ],
+            "grounding": false
+          },
+          {
+            "node": "closer_L_frame_bracket",
+            "center": [
+              0.0,
+              -0.03700003,
+              0.001249997
+            ],
+            "size": [
+              0.052999999,
+              0.100000054,
+              0.067499995
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_L_closer",
+            "center": [
+              0.0,
+              0.019000035,
+              0.0
+            ],
+            "size": [
+              0.284999996,
+              0.112000071,
+              0.067000002
+            ],
+            "grounding": false
+          },
+          {
+            "node": "leaf_L_core",
+            "center": [
+              0.0,
+              0.0,
+              0.0
+            ],
+            "size": [
+              0.987999976,
+              2.128000021,
+              0.045000002
+            ],
+            "grounding": true
+          },
+          {
+            "node": "leaf_L_panic_hardware",
+            "center": [
+              0.00499998,
+              0.052000046,
+              0.017000001
+            ],
+            "size": [
+              0.924000025,
+              2.118000031,
+              0.072999999
+            ],
+            "grounding": false
+          }
+        ]
+      },
+      "components": [
+        {
+          "component": "interactable",
+          "reach": 2.0,
+          "prompt": "Open / close"
+        },
+        {
+          "component": "animation",
+          "clip": "exit_open",
+          "looped": false,
+          "playing": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "toggle"
+            }
+          ]
+        }
+      ],
+      "occludes": false,
+      "display_name": "Flush hollow-metal exit door"
+    },
+    {
+      "id": "party_armchair_west",
+      "model": "home:armchair",
+      "x": 42,
+      "y": 0,
+      "z": 21,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "party_armchair_east",
+      "model": "home:armchair",
+      "x": 47,
+      "y": 0,
+      "z": 19,
+      "rotation_degrees": 270,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        0.9,
+        0.9,
+        0.9
+      ]
+    },
+    {
+      "id": "party_coffee_table",
+      "model": "home:coffee_table",
+      "x": 44.5,
+      "y": 0,
+      "z": 21,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": true,
+      "size": [
+        1.4,
+        0.46,
+        0.8
+      ]
+    },
+    {
+      "id": "party_floor_lamp",
+      "model": "home:floor_lamp",
+      "x": 46.4,
+      "y": 0,
+      "z": 22,
+      "rotation_degrees": 0,
+      "scale": 1,
+      "solid": false,
+      "size": [
+        0.35,
+        1.5,
+        0.35
+      ]
+    }
+  ],
+  "rooms": [
+    {
+      "depth": 24.0,
+      "floor_y": 0.0,
+      "height": 3.5,
+      "width": 18.0,
+      "x": 2.0,
+      "z": 2.0
+    },
+    {
+      "depth": 6.840000152587891,
+      "floor_y": 0.0,
+      "height": 3.5,
+      "width": 8.0,
+      "x": 20.0,
+      "z": 15.15999984741211
+    },
+    {
+      "depth": 10,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 4,
+      "x": 28,
+      "z": 12
+    },
+    {
+      "depth": 6,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 6,
+      "x": 20,
+      "z": 22
+    },
+    {
+      "depth": 12,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 4,
+      "x": 22,
+      "z": 28
+    },
+    {
+      "depth": 6,
+      "floor_y": 0,
+      "height": 3.5,
+      "width": 30,
+      "x": 26,
+      "z": 34
+    },
+    {
+      "x": 30,
+      "z": 6,
+      "width": 24,
+      "depth": 6,
+      "floor_y": 0,
+      "height": 3.5,
+      "material": "home:hardwood_oak_01"
+    },
+    {
+      "x": 32,
+      "z": 12,
+      "width": 22,
+      "depth": 10,
+      "floor_y": 0,
+      "height": 3.5,
+      "material": "home:hardwood_oak_01"
+    },
+    {
+      "x": 30,
+      "z": 22,
+      "width": 24,
+      "depth": 4,
+      "floor_y": 0,
+      "height": 3.5,
+      "material": "home:hardwood_oak_01"
+    },
+    {
+      "x": 2,
+      "z": 38,
+      "width": 8,
+      "depth": 4,
+      "floor_y": 0,
+      "height": 3.5
+    }
+  ],
+  "schema": "places-level",
+  "scripts": [
+    "scripts/return.luau"
+  ],
+  "sound_emitters": [
+    {
+      "gain": 0.3199999928474426,
+      "id": "editor_2",
+      "looped": true,
+      "playing": true,
+      "sound": "pale_signal",
+      "spatial": false,
+      "x": 29.0,
+      "y": 0.0,
+      "z": 21.5
+    },
+    {
+      "id": "buzz_0",
+      "sound": "fluorescent_buzz",
+      "x": 8,
+      "y": 3.3,
+      "z": 16,
+      "gain": 0.2,
+      "looped": true,
+      "playing": true,
+      "spatial": true
+    }
+  ],
+  "spawn": {
+    "x": 52,
+    "z": 39,
+    "yaw_degrees": 0
+  },
+  "transitions": [
+    "long_way_home_danger"
+  ],
+  "volumes": [
+    {
+      "id": "duck_inside_home",
+      "x": 32.5,
+      "z": 6.5,
+      "width": 21,
+      "depth": 17,
+      "bottom_y": 0,
+      "top_y": 2.5,
+      "filter": {
+        "kind": "item",
+        "asset": "core:rubber_duck"
+      },
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "homecoming_cake",
+              "name": "duck_returned",
+              "value": true
+            },
+            {
+              "action": "start_sequence",
+              "target": "homecoming_cake",
+              "sequence": "homecoming"
+            }
+          ],
+          "when": [
+            {
+              "check": "state",
+              "target": "homecoming_cake",
+              "name": "party_complete",
+              "equals": false
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "return_greeting",
+      "x": 47,
+      "z": 33,
+      "width": 6,
+      "depth": 6,
+      "bottom_y": -0.05,
+      "top_y": 2,
+      "bindings": [
+        {
+          "on": "enter_volume",
+          "once": true,
+          "actions": [
+            {
+              "action": "run_script",
+              "script": "scripts/return.luau",
+              "handler": "greet"
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "walls": [
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 18,
+      "x": 2,
+      "y": 0,
+      "z": 2
+    },
+    {
+      "depth": 23.52,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 2,
+      "y": 0,
+      "z": 2.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 17.76,
+      "x": 2,
+      "y": 0,
+      "z": 25.76
+    },
+    {
+      "depth": 13.16,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 0,
+      "z": 2.24
+    },
+    {
+      "depth": 3.76,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 0,
+      "z": 22
+    },
+    {
+      "depth": 0.23999999463558197,
+      "height": 3.5,
+      "width": 8.0,
+      "x": 20.0,
+      "y": 0.0,
+      "z": 15.15999984741211
+    },
+    {
+      "depth": 12.48,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 25.76,
+      "y": 0,
+      "z": 21.76
+    },
+    {
+      "depth": 2.24,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 19.76,
+      "y": 0,
+      "z": 25.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 2.24,
+      "x": 20,
+      "y": 0,
+      "z": 27.76
+    },
+    {
+      "depth": 12,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 22,
+      "y": 0,
+      "z": 28
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 30,
+      "x": 26,
+      "y": 0,
+      "z": 34
+    },
+    {
+      "depth": 5.52,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 55.76,
+      "y": 0,
+      "z": 34.24
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 4,
+      "x": 28,
+      "y": 0,
+      "z": 21.76
+    },
+    {
+      "depth": 3.16,
+      "height": 3.5,
+      "width": 1,
+      "x": 28,
+      "y": 0,
+      "z": 12.24
+    },
+    {
+      "depth": 5.16,
+      "height": 3.5,
+      "width": 1,
+      "x": 28,
+      "y": 0,
+      "z": 16.6
+    },
+    {
+      "depth": 1.2,
+      "height": 2.4,
+      "width": 1,
+      "x": 28,
+      "y": 1.1,
+      "z": 15.4
+    },
+    {
+      "depth": 1.76,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 31.76,
+      "y": 0,
+      "z": 12.24
+    },
+    {
+      "depth": 1.76,
+      "height": 3.5,
+      "width": 0.24,
+      "x": 31.76,
+      "y": 0,
+      "z": 20
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 2,
+      "x": 26,
+      "y": 0,
+      "z": 21.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 27.96,
+      "x": 22.24,
+      "y": 0,
+      "z": 39.76
+    },
+    {
+      "depth": 0.24,
+      "height": 3.5,
+      "width": 2.2,
+      "x": 53.8,
+      "y": 0,
+      "z": 39.76
+    },
+    {
+      "x": 28,
+      "z": 12,
+      "width": 2,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5
+    },
+    {
+      "x": 30,
+      "z": 6,
+      "width": 24,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 53.76,
+      "z": 6.24,
+      "width": 0.24,
+      "depth": 19.52,
+      "y": 0,
+      "height": 3.5,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 30,
+      "z": 25.76,
+      "width": 24,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 30,
+      "z": 6.24,
+      "width": 0.24,
+      "depth": 6,
+      "y": 0,
+      "height": 3.5,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 30,
+      "z": 22,
+      "width": 0.24,
+      "depth": 3.76,
+      "y": 0,
+      "height": 3.5,
+      "material": "home:wallpaper_pattern_01"
+    },
+    {
+      "x": 2,
+      "z": 38,
+      "width": 8,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5,
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 3.5,
+          "width": 1,
+          "height": 2.25
+        }
+      ]
+    },
+    {
+      "x": 2,
+      "z": 41.76,
+      "width": 8,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5
+    },
+    {
+      "x": 2,
+      "z": 38.24,
+      "width": 0.24,
+      "depth": 3.52,
+      "y": 0,
+      "height": 3.5
+    },
+    {
+      "x": 9.76,
+      "z": 38.24,
+      "width": 0.24,
+      "depth": 3.52,
+      "y": 0,
+      "height": 3.5
+    },
+    {
+      "x": 50.2,
+      "z": 38,
+      "width": 3.6,
+      "depth": 0.2,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01",
+      "openings": [
+        {
+          "kind": "door",
+          "offset": 1.05,
+          "width": 1.5,
+          "height": 2.25
+        }
+      ]
+    },
+    {
+      "x": 50.2,
+      "z": 38.2,
+      "width": 0.24,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 53.56,
+      "z": 38.2,
+      "width": 0.24,
+      "depth": 2.7,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01"
+    },
+    {
+      "x": 50.44,
+      "z": 40.66,
+      "width": 3.12,
+      "depth": 0.24,
+      "y": 0,
+      "height": 3.5,
+      "material": "core:wallpaper_yellow_01"
+    }
+  ],
+  "saving": false,
+  "defaults": {
+    "floor": "core:carpet_beige_01",
+    "wall": "core:wallpaper_yellow_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "sequences": [
+    {
+      "id": "homecoming",
+      "cinematic": {
+        "start": {
+          "position": [
+            38,
+            2.5,
+            23
+          ],
+          "yaw_degrees": 10,
+          "pitch_degrees": -15
+        }
+      },
+      "steps": [
+        {
+          "step": "action",
+          "action": {
+            "action": "run_script",
+            "script": "scripts/return.luau",
+            "handler": "celebrate"
+          }
+        },
+        {
+          "step": "camera",
+          "seconds": 7,
+          "motion": {
+            "kind": "move",
+            "position": [
+              47,
+              2.7,
+              21
+            ],
+            "easing": "smooth"
+          },
+          "aim": {
+            "kind": "look_at",
+            "target": {
+              "kind": "point",
+              "position": [
+                38,
+                0.7,
+                16
+              ]
+            }
+          }
+        },
+        {
+          "step": "camera",
+          "seconds": 4,
+          "motion": {
+            "kind": "move",
+            "position": [
+              44,
+              1.6,
+              18
+            ],
+            "easing": "smooth"
+          },
+          "aim": {
+            "kind": "look_at",
+            "target": {
+              "kind": "point",
+              "position": [
+                44,
+                0.9,
+                16
+              ]
+            }
+          }
+        },
+        {
+          "step": "action",
+          "action": {
+            "action": "show_message",
+            "title": "Feltlings",
+            "lines": [
+              "Set down the duck. This cake is for you.",
+              "Eat it, and our magic will send you home."
+            ]
+          }
+        },
+        {
+          "step": "wait",
+          "seconds": 8
+        }
+      ]
+    }
+  ],
+  "animated_emissions": [
+    {
+      "material": "core:fluorescent_panel_01",
+      "effect": "flicker",
+      "hz": 7,
+      "depth": 0.06,
+      "phase": 0.27
+    }
+  ],
+  "floor_regions": [
+    {
+      "x": 50.8,
+      "z": 38,
+      "width": 2.4,
+      "depth": 2.4,
+      "offset_y": -0.012,
+      "edge_material": "core:wallpaper_yellow_01"
+    }
+  ]
+}
