@@ -36,6 +36,8 @@ pub(super) enum Command {
     Page(bool),
     ListPage(bool),
     Apply,
+    Preview,
+    Cancel,
     Remove,
 }
 pub(super) struct Draft {
@@ -79,12 +81,11 @@ impl Draft {
         let owner = value_at(meta, "/owner")
             .as_str()
             .and_then(|id| {
-                doc.level()
-                    .volume_instance_ids()
-                    .iter()
-                    .position(|value| value == id)
+                doc.objects().iter().map(|o| o.id).find(|owner| {
+                    doc.cinematic_controller(*owner)
+                        .is_some_and(|(name, _)| name == id)
+                })
             })
-            .map(ObjectId::Trigger)
             .or(selected_owner);
         Self {
             root: doc.root().into(),
@@ -212,8 +213,26 @@ impl App {
         draft.finish()?;
         match command {
             Command::Open | Command::New | Command::Sequence(_) => {}
+            Command::Cancel => {
+                self.cinematics = None;
+                self.popup = None;
+                self.status = "Cinematic draft canceled; saved scene unchanged.".into();
+            }
+            Command::Preview => {
+                doc.preview_cinematic(
+                    &draft.expected,
+                    draft.original.as_deref(),
+                    &draft.sequence,
+                    draft
+                        .owner
+                        .ok_or("Choose a player trigger or interactable prop controller")?,
+                    draft.destination.as_deref(),
+                    draft.once,
+                )?;
+                self.status = "Cinematic preview validated; source/history unchanged. Apply then Test to play.".into();
+            }
             Command::Apply => {
-                doc.apply_cinematic(&draft.expected,draft.original.as_deref(),&draft.sequence,draft.owner.ok_or("Create/select a player Trigger in ordinary authoring, then choose Controller")?,draft.destination.as_deref(),draft.once)?;
+                doc.apply_cinematic(&draft.expected,draft.original.as_deref(),&draft.sequence,draft.owner.ok_or("Create/select a player trigger or interactable prop, then choose Controller")?,draft.destination.as_deref(),draft.once)?;
                 draft.expected = doc.raw().clone();
                 draft.original = value_at(&draft.sequence, "/id").as_str().map(str::to_owned);
                 self.changed();
@@ -273,7 +292,7 @@ impl App {
                 doc,
                 sequence,
                 self.selected
-                    .filter(|id| matches!(id, ObjectId::Trigger(_))),
+                    .filter(|id| doc.cinematic_controller(*id).is_some()),
                 pose,
             ));
             self.popup = Some(Popup::Cinematics);
@@ -487,7 +506,7 @@ impl Draft {
                 let owners: Vec<_> = doc
                     .objects()
                     .iter()
-                    .filter(|o| matches!(o.id, ObjectId::Trigger(_)))
+                    .filter(|o| doc.cinematic_controller(o.id).is_some())
                     .map(|o| o.id)
                     .collect();
                 draft.owner = owners

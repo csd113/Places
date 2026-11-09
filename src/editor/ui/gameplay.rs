@@ -48,6 +48,16 @@ pub(in crate::editor) fn create_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
     button(
         vertices,
         hits,
+        [140.0, 218.0, 240.0, 12.0],
+        "Light: enter coordinates >",
+        Action::Author(crate::editor::authoring::Command::Create(
+            crate::editor::authoring::Tool::Light,
+        )),
+        true,
+    );
+    button(
+        vertices,
+        hits,
         [140.0, 204.0, 240.0, 12.0],
         "Add Wall Sign",
         Action::Sign(crate::editor::signs::Command::Add),

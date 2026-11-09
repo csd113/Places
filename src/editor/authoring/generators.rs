@@ -77,7 +77,12 @@ pub(super) fn fields(tool: Tool) -> Vec<Field> {
             number("/y", "World base Y / blank = follow floor", ""),
             number("/rise", "Section rise / blank = follow floor", ""),
         ],
-        Tool::Elevator
+        Tool::Wall
+        | Tool::Light
+        | Tool::Shaft
+        | Tool::Feltling
+        | Tool::TallGuest
+        | Tool::Elevator
         | Tool::Column
         | Tool::Pillar
         | Tool::ArcWall
@@ -109,7 +114,12 @@ pub(super) fn owner(app: &App, tool: Tool) -> Result<Option<usize>, String> {
             Some(ObjectId::Room(i)) => Ok(Some(i)),
             _ => Err("Select the room floor for both tunnel endpoints first".into()),
         },
-        Tool::Elevator
+        Tool::Wall
+        | Tool::Light
+        | Tool::Shaft
+        | Tool::Feltling
+        | Tool::TallGuest
+        | Tool::Elevator
         | Tool::RailPath
         | Tool::Column
         | Tool::Pillar
@@ -225,10 +235,11 @@ pub(super) fn open_index(app: &App, tool: Tool) -> usize {
         });
     }
     match (tool, app.selected) {
-        (Tool::Column, Some(ObjectId::Column(i)))
+        (Tool::Light, Some(ObjectId::Light(i)))
+        | (Tool::Column, Some(ObjectId::Column(i)))
         | (Tool::Pillar, Some(ObjectId::Pillar(i)))
         | (Tool::ArcWall, Some(ObjectId::ArcWall(i)))
-        | (Tool::WallTrim, Some(ObjectId::Wall(i))) => i,
+        | (Tool::WallTrim | Tool::Wall, Some(ObjectId::Wall(i))) => i,
         _ => 0,
     }
 }

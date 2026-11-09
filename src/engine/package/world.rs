@@ -322,69 +322,7 @@ pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
     {
         return Err("Animated solid mechanisms require animated-door-v1 capability".into());
     }
-    for (required, capability) in [
-        (
-            requires_compound_door_actions(level),
-            "animated-door-actions-v1",
-        ),
-        (
-            level
-                .sequences
-                .iter()
-                .any(|sequence| sequence.cinematic.is_some()),
-            "live-cinematics-v1",
-        ),
-        (
-            level.props.iter().any(|prop| {
-                prop.tall_guest
-                    .as_ref()
-                    .is_some_and(|guest| !guest.prey_targets.is_empty())
-                    || prop
-                        .feltling
-                        .as_ref()
-                        .is_some_and(|prey| prey.mode == crate::engine::feltling::Mode::Flee)
-            }),
-            "whole-prey-v1",
-        ),
-        (
-            level.props.iter().any(|prop| prop.tall_guest.is_some()),
-            "tall-guest-v1",
-        ),
-        (
-            level.props.iter().any(|prop| prop.feltling.is_some()),
-            "feltling-v1",
-        ),
-        (!level.elevators.is_empty(), "elevators-v1"),
-        (
-            level
-                .global_illuminators
-                .iter()
-                .any(|light| light.visual.is_some()),
-            "celestial-visuals-v1",
-        ),
-        (
-            !level.acoustic_materials.is_empty()
-                || level.rooms.iter().any(|room| {
-                    room.acoustics != crate::engine::audio::acoustics::RoomAcoustics::default()
-                }),
-            "material-acoustics-v1",
-        ),
-        (
-            crate::engine::ai::authoring::level_requires_shared_ai(level),
-            "shared-ai-v1",
-        ),
-        (level.has_character_textures(), "character-textures-v1"),
-        (level.has_mannequin_pins(), "miniature-pins-v1"),
-    ] {
-        if required
-            && !manifest
-                .required_capabilities
-                .iter()
-                .any(|entry| entry == capability)
-        {
-            return Err(format!("Map requires {capability}"));
-        }
-    }
+    validate_required_capabilities(level, manifest)?;
     validate_shadow_only(level, manifest)?;
     validate_item_receipts(level, manifest)?;
     validate_lighting_requirement(level, manifest)?;
@@ -1218,4 +1156,75 @@ fn requires_compound_door_actions(level: &LevelDef) -> bool {
         .iter()
         .filter_map(|prop| prop.animated_door.as_ref())
         .any(|door| door.locked || door.boxes.iter().any(|shape| !shape.grounding))
+}
+
+fn validate_required_capabilities(level: &LevelDef, manifest: &Manifest) -> Result<(), String> {
+    for (required, capability) in [
+        (
+            level.stairs.iter().any(|stair| stair.reverse),
+            "reverse-stairs-v1",
+        ),
+        (
+            requires_compound_door_actions(level),
+            "animated-door-actions-v1",
+        ),
+        (
+            level
+                .sequences
+                .iter()
+                .any(|sequence| sequence.cinematic.is_some()),
+            "live-cinematics-v1",
+        ),
+        (
+            level.props.iter().any(|prop| {
+                prop.tall_guest
+                    .as_ref()
+                    .is_some_and(|guest| !guest.prey_targets.is_empty())
+                    || prop
+                        .feltling
+                        .as_ref()
+                        .is_some_and(|prey| prey.mode == crate::engine::feltling::Mode::Flee)
+            }),
+            "whole-prey-v1",
+        ),
+        (
+            level.props.iter().any(|prop| prop.tall_guest.is_some()),
+            "tall-guest-v1",
+        ),
+        (
+            level.props.iter().any(|prop| prop.feltling.is_some()),
+            "feltling-v1",
+        ),
+        (!level.elevators.is_empty(), "elevators-v1"),
+        (
+            level
+                .global_illuminators
+                .iter()
+                .any(|light| light.visual.is_some()),
+            "celestial-visuals-v1",
+        ),
+        (
+            !level.acoustic_materials.is_empty()
+                || level.rooms.iter().any(|room| {
+                    room.acoustics != crate::engine::audio::acoustics::RoomAcoustics::default()
+                }),
+            "material-acoustics-v1",
+        ),
+        (
+            crate::engine::ai::authoring::level_requires_shared_ai(level),
+            "shared-ai-v1",
+        ),
+        (level.has_character_textures(), "character-textures-v1"),
+        (level.has_mannequin_pins(), "miniature-pins-v1"),
+    ] {
+        if required
+            && !manifest
+                .required_capabilities
+                .iter()
+                .any(|entry| entry == capability)
+        {
+            return Err(format!("Map requires {capability}"));
+        }
+    }
+    Ok(())
 }

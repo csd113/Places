@@ -1,4 +1,5 @@
 //! Focused source forms: complete records are validated before admission.
+mod creatures;
 mod elevators;
 mod generators;
 mod sheets;
@@ -29,9 +30,15 @@ pub(super) enum Command {
     RouteStep(&'static str),
     ElevatorStop(bool),
     EditElevator(usize),
+    NativeList(&'static str),
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Tool {
+    Wall,
+    Light,
+    Shaft,
+    Feltling,
+    TallGuest,
     Elevator,
     Recess,
     Surround,
@@ -100,6 +107,11 @@ const fn flag(path: &'static str, label: &'static str, default: &'static str) ->
 impl Tool {
     const fn title(self) -> &'static str {
         match self {
+            Self::Wall => "Wall / numeric placement",
+            Self::Light => "Light / numeric placement",
+            Self::Shaft => "Stair shaft / numeric cut",
+            Self::Feltling => "Native Feltling / feet coordinates",
+            Self::TallGuest => "Native Tall Guest / feet coordinates",
             Self::Elevator => "Elevator / floor travel",
             Self::Recess => "Wall recess / TV niche",
             Self::Surround => "Door / window surround",
@@ -127,13 +139,15 @@ impl Tool {
     }
     const fn collection(self) -> &'static str {
         match self {
+            Self::Light => "ceiling_lights",
             Self::Elevator => "elevators",
             Self::Recess | Self::Surround => "openings",
             Self::Tunnel => "tunnels",
             Self::Column => "columns",
             Self::Pillar => "pillars",
             Self::ArcWall => "arc_walls",
-            Self::WallTrim => "walls",
+            Self::Wall | Self::WallTrim => "walls",
+            Self::Feltling | Self::TallGuest => "props",
             Self::Ramp => "ramps",
             Self::Stairs => "stairs",
             Self::Rail | Self::RailPath => "guardrails",
@@ -142,7 +156,7 @@ impl Tool {
             Self::Sky => "sky",
             Self::Weather => "weather",
             Self::Sun => "global_illuminators",
-            Self::Room | Self::Ceiling | Self::LocalFloor => "rooms",
+            Self::Shaft | Self::Room | Self::Ceiling | Self::LocalFloor => "rooms",
             Self::Route => "routes",
             Self::GlobalPatch => "floor_patches",
             Self::GlobalRegion => "floor_regions",
@@ -204,6 +218,10 @@ impl Tool {
     }
     fn fields(self) -> Vec<Field> {
         match self {
+            Self::Feltling | Self::TallGuest => Vec::new(),
+            Self::Wall => wall_fields(),
+            Self::Shaft => shaft_fields(),
+            Self::Light => light_fields(),
             Self::Recess | Self::Surround | Self::RailPath | Self::Tunnel => {
                 generators::fields(self)
             }
@@ -225,10 +243,7 @@ impl Tool {
             }
             Self::Room => room_fields(),
             Self::Elevator => elevators::fields(None),
-            Self::Route => vec![
-                text("/id", "Actor instance ID", ""),
-                flag("/loop", "Loop", "false"),
-            ],
+            Self::Route => route_header_fields(),
             Self::Ramp => vec![
                 number("/x", "X", "0"),
                 number("/z", "Z", "0"),
@@ -239,18 +254,7 @@ impl Tool {
                 text("/material", "Surface material", ""),
                 text("/edge_material", "Side material", ""),
             ],
-            Self::Stairs => vec![
-                number("/x", "X", "0"),
-                number("/z", "Z", "0"),
-                number("/width", "Width m", "4"),
-                number("/depth", "Depth m", "1.5"),
-                number("/offset_y", "Room-relative Y", "0"),
-                number("/rise", "Rise m", "1"),
-                number("/steps", "Step count", "5"),
-                text("/material", "Tread material", ""),
-                text("/riser_material", "Riser material", ""),
-                text("/side_material", "Side material", ""),
-            ],
+            Self::Stairs => stair_fields(),
             Self::Rail => vec![
                 number("/x", "Start X", "0"),
                 number("/z", "Start Z", "0"),
@@ -352,7 +356,12 @@ impl Tool {
                 flag("/bake", "Bake", "true"),
                 number("/angular_size_degrees", "Angular size degrees", "0.5"),
             ],
-            Self::Elevator
+            Self::Wall
+            | Self::Light
+            | Self::Shaft
+            | Self::Feltling
+            | Self::TallGuest
+            | Self::Elevator
             | Self::Recess
             | Self::Surround
             | Self::RailPath
@@ -424,7 +433,12 @@ fn form_index(
     requested: Option<usize>,
     collection: Option<&Value>,
 ) -> Result<usize, String> {
-    Ok(if matches!(tool, Tool::Ceiling | Tool::LocalFloor) {
+    Ok(if creatures::native(tool) {
+        let Some(super::document::ObjectId::Prop(index)) = app.selected else {
+            return Err("Select a native creature catalog prop first".into());
+        };
+        index
+    } else if matches!(tool, Tool::Ceiling | Tool::LocalFloor) {
         let Some(super::document::ObjectId::Room(room_index)) = app.selected else {
             return Err("Select the owning room first".into());
         };
@@ -437,6 +451,8 @@ fn form_index(
 pub(super) struct Draft {
     owner: Option<usize>,
     pub tool: Tool,
+    native_cursor: usize,
+    native_group: &'static str,
     index: usize,
     fields: Vec<(Field, String)>,
     active: Option<usize>,
@@ -459,8 +475,10 @@ impl Draft {
         } else {
             collection.and_then(|values| values.get(index))
         }
+        .filter(|_| tool != Tool::Shaft)
         .cloned();
         generators::initialize(app, tool, owner, &mut original)?;
+        creatures::initialize(app, tool, &mut original)?;
         if tool == Tool::Route && original.is_none() {
             let Some(super::document::ObjectId::Prop(prop_index)) = app.selected else {
                 return Err("Select an actor before creating a route".into());
@@ -487,9 +505,7 @@ impl Draft {
             original = Some(elevators::new_record(app));
         }
         let definitions = form_fields(tool, original.as_ref());
-        let original_light = original.as_ref().and_then(|value| {
-            serde_json::from_value::<crate::engine::level::GlobalIlluminatorDef>(value.clone()).ok()
-        });
+        let original_light = original_light(original.as_ref());
         let mut fields = Vec::new();
         for field in definitions {
             let derived = if tool == Tool::Sun {
@@ -534,6 +550,8 @@ impl Draft {
         Ok(Self {
             owner,
             tool,
+            native_cursor: 0,
+            native_group: "patrol",
             index,
             fields,
             active: None,
@@ -608,6 +626,9 @@ impl Draft {
             };
             set_path(&mut record, &field.path, value)?;
         }
+        if creatures::native(self.tool) {
+            creatures::normalize(self.tool, &mut record)?;
+        }
         if self.tool == Tool::Elevator {
             elevators::normalize(&record)?;
         }
@@ -646,6 +667,9 @@ impl Draft {
             return Err("Scene changed; reopen the authoring form".into());
         }
         let mut record = self.record()?;
+        if self.tool == Tool::Shaft {
+            return super::stairs::numeric_shaft_candidate(doc, &record);
+        }
         if self.tool == Tool::WallTrim {
             let selection = record
                 .as_object_mut()
@@ -757,6 +781,15 @@ impl App {
                     Some(index),
                 )?)));
             }
+            Action::Author(Command::NativeList(operation)) => {
+                if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
+                    creatures::edit_list(
+                        self.document.as_ref().ok_or("Open a project")?,
+                        draft,
+                        operation,
+                    )?;
+                }
+            }
             Action::Author(Command::Hub) => self.popup = Some(Popup::Authoring),
             Action::Author(Command::Create(tool)) => {
                 self.popup = Some(Popup::AuthoringForm(Box::new(Draft::new(
@@ -842,6 +875,14 @@ impl App {
             return Ok(());
         }
         if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
+            draft.native_cursor = index;
+            if creatures::choose(
+                self.document.as_ref().ok_or("Open a project")?,
+                draft,
+                index,
+            )? {
+                return Ok(());
+            }
             if let Some((field, value)) = draft.fields.get_mut(index)
                 && field.path.as_ref() == "/trim/placement"
             {
@@ -877,27 +918,16 @@ impl App {
             return Ok(());
         };
         let doc = self.document.as_ref().ok_or("Open a project first")?;
+        if draft.tool == Tool::Shaft {
+            super::stairs::check_numeric_shaft(doc, &draft.record()?, &self.catalog)?;
+        }
         let raw = draft.candidate(doc)?;
         let level = doc.validate_candidate(&raw)?;
         self.check_focused_edit(&raw)?;
         let global_modifier = matches!(draft.tool, Tool::GlobalPatch | Tool::GlobalRegion);
         crate::engine::project::validate_level_assets(&level, &self.catalog)?;
         if draft.tool == Tool::Room {
-            let room = level
-                .rooms
-                .get(draft.index)
-                .ok_or("Room draft is missing")?;
-            if level.rooms.iter().enumerate().any(|(index, other)| {
-                index != draft.index
-                    && other.floor_y < room.eave_y() - 0.01
-                    && other.eave_y() > room.floor_y + 0.01
-                    && other.x < room.x + room.width - 0.01
-                    && other.x + other.width > room.x + 0.01
-                    && other.z < room.z + room.depth - 0.01
-                    && other.z + other.depth > room.z + 0.01
-            }) {
-                return Err("New Room overlaps an existing room on this storey. Adjust position or Floor elevation.".into());
-            }
+            validate_room_overlap(&level, draft.index)?;
         }
         if apply {
             self.viewport
@@ -907,6 +937,18 @@ impl App {
                 .ok_or("Open a project first")?
                 .apply_authoring_edit(&draft.expected, raw)?;
             match draft.tool {
+                Tool::Light => {
+                    self.selected = Some(super::document::ObjectId::Light(draft.index));
+                }
+                Tool::Shaft => {
+                    self.selected = None;
+                }
+                Tool::Wall => {
+                    self.selected = Some(super::document::ObjectId::Wall(draft.index));
+                }
+                Tool::Feltling | Tool::TallGuest => {
+                    self.selected = Some(super::document::ObjectId::Prop(draft.index));
+                }
                 Tool::Room => self.selected = Some(super::document::ObjectId::Room(draft.index)),
                 Tool::Column => {
                     self.selected = Some(super::document::ObjectId::Column(draft.index));
@@ -1014,12 +1056,19 @@ impl App {
         };
         if matches!(
             draft.tool,
-            Tool::Ceiling | Tool::LocalFloor | Tool::WallTrim
+            Tool::Ceiling | Tool::LocalFloor | Tool::WallTrim | Tool::Shaft
         ) {
             return Err("Use scene Delete for a room".into());
         }
         let mut raw = draft.expected.clone();
-        if draft.tool == Tool::Elevator {
+        if creatures::native(draft.tool) {
+            let prop = raw
+                .get_mut("props")
+                .and_then(|v| v.get_mut(draft.index))
+                .and_then(Value::as_object_mut)
+                .ok_or("Missing creature")?;
+            drop(prop.remove(creatures::key(draft.tool)));
+        } else if draft.tool == Tool::Elevator {
             raw = crate::editor::elevators::remove_candidate(
                 self.document.as_ref().ok_or("Open a project")?,
                 draft.index,
@@ -1233,7 +1282,9 @@ fn default_room(app: &App, doc: &super::document::Document) -> Value {
 }
 
 fn form_fields(tool: Tool, record: Option<&Value>) -> Vec<Field> {
-    if tool == Tool::Elevator {
+    if creatures::native(tool) {
+        creatures::fields(tool, record)
+    } else if tool == Tool::Elevator {
         elevators::fields(record)
     } else if tool == Tool::Route {
         route_fields(record)
@@ -1241,3 +1292,109 @@ fn form_fields(tool: Tool, record: Option<&Value>) -> Vec<Field> {
         tool.fields()
     }
 }
+
+pub(super) fn creature_tool(model: &str) -> Option<Tool> {
+    match model {
+        "feltling" => Some(Tool::Feltling),
+        "tall-guest" => Some(Tool::TallGuest),
+        _ => None,
+    }
+}
+
+#[cfg(test)]
+#[path = "tests/native_creatures.rs"]
+mod native_creature_tests;
+
+fn wall_fields() -> Vec<Field> {
+    vec![
+        number("/x", "West X / minimum corner", "1"),
+        number("/z", "North Z / minimum corner", "1"),
+        number("/width", "X extent m", "4"),
+        number("/depth", "Z extent m", "0.2"),
+        number("/y", "World base Y", "0"),
+        number("/height", "Height / blank = ceiling", ""),
+        text("/material", "Wall material / blank = default", ""),
+    ]
+}
+
+fn original_light(original: Option<&Value>) -> Option<crate::engine::level::GlobalIlluminatorDef> {
+    original.and_then(|value| serde_json::from_value(value.clone()).ok())
+}
+
+fn route_header_fields() -> Vec<Field> {
+    vec![
+        text("/id", "Actor instance ID", ""),
+        flag("/loop", "Loop", "false"),
+    ]
+}
+
+#[cfg(test)]
+#[path = "tests/stairs_lights.rs"]
+mod stairs_lights_tests;
+
+fn shaft_fields() -> Vec<Field> {
+    vec![
+        number("/lower", "Lower Room number", "1"),
+        number("/upper", "Upper Room number", "2"),
+        number("/x", "Shaft minimum X", "2"),
+        number("/z", "Shaft minimum Z", "2"),
+        number("/width", "Shaft width m", "3"),
+        number("/depth", "Shaft depth m", "6"),
+    ]
+}
+
+fn light_fields() -> Vec<Field> {
+    vec![
+        number("/x", "X / world metres", "2"),
+        number("/z", "Z / world metres", "2"),
+        number("/y", "World ceiling Y / blank = auto", ""),
+        text(
+            "/fixture",
+            "Fixture / catalog ID",
+            "core:fluorescent_panel_01",
+        ),
+        number("/brightness", "Power / blank = legacy default", ""),
+        number("/range", "Range m / blank = default", ""),
+        number("/rotation_degrees", "Yaw degrees", "0"),
+        text("/align", "Alignment grid / none", "none"),
+    ]
+}
+
+fn validate_room_overlap(
+    level: &crate::engine::level::LevelDef,
+    index: usize,
+) -> Result<(), String> {
+    let room = level.rooms.get(index).ok_or("Room draft is missing")?;
+    if level.rooms.iter().enumerate().any(|(other_index, other)| {
+        other_index != index
+            && other.floor_y < room.eave_y() - 0.01
+            && other.eave_y() > room.floor_y + 0.01
+            && other.x < room.x + room.width - 0.01
+            && other.x + other.width > room.x + 0.01
+            && other.z < room.z + room.depth - 0.01
+            && other.z + other.depth > room.z + 0.01
+    }) {
+        return Err("New Room overlaps an existing room on this storey. Adjust position or Floor elevation.".into());
+    }
+    Ok(())
+}
+
+fn stair_fields() -> Vec<Field> {
+    vec![
+        number("/x", "X", "0"),
+        number("/z", "Z", "0"),
+        number("/width", "Width m", "4"),
+        number("/depth", "Depth m", "1.5"),
+        number("/offset_y", "Room-relative Y", "0"),
+        number("/rise", "Rise m", "1"),
+        number("/steps", "Step count", "5"),
+        flag("/reverse", "Ascend to minimum X/Z", "false"),
+        text("/material", "Tread material", ""),
+        text("/riser_material", "Riser material", ""),
+        text("/side_material", "Side material", ""),
+    ]
+}
+
+#[cfg(test)]
+#[path = "tests/elevator_numeric.rs"]
+mod elevator_numeric_tests;

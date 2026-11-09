@@ -84,6 +84,32 @@ pub fn attention_allowed(distance_squared: f32) -> bool {
     distance_squared.is_finite() && distance_squared > 400.0
 }
 
+/// Per-actor guide hysteresis. Omitted authored/save values retain 10/6 m.
+#[derive(Debug, Clone, Copy, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Recovery {
+    pub stop_metres: f32,
+    pub resume_metres: f32,
+}
+impl Default for Recovery {
+    fn default() -> Self {
+        Self {
+            stop_metres: 10.0,
+            resume_metres: 6.0,
+        }
+    }
+}
+impl Recovery {
+    #[must_use]
+    pub fn is_valid(self) -> bool {
+        self.stop_metres.is_finite()
+            && self.resume_metres.is_finite()
+            && self.resume_metres > 0.0
+            && self.resume_metres <= self.stop_metres
+            && self.stop_metres <= 100_000.0
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Policy {
@@ -93,6 +119,8 @@ pub struct Policy {
     pub cooldown: f32,
     pub begun: bool,
     pub waiting: bool,
+    #[serde(default)]
+    pub recovery: Recovery,
 }
 
 impl Policy {
@@ -105,6 +133,10 @@ impl Policy {
             cooldown: 0.0,
             begun: false,
             waiting: false,
+            recovery: Recovery {
+                stop_metres: 10.0,
+                resume_metres: 6.0,
+            },
         }
     }
 
@@ -126,7 +158,8 @@ impl Policy {
 
     #[must_use]
     pub fn is_valid(&self) -> bool {
-        self.elapsed.is_finite()
+        self.recovery.is_valid()
+            && self.elapsed.is_finite()
             && (0.0..=10_000_000.0).contains(&self.elapsed)
             && self.cooldown.is_finite()
             && (0.0..=8.0).contains(&self.cooldown)
@@ -158,9 +191,10 @@ impl Policy {
             return;
         }
         if self.begun {
-            if distance_squared > 100.0 {
+            if distance_squared > self.recovery.stop_metres * self.recovery.stop_metres {
                 self.waiting = true;
-            } else if distance_squared <= 36.0 {
+            } else if distance_squared <= self.recovery.resume_metres * self.recovery.resume_metres
+            {
                 self.waiting = false;
             }
         } else if distance_squared <= 6.25 {

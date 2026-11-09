@@ -172,6 +172,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                     }),
         );
     }
+    native_creature_button(app, vertices, hits);
     if let Some((doc, id)) = app.document.as_ref().zip(app.selected) {
         let object = doc.component_object(id);
         if matches!(id, ObjectId::Prop(_) | ObjectId::Door(_)) {
@@ -445,4 +446,20 @@ pub(in crate::editor) fn draw_text(
         Action::ComponentApply,
         true,
     );
+}
+
+fn native_creature_button(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
+    if let Some((doc, ObjectId::Prop(index))) = app.document.as_ref().zip(app.selected)
+        && let Some(prop) = doc.level().props.get(index)
+        && let Some(tool) = crate::editor::authoring::creature_tool(&prop.model)
+    {
+        button(
+            vertices,
+            hits,
+            [263.0, 144.0, 117.0, 12.0],
+            "Native creature >",
+            Action::Author(crate::editor::authoring::Command::Open(tool)),
+            true,
+        );
+    }
 }

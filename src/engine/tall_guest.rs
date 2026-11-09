@@ -8,6 +8,7 @@ mod doorway;
 mod foot_contact;
 pub(crate) mod hearing;
 mod lifecycle;
+mod navigation;
 pub mod prey;
 pub(crate) mod prop_track;
 mod recovery;
@@ -717,7 +718,31 @@ impl Guest {
         self.door_steps();
         self.capture_authored_lifts();
         self.support_posture();
+        let planted_before = self.state.plants.each_ref().map(Option::is_some);
         self.plant_feet();
+        // A descending stance can create a lower contact after posture was
+        // solved. Rebuild once from the authored pose so that new contact
+        // participates in reach correction before strict pose validation.
+        let new_contact = self
+            .state
+            .plants
+            .iter()
+            .zip(planted_before)
+            .any(|(plant, before)| plant.is_some() && !before);
+        let uneven = self
+            .support_heights
+            .iter()
+            .chain(&self.swing_heights)
+            .any(|height| height.mul_add(1.0, -self.state.position.y).abs() >= 0.001);
+        if new_contact && uneven {
+            self.sample_base();
+            let _new_contact_aim = self.animator.blend_upper_inspection(self.state.aim_weight);
+            self.door_compression();
+            self.door_steps();
+            self.capture_authored_lifts();
+            self.support_posture();
+            self.plant_feet();
+        }
         self.seat_terrain_soles(ctx);
     }
 
@@ -1569,7 +1594,12 @@ impl Guest {
             .unwrap_or(goal)
     }
 
-    fn waypoint(&mut self, ctx: &WorldContext<'_>, goal: Vec3) -> Option<Vec3> {
+    fn waypoint(
+        &mut self,
+        ctx: &WorldContext<'_>,
+        goal: Vec3,
+        solids: &[WallAabb],
+    ) -> Option<Vec3> {
         let nav = ctx.nav?;
         let class = nav.compatible_class_index(&navigation_class())?;
         if self.state.clock >= self.next_plan {
@@ -1580,13 +1610,14 @@ impl Guest {
                 .find_map(|stage| stage.approach(self.state.position, goal))
                 .unwrap_or(goal);
             let excluded = self.excluded_refuges();
+            let live = navigation::LiveSolids(solids);
             let mut query = PathQuery {
                 class,
                 start: self.state.position,
                 goal: staged,
                 can_open_doors: false,
                 max_expansions: 16_384,
-                doors: &crate::engine::nav::NoDoors,
+                doors: &live,
             };
             let result =
                 nav.path_into_avoiding(&query, &mut self.scratch, &mut self.path, &excluded);
@@ -2104,7 +2135,7 @@ impl Guest {
                             self.set_clip("inspect_prop");
                             self.voice(None, 0.0);
                         }
-                    } else if let Some(waypoint) = self.waypoint(ctx, goal) {
+                    } else if let Some(waypoint) = self.waypoint(ctx, goal, solids) {
                         self.steer(ctx, leaves, solids, waypoint, distance, sub);
                     }
                 }
@@ -2720,7 +2751,17 @@ impl Guest {
                     .height_below(point.x, point.z, feet + 0.45)
                     .is_none_or(|height| point.y + 0.005 >= height)
         });
+        // The player sweeps against the conservative published joint proxies,
+        // not only the exact skin. A triangle-free corner of a foot proxy can
+        // otherwise enter the player and make every subsequent sweep refuse its
+        // initial overlap. Admit the same physical envelope that we publish.
+        let player = glam::Vec2::new(ctx.feet.x, ctx.feet.z);
+        let player_proxy_clear = self.body_colliders().iter().all(|body| {
+            !body.overlaps_body_y(ctx.feet.y, ctx.body_height)
+                || !crate::engine::collision::square_overlaps_door(player, ctx.body_half, body)
+        });
         let accepted = ceiling_clear
+            && player_proxy_clear
             && self.contacts_fit()
             && !self
                 .definition

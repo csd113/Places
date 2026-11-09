@@ -101,7 +101,7 @@ impl WalkableStair {
         };
         let threshold = feet + step + tolerance;
         let (x0, x1, z0, z1) = self.surface.bounds();
-        let (across, front, back, low_side, high_side) = match self.surface.axis() {
+        let (across, mut front, mut back, low_side, high_side) = match self.surface.axis() {
             WallAxis::X => (
                 (z0, z1),
                 -glam::Vec2::X,
@@ -117,12 +117,20 @@ impl WalkableStair {
                 glam::Vec2::X,
             ),
         };
+        if self.surface.reversed() {
+            std::mem::swap(&mut front, &mut back);
+        }
         for index in 0..self.surface.step_count() {
             let top = self.tread_height(index);
             if top <= threshold {
                 continue;
             }
             let (start, end) = self.surface.tread_span(index);
+            let (riser_at, back_at) = if self.surface.reversed() {
+                (end, start)
+            } else {
+                (start, end)
+            };
             let riser_bottom = if index == 0 {
                 backing
             } else {
@@ -138,12 +146,12 @@ impl WalkableStair {
                 && (step <= 0.0 || top - riser_bottom > step + crate::engine::collision::STEP_EPS)
             {
                 visit(
-                    &self.face((start, start), across, (riser_bottom, top)),
+                    &self.face((riser_at, riser_at), across, (riser_bottom, top)),
                     front,
                 );
             }
             if index.saturating_add(1) == self.surface.step_count() {
-                visit(&self.face((end, end), across, (backing, top)), back);
+                visit(&self.face((back_at, back_at), across, (backing, top)), back);
             }
         }
     }

@@ -1821,6 +1821,7 @@ answers with their real height, and they draw with the level's own materials.
 | `x`, `z`, `width`, `depth` | number | **yes** | — | Footprint; the flight climbs along the longer axis (ties → X). |
 | `offset_y` | number | no | `0.0` | Walking-surface offset at the **foot** of the flight. |
 | `rise` | number | **yes** | — | Total climb, `> 0`, at most 50 m. |
+| `reverse` | boolean | no | `false` | Ascend toward the minimum long-axis coordinate; the foot is then at the maximum end. Sizes and rise remain positive. Requires `reverse-stairs-v1` in compiled packages. |
 | `steps` | integer | **yes** | — | Risers *and* treads; at least 2. The riser is `rise / steps` (must be ≤ 0.45 m, the walkable step) and the tread is `length / steps` (must be ≥ 0.15 m). |
 | `material`, `shine` | string / number | no | room floor | The treads. |
 | `riser_material`, `riser_shine` | string / number | no | the tread material | The risers. |
@@ -3900,7 +3901,7 @@ and east sunlight, matching shadows, moonlight and a no-panorama case.
 ### Sampling quality and diagnostics
 
 Static uses vertex lighting. Full uses 16 intervals/m for architecture, three
-emitter taps per axis, two diffuse orders and 64 gather directions. Legacy
+emitter taps per axis, two diffuse orders and 128 gather directions. Legacy
 Medium data used 12 intervals/m, two emitter taps, one order and 32 gather
 directions. Small opaque model charts use twice the architecture density:
 32 intervals/m for Full and historically 24 for Medium. Large opaque models retain one eighth
@@ -3909,6 +3910,12 @@ triangles in one original model primitive share a native four-corner chart.
 The original common diagonal, all six drawn corners, material UVs and normal
 frames remain exact; incompatible unions retain individual triangle charts.
 Actual endpoint-grid density is `(chart_axis_texels - 1) / axis_metres`.
+Diffuse surface gathers use cosine-weighted stratified directions, a stable
+world-position azimuth phase and inverse-PDF weights. This reduces finite-ray
+variance while preserving the angular energy integral. First-order reflected
+direct light is evaluated at the actual secondary hit, retaining its shadow
+visibility; later diffuse orders retain the surface cache. These preparation
+changes require affected packages to be rebuilt.
 Full integrates every 4×4 receiver-footprint sample. Differing actual visibility
 signatures additionally integrate 8×8 within the same footprint, retaining all
 original samples in a weighted 80-position estimate. Uniform areas remain exact
@@ -3919,6 +3926,15 @@ supported neighbours in world space. Only diffuse gather energy is denoised;
 its filter crosses a chart join only with matching normals/material and an
 unoccluded connection. Atlas endpoints address texel centres, and the existing
 one/two-texel gutters cover the single-mip bilinear runtime footprint.
+
+Moving-object irradiance probes evaluate the first reflected direct light at
+actual ray hits with source-layer visibility. Only later diffuse contributions
+use the visible coplanar cache. Their 512-ray antipodal Hammersley gather has a
+separate air-point precision budget from the 128-ray Full surface gather; this
+is offline preparation work and adds no runtime ray tracing. Constant environment
+energy and opposing moments are preserved. Current packages must be rebuilt
+after a transport revision; changing light/material strength is not a substitute
+for transport accuracy.
 
 `PLACES_LIGHTING_DUMP_DIR=<directory>` writes stage atlas PNGs, linear
 `*.rgb-f32le` buffers and chart metadata during an explicit compiler `--force`
@@ -6751,8 +6767,15 @@ click-to-place, place another, and bidirectional linking. A linked group has up
 to three cabins, with the current stop omitted from its destination buttons.
 Logical floor names/order do not depend on world height; independent groups
 remain isolated. **Load another level** chooses a saved project map and arrival
-cabin. Advanced retains fixed vertical landing sets. Checkpoints preserve
-settled stops; blocked doors reopen.
+cabin. **Tools > Geometry / stairs > Space / environment > Elevator: enter
+coordinates** opens the existing validated numeric form even with no cabin
+selected. X/Z and yaw specify the exact door-centre pose; each destination edits
+world Y. Its existing two-stop vertical default remains; remove destination 2
+for a single local cabin, retaining the initial landing. Numeric entry requires
+an already clear shaft and matching hall opening; pointer fitting remains under
+**Build > Elevator**. Preview is nonmutating and Apply is one history step.
+Advanced retains fixed vertical landing sets. Checkpoints preserve settled stops;
+blocked doors reopen.
 See [the complete schema, dimensions and lab](ELEVATORS.md) before placement.
 In-game level loads retain the last game view beneath a static loading card;
 startup retains its separate preparation screen. Existing change-level bindings
@@ -9930,7 +9953,11 @@ separate guide responds to the player.
 Initial guide mode waves and waits for approach within 2.5 m, then points and
 leads. The integration tuning is 1.3 times the current player walking setting,
 above Tall Guest's 1.2-times-player pursuit cap. Guidance waits beyond 10 m and
-resumes within 6 m. Only distance strictly greater than 20 m permits the guide's
+resumes within 6 m by default. Optional per-actor `guide_recovery` accepts
+`{"stop_metres":20,"resume_metres":20}`: pause begins strictly beyond the stop
+distance and ends at or below the resume distance. Both values must be finite,
+positive and at most 100000 m, with resume no greater than stop. Omission retains
+10/6 m for existing maps. Only distance strictly greater than 20 m permits the guide's
 jump/then-both-arms attention sequence; returning to 20 m cancels it. Explicit
 authored party cheering is separate. Blocked paths and closed doors stall and
 retry; a route never bypasses physical clearance or floor support. Rendered
@@ -9963,7 +9990,11 @@ Build ordinary geometry, triggers and NPCs, then opt an ordinary sequence into
 `cinematic` camera ownership. Bounded camera rows move, follow and orbit while
 existing Luau/NPC actions run; exact-key `sequence_complete` bindings can request
 the next declared project member. **Advanced / All tools > Cinematics** provides
-the ordered authoring sheet. Camera paths are free presentation, not player
+the ordered authoring sheet. Controllers may be ordinary player volumes or
+interactable props (including native Feltlings); prop starts use `interact` and
+helper typed state to spend Once only on successful completion, allowing retry
+after close or a refused busy start. Preview/Cancel preserve source and history.
+Camera paths are free presentation, not player
 teleports, automatic wall avoidance or a timeline/video editor. Existing maps
 without this metadata are unchanged. See [the complete source/ownership and
 authoring contract](CINEMATICS.md), including interruption, busy/reentry policy,

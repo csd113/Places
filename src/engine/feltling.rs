@@ -39,14 +39,18 @@ pub struct Definition {
     pub mode: Mode,
     #[serde(default)]
     pub look_at: Option<[f32; 3]>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub guide_recovery: Option<policy::Recovery>,
 }
 
 impl Definition {
     #[must_use]
     pub fn is_valid(&self) -> bool {
         let mut ids = std::collections::BTreeSet::new();
-        self.look_at
-            .is_none_or(|point| point.iter().all(|v| v.is_finite() && v.abs() <= 100_000.0))
+        self.guide_recovery.is_none_or(policy::Recovery::is_valid)
+            && self
+                .look_at
+                .is_none_or(|point| point.iter().all(|v| v.is_finite() && v.abs() <= 100_000.0))
             && self.routes.len() <= 8
             && (!matches!(self.mode, Mode::Guide | Mode::Flee) || !self.routes.is_empty())
             && self.routes.iter().all(|route| {
@@ -189,7 +193,10 @@ pub fn load(level: &LevelDef) -> Result<Vec<Feltling>, String> {
                 id,
                 position,
                 yaw: prop.rotation_degrees.to_radians(),
-                policy: Policy::new(definition.mode),
+                policy: Policy {
+                    recovery: definition.guide_recovery.unwrap_or_default(),
+                    ..Policy::new(definition.mode)
+                },
                 route: 0,
                 waypoint: 0,
                 enabled: true,
@@ -377,7 +384,10 @@ impl Feltling {
                 if self.state.route != index {
                     self.state.route = index;
                     self.state.waypoint = 0;
-                    self.state.policy = Policy::new(self.state.policy.mode);
+                    self.state.policy = Policy {
+                        recovery: self.definition.guide_recovery.unwrap_or_default(),
+                        ..Policy::new(self.state.policy.mode)
+                    };
                     self.status_changed = true;
                     self.state.pose_restart = true;
                     self.state.gesture = None;

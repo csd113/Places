@@ -8,9 +8,12 @@ second scripting runtime or timeline editor.
 
 ## Native authoring
 
-1. Create a normal player Trigger around the activation area.
+1. Create a normal player Trigger around the activation area, or select a prop
+   with an enabled **Components > Interaction** (including native Feltlings).
 2. Open **Advanced / All tools > Cinematics**. Choose **New**, or select a saved
-   cinematic. Choose that trigger as **Controller**.
+   cinematic. The selected eligible object becomes **Controller**; the controller
+   button cycles player triggers and interactable props. Props start on explicit
+   player **interact**, triggers on **enter_volume**.
 3. Fly/orbit the editor view and choose **Capture start**. This does not change
    the player spawn or move level geometry.
 4. Add and order **Move**, **Follow**, **Orbit**, **Wait** or **Script** rows.
@@ -20,6 +23,8 @@ second scripting runtime or timeline editor.
    authoring a Move. Close, move the editor view and reopen Cinematics to keep
    the pending draft while capturing another view.
 5. Choose **End: Return control**, or a destination from the owning project.
+   **Preview** validates the complete transaction without changing source/history.
+   **Cancel** discards the draft; **Close** retains it for camera capture.
    Apply validates the sequence, its exact helper bindings and the declared
    transition together as one undoable edit. Save persists the source normally.
 6. **Test in editor** exercises the camera, triggers and NPC scripts without a
@@ -35,11 +40,18 @@ invalid field cannot partially change wiring. Existing ids/controllers are
 stable; remove ordinary references before removing a referenced cinematic.
 Manually modified helper actions are refused, not overwritten.
 
-**Once per reset** uses the ordinary binding policy: a matching trigger is
-consumed even when a competing camera start is refused or its run is later
-canceled. Choose **Repeat on exit/reentry** for repeatable presentations. Busy
-starts are not queued; leave and reenter after the active cinematic ends. A
-normal run reset rearms one-shot bindings.
+For triggers, **Once per reset** retains the ordinary binding policy: entry
+consumes it even if a busy start is refused or its run is canceled. **Repeat**
+allows another entry after leaving.
+
+For interactable props, **Once on success** uses an ordinary helper Bool state
+`cinematic_<sequence-id>_done`, initially false. The interact binding is repeatable
+and checks that state; exact-key successful completion sets it true. Busy starts
+and Escape close consume no success, so the player can interact again. **Repeat**
+omits the state condition. The camera lease still refuses active duplicate starts;
+no queued/restarted run or false completion is introduced. Normal reset rearms
+the state. Add independent `sequence_complete` bindings in Events for quest
+progression; the sheet refuses manually changed helper actions/conditions.
 
 ## Camera rows
 

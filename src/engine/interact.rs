@@ -85,6 +85,9 @@ pub struct Interactable {
     pub door_index: Option<usize>,
     /// Half-open range of live colliders owned by a compound mechanism.
     pub leaf_range: Option<(usize, usize)>,
+    /// Live native body leaves excluded only from this actor's occlusion tests.
+    /// Unlike mechanism leaves, these do not replace the authored aim shape.
+    pub body_range: Option<(usize, usize)>,
     /// False disables aiming: the instance keeps its place in the table (and
     /// its label state) but E cannot target it until an `enable` action runs.
     pub enabled: bool,
@@ -236,6 +239,13 @@ impl Interactables {
         }
         item.bounds = bounds;
     }
+    /// Publish the native owner's current collider range, retaining its model aim box.
+    pub(crate) fn sync_body_range(&mut self, id: &str, start: usize, end: usize) {
+        if let Some(item) = self.items.iter_mut().find(|item| item.id == id) {
+            item.body_range = (start < end).then_some((start, end));
+        }
+    }
+
     /// An empty set: nothing is aimable.
     #[must_use]
     pub const fn new() -> Self {
@@ -438,7 +448,7 @@ pub fn nearest_target(
             OcclusionTarget {
                 own_box: item.own_box.as_ref(),
                 own_door: item.door_index,
-                own_leaves: item.leaf_range,
+                own_leaves: item.leaf_range.or(item.body_range),
                 margin: INTERACTION_OCCLUSION_EPS_M,
             },
             walls,
@@ -552,7 +562,7 @@ pub fn nearest_target_indexed(
             OcclusionTarget {
                 own_box: item.own_box.as_ref(),
                 own_door: item.door_index,
-                own_leaves: item.leaf_range,
+                own_leaves: item.leaf_range.or(item.body_range),
                 margin: INTERACTION_OCCLUSION_EPS_M,
             },
             index,
@@ -583,15 +593,63 @@ struct OcclusionTarget<'a> {
 /// True when the collision world leaves the finite sight line from `origin` to
 /// `point` clear, excluding the target's own collision body.
 #[must_use]
-#[expect(
-    clippy::arithmetic_side_effects,
-    reason = "bounded world coordinates, as above"
-)] // bounded world coordinates, as above
 pub fn clear_line_of_sight_indexed(
     origin: Vec3,
     point: Vec3,
     own_box: Option<&WallAabb>,
     own_door: Option<usize>,
+    index: &crate::engine::collision_index::CollisionIndex,
+    walls: &[WallAabb],
+    doors: &[DoorCollider],
+) -> bool {
+    clear_sight(
+        origin,
+        point,
+        OcclusionTarget {
+            own_box,
+            own_door,
+            own_leaves: None,
+            margin: LABEL_OCCLUSION_EPS_M,
+        },
+        index,
+        walls,
+        doors,
+    )
+}
+
+/// Label sightline with the same live owner exclusions as the interaction ray.
+#[must_use]
+pub fn clear_interactable_line_of_sight_indexed(
+    origin: Vec3,
+    point: Vec3,
+    item: &Interactable,
+    index: &crate::engine::collision_index::CollisionIndex,
+    walls: &[WallAabb],
+    doors: &[DoorCollider],
+) -> bool {
+    clear_sight(
+        origin,
+        point,
+        OcclusionTarget {
+            own_box: item.own_box.as_ref(),
+            own_door: item.door_index,
+            own_leaves: item.leaf_range.or(item.body_range),
+            margin: LABEL_OCCLUSION_EPS_M,
+        },
+        index,
+        walls,
+        doors,
+    )
+}
+
+#[expect(
+    clippy::arithmetic_side_effects,
+    reason = "finite bounded sight delta and positive checked length"
+)]
+fn clear_sight(
+    origin: Vec3,
+    point: Vec3,
+    own: OcclusionTarget<'_>,
     index: &crate::engine::collision_index::CollisionIndex,
     walls: &[WallAabb],
     doors: &[DoorCollider],
@@ -604,21 +662,7 @@ pub fn clear_line_of_sight_indexed(
     if length <= f32::EPSILON {
         return true;
     }
-    let direction = delta / length;
-    !occluded_before_indexed(
-        origin,
-        direction,
-        length,
-        OcclusionTarget {
-            own_box,
-            own_door,
-            own_leaves: None,
-            margin: LABEL_OCCLUSION_EPS_M,
-        },
-        index,
-        walls,
-        doors,
-    )
+    !occluded_before_indexed(origin, delta / length, length, own, index, walls, doors)
 }
 
 /// True when any box or door leaf except the target's own blocks the ray

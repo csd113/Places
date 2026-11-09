@@ -71,6 +71,18 @@ fn leaf_path_blocked(leaf: &DoorCollider, from: Vec3, to: Vec3, radius: f32, hei
     )
 }
 
+// The normal live body is a square, even though the navigation class is a
+// disc. Use this same shape for player admission and release candidates.
+fn grounded_collider(position: Vec3) -> DoorCollider {
+    DoorCollider::from_pose(
+        [position.x - 0.40, position.y, position.z],
+        [1.0, 0.0],
+        0.80,
+        0.80,
+        0.80,
+    )
+}
+
 #[must_use]
 pub fn base_speed(player_walk_speed: f32) -> f32 {
     let walk = if player_walk_speed.is_finite() && (1.0..=10.0).contains(&player_walk_speed) {
@@ -102,19 +114,8 @@ impl Feltling {
                 hi.z - lo.z,
             ));
         }
-        self.enabled().then(|| {
-            DoorCollider::from_pose(
-                [
-                    self.state.position.x - 0.40,
-                    self.state.position.y,
-                    self.state.position.z,
-                ],
-                [1.0, 0.0],
-                0.80,
-                0.80,
-                0.80,
-            )
-        })
+        self.enabled()
+            .then(|| grounded_collider(self.state.position))
     }
 
     #[must_use]
@@ -126,31 +127,42 @@ impl Feltling {
     ) -> bool {
         let point = Vec2::new(self.state.position.x, self.state.position.z);
         let class = navigation_class();
-        !crate::engine::collision::disc_segment_blocked(
-            point,
-            point,
-            class.radius,
-            self.state.position.y,
-            class.height,
-            class.step_height,
-            ctx.index,
-            ctx.walls,
-        ) && !solids.iter().any(|solid| {
-            // A zero-motion separating sweep deliberately tolerates an old
-            // overlap. Admission requires actual unoccupied standing space.
-            solid.blocks_body(self.state.position.y, class.height)
-                && solid.overlaps_disc(point.x, point.y, class.radius)
-        }) && !crate::engine::collision::door_segment_blocked(
-            point,
-            point,
-            class.radius,
-            self.state.position.y,
-            class.height,
-            leaves,
-        ) && self
-            .ceiling
-            .ceiling_above_disc(point.x, point.y, class.radius, self.state.position.y)
-            .is_none_or(|ceiling| ceiling >= class.height + self.state.position.y - 0.001)
+        let body = grounded_collider(self.state.position);
+        let player = Vec2::new(ctx.feet.x, ctx.feet.z);
+        // A disc can round the player's corner while the published square
+        // body overlaps it. Refuse that candidate before it can strand the
+        // player inside a live collider; do not change either body's size.
+        let player_clear = !body.overlaps_body_y(ctx.feet.y, ctx.body_height)
+            || !crate::engine::collision::square_overlaps_door(player, ctx.body_half, &body);
+        player_clear
+            && !crate::engine::collision::disc_segment_blocked(
+                point,
+                point,
+                class.radius,
+                self.state.position.y,
+                class.height,
+                class.step_height,
+                ctx.index,
+                ctx.walls,
+            )
+            && !solids.iter().any(|solid| {
+                // A zero-motion separating sweep deliberately tolerates an old
+                // overlap. Admission requires actual unoccupied standing space.
+                solid.blocks_body(self.state.position.y, class.height)
+                    && solid.overlaps_disc(point.x, point.y, class.radius)
+            })
+            && !crate::engine::collision::door_segment_blocked(
+                point,
+                point,
+                class.radius,
+                self.state.position.y,
+                class.height,
+                leaves,
+            )
+            && self
+                .ceiling
+                .ceiling_above_disc(point.x, point.y, class.radius, self.state.position.y)
+                .is_none_or(|ceiling| ceiling >= class.height + self.state.position.y - 0.001)
             && ctx
                 .floor
                 .walk_height_near(point.x, point.y, self.state.position.y, 0.02)

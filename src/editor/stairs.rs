@@ -240,7 +240,10 @@ fn clear_envelope(
     }) {
         return Err("Another storey crosses this shaft. Review the room layout rather than cutting it implicitly.".into());
     }
-    if !level.ramps.is_empty() || !level.stairs.is_empty() || !level.floor_regions.is_empty() {
+    if level.ramps.iter().any(|r| overlaps(r.bounds()))
+        || level.stairs.iter().any(|r| overlaps(r.bounds()))
+        || level.floor_regions.iter().any(|r| overlaps(r.bounds()))
+    {
         return Err("Existing ramps/stairs/global regions need a manual connection review. No geometry was changed.".into());
     }
     Ok(())
@@ -257,51 +260,8 @@ fn assemble(
     let low = level.rooms.get(lower).ok_or("Missing lower room")?;
     let high = level.rooms.get(upper).ok_or("Missing upper room")?;
     let rise = high.floor_y - low.floor_y;
-    let [x, z, shaft_width, shaft_depth] = cut;
     let [flight_x, flight_z, flight_width, flight_depth] = flight;
-    let mut raw = doc.raw().clone();
-    let rooms = raw
-        .get_mut("rooms")
-        .and_then(Value::as_array_mut)
-        .ok_or("Missing rooms")?;
-    let lower_raw = rooms.get(lower).ok_or("Missing lower room")?.clone();
-    let upper_raw = rooms.get(upper).ok_or("Missing upper room")?.clone();
-    let mut replacements = Vec::new();
-    for (i, room) in rooms.iter().enumerate() {
-        if i == lower {
-            replacements.extend(split_room(&lower_raw, cut)?);
-        } else if i == upper {
-            replacements.extend(split_room(&upper_raw, cut)?);
-        } else {
-            replacements.push(room.clone());
-        }
-    }
-    let mut shaft = lower_raw;
-    let object = shaft.as_object_mut().ok_or("Invalid room")?;
-    drop(object.remove("editor_instance_id"));
-    for (key, value) in [
-        ("x", x),
-        ("z", z),
-        ("width", shaft_width),
-        ("depth", shaft_depth),
-        ("height", high.eave_y() - low.floor_y),
-    ] {
-        drop(object.insert(key.into(), json!(value)));
-    }
-    for key in [
-        "ceiling_material",
-        "ceiling_shine",
-        "ceiling_tile_origin",
-        "ceiling_tile_rotation_degrees",
-    ] {
-        if let Some(value) = upper_raw.get(key) {
-            drop(object.insert(key.into(), value.clone()));
-        } else {
-            drop(object.remove(key));
-        }
-    }
-    replacements.push(shaft);
-    *rooms = replacements;
+    let mut raw = shaft_rooms(doc, lower, upper, cut)?;
     super::document::record_array_mut(&mut raw,"stairs")?.push(json!({"x":flight_x,"z":flight_z,"width":flight_width,"depth":flight_depth,"offset_y":0.0_f32,"rise":rise,"steps":steps,"material":low.material.clone().unwrap_or_else(||level.defaults.floor.clone()),"side_material":level.defaults.wall}));
     let typed = LevelDef::from_json(&raw.to_string()).map_err(|error| error.to_string())?;
     crate::engine::loader::validate_level(&typed)?;
@@ -444,4 +404,108 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, w
     ] {
         ui::popup_button(vertices, hits, [x, 225.0, 104.0, 12.0], label, action);
     }
+}
+
+fn shaft_rooms(doc: &Document, lower: usize, upper: usize, cut: [f32; 4]) -> Result<Value, String> {
+    let level = doc.level();
+    let low = level.rooms.get(lower).ok_or("Missing lower room")?;
+    let high = level.rooms.get(upper).ok_or("Missing upper room")?;
+    let [x, z, shaft_width, shaft_depth] = cut;
+    let mut raw = doc.raw().clone();
+    let rooms = raw
+        .get_mut("rooms")
+        .and_then(Value::as_array_mut)
+        .ok_or("Missing rooms")?;
+    let lower_raw = rooms.get(lower).ok_or("Missing lower room")?.clone();
+    let upper_raw = rooms.get(upper).ok_or("Missing upper room")?.clone();
+    let mut replacements = Vec::new();
+    for (i, room) in rooms.iter().enumerate() {
+        if i == lower {
+            replacements.extend(split_room(&lower_raw, cut)?);
+        } else if i == upper {
+            replacements.extend(split_room(&upper_raw, cut)?);
+        } else {
+            replacements.push(room.clone());
+        }
+    }
+    let mut shaft = lower_raw;
+    let object = shaft.as_object_mut().ok_or("Invalid room")?;
+    drop(object.remove("editor_instance_id"));
+    for (key, value) in [
+        ("x", x),
+        ("z", z),
+        ("width", shaft_width),
+        ("depth", shaft_depth),
+        ("height", high.eave_y() - low.floor_y),
+    ] {
+        drop(object.insert(key.into(), json!(value)));
+    }
+    for key in [
+        "ceiling_material",
+        "ceiling_shine",
+        "ceiling_tile_origin",
+        "ceiling_tile_rotation_degrees",
+    ] {
+        if let Some(value) = upper_raw.get(key) {
+            drop(object.insert(key.into(), value.clone()));
+        } else {
+            drop(object.remove(key));
+        }
+    }
+    replacements.push(shaft);
+    *rooms = replacements;
+    Ok(raw)
+}
+
+fn numeric_parameters(doc: &Document, record: &Value) -> Result<(usize, usize, [f32; 4]), String> {
+    let room = |key| {
+        record
+            .get(key)
+            .and_then(Value::as_u64)
+            .and_then(|n| usize::try_from(n).ok())
+            .and_then(|n| n.checked_sub(1))
+            .ok_or_else(|| format!("{key}: enter a one-based Room number"))
+    };
+    let lower = room("lower")?;
+    let upper = room("upper")?;
+    let value = |key| {
+        serde_json::from_value::<f32>(record.get(key).cloned().ok_or("Missing shaft dimension")?)
+            .map_err(|e| e.to_string())
+    };
+    let cut = [value("x")?, value("z")?, value("width")?, value("depth")?];
+    if cut.iter().any(|n| !n.is_finite()) || cut[2] < 0.9 || cut[3] < 0.9 {
+        return Err("Use a finite shaft at least0.9 m wide/deep".into());
+    }
+    let low = doc.level().rooms.get(lower).ok_or("Missing lower room")?;
+    let high = doc.level().rooms.get(upper).ok_or("Missing upper room")?;
+    if lower == upper
+        || high.floor_y <= low.floor_y
+        || !low.ceiling.is_flat()
+        || !high.ceiling.is_flat()
+    {
+        return Err("Choose flat lower/upper rooms on distinct ascending floors".into());
+    }
+    if high.floor_y - low.eave_y() < MIN_STRUCTURE_M - 0.0001 || high.eave_y() - high.floor_y < 1.9
+    {
+        return Err("Review storey structure and upper headroom before cutting".into());
+    }
+    for carrier in [low, high] {
+        let (x0, x1, z0, z1) = carrier.bounds();
+        if cut[0] < x0 || cut[1] < z0 || cut[0] + cut[2] > x1 || cut[1] + cut[3] > z1 {
+            return Err("The entire shaft must fit inside both selected rooms".into());
+        }
+    }
+    Ok((lower, upper, cut))
+}
+pub(super) fn check_numeric_shaft(
+    doc: &Document,
+    record: &Value,
+    catalog: &crate::engine::assets::AssetCatalog,
+) -> Result<(), String> {
+    let (lower, upper, cut) = numeric_parameters(doc, record)?;
+    clear_envelope(doc.level(), lower, upper, cut, 0.0, catalog)
+}
+pub(super) fn numeric_shaft_candidate(doc: &Document, record: &Value) -> Result<Value, String> {
+    let (lower, upper, cut) = numeric_parameters(doc, record)?;
+    shaft_rooms(doc, lower, upper, cut)
 }

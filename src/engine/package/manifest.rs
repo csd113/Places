@@ -13,7 +13,7 @@ use super::{FORMAT_VERSION, MAX_DEPENDENCIES, MAX_VARIANTS};
 ///
 /// A package that requires a capability outside this list is rejected by name:
 /// the player must never guess at a payload it does not understand.
-pub const KNOWN_CAPABILITIES: [&str; 42] = [
+pub const KNOWN_CAPABILITIES: [&str; 43] = [
     "shared-ai-v1",
     "zip-zstd-v1",
     "celestial-visuals-v1",
@@ -42,6 +42,7 @@ pub const KNOWN_CAPABILITIES: [&str; 42] = [
     "item-receipts-v1",
     "shadow-only-v1",
     "static-light-state-v1",
+    "reverse-stairs-v1",
     "geometry",
     "props",
     "lighting",

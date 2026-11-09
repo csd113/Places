@@ -71,6 +71,18 @@ fn draw_form(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>)
                         || field.label.to_owned(),
                         |step| format!("Step {} / {}", step.saturating_add(1), field.label),
                     )
+            } else if super::creatures::native(draft.tool) && field.path.contains("/routes/")
+                || super::creatures::native(draft.tool) && field.path.contains("/tall_guest/")
+            {
+                format!(
+                    "{} {}",
+                    field
+                        .path
+                        .trim_start_matches('/')
+                        .replace("feltling/", "")
+                        .replace("tall_guest/", ""),
+                    field.label
+                )
             } else {
                 field.label.to_owned()
             };
@@ -106,6 +118,8 @@ fn draw_form(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>)
                 Action::Author(Command::RouteStep(kind)),
             );
         }
+    } else if super::creatures::native(draft.tool) {
+        super::creatures::draw_actions(draft, v, hits);
     } else if draft.tool != Tool::Elevator {
         ui::text(v, form_hint(draft.tool), 126.0, 197.0, ui::INK, 90);
     }
@@ -168,6 +182,8 @@ fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         Tool::GlobalRegion,
         Tool::Route,
         Tool::AcousticMaterial,
+        Tool::Shaft,
+        Tool::Light,
     ]
     .into_iter()
     .enumerate()
@@ -178,9 +194,13 @@ fn draw_hub(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             v,
             hits,
             [x, y, 160.0, 18.0],
-            tool.title(),
             if tool == Tool::Elevator {
-                Action::Elevator(crate::editor::elevators::Command::Place)
+                "Elevator: enter coordinates"
+            } else {
+                tool.title()
+            },
+            if tool == Tool::Elevator {
+                Action::Author(Command::Create(tool))
             } else {
                 Action::Author(Command::Open(tool))
             },
@@ -229,7 +249,12 @@ fn draw_navigation(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, simp
     if simple && matches!(draft.tool, Tool::Column | Tool::Pillar | Tool::ArcWall) {
         return;
     }
-    if !draft.tool.singleton() && !matches!(draft.tool, Tool::Ceiling | Tool::LocalFloor) {
+    if !draft.tool.singleton()
+        && !matches!(
+            draft.tool,
+            Tool::Ceiling | Tool::LocalFloor | Tool::Feltling | Tool::TallGuest | Tool::Shaft
+        )
+    {
         for (x, label, action) in [
             (238.0, "<", Action::Author(Command::Record(false))),
             (270.0, ">", Action::Author(Command::Record(true))),
@@ -238,12 +263,16 @@ fn draw_navigation(draft: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, simp
             ui::popup_button(v, hits, [x, 180.0, 30.0, 12.0], label, action);
         }
     }
-    if !matches!(draft.tool, Tool::Ceiling | Tool::LocalFloor) {
+    if !matches!(draft.tool, Tool::Ceiling | Tool::LocalFloor | Tool::Shaft) {
         ui::popup_button(
             v,
             hits,
             [350.0, 180.0, 105.0, 12.0],
-            "Delete record",
+            if super::creatures::native(draft.tool) {
+                "Remove controller"
+            } else {
+                "Delete record"
+            },
             Action::Author(Command::Delete),
         );
     }
@@ -365,7 +394,13 @@ fn draw_wall_selection(app: &App, draft: &Draft, v: &mut Vec<Vertex>, hits: &mut
 }
 
 fn form_hint(tool: Tool) -> &'static str {
-    if tool == Tool::Elevator {
+    if tool == Tool::Shaft {
+        "Cuts BOTH floors/ceilings; tall carrier. Add stairs and landings next."
+    } else if tool == Tool::Stairs {
+        "Positive rise; Page > reverse ascent. Cut the shaft first."
+    } else if tool == Tool::Light {
+        "World Y selects the storey. Blank follows the first room ceiling."
+    } else if tool == Tool::Elevator {
         "Clear side shaft 2.6 x 2.5 m; matching hall openings. More > stops."
     } else if matches!(tool, Tool::GlobalPatch | Tool::GlobalRegion) {
         "GLOBAL: affects ALL overlapping storeys."

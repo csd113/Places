@@ -6,7 +6,7 @@ use super::{
     LightmapPatch, MAX_BOUNCE_RAYS, RadianceCache, ReceiverSet, SolveOptions, StageAudit,
     SurfaceCacheTarget, TransportReceiver, TransportScene, TransportSolution, TransportSolve,
     accumulate_surface_lobe, add, add_scaled, append_switchable_probe_field, attenuate, coverage,
-    dot, hemisphere_axes, hemisphere_from_local, lattice_cell, parallel_map, record_gather, scale,
+    dot, hemisphere_axes, lattice_cell, parallel_map, record_gather, scale,
 };
 
 impl TransportScene {
@@ -129,6 +129,7 @@ impl TransportScene {
         let bounce_started = std::time::Instant::now();
         let (combined, bounce_rays, cache_cells) = self.bounce_pair_orders(
             receivers,
+            [base_emitters, emitter],
             prepared,
             [direct_base.clone(), direct_switch.clone()],
             options,
@@ -151,6 +152,7 @@ impl TransportScene {
             charts,
             prepared,
             &direct_base,
+            base_emitters,
             base_values,
             apply_fill,
             options,
@@ -163,6 +165,7 @@ impl TransportScene {
             charts,
             prepared,
             &direct_switch,
+            emitter,
             switch_values,
             false,
             options,
@@ -193,6 +196,7 @@ impl TransportScene {
     fn bounce_pair_orders(
         &self,
         receivers: &[TransportReceiver],
+        emitters: [&[usize]; 2],
         prepared: &ReceiverSet,
         mut combined: [Vec<Accumulator>; 2],
         options: SolveOptions,
@@ -223,6 +227,7 @@ impl TransportScene {
             let gained = self.bounce_pair_pass(
                 receivers,
                 [&previous[0], &previous[1]],
+                emitters,
                 cache,
                 options,
                 order,
@@ -277,6 +282,7 @@ impl TransportScene {
         &self,
         receivers: &[TransportReceiver],
         values: [&[[f32; 3]]; 2],
+        emitters: [&[usize]; 2],
         cache: &RadianceCache,
         options: SolveOptions,
         order: u8,
@@ -300,9 +306,11 @@ impl TransportScene {
                 .get(usize::try_from(receiver.surface).unwrap_or(usize::MAX))
                 .map_or(receiver.normal, |triangle| triangle.normal);
             let mut result = [Accumulator::default(); 2];
-            let (tangent, bitangent) = hemisphere_axes(receiver.normal);
+            let axes = hemisphere_axes(receiver.normal);
+            let rotation = super::surface_gather_rotation(receiver.position, order);
             for local in &directions {
-                let direction = hemisphere_from_local(receiver.normal, tangent, bitangent, *local);
+                let sample_weight = inverse_count / local[2];
+                let direction = super::gather_direction(receiver.normal, axes, *local, rotation);
                 if dot(direction, geometric_normal) <= 0.0 {
                     record_gather(audit.as_ref(), GatherEvent::Horizon);
                     continue;
@@ -319,7 +327,7 @@ impl TransportScene {
                     {
                         let weight = self
                             .sky_radiance
-                            .map(|radiance| radiance * 2.0 * inverse_count * BOUNCE_GAIN);
+                            .map(|radiance| radiance * sample_weight * BOUNCE_GAIN);
                         accumulate_surface_lobe(
                             &mut result[0],
                             attenuate(scale(weight, throughput), receiver.attenuation),
@@ -336,25 +344,31 @@ impl TransportScene {
                     continue;
                 }
                 let hit_position = add(receiver.ray_origin, scale(direction, distance));
-                let stencil =
-                    cache.surface_stencil(self, hit_position, surface, receivers, audit.as_ref());
-                if stencil.is_empty() {
-                    record_gather(audit.as_ref(), GatherEvent::CacheEmpty);
-                } else if stencil.is_fallback() {
-                    record_gather(audit.as_ref(), GatherEvent::CacheFallback);
-                }
+                let stencil = (order > 0).then(|| {
+                    self.reflected_stencil(hit_position, surface, receivers, cache, audit.as_ref())
+                });
                 let mut any_radiance = false;
                 for channel in 0..2 {
                     if !active[channel] {
                         continue;
                     }
-                    let radiance = stencil.sample(values[channel]);
+                    let radiance = stencil.as_ref().map_or_else(
+                        || {
+                            self.reflected_direct_at(
+                                hit_position,
+                                surface,
+                                emitters[channel],
+                                channel == 0 && apply_fill,
+                                options.taps_per_axis,
+                            )
+                        },
+                        |cached_stencil| cached_stencil.sample(values[channel]),
+                    );
                     any_radiance |= radiance.iter().any(|value| *value > 0.0);
-                    let weight = [
-                        triangle.albedo[0] * radiance[0] * 2.0 * inverse_count * BOUNCE_GAIN,
-                        triangle.albedo[1] * radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
-                        triangle.albedo[2] * radiance[2] * 2.0 * inverse_count * BOUNCE_GAIN,
-                    ];
+                    let weight = scale(
+                        scale(attenuate(triangle.albedo, radiance), sample_weight),
+                        BOUNCE_GAIN,
+                    );
                     accumulate_surface_lobe(
                         &mut result[channel],
                         attenuate(scale(weight, throughput), receiver.attenuation),

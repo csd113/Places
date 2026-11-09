@@ -61,3 +61,11 @@ mod ai_travel;
 mod script_progression;
 
 mod entity_identity;
+
+mod native_interaction;
+
+mod tall_guest_stairs;
+
+mod tall_guest_player;
+
+mod tall_guest_live_solids;

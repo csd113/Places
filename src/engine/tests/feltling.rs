@@ -135,3 +135,60 @@ fn fleeing_route_never_waits_for_player_proximity() {
         "only actual route completion stops escape"
     );
 }
+
+// Unique value: distance hysteresis was previously hardcoded independently of
+// attention. Protect map-local 20/20, serialized compatibility and malformed
+// configuration using only deterministic scalar policy calls.
+#[test]
+fn map_local_recovery_strict_boundary_and_legacy_defaults() -> Result<(), serde_json::Error> {
+    use crate::engine::feltling::policy::Recovery;
+    let mut p = Policy::new(Mode::Guide);
+    p.begun = true;
+    p.stage = Stage::Leading;
+    p.recovery = Recovery {
+        stop_metres: 20.0,
+        resume_metres: 20.0,
+    };
+    for d in [399.99, 400.0] {
+        p.advance(0.1, d, false);
+        assert!(!p.waiting);
+        assert_eq!(p.stage, Stage::Leading);
+    }
+    p.advance(0.1, 400.01, false);
+    assert!(p.waiting);
+    assert_eq!(p.stage, Stage::AttentionJump);
+    let mut restored: Policy = serde_json::from_slice(&serde_json::to_vec(&p)?)?;
+    restored.advance(0.1, 400.0, false);
+    assert!(!restored.waiting);
+    assert_eq!(restored.stage, Stage::Leading);
+    let mut raw = serde_json::to_value(Policy::new(Mode::Guide))?;
+    if let Some(object) = raw.as_object_mut() {
+        drop(object.remove("recovery"));
+    }
+    let mut old: Policy = serde_json::from_value(raw)?;
+    old.begun = true;
+    old.stage = Stage::Leading;
+    old.advance(0.1, 100.01, false);
+    assert!(old.waiting);
+    old.advance(0.1, 36.01, false);
+    assert!(old.waiting);
+    old.advance(0.1, 36.0, false);
+    assert!(!old.waiting);
+    for recovery in [
+        Recovery {
+            stop_metres: f32::INFINITY,
+            resume_metres: 1.0,
+        },
+        Recovery {
+            stop_metres: 20.0,
+            resume_metres: 21.0,
+        },
+        Recovery {
+            stop_metres: 20.0,
+            resume_metres: 0.0,
+        },
+    ] {
+        assert!(!recovery.is_valid());
+    }
+    Ok(())
+}

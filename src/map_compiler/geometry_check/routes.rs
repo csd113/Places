@@ -38,8 +38,12 @@ pub(super) fn check(checker: &mut Checker<'_>) {
             bounds: stair.bounds(),
             axis: stair.axis(),
             base,
-            offset: stair.offset_y,
-            rise: stair.rise,
+            offset: stair.offset_y + if stair.reverse { stair.rise } else { 0.0 },
+            rise: if stair.reverse {
+                -stair.rise
+            } else {
+                stair.rise
+            },
             steps: true,
         };
         route.check(checker, &surfaces, &boxes, |x, z| {

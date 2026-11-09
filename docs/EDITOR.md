@@ -1140,8 +1140,15 @@ that fitted pose, including off-grid wall positions. It creates/fits the host
 opening in the same undoable edit and refuses insufficient room gaps, occupied
 openings, thick host walls and cabin/ceiling intersections with an explanation.
 
-Passenger elevators are authored through **Space and Environment > Elevator /
-floor travel**. Preview/Apply/Undo operate on complete `elevators[]` records;
+The keyboard-accessible **Tools > Geometry / stairs > Space / environment >
+Elevator: enter coordinates** creates a first cabin through the existing numeric
+form. Enter its ID, door-centre X/Z and yaw; **Destinations >** edits each landing's
+world Y, label and optional project-level/arrival reference. The initial two-stop
+vertical default is unchanged: for a single cabin, visit destination 2 and remove
+it before Preview. The initial local landing must remain. Numeric entry uses the
+exact authored pose and needs a clear shaft and matching hall opening; it does
+not perform pointer host fitting. **Build > Elevator** retains that fitting tool.
+Preview/Apply/Undo operate on complete `elevators[]` records;
 `<`/`>` select existing records. The second page edits the stop list. Embedded
 Test supports local rides, doors and positional cues; cross-level destinations
 use Build+Play's complete project export. See [Elevators](ELEVATORS.md).
@@ -1161,7 +1168,9 @@ preserved. See [dimensions and clearance](ELEVATORS.md#space-and-artwork).
 ## Advanced live cinematics
 
 **Advanced / All tools > Cinematics** edits ordered camera and existing Script
-rows on ordinary sequences, using a normal player Trigger as controller. Capture
+rows on ordinary sequences, using a normal player Trigger or selected interactable
+prop as controller. Prop interaction retries after close and spends Once only on
+success. Preview validates without mutation; Cancel discards the draft. Capture
 start/end views, choose a completion destination and Apply as one undoable edit.
 Test runs camera/NPC behavior; Build+Play proves complete-project transitions.
 See [Live in-engine cinematics](CINEMATICS.md) for camera fields, busy/once policy,
@@ -1177,3 +1186,60 @@ Select its prop entry for position/yaw/uniform scale, fit the specified actual
 wall opening and use Test. Existing slab style choices remain unchanged.
 Active-mechanism model replacement is refused to preserve authored wiring.
 See [exact placement, behavior and source contract](EXIT_DOORS.md).
+
+
+### Numeric walls and native creature drafts
+
+**Tools > Geometry / stairs > Wall: enter coordinates** provides minimum-corner
+X/Z, X/Z extents, world base Y, optional height and wall material. Preview,
+Apply, Cancel and the ordinary scene selection/transform/history/save paths are
+shared with the existing pointer Wall tool; pointer placement remains available.
+
+For a selected **Feltling** or **The Tall Guest** catalog prop, **Object settings >
+Components > Native creature** opens its complete controller draft. Apply
+commits one undo step. Preview and Cancel retain the source. Enabling explicitly
+shows `Solid: false`; conflicting motion/physics owners are refused, never
+removed. **Remove controller** removes only that capability, subject to reference
+validation. Scene deletion remains separate.
+
+Feltling fields include mode, optional conversation look-at, optional guide stop
+and resume distances, named routes and world-space feet points. Blank distances
+retain 10/6 m; 20/20 pauses only strictly beyond 20 m and resumes at or below 20 m.
+**+ Row / - Row** add/remove routes; **+ Point / - Point** edit the selected
+route. Select a route ID to reorder routes, or a feet coordinate to reorder its
+points with **Up / Down**. Field paths identify zero-based route/point indices.
+
+Tall Guest **Patrol / Prey / Passages** chooses the list; **+ Row / - Row**
+adds/removes entries and **Up / Down** reorders the selected entry. Prey rows cycle
+through existing native Feltling IDs. Passage rows expose stable ID, entry/exit
+feet coordinates, crouch-only and optional protected min/max bounds. Protected
+bounds are required for crouch-only links; the existing Guest exclusion and
+posed-clearance rules remain authoritative. All list limits and native ownership
+checks use the existing engine admission path. No hearing or speed controls are
+introduced.
+
+### Numeric stair shafts and fixtures
+
+Tools > Geometry / stairs > Space / environment > Stair shaft / numeric cut
+accepts one-based lower/upper Room numbers and a world-space rectangular footprint.
+Preview cuts both selected floor/ceiling planes, preserving their other sections,
+and adds one tall lower-floor carrier with the upper ceiling. Apply is one undo
+step. It refuses out-of-room cuts, intervening storeys and overlapping walls,
+props, fixtures, doors or existing walking modifiers. Other isolated stairs are
+retained, so separate shafts can be built in sequence. This operation creates
+only the shaft: author flights, landings and protective rails explicitly.
+
+Staircase > Page > Ascend to minimum X/Z = true reverses a flight. X/Z are
+still its minimum corner, sizes/rise remain positive, and Room-relative Y is
+still the foot's height. Omitted/false preserves existing maps. Width/depth
+choose the long axis as before. Use several flights with different footprints
+and edge-to-edge raised landings for turns; first cut the stacked rooms so
+all flight footprints share one carrier floor. Check player, carry and Guest
+clearance in the actual authored map.
+
+Tools > Props / sounds / signs > Light: enter coordinates creates a fixture
+through the normal Preview/Apply form. X/Z and explicit world ceiling Y select
+an exact storey; blank Y follows the first containing room's ceiling. Fixture
+uses its catalog ID. Blank Power/Range retain legacy defaults. Page exposes yaw
+and alignment. Space / environment > Light / numeric placement edits existing
+records using < / > or creates another with New. Pointer placement is retained.

@@ -517,3 +517,51 @@ fn appearance_changes_preserve_birth_and_repeated_requests_do_not_dirty_membersh
     );
     Ok(())
 }
+
+// Regression value: a displayed blend/restored IK pose is not the authored
+// clip at the same timestamp. One node and two constant channels cover both
+// invalidations and the unchanged-pure fast path; no assets/GPU/map bake.
+#[test]
+fn modified_authoritative_poses_do_not_masquerade_as_pure_clip_samples() -> Result<(), String> {
+    use crate::engine::gltf::{AnimationInterpolation, AnimationPath, PropAnimationChannel};
+    let mut model = tiny_rig().model.clone();
+    for (index, animation) in model.animations.iter_mut().enumerate() {
+        let y = if index == 0 { 1.0 } else { 3.0 };
+        animation.channels = vec![PropAnimationChannel {
+            node: 0,
+            path: AnimationPath::Translation,
+            interpolation: AnimationInterpolation::Linear,
+            times: vec![0.0, 1.0],
+            values: vec![0.0, y, 0.0, 0.0, y, 0.0],
+            values_per_key: 3,
+        }];
+    }
+    let mut animator = CharacterAnimator::new(&model).ok_or("missing tiny rig")?;
+    let _mixed = animator.sample_blended_fraction("walk", 0.5, "pose_stand", 0.5, 0.25);
+    let blend_y = animator.node_global("root").ok_or("root missing")?.w_axis.y;
+    let resampled_blend = animator.sample_fraction("walk", 0.5);
+    let pure_after_blend = animator.node_global("root").ok_or("root missing")?.w_axis.y;
+    let mut adjusted = animator.joint_pose();
+    adjusted
+        .first_mut()
+        .ok_or("root joint missing")?
+        .translation
+        .y = 0.25;
+    assert!(animator.restore_physical_pose("walk", 0.5, &adjusted));
+    let resampled_restored = animator.sample_fraction("walk", 0.5);
+    let pure_after_restore = animator.node_global("root").ok_or("root missing")?.w_axis.y;
+    assert_eq!(blend_y.to_bits(), 1.5_f32.to_bits());
+    assert!(
+        resampled_blend && pure_after_blend.to_bits() == 3.0_f32.to_bits(),
+        "Blend falsely reused as authored clip: y={pure_after_blend}"
+    );
+    assert!(
+        resampled_restored && pure_after_restore.to_bits() == 3.0_f32.to_bits(),
+        "Restored physical pose falsely reused as authored clip: y={pure_after_restore}"
+    );
+    let revision = animator.revision();
+    assert!(!animator.sample_fraction("walk", 0.5));
+    assert_eq!(animator.revision(), revision);
+    assert!(animator.cue.as_ref().is_some_and(|cue| cue.paused));
+    Ok(())
+}

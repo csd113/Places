@@ -29,13 +29,15 @@ fn setup(app: &App, d: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         (92.0, 43.0, "Remove", Command::Remove),
         (139.0, 76.0, "Capture start", Command::CaptureStart),
         (219.0, 81.0, "Capture endpoint", Command::CaptureEnd),
+        (306.0, 44.0, "Preview", Command::Preview),
+        (354.0, 44.0, "Cancel", Command::Cancel),
     ] {
         button(v, hits, [x, 55.0, width, 12.0], label, command);
     }
     ui::text(
         v,
         value_at(&d.sequence, "/id").as_str().unwrap_or("New"),
-        306.0,
+        402.0,
         57.0,
         ui::INK,
         40,
@@ -50,7 +52,7 @@ fn setup(app: &App, d: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 .find(|o| o.id == id)
                 .map(|o| o.label.clone())
         })
-        .unwrap_or_else(|| "Choose trigger".into());
+        .unwrap_or_else(|| "Choose trigger / prop".into());
     button(
         v,
         hits,
@@ -73,9 +75,13 @@ fn setup(app: &App, d: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         hits,
         [339.0, 70.0, 135.0, 12.0],
         if d.once {
-            "Once per reset"
+            if matches!(d.owner, Some(crate::editor::document::ObjectId::Prop(_))) {
+                "Once on success"
+            } else {
+                "Once per reset"
+            }
         } else {
-            "Repeat on exit/reentry"
+            "Repeat"
         },
         Command::Once,
     );
@@ -293,7 +299,7 @@ fn footer(d: &Draft, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     );
     ui::text(
         v,
-        "Build geometry normally. Player trigger via Create. Busy/cancel consumes Once until reset.",
+        "Prop: interact; cancel/busy retries, success spends Once. Trigger: entry consumes Once.",
         6.0,
         226.0,
         ui::MUTED,

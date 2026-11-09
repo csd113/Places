@@ -699,6 +699,7 @@ impl Elevator {
             own_box: None,
             door_index: None,
             leaf_range: None,
+            body_range: None,
             enabled: true,
         }
     }

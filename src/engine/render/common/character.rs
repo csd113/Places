@@ -3098,6 +3098,9 @@ pub struct CharacterAnimator {
     /// Explicit clip playback (entity routes) overriding the locomotion
     /// states while a cue is set.
     cue: Option<CueState>,
+    /// Playback metadata can survive a blend or restored physical pose. Only
+    /// an untouched authored sample may satisfy the exact clip/time cache.
+    authored_sample: Option<(usize, u32)>,
     /// Seconds into a cue's crossfade from the displayed pose retained in
     /// `clip_b` and `morph_b`; `None` once the pose has settled.
     cue_fade: Option<f32>,
@@ -3423,6 +3426,7 @@ impl CharacterAnimator {
             clips,
             named,
             cue: None,
+            authored_sample: None,
             cue_fade: None,
             cue_needs_sample: false,
             cue_finished: false,
@@ -3721,6 +3725,7 @@ impl CharacterAnimator {
         self.compose_globals();
         self.compute_deltas();
         self.revision = self.revision.wrapping_add(1);
+        self.authored_sample = None;
         true
     }
 
@@ -3845,9 +3850,11 @@ impl CharacterAnimator {
             return false;
         }
         let time = duration * progress.clamp(0.0, 1.0);
-        if self.cue.as_ref().is_some_and(|state| {
-            state.clip == clip && state.time.to_bits() == time.to_bits() && state.paused
-        }) && self.cue_fade.is_none()
+        if self.authored_sample == Some((clip, time.to_bits()))
+            && self.cue.as_ref().is_some_and(|state| {
+                state.clip == clip && state.time.to_bits() == time.to_bits() && state.paused
+            })
+            && self.cue_fade.is_none()
         {
             return false;
         }
@@ -3866,6 +3873,7 @@ impl CharacterAnimator {
         self.compose_globals();
         self.compute_deltas();
         self.revision = self.revision.wrapping_add(1);
+        self.authored_sample = Some((clip, time.to_bits()));
         true
     }
 
@@ -3902,6 +3910,7 @@ impl CharacterAnimator {
         self.compose_globals();
         self.compute_deltas();
         self.revision = self.revision.wrapping_add(1);
+        self.authored_sample = None;
         true
     }
 
@@ -4296,6 +4305,7 @@ impl CharacterAnimator {
         let Some(active) = clips.clips.get(clip) else {
             return false;
         };
+        self.authored_sample = None;
         active.sample(
             &self.rig,
             &MorphRig {

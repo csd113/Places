@@ -3326,6 +3326,9 @@ impl RampDef {
 /// (falling back to the riser material).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct StairDef {
+    /// Ascend toward minimum X/Z instead of maximum; omitted preserves old maps.
+    #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+    pub reverse: bool,
     pub x: f32,
     pub z: f32,
     pub width: f32,
@@ -3382,10 +3385,28 @@ impl StairSurface {
     #[must_use]
     pub const fn new(stair: &StairDef) -> Self {
         Self {
-            x: stair.x,
-            z: stair.z,
-            width: stair.width,
-            depth: stair.depth,
+            // Signed internal extents encode direction in the existing collision
+            // codec; public authored sizes remain positive. Bounds stay normalized.
+            x: if stair.reverse && stair.width >= stair.depth {
+                stair.x + stair.width
+            } else {
+                stair.x
+            },
+            z: if stair.reverse && stair.depth > stair.width {
+                stair.z + stair.depth
+            } else {
+                stair.z
+            },
+            width: if stair.reverse && stair.width >= stair.depth {
+                -stair.width
+            } else {
+                stair.width
+            },
+            depth: if stair.reverse && stair.depth > stair.width {
+                -stair.depth
+            } else {
+                stair.depth
+            },
             offset_y: sanitized(stair.offset_y),
             rise: sanitized(stair.rise),
             steps: stair.steps,
@@ -3417,6 +3438,15 @@ impl StairSurface {
     #[must_use]
     pub fn axis(&self) -> WallAxis {
         WallAxis::of(self.width.abs(), self.depth.abs())
+    }
+
+    /// True when the foot is at the maximum-coordinate end.
+    #[must_use]
+    pub fn reversed(&self) -> bool {
+        match self.axis() {
+            WallAxis::X => self.width < 0.0,
+            WallAxis::Z => self.depth < 0.0,
+        }
     }
 
     /// Run of the flight along [`Self::axis`], in metres.
@@ -3458,7 +3488,12 @@ impl StairSurface {
             WallAxis::X => x - x0,
             WallAxis::Z => z - z0,
         };
-        (along / length).clamp(0.0, 1.0)
+        let fraction = (along / length).clamp(0.0, 1.0);
+        if self.reversed() {
+            1.0 - fraction
+        } else {
+            fraction
+        }
     }
 
     /// Index of the tread carrying run fraction `fraction`, `0..steps`.
@@ -3588,7 +3623,15 @@ impl StairSurface {
                 self.tread_depth().mul_add(step_number, origin)
             }
         };
-        (boundary(index), boundary(index.saturating_add(1)))
+        let physical_index = if self.reversed() {
+            self.steps.saturating_sub(index.saturating_add(1))
+        } else {
+            index
+        };
+        (
+            boundary(physical_index),
+            boundary(physical_index.saturating_add(1)),
+        )
     }
 
     /// A world point just outside one side of the flight, at run fraction

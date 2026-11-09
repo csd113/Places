@@ -698,8 +698,10 @@ fn ramp_side_knots(level: &LevelDef, side: RampSide) -> Vec<f32> {
     }
     for stair in &level.stairs {
         if stair.axis() == side.axis && side.contact_span(stair.bounds()).is_some() {
-            for step in 1..stair.step_count() {
-                add(stair.tread_span(step).0);
+            for step in 0..stair.step_count() {
+                let (start, end) = stair.tread_span(step);
+                add(start);
+                add(end);
             }
         }
     }
@@ -1059,6 +1061,7 @@ fn span_point(axis: WallAxis, x0: f32, x1: f32, z0: f32, z1: f32, fraction: f32)
 /// The resolved constants of one staircase, shared by its sub-emitters.
 struct StairFrame {
     axis: WallAxis,
+    reverse: bool,
     across_low: f32,
     across_high: f32,
     /// World Y of the walking surface at the foot of the flight.
@@ -1108,14 +1111,25 @@ fn emit_stair(
     };
     let axis = stair.axis();
     let steps = stair.step_count();
-    let (head_x, head_z) = span_point(axis, x0, x1, z0, z1, 1.0);
+    let (head_x, head_z) = span_point(axis, x0, x1, z0, z1, if stair.reverse { 0.0 } else { 1.0 });
     let probe = ADJACENT_PROBE_M;
     // Just outside the flight's ends: the floor a walker meets at the foot and
     // the floor the top tread lands on (a raised platform closes the flight's
     // own end face, so it is only emitted when nothing else does).
     let outside = |fraction: f32, before: bool| -> (f32, f32) {
-        let (x, z) = span_point(axis, x0, x1, z0, z1, fraction);
-        let offset = if before { -probe } else { probe };
+        let (x, z) = span_point(
+            axis,
+            x0,
+            x1,
+            z0,
+            z1,
+            if stair.reverse {
+                1.0 - fraction
+            } else {
+                fraction
+            },
+        );
+        let offset = (if before { -probe } else { probe }) * if stair.reverse { -1.0 } else { 1.0 };
         match axis {
             WallAxis::X => (x + offset, z),
             WallAxis::Z => (x, z + offset),
@@ -1127,6 +1141,7 @@ fn emit_stair(
         .unwrap_or_else(|| room_floor + stair.base_offset());
     let frame = StairFrame {
         axis,
+        reverse: stair.reverse,
         across_low: if axis == WallAxis::X { z0 } else { x0 },
         across_high: if axis == WallAxis::X { z1 } else { x1 },
         base_y: room_floor + stair.base_offset(),
@@ -1185,22 +1200,23 @@ fn emit_stair_step(
     } else {
         frame.riser.mul_add(u32_to_f32(step), frame.base_y)
     };
+    let front = if frame.reverse { span_end } else { span_start };
     let expected = match frame.axis {
-        WallAxis::X => [-1.0, 0.0, 0.0],
-        WallAxis::Z => [0.0, 0.0, -1.0],
+        WallAxis::X => [if frame.reverse { 1.0 } else { -1.0 }, 0.0, 0.0],
+        WallAxis::Z => [0.0, 0.0, if frame.reverse { 1.0 } else { -1.0 }],
     };
     let mut points: [[f32; 3]; 4] = match frame.axis {
         WallAxis::X => [
-            [span_start, riser_bottom, frame.across_low],
-            [span_start, riser_bottom, frame.across_high],
-            [span_start, tread_y, frame.across_high],
-            [span_start, tread_y, frame.across_low],
+            [front, riser_bottom, frame.across_low],
+            [front, riser_bottom, frame.across_high],
+            [front, tread_y, frame.across_high],
+            [front, tread_y, frame.across_low],
         ],
         WallAxis::Z => [
-            [frame.across_low, riser_bottom, span_start],
-            [frame.across_high, riser_bottom, span_start],
-            [frame.across_high, tread_y, span_start],
-            [frame.across_low, tread_y, span_start],
+            [frame.across_low, riser_bottom, front],
+            [frame.across_high, riser_bottom, front],
+            [frame.across_high, tread_y, front],
+            [frame.across_low, tread_y, front],
         ],
     };
     let mut top_flags = [false, false, true, true];
@@ -1333,9 +1349,10 @@ fn emit_stair_landing(
     head_z: f32,
 ) {
     let top_y = frame.tread_y(frame.steps.saturating_sub(1));
+    let probe = ADJACENT_PROBE_M * if frame.reverse { -1.0 } else { 1.0 };
     let (beyond_x, beyond_z) = match frame.axis {
-        WallAxis::X => (head_x + ADJACENT_PROBE_M, head_z),
-        WallAxis::Z => (head_x, head_z + ADJACENT_PROBE_M),
+        WallAxis::X => (head_x + probe, head_z),
+        WallAxis::Z => (head_x, head_z + probe),
     };
     let beyond = context
         .surfaces
@@ -1345,8 +1362,8 @@ fn emit_stair_landing(
         return;
     }
     let expected = match frame.axis {
-        WallAxis::X => [1.0, 0.0, 0.0],
-        WallAxis::Z => [0.0, 0.0, 1.0],
+        WallAxis::X => [if frame.reverse { -1.0 } else { 1.0 }, 0.0, 0.0],
+        WallAxis::Z => [0.0, 0.0, if frame.reverse { -1.0 } else { 1.0 }],
     };
     let (bottom, top) = (beyond.min(top_y), beyond.max(top_y));
     let mut points: [[f32; 3]; 4] = match frame.axis {

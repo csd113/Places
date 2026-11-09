@@ -512,3 +512,243 @@ fn cache_filter_selections(
     }
     Ok(result)
 }
+
+// Essential ceiling-streak regression: a black half-wall has an analytic
+// cosine-weighted sky visibility. Shared azimuths made its error constant along
+// radial strips (10.3 percentage points). 1,122 receivers, two triangles and
+// three one-bounce solves stay below 1 MiB and need no map, assets or GPU.
+fn diffuse_wall_end_charts() -> Result<Vec<(LightmapPatch, Chart)>, String> {
+    let mut charts = Vec::new();
+    for index in 0..17_u16 {
+        let theta = -1.2 + f32::from(index) * 0.15;
+        let (sin, cos) = theta.sin_cos();
+        let origin = [-0.5 * cos, 3.0, 0.5 * sin];
+        let u = [-3.0 * cos, 0.0, 3.0 * sin];
+        let v = [-0.002 * sin, 0.0, -0.002 * cos];
+        let patch = LightmapPatch::from_quad(
+            PatchKind::Ceiling,
+            [
+                origin,
+                add(origin, u),
+                add(add(origin, u), v),
+                add(origin, v),
+            ],
+            None,
+        )
+        .ok_or("ceiling strip")?;
+        charts.push((
+            patch,
+            Chart {
+                page: 0,
+                x: 0,
+                y: 0,
+                width: 33,
+                height: 2,
+            },
+        ));
+    }
+    Ok(charts)
+}
+
+#[test]
+fn diffuse_wall_end_has_no_coherent_radial_bias_and_is_chart_order_stable() -> Result<(), String> {
+    let mut charts = diffuse_wall_end_charts()?;
+    let wall = [
+        [0.0, 3.0, 0.0],
+        [0.0, -10_000.0, 0.0],
+        [0.0, -10_000.0, 10_000.0],
+        [0.0, 3.0, 10_000.0],
+    ];
+    let blocked = TransportScene::new(
+        vec![
+            TransportTriangle::new(wall[0], wall[1], wall[2], [0.0; 3]).ok_or("wall")?,
+            TransportTriangle::new(wall[0], wall[2], wall[3], [0.0; 3]).ok_or("wall")?,
+        ],
+        Vec::new(),
+    )
+    .ok_or("blocked scene")?
+    .with_sky([1.0; 3]);
+    let clear = TransportScene::new(Vec::new(), Vec::new())
+        .ok_or("clear scene")?
+        .with_sky([1.0; 3]);
+    let options = SolveOptions {
+        taps_per_axis: 1,
+        bounces: 1,
+        gather_samples: 64,
+        workers: 1,
+    };
+    let solved = blocked
+        .solve(&charts, options, None)
+        .map_err(|e| e.name().to_string())?;
+    let reference = clear
+        .solve(&charts, options, None)
+        .map_err(|e| e.name().to_string())?;
+    let mut squared_error = 0.0;
+    let mut receiver_count = 0_u16;
+    for (strip, base) in solved.charts.iter().zip(&reference.charts) {
+        let mut observed = 0.0;
+        let mut expected = 0.0;
+        for ((receiver, texel), unoccluded) in
+            strip.receivers.iter().zip(&strip.texels).zip(&base.texels)
+        {
+            // Normalize the finite polar quadrature using the unobstructed
+            // control; only the wall-end azimuthal visibility is under test.
+            assert!(
+                (unoccluded.light_at([0.0, -1.0, 0.0])[0] - 1.0).abs() < 1.0e-4,
+                "importance sampling must preserve unit isotropic-sky irradiance"
+            );
+            let analytic = 0.75
+                - (receiver.position[2] / receiver.position[0].abs()).atan()
+                    / std::f32::consts::TAU;
+            let fraction =
+                texel.light_at([0.0, -1.0, 0.0])[0] / unoccluded.light_at([0.0, -1.0, 0.0])[0];
+            observed += fraction;
+            squared_error += (fraction - analytic).powi(2);
+            receiver_count = receiver_count.saturating_add(1);
+            expected += analytic;
+        }
+        let count =
+            f32::from(u16::try_from(strip.texels.len()).map_err(|error| error.to_string())?);
+        assert!(
+            ((observed - expected) / count).abs() < 0.04,
+            "finite gather must not retain a coherent radial visibility bias: observed={}, expected={}",
+            observed / count,
+            expected / count
+        );
+    }
+    let rms = (squared_error / f32::from(receiver_count)).sqrt();
+    assert!(
+        rms < 0.015,
+        "spatial gather error must not create mottling: RMS={rms}"
+    );
+    charts.reverse();
+    let reordered = blocked
+        .solve(&charts, options, None)
+        .map_err(|e| e.name().to_string())?;
+    for (actual, expected) in reordered.charts.iter().rev().zip(&solved.charts) {
+        assert_eq!(
+            actual.texels, expected.texels,
+            "world-space phase must not depend on chart order"
+        );
+    }
+    Ok(())
+}
+
+// Essential cache-boundary regression: the cover really shadows the upper
+// wall, while its lower cached representative remains lit. Four triangles,
+// eight receivers, two64-ray one-bounce solves; no assets/GPU/map, under1MiB.
+// The old cache supplies0.22false ceiling light; the uncovered control must
+// retain illumination, so suppressing all reflected light cannot pass.
+fn endcap_occlusion_scene(covered: bool) -> Result<TransportScene, String> {
+    let wall = [
+        [-1.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0],
+        [1.0, 2.0, 0.0],
+        [-1.0, 2.0, 0.0],
+    ];
+    let cover = [
+        [-2.0, 1.5, 0.2],
+        [2.0, 1.5, 0.2],
+        [2.0, 1.5, 1.8],
+        [-2.0, 1.5, 1.8],
+    ];
+    let mut triangles = Vec::new();
+    for (quad, color) in
+        std::iter::once((wall, [1.0; 3])).chain(covered.then_some((cover, [0.0; 3])))
+    {
+        triangles.push(TransportTriangle::new(quad[0], quad[1], quad[2], color).ok_or("wall")?);
+        triangles.push(TransportTriangle::new(quad[0], quad[2], quad[3], color).ok_or("wall")?);
+    }
+    TransportScene::new(
+        triangles,
+        vec![TransportEmitter {
+            position: [0.0, 1.0, 1.0],
+            shape: EmitterShape::Point,
+            color: [1.0; 3],
+            intensity: 1.0,
+            range: 5.0,
+            falloff: LightFalloff::Smooth,
+            height_factor: 1.0,
+            directional: false,
+            switchable: None,
+        }],
+    )
+    .ok_or_else(|| "end-cap scene".into())
+}
+
+#[test]
+fn first_reflection_preserves_secondary_shadow_instead_of_borrowing_cache_light()
+-> Result<(), String> {
+    let patches = [
+        [
+            [-0.005, 1.249, 0.0],
+            [0.005, 1.249, 0.0],
+            [0.005, 1.251, 0.0],
+            [-0.005, 1.251, 0.0],
+        ],
+        [
+            [0.0, 2.0, 0.0001],
+            [0.001, 2.0, 0.0001],
+            [0.001, 2.0, 0.0002],
+            [0.0, 2.0, 0.0002],
+        ],
+    ];
+    let charts = patches
+        .into_iter()
+        .map(|quad| {
+            Ok((
+                LightmapPatch::from_quad(PatchKind::Prop, quad, None).ok_or("patch")?,
+                Chart {
+                    page: 0,
+                    x: 0,
+                    y: 0,
+                    width: 2,
+                    height: 2,
+                },
+            ))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    let options = SolveOptions {
+        taps_per_axis: 3,
+        bounces: 1,
+        gather_samples: 64,
+        workers: 1,
+    };
+    for covered in [true, false] {
+        let scene = endcap_occlusion_scene(covered)?;
+        let upper = scene
+            .intensity_at([0.0, 1.999, 0.000_001], [0.0, 0.0, 1.0], options)
+            .light_at([0.0, 0.0, 1.0]);
+        let lower = scene
+            .intensity_at([0.0, 1.25, 0.000_001], [0.0, 0.0, 1.0], options)
+            .light_at([0.0, 0.0, 1.0]);
+        assert!(lower[0] > 0.5, "the lower cache sample really is lit");
+        if covered {
+            assert_eq!(upper, [0.0; 3], "the opaque cover really shadows the hit");
+        } else {
+            assert!(upper[0] > 0.3, "removing the cover exposes the source");
+        }
+        let primary = scene
+            .intensity_at([0.0005, 2.0, 0.000_15], [0.0, -1.0, 0.0], options)
+            .light_at([0.0, -1.0, 0.0])[0];
+        let solved = scene
+            .solve(&charts, options, None)
+            .map_err(|error| error.name().to_string())?;
+        let ceiling = solved.charts.get(1).ok_or("ceiling")?;
+        for texel in &ceiling.texels {
+            let light = texel.light_at([0.0, -1.0, 0.0])[0];
+            if covered {
+                assert!(
+                    light < 1.0e-5,
+                    "shadowed wall hit must not borrow the lower sample: {light}"
+                );
+            } else {
+                assert!(
+                    light > primary + 0.1,
+                    "the unobstructed control retains reflected light beyond its primary direct term"
+                );
+            }
+        }
+    }
+    Ok(())
+}

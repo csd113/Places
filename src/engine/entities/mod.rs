@@ -1836,6 +1836,7 @@ impl EntityWorld {
                 own_box,
                 door_index: None,
                 leaf_range: None,
+                body_range: None,
                 enabled,
             });
         }
@@ -1859,6 +1860,7 @@ impl EntityWorld {
                 own_box: None,
                 door_index: Some(door_index),
                 leaf_range: None,
+                body_range: None,
                 enabled: component.enabled,
             });
         }
@@ -1946,12 +1948,14 @@ impl EntityWorld {
                 own_box: None,
                 door_index: None,
                 leaf_range: None,
+                body_range: None,
                 enabled: component.enabled,
             });
         }
         self.interactables = Interactables::with_items(items);
         self.sync_elevator_controls();
         self.sync_animated_door_interactables();
+        self.refresh_guest_colliders();
     }
 
     fn rebuild_door_colliders(&mut self) {
@@ -1973,16 +1977,28 @@ impl EntityWorld {
 
     fn refresh_guest_colliders(&mut self) {
         self.door_colliders.truncate(self.guest_collider_start);
-        self.door_colliders.extend(
-            self.guests
-                .iter()
-                .flat_map(crate::engine::tall_guest::Guest::body_colliders),
-        );
-        self.door_colliders.extend(
-            self.feltlings
-                .iter()
-                .filter_map(crate::engine::feltling::Feltling::collider),
-        );
+        for guest in &self.guests {
+            let start = self.door_colliders.len();
+            self.door_colliders.extend(guest.body_colliders());
+            self.interactables
+                .sync_body_range(&guest.state.id, start, self.door_colliders.len());
+            if let Some(index) = self.interactables.index_of(&guest.state.id) {
+                let _updated = self.interactables.set_live_pose(
+                    index,
+                    guest.state.position,
+                    guest.state.yaw.to_degrees(),
+                );
+            }
+        }
+        for feltling in &self.feltlings {
+            let start = self.door_colliders.len();
+            self.door_colliders.extend(feltling.collider());
+            self.interactables.sync_body_range(
+                &feltling.state.id,
+                start,
+                self.door_colliders.len(),
+            );
+        }
     }
 
     fn sync_animated_door_interactables(&mut self) {

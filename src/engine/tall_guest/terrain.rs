@@ -99,9 +99,6 @@ impl Guest {
                 .copied()
                 .unwrap_or(self.state.position.y);
             let future = self.swing_heights.get(index).copied().unwrap_or(floor);
-            if (floor - self.state.position.y).abs() < 0.001 && (future - floor).abs() < 0.001 {
-                continue;
-            }
             let planted = self.state.plants.get(index).and_then(Option::as_ref);
             let supported = planted.is_some();
             let Some(foot) = self.socket(&format!("foot_{suffix}")) else {
@@ -112,18 +109,37 @@ impl Guest {
                 .map_or((current_position, current_rotation), |plant| {
                     (plant.position, plant.rotation)
                 });
+            // A heel can reach a tread sideways during a turn. Inspect the
+            // actual skinned footprint, not only probes along body-forward.
+            let Some((mut clearance, footprint_uneven)) = self.sole_support(index, ctx) else {
+                continue;
+            };
+            // A lowered or blended leg can cross even a flat plane while its
+            // ankle remains above it. Reuse the strict pose floor margin;
+            // flat terrain alone is insufficient to skip skinned clearance.
+            if (floor - self.state.position.y).abs() < 0.001
+                && (future - floor).abs() < 0.001
+                && !footprint_uneven
+                && clearance >= -0.005
+            {
+                continue;
+            }
             let mut target = self.transform().inverse().transform_point3(position);
             let turn = Quat::from_rotation_y(-self.state.yaw) * rotation;
-            for _ in 0_u8..4 {
-                let Some(minimum) = self.sole_clearance(index, ctx) else {
-                    break;
-                };
-                let change = (0.001 - minimum).clamp(if supported { -0.04 } else { 0.0 }, 0.04);
+            // A tread can rise by more than the old four 4cm corrections.
+            // Keep each solve small, but cover the bounded 45cm terrain query;
+            // strict whole-skin and planted-contact checks still follow.
+            for _ in 0_u8..16 {
+                let change = (0.001 - clearance).clamp(if supported { -0.04 } else { 0.0 }, 0.04);
                 if change.abs() < 0.0001 {
                     break;
                 }
                 target.y += change;
                 self.solve_leg(suffix, target, turn);
+                let Some((next_clearance, _)) = self.sole_support(index, ctx) else {
+                    break;
+                };
+                clearance = next_clearance;
             }
             let requested = self.transform().transform_point3(target);
             if let Some(actual) = self
@@ -137,7 +153,7 @@ impl Guest {
         }
     }
 
-    fn sole_clearance(&self, index: usize, ctx: &WorldContext<'_>) -> Option<f32> {
+    fn sole_support(&self, index: usize, ctx: &WorldContext<'_>) -> Option<(f32, bool)> {
         self.sole_vertices
             .get(index)?
             .iter()
@@ -148,9 +164,13 @@ impl Guest {
                 let point = self.transform().transform_point3(Vec3::from(
                     self.animator.skin_position(*joints, *weights, vertex.pos),
                 ));
-                Some(point.y - height(ctx, point, self.state.position.y))
+                let floor = height(ctx, point, self.state.position.y);
+                Some((
+                    point.y - floor,
+                    (floor - self.state.position.y).abs() >= 0.001,
+                ))
             })
-            .min_by(f32::total_cmp)
+            .reduce(|(a, a_uneven), (b, b_uneven)| (a.min(b), a_uneven || b_uneven))
     }
 }
 
@@ -385,3 +405,7 @@ impl Guest {
         }
     }
 }
+
+#[cfg(test)]
+#[path = "../tests/tall_guest_flat_support.rs"]
+mod flat_support_tests;

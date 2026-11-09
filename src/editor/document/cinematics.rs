@@ -12,6 +12,63 @@ impl Document {
         destination: Option<&str>,
         once: bool,
     ) -> Result<(), String> {
+        let raw = self.cinematic_edit(expected, original, sequence, owner, destination, once)?;
+        self.accept_edit(raw)
+    }
+
+    pub(crate) fn preview_cinematic(
+        &self,
+        expected: &Value,
+        original: Option<&str>,
+        sequence: &Value,
+        owner: ObjectId,
+        destination: Option<&str>,
+        once: bool,
+    ) -> Result<(), String> {
+        let raw = self.cinematic_edit(expected, original, sequence, owner, destination, once)?;
+        self.validated_preview(raw).map(|_| ())
+    }
+
+    /// The ordinary controller owns either player entry or explicit interaction.
+    pub(crate) fn cinematic_controller(&self, owner: ObjectId) -> Option<(String, &'static str)> {
+        if let ObjectId::Trigger(index) = owner {
+            return self
+                .level()
+                .volume_instance_ids()
+                .get(index)
+                .cloned()
+                .map(|id| (id, "enter_volume"));
+        }
+        if let ObjectId::Prop(index) = owner
+            && self
+                .component_object(owner)?
+                .get("components")?
+                .as_array()?
+                .iter()
+                .any(|c| {
+                    value_at(c, "/component") == "interactable"
+                        && value_at(c, "/enabled").as_bool().unwrap_or(true)
+                })
+        {
+            return self
+                .level()
+                .prop_instance_ids()
+                .get(index)
+                .cloned()
+                .map(|id| (id, "interact"));
+        }
+        None
+    }
+
+    fn cinematic_edit(
+        &self,
+        expected: &Value,
+        original: Option<&str>,
+        sequence: &Value,
+        owner: ObjectId,
+        destination: Option<&str>,
+        once: bool,
+    ) -> Result<Value, String> {
         if self.raw() != expected {
             return Err(
                 "Scene changed. Select the saved sequence again (or New); nothing was applied."
@@ -24,22 +81,20 @@ impl Document {
         if original.is_some_and(|old| old != id) {
             return Err("Existing cinematic IDs are stable and cannot be renamed".into());
         }
-        if !matches!(owner, ObjectId::Trigger(_)) {
-            return Err("Choose an ordinary player trigger as controller".into());
-        }
-        let owner_id = self
-            .level()
-            .volume_instance_ids()
-            .get(owner.collection().1)
-            .cloned()
-            .ok_or("Controller no longer exists")?;
-        let managed = value_at(expected, "/sequences")
+        let (owner_id, event) = self
+            .cinematic_controller(owner)
+            .ok_or("Choose a player trigger or an enabled interactable prop as controller")?;
+        let previous = value_at(expected, "/sequences")
             .as_array()
             .and_then(|rows| {
                 rows.iter()
                     .find(|row| value_at(row, "/id").as_str() == original)
             })
-            .and_then(|row| value_at(row, "/editor_cinematic/owner").as_str());
+            .unwrap_or(&Value::Null);
+        if original.is_some() && previous.is_null() {
+            return Err("Sequence no longer exists".into());
+        }
+        let managed = value_at(previous, "/editor_cinematic/owner").as_str();
         if managed.is_some_and(|old| old != owner_id) {
             return Err("Existing cinematic controller cannot be changed implicitly".into());
         }
@@ -83,13 +138,8 @@ impl Document {
             .or_insert_with(|| json!([]))
             .as_array_mut()
             .ok_or("Invalid bindings")?;
-        let previous_destination = value_at(expected, "/sequences")
-            .as_array()
-            .and_then(|rows| {
-                rows.iter()
-                    .find(|row| value_at(row, "/id").as_str() == original)
-            })
-            .and_then(|row| value_at(row, "/editor_cinematic/destination").as_str());
+        let previous_destination = value_at(previous, "/editor_cinematic/destination").as_str();
+        let prop = event == "interact";
         wire_bindings(
             bindings,
             id,
@@ -97,8 +147,17 @@ impl Document {
             previous_destination,
             destination,
             once,
+            prop.then_some((
+                owner_id.as_str(),
+                value_at(previous, "/editor_cinematic/once")
+                    .as_bool()
+                    .unwrap_or(true),
+            )),
         )?;
-        self.accept_edit(raw)
+        if prop {
+            wire_prop_state(&mut raw, owner, id, managed == Some(owner_id.as_str()))?;
+        }
+        Ok(raw)
     }
 
     fn cinematic_transition(
@@ -162,6 +221,55 @@ fn references(value: &Value, id: &str) -> bool {
     }
 }
 
+fn wire_prop_state(
+    raw: &mut Value,
+    owner: ObjectId,
+    id: &str,
+    managed: bool,
+) -> Result<(), String> {
+    let object = objects::object_mut(raw, owner)?;
+    let components = object
+        .entry("components")
+        .or_insert_with(|| json!([]))
+        .as_array_mut()
+        .ok_or("Invalid components")?;
+    let name = format!("cinematic_{id}_done");
+    if let Some(state) = components.iter().find(|v| {
+        value_at(v, "/component") == "state" && value_at(v, "/name").as_str() == Some(name.as_str())
+    }) {
+        if !managed || value_at(state, "/value") != false {
+            return Err("Cinematic completion state is already authored; nothing changed".into());
+        }
+    } else if managed {
+        return Err(
+            "Cinematic completion state was removed; preserve intent through Events".into(),
+        );
+    } else {
+        components.push(json!({"component":"state","name":name,"value":false}));
+    }
+    Ok(())
+}
+
+fn start_binding(id: &str, prop: Option<&str>, once: bool) -> Result<Value, String> {
+    let start_id = format!("cinematic_{id}_start");
+    let done = format!("cinematic_{id}_done");
+    let mut start = json!({"id":start_id,"on":if prop.is_some() {"interact"} else {"enter_volume"},"once":once && prop.is_none(),"actions":[{"action":"start_sequence","sequence":id}]});
+    if let Some(owner) = prop {
+        let when = if once {
+            json!([{"check":"state","target":owner,"name":done,"equals":false}])
+        } else {
+            json!([])
+        };
+        drop(
+            start
+                .as_object_mut()
+                .ok_or("Invalid helper")?
+                .insert("when".into(), when),
+        );
+    }
+    Ok(start)
+}
+
 fn wire_bindings(
     bindings: &mut Vec<Value>,
     id: &str,
@@ -169,17 +277,27 @@ fn wire_bindings(
     previous_destination: Option<&str>,
     destination: Option<&str>,
     once: bool,
+    prop: Option<(&str, bool)>,
 ) -> Result<(), String> {
     let start_id = format!("cinematic_{id}_start");
     let end_id = format!("cinematic_{id}_complete");
+    let done = format!("cinematic_{id}_done");
+    let complete_actions = |target: Option<&str>| {
+        let mut actions = Vec::new();
+        if prop.is_some() {
+            actions.push(json!({"action":"set_state","name":done,"value":true}));
+        }
+        if let Some(level) = target {
+            actions.push(json!({"action":"change_level","level":level}));
+        }
+        actions
+    };
+    let start = start_binding(id, prop.map(|(owner, _)| owner), once)?;
     for (binding_id, binding) in [
-        (
-            &start_id,
-            json!({"id":start_id,"on":"enter_volume","once":once,"actions":[{"action":"start_sequence","sequence":id}]}),
-        ),
+        (&start_id, start),
         (
             &end_id,
-            json!({"id":end_id,"on":"sequence_complete","key":id,"actions":destination.map_or_else(Vec::new, |level| vec![json!({"action":"change_level","level":level})])}),
+            json!({"id":end_id,"on":"sequence_complete","key":id,"actions":complete_actions(destination)}),
         ),
     ] {
         if let Some(index) = bindings
@@ -195,9 +313,7 @@ fn wire_bindings(
             let expected_actions = if binding_id == &start_id {
                 json!([{"action":"start_sequence","sequence":id}])
             } else {
-                json!(previous_destination.map_or_else(Vec::new, |level| vec![
-                    json!({"action":"change_level","level":level})
-                ]))
+                json!(complete_actions(previous_destination))
             };
             if bindings.get(index).and_then(|v| v.get("actions")) != Some(&expected_actions) {
                 return Err("Helper events were manually edited; preserve them through Events instead of overwriting them here".into());
@@ -206,12 +322,29 @@ fn wire_bindings(
                 .get(index)
                 .and_then(Value::as_object)
                 .ok_or("Invalid helper event")?;
+            if binding_id == &start_id
+                && let Some((owner, previous_once)) = prop
+            {
+                let expected_when = if previous_once {
+                    json!([{"check":"state","target":owner,"name":done,"equals":false}])
+                } else {
+                    json!([])
+                };
+                if previous_record.get("when") != Some(&expected_when)
+                    || previous_record.get("once") != Some(&json!(false))
+                {
+                    return Err(
+                        "Helper interaction policy was manually edited; preserve it in Events"
+                            .into(),
+                    );
+                }
+            }
             if previous_record.get("on") != binding.get("on")
                 || (binding_id == &end_id && previous_record.get("key") != binding.get("key"))
             {
                 return Err("Helper event identity was manually changed; edit it in Events".into());
             }
-            if binding_id == &end_id && destination.is_none() {
+            if binding_id == &end_id && destination.is_none() && prop.is_none() {
                 if previous_record
                     .keys()
                     .any(|key| !matches!(key.as_str(), "id" | "on" | "key" | "actions"))
@@ -230,7 +363,7 @@ fn wire_bindings(
             for (key, value) in binding.as_object().ok_or("Invalid helper")? {
                 drop(previous.insert(key.clone(), value.clone()));
             }
-        } else if binding_id != &end_id || destination.is_some() {
+        } else if binding_id != &end_id || destination.is_some() || prop.is_some() {
             bindings.push(binding);
         }
     }

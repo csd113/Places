@@ -216,7 +216,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 2;
+pub const SOLVER_REVISION: u64 = 6;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1006,7 +1006,7 @@ pub struct TransportSolution {
     /// One entry per switchable light, in the order the caller supplied: the
     /// light index and its own contribution per chart.
     pub switchable: Vec<(usize, Vec<SolvedChart>)>,
-    /// Direct rays cast.
+    /// Primary direct-pass visibility rays (not secondary-hit shadow queries).
     pub direct_rays: usize,
     /// Gather directions evaluated, including geometric-horizon rejections.
     pub bounce_rays: usize,
@@ -2799,6 +2799,7 @@ impl TransportScene {
         {
             let (combined, rays, cells) = self.bounce_orders(
                 receivers,
+                emitters,
                 prepared.cache(self),
                 accumulators,
                 SolveOptions {
@@ -2820,6 +2821,7 @@ impl TransportScene {
             charts,
             prepared,
             &direct,
+            emitters,
             accumulators,
             apply_fill,
             SolveOptions {
@@ -2839,6 +2841,7 @@ impl TransportScene {
         charts: &[(LightmapPatch, Chart)],
         prepared: &ReceiverSet,
         direct: &[Accumulator],
+        emitters: &[usize],
         accumulators: Vec<Accumulator>,
         apply_fill: bool,
         options: SolveOptions,
@@ -2859,13 +2862,24 @@ impl TransportScene {
             receivers,
             dump: apply_fill,
         };
+        if probes.is_some() && apply_fill && probe_audit::enabled() {
+            if let Err(error) = probe_audit::dump_receivers(self, receivers, &accumulators, bounces)
+            {
+                crate::engine::logging::warn(format_args!("[probe-diagnostics] {error}"));
+            }
+        }
+        let mut indirect = accumulators;
+        for (value, direct_term) in indirect.iter_mut().zip(direct) {
+            add_scaled(value, direct_term, -1.0);
+        }
         let probe_started = std::time::Instant::now();
         if let Some(probe_field) = probes {
             *probe_field = Some(bake_probe_field(
                 self,
                 receivers,
                 prepared.cache(self),
-                &accumulators,
+                &indirect,
+                emitters,
                 taps,
                 bounces,
                 workers,
@@ -2878,10 +2892,6 @@ impl TransportScene {
         // Direct visibility is deterministic and has no gather noise. Filtering
         // it chart-locally moves shadow edges and changes gradients at seams.
         // Denoise only the diffuse gather, then encode the complete integral.
-        let mut indirect = accumulators;
-        for (value, direct_term) in indirect.iter_mut().zip(direct) {
-            add_scaled(value, direct_term, -1.0);
-        }
         if apply_fill {
             self.audit_indirect(charts, receivers, &indirect, taps);
         }
@@ -2934,6 +2944,7 @@ impl TransportScene {
     fn bounce_orders(
         &self,
         receivers: &[TransportReceiver],
+        emitters: &[usize],
         cache: &RadianceCache,
         mut accumulators: Vec<Accumulator>,
         options: SolveOptions,
@@ -2958,12 +2969,10 @@ impl TransportScene {
                 options.gather_samples,
                 options.workers
             ));
-            // Each pass traces uniform-hemisphere rays against the previous
-            // pass's solved light, so one pass is one diffuse bounce and
-            // two passes are two. The estimator is unbiased: a cosine
-            // response is not baked into the ray density, so summing every
-            // traced sample with its own solid-angle weight cannot lose the
-            // energy a truncated point-light list lost.
+            // Each pass is one diffuse order. The first samples direct
+            // irradiance at the actual secondary hit; later orders sample
+            // the previous pass. Cosine importance sampling retains inverse
+            // PDF weights for angular moments and the exact surface integral.
             let gained = self.bounce_pass(
                 receivers,
                 &previous_order,
@@ -2973,6 +2982,8 @@ impl TransportScene {
                 apply_fill,
                 options.workers,
                 cancel,
+                emitters,
+                options.taps_per_axis,
             )?;
             bounce_count = bounce_count.saturating_add(
                 receivers
@@ -3181,7 +3192,7 @@ impl TransportScene {
         }
     }
 
-    /// One bounce pass: uniform-hemisphere ray samples against the cache.
+    /// One bounce pass with cosine-PDF-compensated hemisphere samples.
     ///
     /// Every receiver uses the same per-pass deterministic angular sequence,
     /// making serial and parallel results identical and preventing chart order
@@ -3200,6 +3211,8 @@ impl TransportScene {
         include_sky: bool,
         workers: usize,
         cancel: Option<&AtomicBool>,
+        emitters: &[usize],
+        taps: u8,
     ) -> Result<Vec<Accumulator>, LightmapFailure> {
         let count = samples.clamp(1, MAX_BOUNCE_RAYS);
         let inverse_count = 1.0 / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
@@ -3219,11 +3232,16 @@ impl TransportScene {
                 .get(usize::try_from(receiver.surface).unwrap_or(usize::MAX))
                 .map_or(receiver.normal, |triangle| triangle.normal);
             let mut accumulator = Accumulator::default();
-            let (tangent, bitangent) = hemisphere_axes(receiver.normal);
-            // A shared sequence makes the estimator depend on geometry, not
-            // chart ordering or how many texels another chart happened to add.
+            let axes = hemisphere_axes(receiver.normal);
+            // Reusing the same azimuths at every point turns a wall end into
+            // coherent radial bands. Rotate the shared hemisphere by a stable
+            // world-space phase, independent of chart order and worker index.
+            let rotation = surface_gather_rotation(receiver.position, pass_index);
             for local in &directions {
-                let direction = hemisphere_from_local(receiver.normal, tangent, bitangent, *local);
+                // Cosine PDF is cos(theta)/PI; the stored angular lobe
+                // integrates solid angle, so retain its inverse density.
+                let sample_weight = inverse_count / local[2];
+                let direction = gather_direction(receiver.normal, axes, *local, rotation);
                 // Smooth shading normals can tilt below the actual face. Such
                 // directions have no visible geometric hemisphere and must not
                 // hit this face's back and recycle its own illumination.
@@ -3246,9 +3264,9 @@ impl TransportScene {
                         && self.sky_radiance.iter().any(|channel| *channel > 0.0)
                     {
                         let weight = [
-                            self.sky_radiance[0] * 2.0 * inverse_count * BOUNCE_GAIN,
-                            self.sky_radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
-                            self.sky_radiance[2] * 2.0 * inverse_count * BOUNCE_GAIN,
+                            self.sky_radiance[0] * sample_weight * BOUNCE_GAIN,
+                            self.sky_radiance[1] * sample_weight * BOUNCE_GAIN,
+                            self.sky_radiance[2] * sample_weight * BOUNCE_GAIN,
                         ];
                         accumulate_surface_lobe(
                             &mut accumulator,
@@ -3270,37 +3288,45 @@ impl TransportScene {
                     record_gather(audit.as_ref(), GatherEvent::Backface);
                     continue;
                 }
-                // The lookup is keyed by the hit triangle and checks cache
-                // visibility, including dividers within that triangle.
-                let stencil = cache.surface_stencil(
-                    self,
-                    hit_position,
-                    triangle_index,
-                    receivers,
-                    audit.as_ref(),
-                );
-                if stencil.is_empty() {
-                    record_gather(audit.as_ref(), GatherEvent::CacheEmpty);
-                } else if stencil.is_fallback() {
-                    record_gather(audit.as_ref(), GatherEvent::CacheFallback);
-                }
-                let radiance = stencil.sample(current);
+                // Direct visibility can change within one cache cell. Reading
+                // a lit lower-wall representative at its shadowed top creates
+                // a false ceiling glow, so the first reflected direct term
+                // uses the actual secondary hit. Later diffuse orders retain
+                // the visibility-tested surface cache.
+                let radiance = if pass_index == 0 {
+                    self.reflected_direct_at(
+                        hit_position,
+                        triangle_index,
+                        emitters,
+                        include_sky,
+                        taps,
+                    )
+                } else {
+                    self.reflected_stencil(
+                        hit_position,
+                        triangle_index,
+                        receivers,
+                        cache,
+                        audit.as_ref(),
+                    )
+                    .sample(current)
+                };
                 if radiance.iter().all(|value| *value <= 0.0) {
                     record_gather(audit.as_ref(), GatherEvent::ZeroRadiance);
                 }
-                // The sampled incoming radiance, scaled by the sample's solid
-                // angle (uniform hemisphere sampling covers 2*pi over `count`
-                // samples) and multiplied by the hit surface's albedo. The
+                // Diffuse radiance is reflected irradiance / PI. The cosine
+                // PDF cancels PI, leaving 1/(count*cos(theta)) in sample_weight
+                // for the stored angular moments and exact cosine integral.
+                // Multiply by the hit surface's albedo. The
                 // receiver's own albedo is deliberately absent: the shader
                 // multiplies the stored light by the receiver's base colour
                 // exactly once. The receiver's water attenuation multiplies
                 // the whole pass's gain exactly once, so a submerged texel
                 // gathers a tinted bounce and never a double-attenuated one.
-                let weight = [
-                    triangle.albedo[0] * radiance[0] * 2.0 * inverse_count * BOUNCE_GAIN,
-                    triangle.albedo[1] * radiance[1] * 2.0 * inverse_count * BOUNCE_GAIN,
-                    triangle.albedo[2] * radiance[2] * 2.0 * inverse_count * BOUNCE_GAIN,
-                ];
+                let weight = scale(
+                    scale(attenuate(triangle.albedo, radiance), sample_weight),
+                    BOUNCE_GAIN,
+                );
                 accumulate_surface_lobe(
                     &mut accumulator,
                     attenuate(scale(weight, throughput), receiver.attenuation),
@@ -3315,6 +3341,52 @@ impl TransportScene {
         }
         Ok(gathered)
     }
+    fn reflected_stencil(
+        &self,
+        point: [f32; 3],
+        surface: usize,
+        receivers: &[TransportReceiver],
+        cache: &RadianceCache,
+        audit: Option<&GatherAudit>,
+    ) -> batch::SurfaceStencil {
+        let stencil = cache.surface_stencil(self, point, surface, receivers, audit);
+        if stencil.is_empty() {
+            record_gather(audit, GatherEvent::CacheEmpty);
+        } else if stencil.is_fallback() {
+            record_gather(audit, GatherEvent::CacheFallback);
+        }
+        stencil
+    }
+
+    /// Source irradiance at an actual secondary hit, before its albedo.
+    /// Retain the hit's geometric air side, interpolated shading normal,
+    /// source-layer ownership, alpha visibility and water response.
+    fn reflected_direct_at(
+        &self,
+        point: [f32; 3],
+        surface: usize,
+        emitters: &[usize],
+        global: bool,
+        taps: u8,
+    ) -> [f32; 3] {
+        let Some(triangle) = self.triangles.get(surface) else {
+            return [0.0; 3];
+        };
+        let position = receiver_position(point, triangle.normal);
+        let receiver = TransportReceiver {
+            position,
+            ray_origin: position,
+            normal: triangle.shading_normal_at(point),
+            albedo: triangle.albedo,
+            area: 0.0,
+            surface: u32::try_from(surface).unwrap_or(u32::MAX),
+            attenuation: self.attenuation_at(position),
+        };
+        self.direct_sample(&receiver, emitters, global, taps)
+            .light
+            .surface_light
+    }
+
     /// Reconstructs the light a receiver sees at one normal, in HDR units.
     #[must_use]
     pub fn intensity_at(
@@ -3811,6 +3883,7 @@ fn bake_probe_field(
     receivers: &[TransportReceiver],
     cache: &RadianceCache,
     values: &[Accumulator],
+    emitters: &[usize],
     taps: u8,
     bounces: u8,
     workers: usize,
@@ -3853,16 +3926,17 @@ fn bake_probe_field(
     }
     let rays = PROBE_BAKE_RAYS;
     let audit = base && diagnostics::directory(probe_audit::DUMP_ENV).is_some();
-    // Optional inspection I/O cannot invalidate an otherwise physical solve.
-    if audit && let Err(error) = probe_audit::dump_receivers(scene, receivers, values, bounces) {
-        crate::engine::logging::warn(format_args!("[probe-diagnostics] {error}"));
-    }
     crate::engine::progress::stage_with_unit("solving irradiance probes", "probes");
+    let lighting = ProbeLighting {
+        receivers,
+        cache,
+        indirect: (bounces > 0).then_some(values),
+        emitters,
+        taps,
+        base,
+    };
     let baked = parallel_map(count, workers, cancel, |index| {
-        let position = lattice.position(index);
-        bake_probe(
-            scene, receivers, values, cache, position, index, taps, audit, base,
-        )
+        bake_probe(scene, &lighting, lattice.position(index), index, audit)
     })?;
     let (mut baked_charts, remainder): (Vec<_>, Vec<_>) = baked
         .into_iter()
@@ -4025,16 +4099,35 @@ fn initial_probe_contributions(
     (combined, local, visible)
 }
 
+/// Direct light is evaluated at the actual ray hit. Only higher orders borrow
+/// visible coplanar cached irradiance; no direct shadow edge is interpolated.
+struct ProbeLighting<'a> {
+    receivers: &'a [TransportReceiver],
+    cache: &'a RadianceCache,
+    indirect: Option<&'a [Accumulator]>,
+    emitters: &'a [usize],
+    taps: u8,
+    base: bool,
+}
+
+impl ProbeLighting<'_> {
+    fn at_hit(&self, scene: &TransportScene, point: [f32; 3], surface: usize) -> [f32; 3] {
+        let direct = scene.reflected_direct_at(point, surface, self.emitters, self.base, self.taps);
+        let indirect = self.indirect.map_or([0.0; 3], |values| {
+            self.cache
+                .sample_surface(scene, point, surface, self.receivers, values)
+                .surface_light
+        });
+        add(direct, indirect)
+    }
+}
+
 fn bake_probe(
     scene: &TransportScene,
-    receivers: &[TransportReceiver],
-    values: &[Accumulator],
-    cache: &RadianceCache,
+    lighting: &ProbeLighting<'_>,
     position: [f32; 3],
     index: usize,
-    taps: u8,
     audit: bool,
-    base: bool,
 ) -> (
     ProbeSample,
     [f32; 3],
@@ -4064,8 +4157,14 @@ fn bake_probe(
             }),
         );
     }
-    let (mut accumulator, local_direct, visible_emitters) =
-        initial_probe_contributions(scene, position, attenuation, taps, audit, base);
+    let (mut accumulator, local_direct, visible_emitters) = initial_probe_contributions(
+        scene,
+        position,
+        attenuation,
+        lighting.taps,
+        audit,
+        lighting.base,
+    );
     let mut diagnostic =
         audit.then(|| probe_audit::ProbeAudit::new(position, target_room, &accumulator));
     if let Some(chart_diagnostic) = &mut diagnostic {
@@ -4083,7 +4182,7 @@ fn bake_probe(
             }
             // Environment radiance is an incoming contribution just like
             // a reflected surface, with the same sphere-mean convention.
-            if base {
+            if lighting.base {
                 accumulate_lobe(
                     &mut indirect,
                     attenuate(
@@ -4102,8 +4201,7 @@ fn bake_probe(
         if !probe_front_face(triangle, direction, &mut diagnostic) {
             continue;
         }
-        let cached = cache.sample_surface(scene, hit_position, triangle_index, receivers, values);
-        let radiance = cached.surface_light;
+        let radiance = lighting.at_hit(scene, hit_position, triangle_index);
         if let Some(chart_diagnostic) = &mut diagnostic {
             chart_diagnostic.surface_hits = chart_diagnostic.surface_hits.saturating_add(1);
             if radiance.iter().all(|channel| *channel <= 0.0) {
@@ -4111,11 +4209,7 @@ fn bake_probe(
                     chart_diagnostic.zero_radiance_hits.saturating_add(1);
             }
         }
-        let weight = [
-            triangle.albedo[0] * radiance[0] * 2.0 * inverse_rays,
-            triangle.albedo[1] * radiance[1] * 2.0 * inverse_rays,
-            triangle.albedo[2] * radiance[2] * 2.0 * inverse_rays,
-        ];
+        let weight = scale(attenuate(triangle.albedo, radiance), 2.0 * inverse_rays);
         accumulate_lobe(
             &mut indirect,
             attenuate(scale(weight, throughput), attenuation),
@@ -4142,9 +4236,9 @@ fn bake_probe(
     )
 }
 
-/// Bounce rays one probe traces; a probe is an air point, so its gather is
-/// cheaper than a texel's and the field is filtered by interpolation instead.
-pub const PROBE_BAKE_RAYS: usize = 64;
+/// Antipodal probe gather budget, selected against occluded high-sample
+/// controls. Surface and air-point quadrature have distinct angular support.
+pub const PROBE_BAKE_RAYS: usize = 512;
 
 /// Minimum air clearance around a probe, in metres. This is a placement
 /// constraint, not the much smaller numerical ray-origin offset.
@@ -4156,14 +4250,17 @@ pub const PROBE_CLEARANCE_M: f32 = 0.05;
 #[expect(
     clippy::cast_precision_loss,
     clippy::as_conversions,
-    reason = "The private caller enumerates 64 probe rays, so pair is 0..31 and half is 32; their f32 conversions are exact."
+    reason = "The private caller enumerates 512 probe rays, so pair is 0..255 and half is 256; their f32 conversions are exact."
 )]
 fn probe_direction(ray: usize) -> [f32; 3] {
     let pair = ray / 2;
     let half = PROBE_BAKE_RAYS / 2;
     let y = (pair as f32 + 0.5) / half as f32;
     let radius = (1.0 - y * y).sqrt();
-    let phi = pair as f32 * 2.399_963_1;
+    // Bit-reversed azimuth plus stratified height gives a low-discrepancy
+    // hemisphere; its antipode preserves a constant field's zero moment.
+    let azimuth = f32::from(u16::try_from(pair).unwrap_or(0).reverse_bits()) / 65_536.0;
+    let phi = std::f32::consts::TAU * azimuth;
     let (sin, cos) = phi.sin_cos();
     let direction = [radius * cos, y, radius * sin];
     if ray.is_multiple_of(2) {
@@ -4745,21 +4842,14 @@ fn lattice_cell(lattice: [f32; 3], dims: [usize; 3]) -> Option<usize> {
     Some(index)
 }
 
-/// A deterministic ray sequence seed; surface gathers share sequence zero,
-/// while probes use their lattice index.
+/// A deterministic base sequence seed. Surface gathers rotate sequence zero
+/// by their world-space position; probes use their lattice index.
 fn ray_seed(receiver: usize, pass: u8) -> u64 {
     u64::try_from(receiver)
         .unwrap_or(u64::MAX)
         .wrapping_mul(0x9E37_79B9_7F4A_7C15)
         .wrapping_add(u64::from(pass).wrapping_mul(0xD1B5_4A32_D192_ED03))
         | 1
-}
-
-/// The next two canonical random fractions of a SplitMix64 sequence.
-fn next_pair(state: &mut u64) -> (f32, f32) {
-    let first = next_unit(state);
-    let second = next_unit(state);
-    (first, second)
 }
 
 /// One `0..1` value from a SplitMix64 sequence.
@@ -4781,7 +4871,7 @@ fn next_unit(state: &mut u64) -> f32 {
     value.min(1.0)
 }
 
-/// A uniform sample on the hemisphere around `normal`.
+/// Transform a canonical hemisphere direction around `normal`.
 ///
 /// The Duff et al. branchless orthonormal basis keeps the sampling frame
 /// continuous across the normal's sign changes, so a chart boundary cannot
@@ -4805,12 +4895,47 @@ fn hemisphere_sample(normal: [f32; 3], local: [f32; 3]) -> [f32; 3] {
     hemisphere_from_local(normal, tangent, bitangent, local)
 }
 
-fn hemisphere_sequence(count: usize, pass: u8) -> Vec<[f32; 3]> {
+/// Decorrelate finite diffuse gathers without tying them to atlas layout.
+/// Millimetre-scale quantization makes coincident chart-edge coordinates share
+/// a phase despite their final floating-point construction rounding. Rotation
+/// preserves the hemisphere, each polar sample and its solid-angle weight.
+fn surface_gather_rotation(point: [f32; 3], pass: u8) -> (f32, f32) {
     let mut state = ray_seed(0, pass);
-    (0..count)
-        .map(|_| {
-            let (u1, u2) = next_pair(&mut state);
-            hemisphere_local(u1, u2)
+    for coordinate in point {
+        let bits = (coordinate * 1024.0).round().to_bits();
+        let canonical = if bits.trailing_zeros() >= 31 { 0 } else { bits };
+        state = (state ^ u64::from(canonical)).wrapping_mul(0x0000_0100_0000_01B3);
+    }
+    (std::f32::consts::TAU * next_unit(&mut state)).sin_cos()
+}
+
+fn gather_direction(
+    normal: [f32; 3],
+    axes: ([f32; 3], [f32; 3]),
+    local: [f32; 3],
+    rotation: (f32, f32),
+) -> [f32; 3] {
+    let (sin, cos) = rotation;
+    let rotated = [
+        local[0] * cos - local[1] * sin,
+        local[0] * sin + local[1] * cos,
+        local[2],
+    ];
+    hemisphere_from_local(normal, axes.0, axes.1, rotated)
+}
+
+/// Cosine-weighted polar strata with a radical-inverse azimuth avoid clustered
+/// finite gathers. World-space rotation still decorrelates neighbouring
+/// receivers; inverse-PDF weights preserve the physical angular integral.
+fn hemisphere_sequence(count: usize, pass: u8) -> Vec<[f32; 3]> {
+    let sample_count = u16::try_from(count).unwrap_or(u16::MAX);
+    let mut state = ray_seed(0, pass);
+    let phase = next_unit(&mut state);
+    (0..sample_count)
+        .map(|index| {
+            let azimuth = (f32::from(index.reverse_bits()) / 65_536.0 + phase).fract();
+            let polar = (f32::from(index) + 0.5) / f32::from(sample_count);
+            hemisphere_local(azimuth, polar.sqrt())
         })
         .collect()
 }
@@ -5487,3 +5612,7 @@ mod filter;
 #[cfg(test)]
 #[path = "../tests/transport_solver.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../tests/transport_probes.rs"]
+mod probe_tests;

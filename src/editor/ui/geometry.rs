@@ -53,6 +53,16 @@ pub(in crate::editor) fn geometry_popup(app: &App, v: &mut Vec<Vertex>, hits: &m
         Action::StairWizard,
         true,
     );
+    button(
+        v,
+        hits,
+        [140.0, 239.0, 180.0, 10.0],
+        "Wall: enter coordinates >",
+        Action::Author(crate::editor::authoring::Command::Create(
+            crate::editor::authoring::Tool::Wall,
+        )),
+        true,
+    );
     let floor = matches!(app.selected, Some(ObjectId::Room(_)));
     button(
         v,

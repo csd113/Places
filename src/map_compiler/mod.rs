@@ -742,6 +742,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         "collision".to_string(),
         "navigation".to_string(),
     ];
+    if level.stairs.iter().any(|stair| stair.reverse) {
+        required.push("reverse-stairs-v1".into());
+    }
     if level
         .sequences
         .iter()

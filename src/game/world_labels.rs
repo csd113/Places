@@ -2,7 +2,7 @@
 
 use glam::Vec3;
 
-use crate::engine::interact::clear_line_of_sight_indexed;
+use crate::engine::interact::clear_interactable_line_of_sight_indexed;
 use crate::engine::render::{
     DrawableSize, RenderCamera, UI_REFERENCE_HEIGHT, UI_REFERENCE_WIDTH, Vertex,
 };
@@ -47,11 +47,10 @@ pub fn append_world_labels_with_hint(
         if !game.is_label_visible(index) {
             continue;
         }
-        if !clear_line_of_sight_indexed(
+        if !clear_interactable_line_of_sight_indexed(
             camera.position,
             item.anchor,
-            item.own_box.as_ref(),
-            item.door_index,
+            item,
             game.collision_index(),
             game.walls(),
             game.door_colliders(),

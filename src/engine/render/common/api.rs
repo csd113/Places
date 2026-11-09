@@ -237,7 +237,7 @@ pub const fn solve_options_for_lightmaps(
         crate::engine::quality::LightmapQuality::Full => SolveOptions {
             taps_per_axis: 3,
             bounces: 2,
-            gather_samples: 64,
+            gather_samples: 128,
             workers: 1,
         },
     }
