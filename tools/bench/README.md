@@ -65,7 +65,7 @@ acceptance. Each output directory must be new; failed preflights remain intact.
 
 ## Direct native validation
 
-Run Places executables directly on `0.13.1-dev`; do not package or launch a
+Run Places executables directly on `0.14.0-dev`; do not package or launch a
 `.app` or use `open`. `frame_time.py` executes the selected player with repository
 working directory, explicit `PLACES_ASSET_ROOT` and isolated state/settings. Its
 receipts record the actual child PID, binary/package hashes, presentation mode,
