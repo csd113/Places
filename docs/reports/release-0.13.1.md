@@ -5450,7 +5450,7 @@ Five retired projects and all development fixtures remain excluded.
 
 Current-code Mac gates pass formatting, strict workspace/all-target/all-feature
 Clippy, the locked release workspace/all-feature build, **564 Rust tests** and
-**377 Python source tests** (three explicit skips). External-target Rust tests
+**378 Python source tests** (three explicit skips). External-target Rust tests
 require the explicit repository asset root; the initial missing-root failures
 remain excluded. Asset/audio/prop/clip checks pass with existing art/layout
 advisories. These source gates never bake shipped maps.
@@ -5538,6 +5538,15 @@ not a second-person usability test; native guide checks were Mac only. The ZIP,
 No new PDF was produced. Unfinished wording drafts were preserved under
 `local/editor-guide/preserved-wording-draft/` before restoring the historical PDF
 and source.
+
+Backrooms also passes current-source/integrity checks, exact recovery of both
+original source files and a native Full-lighting start with no script diagnostics.
+Its compiled project explicitly writes the documented default package version
+`1.0.0`, while the editable source omits it. The levels-only packager now compares
+that semantic default without rewriting the recoverable source. The tiny existing
+packaging fixture covers implicit/default and explicit versions; a 13 ms focused
+run also proves a different packaged release is refused before output. No shipped
+map bake was added to the test suite.
 
 Every final project package must pass integrity/dependency validation, current
 source verification, intact Static/Full lighting, byte-identical source recovery

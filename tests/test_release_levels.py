@@ -19,7 +19,7 @@ spec.loader.exec_module(release)
 
 
 class ReleaseLevelsTests(unittest.TestCase):
-    def fixture(self, root, *, failed_full=False):
+    def fixture(self, root, *, failed_full=False, wrong_version=False):
         (root / 'tools').mkdir()
         maps = root / 'maps'
         maps.mkdir()
@@ -33,9 +33,15 @@ class ReleaseLevelsTests(unittest.TestCase):
             project = root / 'projects' / project_id
             project.mkdir(parents=True)
             maintained = dict(id=project_id, levels=[dict(id=identity, source=identity + '.json') for identity in identities])
+            if project_id == 'story':
+                maintained['package_version'] = '2.0.0'
             (project / 'places.project.json').write_text(json.dumps(maintained))
             name = project_id + '.placesmap'
-            index = dict(project=maintained, levels=[])
+            packaged = dict(maintained)
+            packaged.setdefault('package_version', '1.0.0')
+            if wrong_version:
+                packaged['package_version'] = '3.0.0'
+            index = dict(project=packaged, levels=[])
             with zipfile.ZipFile(maps / name, 'w') as archive:
                 for identity in identities:
                     (project / (identity + '.json')).write_text('{}')
@@ -66,6 +72,18 @@ class ReleaseLevelsTests(unittest.TestCase):
                     self.assertEqual(archive.read('Maps/' + package.name), package.read_bytes())
             verified = [call.args[0][call.args[0].index('--level') + 1] for call in native.call_args_list if '--level' in call.args[0]]
             self.assertEqual(verified, ['hub', 'home', 'chapter'])
+
+    def test_different_project_release_is_refused_before_output(self):
+        # One tiny mocked package guards against normalizing away an explicit
+        # release mismatch; no map bake or native process is added.
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            maps, compiler, assets = self.fixture(root, wrong_version=True)
+            with patch.object(release, 'ROOT', root), patch.object(release.subprocess, 'run',
+                    return_value=subprocess.CompletedProcess([], 0, '{"dependencies_intact":true}', '')):
+                with self.assertRaisesRegex(ValueError, 'packaged project differs'):
+                    release.package_levels(maps, root / 'levels.zip', compiler, assets)
+            self.assertFalse((root / 'levels.zip').exists())
 
     def test_extra_missing_or_fallback_content_and_existing_output_preserve_files(self):
         with tempfile.TemporaryDirectory() as directory:

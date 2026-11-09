@@ -43,6 +43,9 @@ def collect(source: Path, compiler: Path, assets: Path) -> dict:
             raise ValueError(f'Unsafe project source: {relative}')
         project = ROOT / relative
         maintained = json.loads((project / 'places.project.json').read_text(encoding='utf8'))
+        # ProjectManifest materializes the documented editable-source default.
+        # Compare its value without changing the original recoverable source.
+        maintained.setdefault('package_version', '1.0.0')
         package = source / name
         if package.is_symlink():
             raise ValueError(f'Refusing redirected map: {package}')
