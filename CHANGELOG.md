@@ -11,7 +11,7 @@ the numbering resets, tag coverage and evidence gaps. The
 [former detailed changelog](https://github.com/csd113/Places/blob/3fee560e484d5dbc61496b34c90cdef8292dbe2b/CHANGELOG.md)
 and linked reports retain historical implementation and validation details.
 
-## 0.13.1 — Unreleased
+## 0.13.1 — 2026-11-09
 
 - Add an illustrated offline beginner editor book, with visual Simple-mode
   construction, zoomable native screenshots, an editable example and a verified
