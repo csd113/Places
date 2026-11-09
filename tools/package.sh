@@ -224,7 +224,7 @@ for directory in shared environments entities diagnostic; do
     cp -R "$REPO/assets/$directory" "$STAGE/Places/assets/$directory"
 done
 rm -rf "$STAGE/Places/assets/shared/branding"
-find "$STAGE/Places/assets" -type f \( -name '*_master.png' -o -name '*.blend' -o -name '*.blend1' -o -name '*.xcf' -o -name 'CABINET_ARTWORK_PROMPTS.md' \) -delete
+find "$STAGE/Places/assets" -type f \( -name '.DS_Store' -o -name '*_master.png' -o -name '*.blend' -o -name '*.blend1' -o -name '*.xcf' -o -name 'CABINET_ARTWORK_PROMPTS.md' \) -delete
 python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-compile" \
     --assets "$STAGE/Places/assets" --project "$REPO/projects/menu"
 if [ -n "$MAPS" ]; then

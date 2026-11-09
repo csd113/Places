@@ -5485,13 +5485,20 @@ menu rebuild remains historical evidence of that authoring path.
 Further bright-corner review is accepted for 0.14.0 in issue #49; issues #27–30
 also retain their deferred scope. Closing does not reopen those investigations.
 
-The first illustrated beginner-guide draft is retained in the separate exact-path
-commit `aef8dcad95cfca397842130d7c057d588c2ca6fc`. User review found missing
-procedural steps, so that draft is not accepted as a finished guide. A complete
-fresh-project rebuild, new screenshots at each decision and an independent
-from-scratch replay are required before the corrected guide joins publication.
-The original project-level native receipts retain their limited scope; they do
-not prove the completeness of the written tutorial.
+The first illustrated beginner-guide draft is retained historically in commit
+`aef8dcad95cfca397842130d7c057d588c2ca6fc`. It is superseded by the accepted
+offline Simple-mode HTML book in `0c989dd2f71c12087d245a0387a7582734fa3651`.
+The book has 34 lessons, 100 screenshot placements and a second fresh-project
+replay through 27 saved construction stages, followed by build/export/import,
+the three-room elevator loop, both doors, the office route and basin entry/exit.
+Its browser, archive and native receipts and limits are in
+`docs/editor-guide/first-space/validation.json`. The replay was automated by the
+author; it is not a second-person usability test. Native guide checks were Mac
+only. The ZIP is 17,655,123 bytes, SHA-256
+`efd30f714fe80025ab53ff8167f43212a1018d3a2acdba4ae8b30d6949a012dd`.
+No new PDF was produced. The unfinished wording drafts were preserved under
+`local/editor-guide/preserved-wording-draft/` before restoring the tracked
+historical PDF and source.
 
 Distribution gates require every final map to validate and verify current, intact
 Static/Full lighting, source recovery, clean map-free Mac and Windows payloads,

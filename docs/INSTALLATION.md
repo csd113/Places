@@ -15,17 +15,19 @@ bounded diagnostics journal and native error notices described below.
 
 ## 0.13.1 distribution layout
 
-The intended downloads are `Places-0.13.1-macOS-arm64.zip`,
+The downloads are `Places-0.13.1-macOS-arm64.zip`,
 `Places-0.13.1-Windows.zip` (each with game, editor and compiler),
-`Places-0.13.1-Levels.zip`, and the corrected beginner guide after its fresh replay. The Mac archive
+`Places-0.13.1-Levels.zip`, and `Beginners_Guide_to_Your_First_Places_Space.zip`. Extract the guide ZIP and
+open `First Places Space/index.html` in a browser; it works offline. The earlier
+PDF is historical. The Mac archive
 contains both the application bundle and portable folder, with a bundled live
 menu and shared runtime resources. It requires macOS 27.2 or newer and uses
 ad-hoc signatures; it is not notarized. Gameplay `.placesmap` files belong only
 in the levels ZIP; both app layouts contain an empty `assets/levels/` directory.
 A fresh app opens the live menu, Settings, Credits and Explore's empty-library
-import guidance. The Windows package requires its own current native build and
-extracted-package checks before publication; older Windows validation is
-historical. Linux remains future scope. The published 0.13.0 download is preserved.
+import guidance. The Windows x64 package was built and checked natively on the
+Razer running Windows 10 Home, build 19045; see the acceptance report for the
+exact scope. Linux remains future scope. The published 0.13.0 download is preserved.
 
 Extract the levels ZIP separately. Import any `Maps/*.placesmap` through Explore,
 `places --import <package>`, or the writable `levels/` directory shown by
@@ -42,15 +44,26 @@ excluded together with development gyms, labs and fixtures. Existing user import
 and published 0.13.0 downloads are preserved; archiving source does not uninstall maps.
 The application-owned menu is separate from this gameplay inventory.
 
-Prepare current maps explicitly with the matching compiler when `verify
---require-current` reports changed source, dependencies or compiler preparation
-code. A phase number alone is not a reason to rebake. Then stage the levels ZIP:
+Release builders stage the levels ZIP with the compiler that prepared its maps.
+The same prebaked levels can then be imported on either supported platform;
+players do not need to rebuild them. Developer `verify --require-current`
+checks include compiler preparation identity, which can differ between Mac and
+Windows even with matching source. For example, after preparing maps on Mac:
+
+```sh
+python3 tools/package-levels.py /path/to/ReleaseMaps \
+  /path/to/Places-0.13.1-Levels.zip --compiler /path/to/preparing/places-compile
+```
+
+The Windows application package needs its own native game/editor/compiler and
+a menu prepared with that Windows compiler. From the matching source checkout:
 
 ```powershell
-python tools/package-levels.py C:\Exports\ReleaseMaps `
-  C:\Exports\Places-0.13.1-Levels.zip --compiler C:\Validated\places-compile.exe
+C:\Validated\places-compile.exe build projects\menu --out C:\Exports\menu.placesmap `
+  --asset-root assets --variants static,full
 python tools/package-windows.py --with-editor --bin-dir C:\Validated `
   --runtime-dir C:\Exports\Runtime --sdl-license C:\Dev\SDL3\LICENSE.txt `
+  --menu-package C:\Exports\menu.placesmap `
   C:\Exports\Windows
 ```
 

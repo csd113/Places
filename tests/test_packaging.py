@@ -81,6 +81,9 @@ class PackageDestinationGuardTests(unittest.TestCase):
                              'fixture.wav': b'RIFF fixture bytes', 'credits.txt': b'CC0 source credit'}
             for name, data in audio_payload.items():
                 (source / 'assets/audio' / name).write_bytes(data)
+            # Host Finder state is not a runtime asset. This tiny fixture also
+            # protects platform payload parity without another packaging run.
+            (source / 'assets/audio/.DS_Store').write_bytes(b'host Finder metadata')
             (source / 'assets/editor/fixture.png').write_bytes(b'editor preview fixture')
             (source / 'assets/completed-models.json').write_text('{"authoring": "only"}')
             (source / 'assets/shared/branding').mkdir()
@@ -118,6 +121,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
                     self.assertEqual((payload / 'assets' / name).read_bytes(), data)
                 for name, data in audio_payload.items():
                     self.assertEqual((payload / 'assets/audio' / name).read_bytes(), data)
+                self.assertEqual(list(payload.rglob('.DS_Store')), [])
                 self.assertEqual((payload / 'assets/environments/janitor_closet/models/fixture.glb').read_bytes(),
                                  janitor.read_bytes())
                 self.assertFalse((payload / 'assets/completed-models.json').exists())
