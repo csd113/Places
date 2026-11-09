@@ -1,0 +1,15 @@
+{
+  "package_version": "1.0.0",
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "room_1794204452388",
+  "name": "My First Places Space",
+  "entry_level": "room_1794204452388",
+  "levels": [
+    {
+      "id": "room_1794204452388",
+      "source": "levels/room_1794204452388.json",
+      "display_name": "My First Places Space"
+    }
+  ]
+}
