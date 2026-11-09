@@ -1,4 +1,4 @@
-# 0.13.1 acceptance
+# 0.13.1 acceptance (release closing in progress)
 
 The first phase added rectangular/circular pillars and fitted automatic trim.
 Its accepted source is `fa9a8b93cbfba0b0e8a1b1ee064c01cbbe1be9e1`; its receipt,
@@ -5485,18 +5485,40 @@ menu rebuild remains historical evidence of that authoring path.
 Further bright-corner review is accepted for 0.14.0 in issue #49; issues #27–30
 also retain their deferred scope. Closing does not reopen those investigations.
 
-The 28-page illustrated beginner guide, its source, screenshots, example project
-and receipts are a separate exact-path commit `aef8dcad95cfca397842130d7c057d588c2ca6fc`.
-PDF SHA-256: `816604cea3e4df429b42428ccd5e774e5320d05a719ed6f2b44ff8d05d632a05`.
-The guide's native build/export, elevator cycle, both door entries and shallow
-basin checks retain their own explicit diagnostic setup and platform limits.
+The first illustrated beginner-guide draft is retained in the separate exact-path
+commit `aef8dcad95cfca397842130d7c057d588c2ca6fc`. User review found missing
+procedural steps, so that draft is not accepted as a finished guide. A complete
+fresh-project rebuild, new screenshots at each decision and an independent
+from-scratch replay are required before the corrected guide joins publication.
+The original project-level native receipts retain their limited scope; they do
+not prove the completeness of the written tutorial.
 
 Distribution gates require every final map to validate and verify current, intact
-Static/Full lighting, source recovery, a clean map-free Mac payload, native
-current-package starts and passing exact-candidate hosted CI before publication.
+Static/Full lighting, source recovery, clean map-free Mac and Windows payloads,
+matching native platform checks, current-package starts and passing exact-candidate
+hosted CI before publication.
 Final package hashes, CI and publication identity belong to the GitHub release
 inventory and local `local/release-0.13.1/` closing receipts, outside Cargo targets.
 No Windows/Linux final native result, clean-OS/Gatekeeper acceptance, subjective
-listening or uncapped performance result is inferred. The downloadable app is
-Mac arm64, minimum macOS 27.2, ad-hoc signed and not notarized. Earlier Windows
-binaries and published 0.13.0 artifacts are preserved.
+listening or uncapped performance result is inferred. The staged Mac candidate is
+arm64, minimum macOS 27.2, ad-hoc signed and not notarized. A matching
+Windows game/editor/compiler package is also required; its final native
+verification cannot be inferred from this Mac work or earlier Windows runs.
+Earlier Windows binaries and published 0.13.0 artifacts are preserved.
+
+The additional pursuit-initiation check removes all patrol goals and prey targets
+from the isolated controller fixture. Walking footsteps are published through
+the production API while the player crosses each authored door centreline at
+3.75 m/s. All ten cases (five doors in both directions) enter Chase before
+committing to transit, then cross successfully. This supplements the 30 doorway
+cases and eight refuge-exclusion cases; it does not claim a new native full
+campaign. Its exact helper, production-library and package hashes are in
+`local/release-0.13.1/checks/footstep-pursuit-acceptance.json`. Final rebuilt-map
+geometry comparison and current-package native smoke remain required.
+
+Candidate `704164e0ba9d4018f25aa985ef8f1960be07fee1` passed hosted
+[Rust verification](https://github.com/csd113/Places/actions/runs/42565498786).
+The final publication commit must pass its own CI. The current workflow has one
+`macos-15` job and builds production executables, but does not package or retain
+release artifacts and does not build Windows. No workflow change is implied by
+this inspection. Full-map baking remains an explicit desktop operation.

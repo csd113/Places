@@ -11,10 +11,7 @@ the numbering resets, tag coverage and evidence gaps. The
 [former detailed changelog](https://github.com/csd113/Places/blob/3fee560e484d5dbc61496b34c90cdef8292dbe2b/CHANGELOG.md)
 and linked reports retain historical implementation and validation details.
 
-## 0.13.1 — 2026-11-09
-
-- Add a 28-page illustrated beginner editor guide, with native screenshots,
-  marked controls, exact example values and its editable finished project.
+## 0.13.1 — Unreleased
 
 - Add The Long Way Home, a three-part journey with a Feltling guide, Tall Guest
   pursuit, two-storey passages and crouch refuges, physical distractions and a

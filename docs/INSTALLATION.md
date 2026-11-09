@@ -15,15 +15,17 @@ bounded diagnostics journal and native error notices described below.
 
 ## 0.13.1 distribution layout
 
-The downloads are `Places-0.13.1-macOS-arm64.zip` (game, editor and compiler),
-`Places-0.13.1-Levels.zip`, and the illustrated beginner guide. The Mac archive
+The intended downloads are `Places-0.13.1-macOS-arm64.zip`,
+`Places-0.13.1-Windows.zip` (each with game, editor and compiler),
+`Places-0.13.1-Levels.zip`, and the corrected beginner guide after its fresh replay. The Mac archive
 contains both the application bundle and portable folder, with a bundled live
 menu and shared runtime resources. It requires macOS 27.2 or newer and uses
 ad-hoc signatures; it is not notarized. Gameplay `.placesmap` files belong only
 in the levels ZIP; both app layouts contain an empty `assets/levels/` directory.
 A fresh app opens the live menu, Settings, Credits and Explore's empty-library
-import guidance. Windows/Linux 0.13.1 binaries are not included; older Windows
-validation is historical, and the published 0.13.0 Windows download is preserved.
+import guidance. The Windows package requires its own current native build and
+extracted-package checks before publication; older Windows validation is
+historical. Linux remains future scope. The published 0.13.0 download is preserved.
 
 Extract the levels ZIP separately. Import any `Maps/*.placesmap` through Explore,
 `places --import <package>`, or the writable `levels/` directory shown by
@@ -67,8 +69,8 @@ the levels receipt identifies the actual preparing compiler.
 
 The older portable-release instructions below describe their historical tested
 layout. See the [0.13.1 acceptance report](reports/release-0.13.1.md) and the
-release asset inventory for current native scope and checks. The Windows
-packaging command above remains developer tooling, not a shipped Windows 0.13.1 artifact.
+release asset inventory for current native scope and checks. Windows
+packaging must use the matching final native tools and runtime dependencies.
 
 ## Installed resources
 

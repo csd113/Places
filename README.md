@@ -68,17 +68,20 @@ changed in Settings; Escape always pauses.
 
 ## About this version
 
-**Places 0.13.1** provides a native macOS arm64 prerelease with the game, editor,
-offline compiler and bundled live menu. The separate levels download contains
+**Places 0.13.1** is being prepared with separate Mac and Windows packages,
+each containing the game, editor, offline compiler and bundled live menu. The
+separate levels download contains
 Backrooms, the nine-map Quiet Collection, all four Beam chapters and the
 three-part Long Way Home. The application archive contains no gameplay maps.
 
-[Download 0.13.1](https://github.com/csd113/Places/releases/tag/v0.13.1) ·
-[Beginner’s Guide to Your First Places Space](docs/Beginners_Guide_to_Your_First_Places_Space.pdf) ·
+The beginner guide is being rebuilt and independently replayed from a blank
+project after review found missing steps; the earlier PDF is an unfinished draft.
+
 [Installation](docs/INSTALLATION.md) · [Acceptance and limits](docs/reports/release-0.13.1.md)
 
-This Mac package requires macOS **27.2 or newer** and is ad-hoc signed, not
-notarized. Windows and Linux binaries are not included in this download.
+The Mac candidate requires macOS **27.2 or newer** and is ad-hoc signed, not
+notarized. Publication requires verified current Mac and Windows apps plus the
+prebaked levels download. Linux remains future scope.
 The [0.13.0 Windows prerelease](https://github.com/csd113/Places/releases/tag/v0.13.0)
 remains available with its original seven project packages; use its matching maps.
 Earlier Windows validation retains its recorded source revisions and does not

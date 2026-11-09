@@ -31,7 +31,8 @@ do not target any archived member.
 
 The archive is tracked source, outside `levels/lineup.txt` and the active
 [`tools/release-projects.json`](../../tools/release-projects.json) allowlist.
-The release inventory now has three packages, 14 maps and 28 Static/Full variants.
+With the later Long Way Home addition, the release inventory has four packages,
+17 maps and 34 Static/Full variants.
 The levels ZIP requires exactly that inventory. Desktop packagers also reject
 the archived package names, project IDs and level IDs, including renamed bundles
 and standalone exports of archived members. The ordinary player still discovers
