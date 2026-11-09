@@ -1,0 +1,1742 @@
+{
+  "title": "Beginner’s Guide to Your First Places Space",
+  "pages": [
+    {
+      "section": "Start here",
+      "id": "welcome",
+      "title": "Beginner’s Guide to Your First Places Space",
+      "body": "<p>Build a small world you can walk around: a Backrooms office, a furnished Home room and a tiled Pool room. Three linked elevators will take you between them.</p><p>Start with chapter 1 and work in order. Each section ends with a checkpoint so you can catch a missed step before it causes trouble later. Screenshots sit beside the action they explain in the reading sequence. Red circles point to the controls to use.</p><p><strong>Use Simple mode throughout.</strong> This is the editor’s basic workspace. You won’t need Precision controls, the [+] Advanced section, entities or Luau. Walls, doors, resizing and most placement are visual; a few tools open forms even in Simple.</p><p>Have a mouse with a scroll wheel and middle button ready. You’ll use it to orbit, pan and move objects. Keep a writable folder for your project and save at each checkpoint.</p><p><strong>What you’ll finish:</strong> Backrooms with a desk, chair, three pillars and an open doorway; Home with a bed, kitchen and fitted door; Pool with a recessed basin, water, bench, duck and a lit janitor closet. Then you’ll connect the elevators, build, export and play.</p>",
+      "figures": [],
+      "checkpoint": "",
+      "number": 1
+    },
+    {
+      "section": "Start here",
+      "id": "launch",
+      "title": "Open the editor",
+      "body": "<p>Keep the downloaded Places installation together, including its assets and compiler. The game and editor are separate executables.</p><table><tr><th>Installation</th><th>Editor to open</th></tr><tr><td>Windows folder</td><td><code>Places/places-editor.exe</code></td></tr><tr><td>Mac portable folder</td><td><code>Places/places-editor</code></td></tr><tr><td>Mac app bundle</td><td><code>Places.app/Contents/MacOS/places-editor</code></td></tr></table><p><strong>On Windows:</strong> open the Places folder and double-click <code>places-editor.exe</code>.</p><p><strong>On Mac:</strong> if you have <code>Places.app</code>, right-click it in Finder, choose <strong>Show Package Contents</strong>, and open <strong>Contents → MacOS</strong>. Open Terminal, drag <code>places-editor</code> from Finder into the Terminal window, and press Return. Use the same drag-and-Return method for the portable folder’s <code>places-editor</code>.</p><p>Double-clicking <code>Places.app</code> starts the game. There isn’t a separate editor app in this release package.</p><p>The screenshots and native walkthrough were recorded on Mac. The Windows executable name is verified against the packaging script; this guide does not claim a Windows hands-on test.</p>",
+      "figures": [],
+      "checkpoint": "",
+      "number": 2
+    },
+    {
+      "section": "Start here",
+      "id": "new",
+      "title": "Create your project",
+      "body": "<ol><li>Click <strong>New</strong> at the upper left, or press <kbd>⌘N</kbd> on Mac / <kbd>Ctrl N</kbd> on Windows.</li><li>In the folder chooser, choose a parent folder where you want to keep your work. On Mac, confirm with <strong>Open</strong>. The editor makes a new <code>untitled-…</code> folder inside it.</li><li>Keep track of that new folder. It contains the whole editable project; it is the folder you’ll select with <strong>Open</strong> next time.</li></ol><p>The starter already gives you a square <strong>6 × 6 m room</strong>, a floor, a ceiling and one fluorescent light. The ceiling is hidden when you look down from above, so you can see inside. It hasn’t been deleted.</p><p>You’ll add the walls yourself. The grey rectangle near the middle is the existing ceiling light.</p>",
+      "figures": [
+        {
+          "shot": "01-starter",
+          "caption": "The fresh starter. New and Open are at the upper left.",
+          "image": "images/03-01-01-starter.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f98cae1b78b4efb3af9ecdf7e733b4fbccafab0a61f2ca52f8ce3a90d4110007",
+          "detail_box": [
+            0,
+            0,
+            1100,
+            330
+          ]
+        }
+      ],
+      "checkpoint": "You see one carpeted square and one light, with no walls.",
+      "number": 3
+    },
+    {
+      "section": "Start here",
+      "id": "name",
+      "title": "Give it a useful name",
+      "body": "<ol><li>Click <strong>Project &gt;</strong>, then <strong>Name</strong>.</li><li>Press <kbd>⌘A</kbd> / <kbd>Ctrl A</kbd>, type <strong>My First Places Space</strong>, then click <strong>Apply</strong>.</li><li>In the same Project panel, edit <strong>Selected map title</strong> to <strong>My First Places Space</strong> and click <strong>Apply</strong> again.</li><li>Close the panel and click <strong>Save</strong>.</li></ol><p>These are the names people see. They don’t rename the project folder. The room names “Backrooms,” “Home” and “Pool” in this guide describe the areas we’re building; the editor’s scene list calls their footprints Room1, Room2 and Room3.</p>",
+      "figures": [
+        {
+          "shot": "02-project",
+          "caption": "Open the project name field.",
+          "image": "images/04-01-02-project.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "be4f621051031d2e88f215e2c735aaabd8e6365f49a7d7164c49c3620ebbe3d9",
+          "detail_box": [
+            315,
+            360,
+            1415,
+            690
+          ]
+        },
+        {
+          "shot": "03-name",
+          "caption": "Apply the new name.",
+          "image": "images/04-02-03-name.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "14c5b0ca5ccb4186b4c78ca2f054d3d7d964d8a45b1db06e5b3c75765e4f911f",
+          "detail_box": [
+            90,
+            828,
+            1190,
+            1158
+          ]
+        },
+        {
+          "shot": "02-project",
+          "caption": "Then edit Selected map title and apply the same title.",
+          "image": "images/04-03-02-project.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "be4f621051031d2e88f215e2c735aaabd8e6365f49a7d7164c49c3620ebbe3d9",
+          "detail_box": [
+            315,
+            686,
+            1415,
+            1016
+          ]
+        }
+      ],
+      "checkpoint": "The top of the editor reads My First Places Space.",
+      "number": 4
+    },
+    {
+      "section": "Start here",
+      "id": "camera",
+      "title": "Get comfortable with the view",
+      "body": "<p>Try these before drawing anything:</p><ul><li><strong>Left-click the carpet</strong> to select the room. Its outline and handles appear. Click empty carpet rather than the grey light.</li><li>Press <kbd>F</kbd>, or click <strong>Frame</strong>, to bring the selection into view.</li><li><strong>Hold the right mouse button and drag</strong> to orbit. Turn until you’re looking nearly straight down and the floor edges run roughly across and down the screen, like the pictures.</li><li><strong>Hold the middle mouse button and drag</strong> to pan—slide your view without moving the room.</li><li><strong>Scroll the wheel</strong> to zoom. Keep all four corners visible when drawing walls.</li></ul><p>Leave <strong>Grid: on</strong>, <strong>Snap: on</strong> and <strong>Step 0.25m</strong> in the bottom bar. Click a toggle if necessary. The Step button cycles through sizes; keep clicking until it reads 0.25m.</p><p>The grid marks metres, while snapping lets your clicks and drags land in quarter-metre steps. A camera angle doesn’t need to match the screenshot perfectly. What matters is seeing the floor corners and the tool preview.</p><p>In the steps below, <strong>back</strong> means the far edge of the room in this overhead view; <strong>front</strong> means the near edge. If you lose your bearings, select the floor and press F again.</p>",
+      "figures": [
+        {
+          "shot": "04-room-selected",
+          "caption": "Select the carpet, frame it, and check the bottom-bar settings.",
+          "image": "images/05-01-04-room-selected.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "d6eaef1e8175258052859256822a5ae5526f43ce60d477847fed9f19cfe66681",
+          "detail_box": [
+            677,
+            1346,
+            1777,
+            1676
+          ]
+        }
+      ],
+      "checkpoint": "You can orbit, pan and zoom without changing the room.",
+      "number": 5
+    },
+    {
+      "section": "Backrooms",
+      "id": "walls",
+      "title": "Draw the outside walls",
+      "body": "<ol><li>Click the <strong>Build</strong> tab, then <strong>Wall</strong>.</li><li>Click <strong>Chain: Off</strong> once so it reads <strong>Chain: On</strong>.</li><li>Click the floor’s <strong>back-left corner</strong>. This sets the start.</li><li>Move to the <strong>back-right corner</strong>. A wall preview appears. Check that it spans the room, then click to place it.</li><li>Continue around the floor: click the <strong>front-right</strong> corner, then the <strong>front-left</strong> corner, then the original <strong>back-left</strong> corner.</li><li>Press <kbd>Esc</kbd> to finish the chain.</li></ol><p>That is five corner clicks for four walls. You’re drawing along the floor edges. The tool makes straight walls, 0.20 m thick, as tall as the room’s ceiling. Nearby endpoints snap together.</p><p>If a segment goes the wrong way, press Esc and use <strong>Undo</strong> or <kbd>⌘Z</kbd> / <kbd>Ctrl Z</kbd>. Each completed wall is one undo step. Choose Wall again to redraw it.</p>",
+      "figures": [
+        {
+          "shot": "05-backrooms-wall-tool",
+          "caption": "Choose Wall, then turn Chain on before clicking the first corner.",
+          "image": "images/06-01-05-backrooms-wall-tool.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "dbcca394adf88e4b74210906edb254e12c8cf14813ff73953d0912c6e383bbac",
+          "detail_box": [
+            0,
+            166,
+            1100,
+            496
+          ]
+        },
+        {
+          "shot": "05-backrooms-first-wall-preview",
+          "caption": "The first wall spans the back edge. The preview says 6.00m.",
+          "image": "images/06-02-05-backrooms-first-wall-preview.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f5b81a75ef9dc7e5ed77fd839294d3106327315fb51ce0d2e144492ca7e1a9cb"
+        },
+        {
+          "shot": "05-backrooms-enclosed",
+          "caption": "Four walls now surround the starter floor.",
+          "image": "images/06-03-05-backrooms-enclosed.jpg",
+          "after_step": 6,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "3475800fb6e14451a273fb4921615be2d27566a44cc93750d824b29f5a2a1866"
+        }
+      ],
+      "checkpoint": "There are four outside walls and no gap at a corner. The ceiling remains hidden from this overhead view.",
+      "number": 6
+    },
+    {
+      "section": "Backrooms",
+      "id": "doorway",
+      "title": "Make a lobby and an open doorway",
+      "body": "<p>A short lobby gives the elevator some breathing room. We’ll divide the room, then cut a passage through the divider.</p><ol><li>With the same overhead view, choose <strong>Build → Wall</strong>. Leave Chain off for this single wall.</li><li>On the left edge of the floor, find a point a little past halfway from back to front—about <strong>3¾ m from the back</strong>. Click there, then click directly across on the right edge. The near lobby is about 2¼ m deep.</li><li>Choose <strong>Doorway opening</strong> in the Build tab.</li><li>Point at the middle of the new divider. Aim at its broad wall face, not empty floor. If the wall face is hard to see, right-drag to tilt your view a little.</li><li>When the opening preview is centered, click once.</li></ol><p>This creates an open passage without a door. Leave it that way in Backrooms; you’ll add a working door in Home.</p>",
+      "figures": [
+        {
+          "shot": "06-divider-preview",
+          "caption": "Draw one divider across the room, leaving the near side for the lobby.",
+          "image": "images/07-01-06-divider-preview.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "02ecd4a38f8190ec8e15a7f25fbc367d5412bf521208452c6c8bb92a8818202b"
+        },
+        {
+          "shot": "08-doorway-tool",
+          "caption": "Choose Doorway opening.",
+          "image": "images/07-02-08-doorway-tool.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "5a52522535957dba4226c1e36a9c855f26ff0fa7e4fa27fdcc05a0d61c8c2c1d",
+          "detail_box": [
+            0,
+            438,
+            1100,
+            768
+          ]
+        },
+        {
+          "shot": "08-doorway-preview",
+          "caption": "Click the wall only when the opening preview is where you want it.",
+          "image": "images/07-03-08-doorway-preview.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "e06f4cb6557136cffdd3fab776e5fb0a29c057c46bb15fc7da9a371db6be8a5b"
+        },
+        {
+          "shot": "09-open-doorway",
+          "caption": "The finished passage has no door leaf.",
+          "image": "images/07-04-09-open-doorway.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "e929c26d9c690ba5c448c09b8ee773611b88de8abd670acc94f9b845048ecae0"
+        }
+      ],
+      "checkpoint": "You have a room with a smaller front lobby and an open passage through the divider. Save.",
+      "number": 7
+    },
+    {
+      "section": "Backrooms",
+      "id": "pillar",
+      "title": "Add the first pillar",
+      "body": "<p>The rectangular pillar tool lives in the Tools menu. It uses a small form, even in Simple mode.</p><ol><li>Click <strong>Tools &gt; → Geometry / stairs &gt; → Rectangular pillar</strong>.</li><li>Fill the first page as shown: <strong>X 1.5</strong>, <strong>Z 1.5</strong>, <strong>Width 0.5</strong>, <strong>Depth 0.5</strong>. Leave <strong>Base Y</strong> and <strong>Height</strong> blank; that makes the pillar run from the room’s floor to its ceiling.</li><li>To change a field, click it, select all with <kbd>⌘A</kbd> / <kbd>Ctrl A</kbd>, type the value, and press Return. Don’t type units.</li><li>Click <strong>Preview</strong>. Check the pillar is inside the larger part of the room, then click <strong>Apply</strong>.</li></ol><p>Keep the other pages at their defaults. The pillar uses yellow wallpaper. Here X and Z locate its bottom corner on the floor; these initial values give us an easy starting point for the copies.</p>",
+      "figures": [
+        {
+          "shot": "10-tools",
+          "caption": "Open Geometry from Tools.",
+          "image": "images/08-01-10-tools.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "09e94c748f85f9150d93d4e07ac028b6b6d75d1d8789a6db5095d434c6856f2a",
+          "detail_box": [
+            680,
+            578,
+            1780,
+            908
+          ]
+        },
+        {
+          "shot": "11-geometry",
+          "caption": "Choose Rectangular pillar.",
+          "image": "images/08-02-11-geometry.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "7bc1407cf07bdedb7fcea3e6055145efee766ec28be1cd2f234844cfd9962c4f",
+          "detail_box": [
+            680,
+            750,
+            1780,
+            1080
+          ]
+        },
+        {
+          "shot": "12-pillar-form",
+          "caption": "Four values make a half-metre square pillar. Leave the two height fields blank.",
+          "image": "images/08-03-12-pillar-form.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "a97c0cf4146fdf98fa230a4ec8585cdffe4057bb3f48465d152964eaf5ea3236",
+          "detail_box": [
+            582,
+            1116,
+            1682,
+            1446
+          ]
+        },
+        {
+          "shot": "13-pillar-preview",
+          "caption": "Preview first, then Apply.",
+          "image": "images/08-04-13-pillar-preview.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "d0bd327bd275e0c9c478a08aec4dfaf8ca7994beb52d025b673d301184888dea",
+          "detail_box": [
+            1163,
+            1133,
+            2263,
+            1463
+          ]
+        }
+      ],
+      "checkpoint": "One floor-to-ceiling pillar stands near the back-left part of the office.",
+      "number": 8
+    },
+    {
+      "section": "Backrooms",
+      "id": "pillar-copies",
+      "title": "Make two copies and move them",
+      "body": "<ol><li>Keep the pillar selected and press <kbd>⌘D</kbd> / <kbd>Ctrl D</kbd>. The copy appears slightly forward and to the right, and becomes selected. Wait until its colored handles are visible.</li><li>Drag the copy’s <strong>red horizontal handle</strong> toward the right side of the office. Leave room to walk around it. Use its <strong>blue handle</strong> to line it up roughly with the first pillar.</li><li>Duplicate that pillar once more. Again, use the new copy’s handles. If the handles haven’t caught up with the selection, click the new pillar once before dragging. Drag it left, then forward, so it sits below the first pillar in the picture.</li></ol><p>Red moves across the room; blue moves along it. Grab the colored line rather than the pillar’s body. Release to keep the move. Esc cancels a drag, and Undo restores a move after you release.</p><p>The screenshot’s pillars sit roughly at the back left, back right and middle left. Their exact positions aren’t important; keep the central path and doorway clear.</p>",
+      "figures": [
+        {
+          "shot": "15-duplicate-pillar",
+          "caption": "Duplicate makes an offset copy. Its handles belong to the new selection.",
+          "image": "images/09-01-15-duplicate-pillar.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "6b657b30b15f7b671e2b934e04b5d8a4e58f2821b239891830de6acdbeb0395b"
+        },
+        {
+          "shot": "16-second-pillar-drag-preview",
+          "caption": "Drag the red handle toward the right side.",
+          "image": "images/09-02-16-second-pillar-drag-preview.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "2072f3c9ff984006437ffda789a45139ffd3be3a81fdb7ea32969d2ecb7d4035"
+        },
+        {
+          "shot": "17e-third-forward-moved",
+          "caption": "Three pillars, with a clear route through the middle.",
+          "image": "images/09-03-17e-third-forward-moved.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "ddc9ba88a7dfb23716576d3f3ba59ba823c8b917e70b966a7345c4e21b3773bb"
+        }
+      ],
+      "checkpoint": "Count three pillars. None blocks the opening or touches an outside wall.",
+      "number": 9
+    },
+    {
+      "section": "Backrooms",
+      "id": "desk",
+      "title": "Choose a desk, then move it",
+      "body": "<ol><li>Click clear carpet to select the room and press F. Orbit back to the overhead view if needed.</li><li>Click <strong>Assets → Props</strong>. Click the search field, type <code>core:desk</code>, and press Return.</li><li>Click the <strong>Desk</strong> thumbnail, then <strong>Place chosen prop</strong>.</li><li>The desk appears near the center of your current view. Drag its blue handle toward the back wall, stopping about a metre from that wall. Keep it between the two rear pillars.</li></ol><p>Place chosen prop adds immediately; it doesn’t ask for another click on the floor. You can pan first to choose the general placement area, then use the handles to adjust it.</p><p><strong>Before choosing a different prop, click the floor.</strong> Picking a catalog thumbnail while a prop is selected changes that existing prop into the new model.</p>",
+      "figures": [
+        {
+          "shot": "18-desk-search",
+          "caption": "Search for the exact desk ID, then click its thumbnail.",
+          "image": "images/10-01-18-desk-search.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "6ee8b3f6744e292c491f3d71ff03ac2dea1a09b241ab350f5e5e2c63e4105d21",
+          "detail_box": [
+            0,
+            427,
+            1100,
+            757
+          ]
+        },
+        {
+          "shot": "18-desk-chosen",
+          "caption": "Place the chosen desk.",
+          "image": "images/10-02-18-desk-chosen.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "7b40966e2503fb4f94527d1d70b5e4f541de9076aba6e5a22f5be89807bdf371",
+          "detail_box": [
+            0,
+            793,
+            1100,
+            1123
+          ]
+        },
+        {
+          "shot": "19-desk-drag-preview",
+          "caption": "Move the desk toward the back wall with its blue handle.",
+          "image": "images/10-03-19-desk-drag-preview.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "831d8612f4f793ba04c64940da68cf9c1bbece57120f250af682b978ca8a16bb"
+        }
+      ],
+      "checkpoint": "The desk sits at the back of the office, with clear space in front of it.",
+      "number": 10
+    },
+    {
+      "section": "Backrooms",
+      "id": "chair-light",
+      "title": "Add the chair and light the lobby",
+      "body": "<ol><li>Click the carpet and press F. In <strong>Assets → Props</strong>, search for <code>core:chair</code>, click the Chair thumbnail, then <strong>Place chosen prop</strong>.</li><li>Drag the chair’s blue handle toward the desk. Leave a comfortable gap between the chair and desk.</li><li>In Properties on the right, click the <strong>Yaw deg</strong> value. Select all, type <strong>180</strong>, and press Return. The chair should face the desk.</li><li>Click <strong>Lighting → Place light fixture</strong>.</li><li>Point at the lobby floor, roughly midway between the divider and front wall. Click when the ceiling-light preview appears.</li><li>Click <strong>Save</strong>.</li></ol><p>The starter light already covers the office. This second fluorescent light covers the lobby. Although you click the floor, the light mounts to the ceiling.</p>",
+      "figures": [
+        {
+          "shot": "22-chair-facing",
+          "caption": "Set the chair’s yaw to 180 degrees.",
+          "image": "images/11-01-22-chair-facing.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "5a1591a6293e4d68249c3882772987083cc0e53da5e6df5ad77316b2ef2f0b5f",
+          "detail_box": [
+            1780,
+            475,
+            2880,
+            805
+          ]
+        },
+        {
+          "shot": "24-lobby-light-tool",
+          "caption": "Choose Place light fixture in Lighting.",
+          "image": "images/11-02-24-lobby-light-tool.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f33d4ff1ff63af913499ad0910ea3daf75e59212db3b7ea5699692d13d47ca44",
+          "detail_box": [
+            0,
+            148,
+            1100,
+            478
+          ]
+        },
+        {
+          "shot": "24-lobby-light-preview",
+          "caption": "Point at the lobby floor to preview the ceiling light.",
+          "image": "images/11-03-24-lobby-light-preview.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "723636c33697c0aea5d26a3b9c86243e04a984ca22e0fef4c5a08d98d7b39f93"
+        }
+      ],
+      "checkpoint": "Backrooms has four outside walls, a divider with an open doorway, three pillars, a desk, a chair and two lights.",
+      "number": 11
+    },
+    {
+      "section": "Home",
+      "id": "home-room",
+      "title": "Create Home’s floor and ceiling",
+      "body": "<ol><li>Click clear Backrooms carpet to select that room.</li><li>Click <strong>Build → Room</strong>. The New Room form appears. A new room starts beside the selected room; there is no rectangle-drawing tool for this step.</li><li>Change only <strong>West X</strong> to <strong>10</strong>. Leave <strong>North Z 0</strong>, <strong>Width m 4</strong>, <strong>Depth m 6</strong>, <strong>Floor elevation m 0</strong> and <strong>Room height m 2.7</strong> as shown.</li><li>Click <strong>Preview</strong>, then <strong>Apply</strong>. Press F to frame the new room.</li><li>Find the yellow handle halfway along its right edge. Drag it outward until the preview says the room is <strong>6.00 × 6.00 m</strong>, then release.</li></ol><p>The single X value leaves a gap between the rooms for this elevator layout. You’re using the visual edge handle for the room’s size. If you release too early or go too far, drag the same handle again and watch the dimensions.</p><p>For now Home is only a floor and ceiling. It needs its own walls; the next step builds them.</p>",
+      "figures": [
+        {
+          "shot": "26-home-form",
+          "caption": "Only X changes in the new-room form.",
+          "image": "images/12-01-26-home-form.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "0ff97b635690e3cbc4e1068104fa50096cad381bd299be55a5605ec077fcdede",
+          "detail_box": [
+            582,
+            1116,
+            1682,
+            1446
+          ]
+        },
+        {
+          "shot": "26-home-preview",
+          "caption": "Check the separate room, then Apply.",
+          "image": "images/12-02-26-home-preview.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "129e445cd9fccc59b3aecef2343b718b1f9a6c56697d555fa322bc3ee13995dd",
+          "detail_box": [
+            1163,
+            1133,
+            2263,
+            1463
+          ]
+        },
+        {
+          "shot": "26-home-width-preview",
+          "caption": "Drag the yellow right-edge handle until the room is 6 × 6 m.",
+          "image": "images/12-03-26-home-width-preview.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "cb70a66d2263a1b79faac9a36effdbb7ddc7721d131bbfe3e893d6e44512c578"
+        }
+      ],
+      "checkpoint": "Home is a separate 6 × 6 m floor to the right of Backrooms. No Home walls have been added yet.",
+      "number": 12
+    },
+    {
+      "section": "Home",
+      "id": "home-walls",
+      "title": "Enclose Home and fit its door",
+      "body": "<ol><li>Keep Home in view from above. Choose <strong>Build → Wall</strong> and turn <strong>Chain</strong> on.</li><li>Click Home’s floor corners in this order: <strong>back left → back right → front right → front left → back left</strong>. Press Esc when all four walls are placed.</li><li>Choose <strong>Wall</strong> again, with Chain off. Draw a divider from left to right about <strong>3¾ m from the back</strong>, just as in Backrooms.</li><li>Choose <strong>Build → Door</strong>.</li><li>Point at the middle of the divider’s wall face. Wait for a door preview, then click once.</li></ol><p>The Door tool makes the opening and fits a working door in one action. You don’t need to cut a doorway first. It can also fit a door into an existing opening, but here we’re starting with a solid divider.</p><p>The door begins closed. You’ll open it with E when you test the room.</p>",
+      "figures": [
+        {
+          "shot": "27-home-first-wall-preview",
+          "caption": "Draw Home’s own four outside walls.",
+          "image": "images/13-01-27-home-first-wall-preview.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "31371b5af876e279785303770c46810ff7634d0984b4de48e162f173c0c573e4"
+        },
+        {
+          "shot": "27-home-enclosed",
+          "caption": "All four Home walls are in place.",
+          "image": "images/13-02-27-home-enclosed.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "4868a1bc71428a2851bdee3c339c30a62d340a6047b38dde83c012e4683f4cef"
+        },
+        {
+          "shot": "30-home-door-preview",
+          "caption": "Door previews an opening and a fitted leaf.",
+          "image": "images/13-03-30-home-door-preview.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "9b5fe1917dd6b24941d56982e1ecc52654eea36cc2d127b1d88b170635ae7907",
+          "detail_box": [
+            0,
+            297,
+            1100,
+            627
+          ]
+        },
+        {
+          "shot": "31-home-door",
+          "caption": "The divider now has a closed door.",
+          "image": "images/13-04-31-home-door.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "30fbbbd6b66d4a9923b62eb7c45f6e8a359acf13481855041cdaa502cf14ecbf"
+        }
+      ],
+      "checkpoint": "Home has four outside walls and a divider with one door. Save before decorating.",
+      "number": 13
+    },
+    {
+      "section": "Home",
+      "id": "home-finishes",
+      "title": "Give Home a wooden floor and painted walls",
+      "body": "<ol><li>Click an empty part of Home’s floor. Choose <strong>Assets → Surface</strong>, search for <code>home:hardwood_oak_01</code>, and click the oak thumbnail. The floor changes immediately.</li><li>With the room still selected, click <strong>Material: … &gt;</strong> in Properties. In the large catalog, click <strong>Surface</strong> once so the target reads <strong>Ceiling</strong>.</li><li>Search for <code>home:ceiling_white_01</code>, then click its thumbnail. The catalog closes. You won’t see much change from above because the ceiling is hidden.</li><li>Click a solid part of one wall, away from the door. Check that Properties says <strong>Wall</strong>. Open its <strong>Material: … &gt;</strong> button, search for <code>home:wall_paint_offwhite_01</code>, and click the paint thumbnail.</li><li>Repeat the wall-material step for the other three outside walls and the divider—<strong>five painted walls in total</strong>.</li></ol><p>Opening Material from Properties starts a fresh surface selection. Use that button when changing from ceilings to walls; it avoids leaving the catalog aimed at the ceiling.</p>",
+      "figures": [
+        {
+          "shot": "32-home-floor-choice",
+          "caption": "Select the room’s floor and choose the oak surface.",
+          "image": "images/14-01-32-home-floor-choice.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "2a7bc6a2c65e570de0e9bb2335fc5f05c5e5d8976ea8ea510eab0355c41fae01",
+          "detail_box": [
+            0,
+            427,
+            1100,
+            757
+          ]
+        },
+        {
+          "shot": "33-home-ceiling-choice",
+          "caption": "The catalog target reads Ceiling for this choice.",
+          "image": "images/14-02-33-home-ceiling-choice.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "7515cdb5580107c8669053434eb007ebe26dd9e6231a361d0d7dcb873d9cdc74",
+          "detail_box": [
+            440,
+            466,
+            1540,
+            796
+          ]
+        },
+        {
+          "shot": "94-home-wall-1-search",
+          "caption": "Select a wall, then use its Material button to choose paint.",
+          "image": "images/14-03-94-home-wall-1-search.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "127f3a265bfffb091617fe5c4ba663bcca506e8e1f1c27b189c203a3b421613d",
+          "detail_box": [
+            440,
+            466,
+            1540,
+            796
+          ]
+        }
+      ],
+      "checkpoint": "The floor is wood. Each of Home’s five walls has the off-white paint material.",
+      "number": 14
+    },
+    {
+      "section": "Home",
+      "id": "bed",
+      "title": "Place the bed on clear floor",
+      "body": "<ol><li>Click clear Home floor and press F. Use right-drag to return to the overhead view.</li><li>Choose <strong>Assets → Props</strong>, search for <code>core:bed</code>, and click the Bed thumbnail.</li><li>Before placing it, <strong>middle-drag the view</strong> until the empty floor in the back-left part of the bedroom is near the center of the screen. Leave enough space for a bed about 2 m long, with its head toward the back wall.</li><li>Click <strong>Place chosen prop</strong>.</li><li>If needed, use the red and blue handles to adjust it. Leave a route beside the bed and in front of the door.</li></ol><p>The bed is larger than the desk or chair. Trying to add it at the room’s center can put it through the divider or closed door. If placement is refused, the message at the bottom explains why. Pan toward a clear area and try Place chosen prop again.</p>",
+      "figures": [
+        {
+          "shot": "36b-bed-search",
+          "caption": "Choose the bed from Props.",
+          "image": "images/15-01-36b-bed-search.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "42ae2ad3dad52f1b1c0a1294668aae65bb7dde5281b12d4d1df79f0d6c409afe",
+          "detail_box": [
+            0,
+            427,
+            1100,
+            757
+          ]
+        },
+        {
+          "shot": "36d-bed-pan-to-empty-floor",
+          "caption": "Pan so the bed has clear floor around the center of your view, then place it.",
+          "image": "images/15-02-36d-bed-pan-to-empty-floor.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "1349a22e8b58e826b7393b554536ec615601ca59676f3f344d1587bb0c4306bc",
+          "detail_box": [
+            0,
+            793,
+            1100,
+            1123
+          ]
+        },
+        {
+          "shot": "37c-bed-placed",
+          "caption": "The bed fits in the back-left part of Home.",
+          "image": "images/15-03-37c-bed-placed.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "a7da5d18a0268bddb1b6a032088db043cb7bbb1b2d598e51222482520ce26ff7"
+        }
+      ],
+      "checkpoint": "The bed is wholly inside the bedroom and does not overlap the door or a wall.",
+      "number": 15
+    },
+    {
+      "section": "Home",
+      "id": "kitchen",
+      "title": "Make a small kitchen along the back wall",
+      "body": "<p>Use three separate props. Before each new catalog choice, click clear floor and press F so the last prop is no longer selected.</p><ol><li>In <strong>Assets → Props</strong>, search for <code>home:cabinet_base</code>. Click <strong>Base Kitchen Cabinet</strong>, then <strong>Place chosen prop</strong>. Drag its red handle to the right, then its blue handle toward the back wall. Leave roughly a metre between its center and the back wall.</li><li>Repeat with <code>home:sink</code> (<strong>Home Shaker Sink Unit</strong>). Move it beside the cabinet, on the cabinet’s left.</li><li>Repeat with <code>home:stove</code> (<strong>Home Enamel Cooker</strong>). Move it beside the sink, on the sink’s left.</li></ol><p>Keep all three facing into the room at their default rotation. The front of the stove has the oven door; that side should face the bed and open floor. Leave a small gap between units and keep the route from the bedroom door clear.</p><p>The picture shows the finished row: stove, sink, cabinet. These are decorative kitchen props; this guide doesn’t add cooking behavior.</p>",
+      "figures": [
+        {
+          "shot": "38-cabinet-chosen",
+          "caption": "Choose the cabinet, then place it.",
+          "image": "images/16-01-38-cabinet-chosen.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "66c86edb906fbd3948568fd28adf638d06eeb2ea4be38628b8347dcc5700d096",
+          "detail_box": [
+            0,
+            793,
+            1100,
+            1123
+          ]
+        },
+        {
+          "shot": "41b-sink-back-moved",
+          "caption": "Move the sink beside the cabinet.",
+          "image": "images/16-02-41b-sink-back-moved.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "4b40798ed76e87e213cbdc494e4937456d2d844887b56df747a4bb632c08a788"
+        },
+        {
+          "shot": "43-stove-back-moved",
+          "caption": "Add the stove to finish the three-piece kitchen.",
+          "image": "images/16-03-43-stove-back-moved.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f2471e61aa555d848458c2d9d8e3c45c9ef09f2fa5d088edb7d53543c95860c7"
+        }
+      ],
+      "checkpoint": "Home contains a bed, cabinet, sink and stove. None touches the door’s swing area.",
+      "number": 16
+    },
+    {
+      "section": "Home",
+      "id": "home-light",
+      "title": "Light the bedroom and lobby",
+      "body": "<ol><li>Click <strong>Lighting → Place light fixture</strong>, then click the bedroom floor near its center. A fluorescent fixture appears on the ceiling.</li><li>Keep that new light selected. In the Lighting tab’s search field, enter <code>home:ceiling_light_round</code> and click the round fixture thumbnail. The selected light changes to the Home ceiling fixture.</li><li>Choose <strong>Place light fixture</strong> again and click the lobby floor halfway between the divider and front wall.</li><li>Search for <code>home:ceiling_light_round</code> again and choose it for this light too.</li><li>Leave <strong>Power 1.00</strong> and the other light settings at their defaults. Save.</li></ol><p>Use the Lighting tab for lights. A lamp model chosen from Props is furniture and does not, by itself, create illumination.</p>",
+      "figures": [
+        {
+          "shot": "46-home-tool",
+          "caption": "Place a ceiling light by clicking the floor below it.",
+          "image": "images/17-01-46-home-tool.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "be14ebdd14cd3eb5ec864c22666c99d033706284502bfd472cb5207e7cdaf80b",
+          "detail_box": [
+            0,
+            148,
+            1100,
+            478
+          ]
+        },
+        {
+          "shot": "46-home-fixture",
+          "caption": "With the new light selected, choose the Home fixture.",
+          "image": "images/17-02-46-home-fixture.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "09e2cca6b96b85bc759c36649d1f5856637e7ab73af2472c4ca776ae48759006",
+          "detail_box": [
+            0,
+            547,
+            1100,
+            877
+          ]
+        },
+        {
+          "shot": "98-home-lobby-light",
+          "caption": "A second light covers the lobby.",
+          "image": "images/17-03-98-home-lobby-light.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "357d7d3c4c906552556e8c2045ff312e9a4a288be9c803a70d0a3746e60c7db1"
+        }
+      ],
+      "checkpoint": "Home has two lights: one in the bedroom and one in the lobby.",
+      "number": 17
+    },
+    {
+      "section": "Pool",
+      "id": "pool-room",
+      "title": "Create the Pool room before adding water",
+      "body": "<ol><li>Click clear Home floor so the room is selected. Choose <strong>Build → Room</strong>.</li><li>Set <strong>West X to 20</strong>. Keep <strong>North Z 0</strong>, <strong>Width m 4</strong>, <strong>Depth m 6</strong>, <strong>Floor elevation m 0</strong> and <strong>Room height m 2.7</strong>.</li><li>Click <strong>Preview</strong>, then <strong>Apply</strong>. Press F to frame the new room and orbit to an overhead view.</li><li>Drag the yellow handle on the <strong>right edge</strong> outward until the width reads <strong>8.00 m</strong>. Release.</li><li>Drag the yellow handle on the <strong>front edge</strong> outward until the depth also reads <strong>8.00 m</strong>. Release.</li></ol><p>You should now have a large, empty 8 × 8 m floor with a ceiling above it. Keep it at the same floor height as the other rooms. There is no basin or water yet.</p>",
+      "figures": [
+        {
+          "shot": "50-pool-form",
+          "caption": "Create a separate room at X 20, keeping the other starting values.",
+          "image": "images/18-01-50-pool-form.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "932962c5524d21e42807f1f445e44a81b5b7fa7f6ea67133996da4238ff88dbb",
+          "detail_box": [
+            582,
+            1116,
+            1682,
+            1446
+          ]
+        },
+        {
+          "shot": "50-pool-width-preview",
+          "caption": "Stretch the right edge to make the room 8 m wide.",
+          "image": "images/18-02-50-pool-width-preview.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "fac248ccd6c05297c970c1167ad65b038756605d1d794b59732e3214b9301cdd"
+        },
+        {
+          "shot": "50-pool-depth-preview",
+          "caption": "Stretch the front edge to make it 8 m deep.",
+          "image": "images/18-03-50-pool-depth-preview.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "deb58c0dc28f837edde0d6e0249a32a2c89f7d244ea32c4df389b2db79d805a2"
+        },
+        {
+          "shot": "50-pool-floor-and-ceiling",
+          "caption": "The Pool room’s full footprint exists before we add walls or a basin.",
+          "image": "images/18-04-50-pool-floor-and-ceiling.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "74fad1a2fafaba6cebe461969f24826cbe5837235e6017551e545bca57dc4fbf"
+        }
+      ],
+      "checkpoint": "Pool is 8 × 8 m. Its floor is continuous and dry.",
+      "number": 18
+    },
+    {
+      "section": "Pool",
+      "id": "pool-walls",
+      "title": "Draw all four Pool walls",
+      "body": "<ol><li>Keep the whole Pool floor visible. Zoom out a little if a corner is off-screen.</li><li>Choose <strong>Build → Wall</strong>, then turn <strong>Chain</strong> on.</li><li>Click the floor corners in order: <strong>back left → back right → front right → front left → back left</strong>.</li><li>Press Esc after the fourth wall. Each side should span the full 8 m edge.</li><li>Orbit slightly to check the corners, then return to the overhead view.</li></ol><p>Do this around the Pool floor, not the empty gap between rooms. The four walls form the Pool room’s outer shell. We’ll make the janitor closet inside this shell later.</p>",
+      "figures": [
+        {
+          "shot": "51-pool-first-wall-preview",
+          "caption": "Start the first wall along the back edge of the 8 m floor.",
+          "image": "images/19-01-51-pool-first-wall-preview.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "cc1619c4a4b3a766123268e8fe558d1456f4b7394c311d512f37af8db545773a"
+        },
+        {
+          "shot": "51-pool-enclosed",
+          "caption": "The four walls completely enclose the Pool room.",
+          "image": "images/19-02-51-pool-enclosed.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "7ff8b164d4e07a3b2c8f7fd2976ea0486ed7b0054b25e9fd9a8c4c925276d8f7"
+        }
+      ],
+      "checkpoint": "Pool has a floor, ceiling and four outside walls. Save.",
+      "number": 19
+    },
+    {
+      "section": "Pool",
+      "id": "pool-tiles",
+      "title": "Tile the room",
+      "body": "<ol><li>Click empty Pool floor. Choose <strong>Assets → Surface</strong>, search for <code>core:pool_tile_deck_01</code>, and click the tile thumbnail.</li><li>With the room selected, open <strong>Material: … &gt;</strong> in Properties. Switch the catalog target from <strong>Surface</strong> to <strong>Ceiling</strong>, search for <code>core:pool_ceiling_01</code>, and choose it.</li><li>Select a solid part of an outside wall. Check Properties says Wall. Open <strong>Material: … &gt;</strong>, search for <code>core:pool_tile_wall_01</code>, and choose the wall tile.</li><li>Repeat for the other three outside walls. Save.</li></ol><p>This is the last checkpoint before we cut the basin. Look around the empty room: the surrounding floor is the pool deck, not the pool itself.</p>",
+      "figures": [
+        {
+          "shot": "52-pool-floor-choice",
+          "caption": "Apply the deck tile to the room’s floor.",
+          "image": "images/20-01-52-pool-floor-choice.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "428f8e5e386e81c50d1fe8b767addca1c723d3a8da51b1d3eec81c91d7d4c2e8",
+          "detail_box": [
+            0,
+            427,
+            1100,
+            757
+          ]
+        },
+        {
+          "shot": "53-pool-ceiling-choice",
+          "caption": "Choose the Pool ceiling material with Ceiling selected.",
+          "image": "images/20-02-53-pool-ceiling-choice.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "8a8ca3f36556aca356d0b1e35580fa5780e87e6caf651b694dd4e34fdbc1bf15",
+          "detail_box": [
+            440,
+            466,
+            1540,
+            796
+          ]
+        },
+        {
+          "shot": "96-pool-wall-1-search",
+          "caption": "Apply Pool wall tile through the selected wall’s Material button.",
+          "image": "images/20-03-96-pool-wall-1-search.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "1ec023f54183b3ca0d0ed0f4ca5208d4a4d14dd73ac098721cf2405f2b2e0b1e",
+          "detail_box": [
+            440,
+            466,
+            1540,
+            796
+          ]
+        },
+        {
+          "shot": "55-empty-pool-room",
+          "caption": "The finished empty shell: floor, ceiling and four walls, with no basin yet.",
+          "image": "images/20-04-55-empty-pool-room.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "d3516c6ac37e8fe19ab8eab94ba95cb6c3af2a6d1e4efe3102440e9304309d3e"
+        }
+      ],
+      "checkpoint": "The entire Pool room is built and tiled. Its floor is still flat and dry.",
+      "number": 20
+    },
+    {
+      "section": "Pool",
+      "id": "basin",
+      "title": "Lower a patch of floor to make the basin",
+      "body": "<p>The basin is a recessed part of the existing floor. It has its own bottom and vertical tiled edges; you don’t need to build four tiny walls around it.</p><ol><li>Click <strong>Tools &gt; → Environment / space &gt; → GLOBAL surface region</strong>.</li><li>On the first page enter the values in the table. These place a 3 × 3 m basin toward the left side of the Pool room, leaving deck space around it.</li><li>Click <strong>Page &gt;</strong> for the remaining field and enter the edge material.</li><li>Click <strong>Preview</strong>. Check that the blue-tiled recess is entirely inside Pool, then click <strong>Apply</strong>.</li></ol><table><tr><th>Field</th><th>Value</th></tr><tr><td>X</td><td>21.5</td></tr><tr><td>Z</td><td>2</td></tr><tr><td>Width / Depth</td><td>3 / 3</td></tr><tr><td>Offset on ALL carriers</td><td>-0.4</td></tr><tr><td>Surface material ID</td><td><code>core:pool_tile_basin_01</code></td></tr><tr><td>Edge material ID (next page)</td><td><code>core:pool_tile_basin_01</code></td></tr></table><p>The negative offset lowers the floor by 40 cm. This tool is called GLOBAL because it affects every floor footprint underneath its rectangle. Our three rooms are separated, with no stacked storeys, so only Pool is affected.</p>",
+      "figures": [
+        {
+          "shot": "56-basin-tools",
+          "caption": "Open Environment / space from Tools.",
+          "image": "images/21-01-56-basin-tools.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f9a6fff363d9b4ca93404330207debca6e47aecb60f270830635fdb127738317",
+          "detail_box": [
+            680,
+            1088,
+            1780,
+            1418
+          ]
+        },
+        {
+          "shot": "56-basin-menu",
+          "caption": "Choose GLOBAL surface region.",
+          "image": "images/21-02-56-basin-menu.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "a7a5c6d1921bfe15741caac18377eacf8c650946941531753522c9a6bbf2079a",
+          "detail_box": [
+            1570,
+            838,
+            2670,
+            1168
+          ]
+        },
+        {
+          "shot": "56-basin-page-1",
+          "caption": "Enter the basin footprint, depth and bottom material.",
+          "image": "images/21-03-56-basin-page-1.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "974b3c3393eb71f40aa3231230eb5a235e82c6fe04e182ebc3048433f4928f20",
+          "detail_box": [
+            710,
+            923,
+            1810,
+            1253
+          ]
+        },
+        {
+          "shot": "56-basin-page-2",
+          "caption": "Set the edge material too, then Preview.",
+          "image": "images/21-04-56-basin-page-2.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "373f07023706e212126250c873fbd5953c217b778f1789a82b28a1f6f5ef77ee",
+          "detail_box": [
+            582,
+            1116,
+            1682,
+            1446
+          ]
+        },
+        {
+          "shot": "57-empty-basin",
+          "caption": "The dry basin is real geometry. Check it before adding water.",
+          "image": "images/21-05-57-empty-basin.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "b9e43448d6b8758593acab32a7ac32881a5c3e734f96a23af2c847a375a58011"
+        }
+      ],
+      "checkpoint": "There is a shallow, blue-tiled recess with visible vertical edges. It contains no water yet.",
+      "number": 21
+    },
+    {
+      "section": "Pool",
+      "id": "water",
+      "title": "Fill the basin",
+      "body": "<ol><li>Open <strong>Tools &gt; → Environment / space &gt; → Water volume</strong>.</li><li>Enter <strong>X 21.5</strong>, <strong>Z 2</strong>, <strong>Width 3</strong> and <strong>Depth 3</strong>. They must match the basin.</li><li>Set <strong>World surface Y to -0.1</strong> and <strong>World bottom Y to -0.4</strong>.</li><li>Leave the remaining pages at their defaults. Click <strong>Preview</strong>, check the water is inside the recess, and click <strong>Apply</strong>.</li><li>Save.</li></ol><p>The deck is at height 0. The water surface sits 10 cm below it, and the bottom matches the basin’s 40 cm depth. That leaves about 30 cm of water.</p><p>These matching form values are useful here: the water and basin edges need to agree. Water doesn’t dig a hole by itself, which is why we built and checked the dry basin first.</p>",
+      "figures": [
+        {
+          "shot": "58-water-menu",
+          "caption": "Choose Water volume.",
+          "image": "images/22-01-58-water-menu.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "ebe00cc75b6c163b8a996fffac0418271b0122f6aea2eef4c773dd954ea03d6c",
+          "detail_box": [
+            720,
+            568,
+            1820,
+            898
+          ]
+        },
+        {
+          "shot": "58-water-page-1",
+          "caption": "Match the basin footprint and set the two water heights.",
+          "image": "images/22-02-58-water-page-1.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "b84735788b0564203d808fe35e6ee4dbb84ebc379f55bbf3ecbaec62fad6092c",
+          "detail_box": [
+            582,
+            1116,
+            1682,
+            1446
+          ]
+        },
+        {
+          "shot": "59-filled-pool",
+          "caption": "The water now sits inside the tiled basin.",
+          "image": "images/22-03-59-filled-pool.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "aacd1b41941749682c142cd5ee3e01c9bd4dcd40efce872690ae748446044c22"
+        }
+      ],
+      "checkpoint": "Water fills only the basin. The surrounding deck stays dry.",
+      "number": 22
+    },
+    {
+      "section": "Pool",
+      "id": "closet",
+      "title": "Build the janitor closet and its door",
+      "body": "<p>Use the back-right corner of the Pool room. The existing back and right outside walls will form two sides of the closet.</p><ol><li>Choose <strong>Build → Wall</strong>, with Chain off. Start on the back wall about <strong>2½ m from the right edge</strong>. Draw straight forward for about <strong>2¾ m</strong>.</li><li>Choose Wall again. From the front end of that wall, draw across to the right outside wall. These two new walls close a small rectangle in the corner.</li><li>Choose <strong>Build → Door</strong>. Point at the middle of the new closet-front wall, check the preview, and click.</li><li>Select solid parts of the two new walls, one at a time. Use <strong>Material: … &gt;</strong> to apply <code>core:pool_tile_wall_01</code> to each.</li></ol><p>The closet shares the Pool room’s floor and ceiling. It doesn’t need a second Room footprint laid over the same space.</p>",
+      "figures": [
+        {
+          "shot": "60-closet-side-preview",
+          "caption": "Draw the closet’s left side forward from the back wall.",
+          "image": "images/23-01-60-closet-side-preview.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "ee15a0b92bbd97e73e193cb3505f70f896fb2f15355a74bcd7a02f244cac6387"
+        },
+        {
+          "shot": "61-closet-front-preview",
+          "caption": "Draw its front wall across to the outside wall.",
+          "image": "images/23-02-61-closet-front-preview.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "ccf4c72a0c4cb72476e399a74d0f41695c94b682edfd8baa0924eba0fa048652"
+        },
+        {
+          "shot": "62-closet-door-preview",
+          "caption": "Fit a door in the new front wall.",
+          "image": "images/23-03-62-closet-door-preview.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "bfc7bafa83bb253b04a704de7fe43b8a88fd9388fbba1214e792c7b0377d4f9d"
+        },
+        {
+          "shot": "63-closet-door",
+          "caption": "The small corner enclosure is complete.",
+          "image": "images/23-04-63-closet-door.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "639077a227844c2bf5cc3677abeb9845301b08d2e0d2eb22b5f6b6200e202bda"
+        }
+      ],
+      "checkpoint": "The closet has four sides, a floor, a ceiling and one working door. It does not overlap the basin.",
+      "number": 23
+    },
+    {
+      "section": "Pool",
+      "id": "bench-duck",
+      "title": "Add the bench and rubber duck",
+      "body": "<ol><li>Click the Pool floor to deselect the last wall. Choose <strong>Assets → Props</strong>, search for <code>pool:pool_bench</code>, and click <strong>Pool Bench</strong>.</li><li>Middle-drag until clear deck to the right of the pool is near the center of your view. Click <strong>Place chosen prop</strong>.</li><li>In Properties set <strong>Yaw deg to 90</strong>. The bench’s long side should now run along the right-hand wall. Move it with the red and blue handles if necessary, leaving space around it.</li><li>Click clear floor before choosing the next model. Search Props for <code>core:rubber_duck</code> and click the duck thumbnail.</li><li>Pan so a clear patch of deck just beside the bench is centered, then click <strong>Place chosen prop</strong>. Adjust with the handles if needed.</li></ol><p>We’re placing the duck on the deck beside the bench. Its default size is small, so zoom in to check that it isn’t hidden under the bench.</p>",
+      "figures": [
+        {
+          "shot": "65-bench-center-clear-deck",
+          "caption": "Center a clear patch of deck before placing the bench.",
+          "image": "images/24-01-65-bench-center-clear-deck.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "4ed0c9bbb6857f29e36ee9ffb1e828c5362bbebe135df3acb1e2d677268f8bd5",
+          "detail_box": [
+            0,
+            793,
+            1100,
+            1123
+          ]
+        },
+        {
+          "shot": "66-bench-turned",
+          "caption": "Turn the bench 90 degrees.",
+          "image": "images/24-02-66-bench-turned.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "c0260ebc0de2235818bd3376d17832a94c8082873dd936d1c77b12245f72df29",
+          "detail_box": [
+            1780,
+            475,
+            2880,
+            805
+          ]
+        },
+        {
+          "shot": "67-duck-center-clear-deck",
+          "caption": "Deselect the bench before choosing the duck, then place it on clear deck.",
+          "image": "images/24-03-67-duck-center-clear-deck.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "efbea337f8c5ec6845de0b7a1cb2c1e5df51bee343e02757453526121d203c78",
+          "detail_box": [
+            0,
+            793,
+            1100,
+            1123
+          ]
+        },
+        {
+          "shot": "68-duck-on-deck",
+          "caption": "The duck sits beside the bench.",
+          "image": "images/24-04-68-duck-on-deck.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "85ba0d7809a179d461635c200f166fa55499b7117825b6fe3b7df57ec0e90534"
+        }
+      ],
+      "checkpoint": "A bench and a visible rubber duck sit on the dry deck, with a clear path around the pool.",
+      "number": 24
+    },
+    {
+      "section": "Pool",
+      "id": "pool-lights",
+      "title": "Light the pool and stock the closet",
+      "body": "<ol><li>Click <strong>Lighting → Place light fixture</strong>, then click near the center of the basin. This still mounts the light to the room’s ceiling.</li><li>With the light selected, search the Lighting catalog for <code>core:pool_light_round</code> and click its thumbnail.</li><li>Repeat the same two actions for a light above the <strong>closet</strong>, then another above the <strong>front-right deck</strong>. Keep Power at 1.00.</li><li>Click clear Pool floor. In <strong>Assets → Props</strong>, search for <code>janitor:mop_wringer_bucket</code> and choose <strong>Mop Wringer Bucket</strong>.</li><li>Pan so clear floor near the back of the closet is centered, then click <strong>Place chosen prop</strong>. Keep it out of the door’s swing area.</li><li>Save.</li></ol><p>To select the Pool room again, click dry deck away from a prop or wall. The closet floor belongs to that same room.</p>",
+      "figures": [
+        {
+          "shot": "71-light-1-fixture",
+          "caption": "Choose the Pool light fixture for each of the three new lights.",
+          "image": "images/25-01-71-light-1-fixture.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f6c8189fce1efaa3ca67f204254f1620a911cc309a5fdb1c343e95c9ad8c50f4",
+          "detail_box": [
+            0,
+            547,
+            1100,
+            877
+          ]
+        },
+        {
+          "shot": "73-pool-finished",
+          "caption": "The main pool, closet and front deck each have a light.",
+          "image": "images/25-02-73-pool-finished.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "231e9c99c27ba123209f39a1dc162b9eb7d5df70001935ade54b729b898af57a"
+        },
+        {
+          "shot": "74-mop-bucket-center-clear-deck",
+          "caption": "Center clear closet floor before placing the bucket.",
+          "image": "images/25-03-74-mop-bucket-center-clear-deck.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "b71f4f43dd5b617b1a2ce6986cc79f61d4d6465c111ad91003a5c693089b980c",
+          "detail_box": [
+            0,
+            793,
+            1100,
+            1123
+          ]
+        },
+        {
+          "shot": "75-closet-stocked",
+          "caption": "The bucket gives the closet its janitor-room purpose.",
+          "image": "images/25-04-75-closet-stocked.jpg",
+          "after_step": 6,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "61b181bfcc6de7a35d02299c5fc0b2b99418c0f135a9385ae3e6c97211eee96b"
+        }
+      ],
+      "checkpoint": "Pool has three ceiling lights, a fitted closet door, a mop bucket, a bench and a duck. The basin and deck remain clear.",
+      "number": 25
+    },
+    {
+      "section": "Elevators",
+      "id": "cabins",
+      "title": "Give each room an elevator cabin",
+      "body": "<p>The cabins sit behind the front walls. We’ll give each one a name, then connect them. All three rooms are on the same floor; the linked cabins let you travel between separate locations.</p><ol><li>Zoom out until you can see Backrooms again. Click its lobby floor and press F. Keep the overhead view and tilt it slightly if needed so you can point at the <strong>inside face of its front outside wall</strong>.</li><li>Choose <strong>Build → Elevator</strong>. Point near the middle of that front wall, well away from the corners.</li><li>Check the preview: the entrance faces the lobby and the cabin extends behind the wall. Click to place it.</li><li>In the panel that opens, click <strong>Name</strong>, select all, type <strong>Backrooms</strong>, and press Return. Close the panel.</li><li>Repeat on <strong>Home’s front outside wall</strong>. Name that cabin <strong>Home</strong>.</li><li>Repeat on <strong>Pool’s front outside wall</strong>. Name that cabin <strong>Pool</strong>. Keep it clear of the basin and the bench.</li></ol><p>Use the outside front wall, not the internal divider or closet wall. If the preview is on the wrong side, press Esc, tilt the view to see the inside face and start Elevator again. Don’t place it until the entrance faces the room.</p>",
+      "figures": [
+        {
+          "shot": "76-elevator-1-tool",
+          "caption": "Choose Elevator in the Build tab.",
+          "image": "images/26-01-76-elevator-1-tool.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "0b81728f9b3137ee45fa1671a1077b98345e5e715e70931927729b61e9864f5c",
+          "detail_box": [
+            0,
+            157,
+            1100,
+            487
+          ]
+        },
+        {
+          "shot": "77-elevator-1-preview",
+          "caption": "The entrance faces into Backrooms; the cabin extends behind the wall.",
+          "image": "images/26-02-77-elevator-1-preview.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "b8778043464c595a83dfed731036aa6e49182e9cfe854489a800ed66540fa361"
+        },
+        {
+          "shot": "78-elevator-1-name",
+          "caption": "Name this stop before closing the panel.",
+          "image": "images/26-03-78-elevator-1-name.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f38c6a26114745d418223236207aa02b362025064f696d57aee89b082b7e94e1",
+          "detail_box": [
+            712,
+            798,
+            1812,
+            1128
+          ]
+        },
+        {
+          "shot": "79-elevator-2-named",
+          "caption": "Repeat in Home, using the name Home.",
+          "image": "images/26-04-79-elevator-2-named.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "ac54a156ccd1795b0c684ce61380f3e73d3a4487b66aca908e19bf0ebfdb016d"
+        },
+        {
+          "shot": "79-elevator-3-named",
+          "caption": "Repeat in Pool, using the name Pool.",
+          "image": "images/26-05-79-elevator-3-named.jpg",
+          "after_step": 6,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "77025dd6b1ec96bdf40d54ecf9342ebac399c29fc30c227af655782d6e9bf9bb"
+        }
+      ],
+      "checkpoint": "You have exactly three cabins, named Backrooms, Home and Pool. Save.",
+      "number": 26
+    },
+    {
+      "section": "Elevators",
+      "id": "links",
+      "title": "Link the three stops",
+      "body": "<ol><li>Return your view to the Backrooms cabin. Choose <strong>Build → Elevator</strong>, then click the existing cabin to open its panel. Check that the selected name is <strong>Backrooms</strong>.</li><li>Click <strong>Link selected</strong>. The panel closes so you can pick a destination in the scene.</li><li>Pan or zoom over to Home and click its existing elevator cabin. The link is made in both directions, and the panel opens again.</li><li>In the cabin list, click <strong>Backrooms</strong> to select it again, then click <strong>Link selected</strong>.</li><li>Pan or zoom over to Pool and click its cabin.</li><li>Check the panel lists all three named stops. Close it and save.</li></ol><p>These links join the cabins into one group, so each cabin can reach the other two. You don’t need to build an extra Home–Pool link or create another elevator.</p>",
+      "figures": [
+        {
+          "shot": "80-backrooms-cabin",
+          "caption": "Select Backrooms, then Link selected.",
+          "image": "images/27-01-80-backrooms-cabin.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "f73caa947411e2011a01358c9f0604d855f197e3e8a38adcf58a5134843aa281",
+          "detail_box": [
+            712,
+            493,
+            1812,
+            823
+          ]
+        },
+        {
+          "shot": "82-first-link",
+          "caption": "After linking Home, select Backrooms in the cabin list.",
+          "image": "images/27-02-82-first-link.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "96fb3a44502fd8fbf1fc2d4314fe47f71111970ee05c8c8e304952c3c961ae67",
+          "detail_box": [
+            1570,
+            416,
+            2670,
+            746
+          ]
+        },
+        {
+          "shot": "83-select-backrooms",
+          "caption": "Link selected again, this time to Pool.",
+          "image": "images/27-03-83-select-backrooms.jpg",
+          "after_step": 4,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "67542faff527a0fff83df8354cf3ca2d182c1f01ee34447cac6cd2e005553f81",
+          "detail_box": [
+            712,
+            493,
+            1812,
+            823
+          ]
+        },
+        {
+          "shot": "85-three-stops",
+          "caption": "The completed group contains all three stop names.",
+          "image": "images/27-04-85-three-stops.jpg",
+          "after_step": 6,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "a193ac525ea3ba1083d9f97d5d7e314a70155cb28229caea7ec1207c625989ae"
+        }
+      ],
+      "checkpoint": "Each cabin offers the other two rooms as destinations. Save, close and reopen the project to confirm the links were kept.",
+      "number": 27
+    },
+    {
+      "section": "Try and save",
+      "id": "quick-test",
+      "title": "Take your first walk",
+      "body": "<ol><li>Click <strong>Save</strong>, then <strong>Test in editor</strong> in the top bar, or press <kbd>⌘P</kbd> / <kbd>Ctrl P</kbd>.</li><li>Wait for the first-person view. You start in the Backrooms lobby.</li><li>Use <strong>W, A, S, D</strong> to walk and the mouse to look around. Walk through the open doorway, around the pillars, and up to the desk and chair.</li><li>Press <strong>E</strong> while looking at an interactive door or elevator control. Give swinging doors room to move before walking through.</li><li>Press <strong>Esc</strong> when you’re ready to return to the editor.</li></ol><p>Take this first walk slowly. You can reach everything in this space without jumping.</p><p>Test in editor uses a temporary snapshot and approximate, unbaked lighting. Your bright overhead editing view also uses an inspection light. Judge the finished lighting in the built player version below.</p>",
+      "figures": [
+        {
+          "shot": "86-save",
+          "caption": "Save first, then Test in editor.",
+          "image": "images/28-01-86-save.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "01fbc1808862686ec0f68b427e8a08b456ae9bf455361166f8f12fae23fa1f80",
+          "detail_box": [
+            1512,
+            0,
+            2612,
+            330
+          ]
+        },
+        {
+          "shot": "87-test-from-spawn",
+          "caption": "The starter position is in the Backrooms lobby.",
+          "image": "images/28-02-87-test-from-spawn.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "01e14393426477b72b3d4c3fb4c767914f129c8b57f078b58665887030f38b44"
+        },
+        {
+          "shot": "88-return-to-editor",
+          "caption": "Esc returns you to your editable scene.",
+          "image": "images/28-03-88-return-to-editor.jpg",
+          "after_step": 5,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "a76f7ea058e087936a6b05f04c7334306e843cf2aaff69a462f2bece453ada1c"
+        }
+      ],
+      "checkpoint": "You can walk through the Backrooms passage without getting caught on a pillar or piece of furniture.",
+      "number": 28
+    },
+    {
+      "section": "Try and save",
+      "id": "build",
+      "title": "Build the finished lighting",
+      "body": "<ol><li>Stop the first-person test with Esc.</li><li>Click <strong>Final build</strong> at the upper right. It saves changed source and prepares the selected level.</li><li>Wait for the bottom status line to say <strong>Build succeeded</strong>.</li></ol><p>The progress bar belongs to the current stage, so it can fill up and start again as the compiler moves on. That doesn’t mean it has restarted the entire job. Leave the editor running until it reports success.</p><p>If it reports an error, read the message and fix the problem before continuing. A previous successful package is not proof that your latest changes built.</p>",
+      "figures": [
+        {
+          "shot": "89-final-build-button",
+          "caption": "Final build is at the upper right.",
+          "image": "images/29-01-89-final-build-button.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "55e4684c808eef912fd1be7172482db464c82da55a47317f51aed04287a99f7f",
+          "detail_box": [
+            1780,
+            0,
+            2880,
+            330
+          ]
+        },
+        {
+          "shot": "103-final-build",
+          "caption": "Wait for the explicit success message.",
+          "image": "images/29-02-103-final-build.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "e65a778e37b9374ff5d10dc83f704f8b75fb0f2fdf22d3e8317518d0a7d2d0f0"
+        }
+      ],
+      "checkpoint": "The status line reports a successful final build of the current scene.",
+      "number": 29
+    },
+    {
+      "section": "Try and save",
+      "id": "export",
+      "title": "Export a package you can play",
+      "body": "<ol><li>Click <strong>Project &gt; → Export all levels + sources</strong>.</li><li>Enter a full destination path ending in <code>.placesmap</code>, in an existing folder you can write to. For example, on Mac use <code>/Users/your-name/Documents/first-space.placesmap</code>; on Windows use <code>C:/Users/your-name/Documents/first-space.placesmap</code>. Replace <code>your-name</code> with your account folder.</li><li>Click <strong>Apply</strong> and wait for the export to succeed. The panel closes while it works.</li></ol><p>The exported <code>.placesmap</code> is the file you import into the game. Keep the original project folder too—it’s the easiest place to continue editing.</p><p>Final build prepares the selected level. Export all levels + sources creates the complete project package and includes editable sources. For this tutorial, the three rooms are all inside one level.</p>",
+      "figures": [
+        {
+          "shot": "91-project-export",
+          "caption": "Choose Export all levels + sources.",
+          "image": "images/30-01-91-project-export.jpg",
+          "after_step": 1,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "11669e495b2dbf201b91d6ab3a3010c45abc252d7fa61088bd003161935b7f1f",
+          "detail_box": [
+            1405,
+            363,
+            2505,
+            693
+          ]
+        },
+        {
+          "shot": "104-export-path",
+          "caption": "Enter your own full path, then Apply.",
+          "image": "images/30-02-104-export-path.jpg",
+          "after_step": 2,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "aeee873af6195e8bdeec0d16a8ab05688face7343e65afa7dd710df0a9599cae",
+          "detail_box": [
+            90,
+            828,
+            1190,
+            1158
+          ]
+        },
+        {
+          "shot": "105-export-success",
+          "caption": "Wait for the export’s success message.",
+          "image": "images/30-03-105-export-success.jpg",
+          "after_step": 3,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "ae38e731706f15ed1c98c93def6cdee83a6194b9ea0fb958811c130b08cf28bc"
+        }
+      ],
+      "checkpoint": "Your destination folder contains the exported .placesmap file.",
+      "number": 30
+    },
+    {
+      "section": "Try and save",
+      "id": "import",
+      "title": "Bring the package into Places",
+      "body": "<ol><li>Open the game: <strong>Places.app</strong> on Mac, or <strong>places.exe</strong> in the Windows Places folder. The Mac portable player executable is <strong>places</strong>.</li><li>Choose <strong>Explore</strong>. A fresh installation may already show the empty Explore library.</li><li>Choose <strong>Import folder</strong>. Finder or File Explorer opens the game’s import folder.</li><li>Copy your exported <code>first-space.placesmap</code> into that folder. Keep your original export as well.</li><li>Return to Places and choose <strong>Import levels</strong>.</li><li>When <strong>My First Places Space</strong> appears, select its card to start playing.</li></ol><p>Import levels reads the import folder; it isn’t a file-picker button. If it says no new maps were found, check that the exported <code>.placesmap</code>—not the editable project folder—is in the folder opened by Import folder.</p>",
+      "figures": [
+        {
+          "shot": "game-explore-empty",
+          "caption": "Open the import folder, then return here and choose Import levels.",
+          "image": "images/31-01-game-explore-empty.jpg",
+          "after_step": 3,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "6d8fc4fee1cebb42f619a929b0023729660118aad999b1a34e00bc393a12de8e"
+        },
+        {
+          "shot": "game-imported",
+          "caption": "Select the imported space’s card to play.",
+          "image": "images/31-02-game-imported.jpg",
+          "after_step": 6,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "8d96fbf53421b41e4a5fa35b290ec579b4c7681ce8dabd5ea64bc829781cb9ad"
+        }
+      ],
+      "checkpoint": "The game loads your Backrooms lobby from the exported package.",
+      "number": 31
+    },
+    {
+      "section": "Try and save",
+      "id": "play-route",
+      "title": "Try the whole route",
+      "body": "<ol><li>Walk around Backrooms and through its open doorway. Check the desk, chair and three pillars leave a comfortable path.</li><li>Return to the lobby. Open the elevator with its entrance control if necessary, then walk fully inside.</li><li>Turn toward the button panel beside the cabin entrance. Aim at the buttons until the on-screen prompt reads <strong>Floor: Home</strong>, then use that control by pressing <strong>E</strong> or left-clicking. Step clear of the doorway and let the doors close and the ride finish.</li><li>Leave the Home cabin, open the bedroom door with E, and walk inside. Look at the bed and kitchen. If the door swings toward you, step back, wait for it to open, then line up with the middle of the opening.</li><li>Use Home’s elevator to visit <strong>Pool</strong>. Walk along the deck between the basin and bench, then turn toward the closet door. Open it and check that you can enter. Find the bucket, bench and duck.</li><li>Walk down into the shallow pool and back onto the deck. You should not need to jump to get out.</li><li>Ride back to <strong>Backrooms</strong>. Try the remaining return trips too.</li></ol><p>The green door-arrow control opens or closes the doors at the current stop. To travel, aim at a destination button and read the floor name in the on-screen prompt before you use it. If the doors keep reopening, move farther inside the cabin so you’re clear of the doorway.</p>",
+      "figures": [
+        {
+          "shot": "game-arrival-home",
+          "caption": "Inside a cabin, aim at a destination button to read its floor name. This example shows Backrooms from Home.",
+          "image": "images/32-01-game-arrival-home.jpg",
+          "after_step": 3,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "087cd461e68c9403f6c4ae7ede6a468f42362a79b7ead386ba8b7f4c20df0d64"
+        },
+        {
+          "shot": "game-home",
+          "caption": "Open the Home door and walk into the bedroom.",
+          "image": "images/32-02-game-home.jpg",
+          "after_step": 4,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "79f3bc736ed0c0ca5bdb9150cf9e30fcd98a3e1102d564f7774f23daecc3c7ce"
+        },
+        {
+          "shot": "game-pool",
+          "caption": "Inspect the shallow basin and the paths around it.",
+          "image": "images/32-03-game-pool.jpg",
+          "after_step": 5,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "ba537b4899e79c1dc74ea5fce046ee495345422734c1e91ef612ae6823d51d70"
+        },
+        {
+          "shot": "game-in-closet",
+          "caption": "Walk around the bench to reach the closet, open the door and step inside.",
+          "image": "images/32-05-game-in-closet.jpg",
+          "after_step": 5,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "bf398d0f0b1da8fbe48f36179930969974f029081458f1bf014939159bdd577e"
+        },
+        {
+          "shot": "game-in-basin",
+          "caption": "Walk down into the shallow basin, then back onto the deck.",
+          "image": "images/32-04-game-in-basin.jpg",
+          "after_step": 6,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "af55b5f8cfc20cf19a92025a2dc53f99cd783af9921487e0039a65f41478aeb2"
+        },
+        {
+          "shot": "game-returned-backrooms",
+          "caption": "Finish by returning to Backrooms.",
+          "image": "images/32-06-game-returned-backrooms.jpg",
+          "after_step": 7,
+          "native_size": [
+            2784,
+            1676
+          ],
+          "native_capture_sha256": "0bc17f33c8824468dfc3bba82952853be54673191e50309c865976a374da335b"
+        }
+      ],
+      "checkpoint": "You can reach every room, use both doors, enter and leave the pool, and return to where you started.",
+      "number": 32
+    },
+    {
+      "section": "Try and save",
+      "id": "keep-building",
+      "title": "Keep your work and make it yours",
+      "body": "<p>Save the editor project whenever you finish a section. To return later, launch the editor, click <strong>Open</strong>, and choose the project folder containing <code>places.project.json</code>. Don’t select the exported .placesmap in this folder chooser.</p><p>Back up the <strong>whole project folder</strong>, including its <code>levels</code> folder. If you make changes, repeat Final build and Export, then import the new package into the game before judging the finished result.</p><p>You now know the core workflow: create a floor and ceiling, draw walls, cut openings or fit doors, choose surfaces, place props and lights, connect cabins, then test and export. Try moving the furniture, changing a material, or adding another light. Save a copy of the project first if you want to keep this first version.</p>",
+      "figures": [
+        {
+          "shot": "102-three-room-overview",
+          "caption": "Your first space: three rooms linked by one elevator group.",
+          "image": "images/33-01-102-three-room-overview.jpg",
+          "after_step": 0,
+          "native_size": [
+            2880,
+            1676
+          ],
+          "native_capture_sha256": "55e4684c808eef912fd1be7172482db464c82da55a47317f51aed04287a99f7f"
+        }
+      ],
+      "checkpoint": "Keep the editable project and exported package in places you can find again.",
+      "number": 33
+    },
+    {
+      "section": "Reference",
+      "id": "stuck",
+      "title": "When something doesn’t behave as expected",
+      "body": "<table><tr><th>What you see</th><th>What to check</th></tr><tr><td>A tool seems stuck on the pointer</td><td>Press Esc to cancel it, then choose the tool again.</td></tr><tr><td>The wrong object changes when you pick a prop</td><td>A prop was still selected. Undo, click clear floor, then choose the new model and Place chosen prop.</td></tr><tr><td>A prop won’t place</td><td>Read the bottom message. Pan until the center of the view is over clear floor, then try again. Large props need more room.</td></tr><tr><td>A drag selects the floor instead of moving the object</td><td>Select the object again, wait for its colored handles, and drag a colored line. After Duplicate, use the new copy’s handles.</td></tr><tr><td>A room looks roofless</td><td>Ceilings are hidden from above. Look up from inside the first-person test to see the ceiling.</td></tr><tr><td>A new Room has no walls</td><td>That is expected. Draw its four walls with Build → Wall.</td></tr><tr><td>A wall won’t take a material</td><td>Select a solid wall face, confirm Properties says Wall, then open its Material button. This resets the catalog’s surface target.</td></tr><tr><td>A door blocks you while opening</td><td>Step back to give it room to swing, then walk through the center of the gap.</td></tr><tr><td>The water covers the deck</td><td>Check the water and basin share X, Z, width and depth. Water surface must be -0.1 and the bottom -0.4 for this example.</td></tr><tr><td>The game shows an older version</td><td>Save, rebuild, export again, copy the new package into Import folder and run Import levels.</td></tr></table><p><strong>Simple-mode limits:</strong> Room creation opens a form rather than drawing a rectangle. The pillar, recessed floor and water tools also expose forms. We use them where they make the required shape or matching basin/water values clear. The rest of this guide uses the visual tools available in Simple; no step requires switching to Advanced.</p>",
+      "figures": [],
+      "checkpoint": "",
+      "number": 34
+    }
+  ]
+}

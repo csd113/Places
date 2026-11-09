@@ -29,6 +29,9 @@ AGENTS.md
 /docs/**/*.gz
 /docs/**/*.json
 !/docs/asset-presets/*.json
+# Editable beginner guide and its playable example are source documents.
+!/docs/editor-guide/source/guide.json
+!/docs/editor-guide/example-project/**/*.json
 # Curated authoring inventory, not raw native run receipts.
 !/docs/assets/shadow-inventory-2026-11-07.json
 !/docs/archive/levels/places_demo.json
