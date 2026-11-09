@@ -1,2 +1,3 @@
 # Asset images and models remain ordinary source files. Compiled .placesmap
 # outputs are ignored globally; no new map packages are sent to Git LFS.
+*.pdf binary

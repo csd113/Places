@@ -5523,21 +5523,12 @@ provenance and its payload manifest; every tested EXE, DLL and runtime asset sta
 byte-identical. Windows evidence establishes these focused native checks, not a
 full campaign, pursuit matrix, clean-OS installation or signing/SmartScreen trust.
 
-The original illustrated beginner-guide draft remains historical in commit
-`aef8dcad95cfca397842130d7c057d588c2ca6fc`. The accepted replacement is the
-offline Simple-mode HTML book in `0c989dd2f71c12087d245a0387a7582734fa3651`,
-with 34 lessons, 100 screenshot placements and 99 native images. A second fresh
-project was replayed through 27 saved construction stages, build/export/import,
-the three-room elevator loop, both doors, office route and basin entry/exit.
-All lessons, navigation, zoom/Close/Escape and mobile layout were reviewed.
-Detailed receipts and limits are in
-`docs/editor-guide/first-space/validation.json`. This is automated author replay,
-not a second-person usability test; native guide checks were Mac only. The ZIP,
-`Beginners_Guide_to_Your_First_Places_Space.zip`, is 17,655,123 bytes, SHA-256
-`efd30f714fe80025ab53ff8167f43212a1018d3a2acdba4ae8b30d6949a012dd`.
-No new PDF was produced. Unfinished wording drafts were preserved under
-`local/editor-guide/preserved-wording-draft/` before restoring the historical PDF
-and source.
+The [illustrated beginner guide](../editor-guide/README.md) has seven chapters
+readable on GitHub and a self-contained PDF available directly from the release.
+Its Simple-mode construction sequence was replayed from a second fresh project
+through build/export/import, the three-room elevator loop, both doors, the
+office route and basin entry/exit. Native guide checks were on Mac; this was
+automated author replay rather than a second-person usability test.
 
 Backrooms also passes current-source/integrity checks, exact recovery of both
 original source files and a native Full-lighting start with no script diagnostics.

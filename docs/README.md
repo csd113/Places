@@ -5,6 +5,7 @@ what you are changing:
 
 | Task | Canonical guide |
 | --- | --- |
+| Build your first space in the editor | [Illustrated beginner’s guide](editor-guide/README.md) |
 | Understand engine ownership and data flow | [Architecture](ARCHITECTURE.md) |
 | Understand rendering and diagnostics | [Renderer](RENDERER.md) |
 | Author maps, placement, lights and materials | [Map authoring](MAP_AUTHORING_GUIDE.md) |

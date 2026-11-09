@@ -17,17 +17,17 @@ bounded diagnostics journal and native error notices described below.
 
 The downloads are `Places-0.13.1-macOS-arm64.zip`,
 `Places-0.13.1-Windows.zip` (each with game, editor and compiler),
-`Places-0.13.1-Levels.zip`, and `Beginners_Guide_to_Your_First_Places_Space.zip`. Extract the guide ZIP and
-open `First Places Space/index.html` in a browser; it works offline. The earlier
-PDF is historical. The Mac archive
-contains both the application bundle and portable folder, with a bundled live
+`Places-0.13.1-Levels.zip`, and the self-contained
+[illustrated beginner’s PDF](https://github.com/csd113/Places/releases/download/v0.13.1/Beginners_Guide_to_Your_First_Places_Space.pdf).
+The [same guide](editor-guide/README.md) can be read directly on GitHub.
+The Mac archive contains both the application bundle and portable folder, with a bundled live
 menu and shared runtime resources. It requires macOS 27.2 or newer and uses
 ad-hoc signatures; it is not notarized. Gameplay `.placesmap` files belong only
 in the levels ZIP; both app layouts contain an empty `assets/levels/` directory.
 A fresh app opens the live menu, Settings, Credits and Explore's empty-library
 import guidance. The Windows x64 package was built and checked natively on the
 Razer running Windows 10 Home, build 19045; see the acceptance report for the
-exact scope. Linux remains future scope. The published 0.13.0 download is preserved.
+exact scope. Linux remains future scope.
 
 Extract the levels ZIP separately. Import any `Maps/*.placesmap` through Explore,
 `places --import <package>`, or the writable `levels/` directory shown by

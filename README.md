@@ -75,19 +75,16 @@ chapters and the three-part Long Way Home. The application archives contain
 no gameplay maps.
 
 [Download 0.13.1](https://github.com/csd113/Places/releases/tag/v0.13.1) ·
-[Illustrated beginner’s guide](https://github.com/csd113/Places/releases/download/v0.13.1/Beginners_Guide_to_Your_First_Places_Space.zip) ·
+[Beginner’s guide](docs/editor-guide/README.md) ·
+[Download illustrated PDF](https://github.com/csd113/Places/releases/download/v0.13.1/Beginners_Guide_to_Your_First_Places_Space.pdf) ·
 [Installation](docs/INSTALLATION.md) · [Acceptance and limits](docs/reports/release-0.13.1.md)
 
-The beginner guide is a 34-lesson offline HTML book. Extract its ZIP and open
-`First Places Space/index.html`. It uses the editor's Simple workspace and
-includes an editable example. The earlier PDF is historical.
+The beginner guide follows the editor's Simple workspace from a blank project
+through building and playing a three-room space. Read its seven illustrated
+chapters on GitHub or download the self-contained PDF to read offline.
 
 The Mac package is arm64, requires macOS **27.2 or newer**, and is ad-hoc signed
 without notarization. The Windows package is x64. Linux remains future scope.
-The [0.13.0 Windows prerelease](https://github.com/csd113/Places/releases/tag/v0.13.0)
-remains available with its original seven project packages; use its matching maps.
-Earlier Windows validation retains its recorded source revisions and does not
-establish final 0.13.1 Windows coverage.
 
 To play an existing collection package with a matching player and asset library:
 

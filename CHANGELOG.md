@@ -13,9 +13,10 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.13.1 — 2026-11-09
 
-- Add an illustrated offline beginner editor book, with visual Simple-mode
-  construction, zoomable native screenshots, an editable example and a verified
-  fresh-project replay through build, export and play.
+- Add an illustrated beginner editor guide in seven GitHub-readable chapters
+  and a downloadable PDF, with visual Simple-mode construction, native
+  screenshots, an editable example and a verified fresh-project replay through
+  build, export and play.
 
 - Add The Long Way Home, a three-part journey with a Feltling guide, Tall Guest
   pursuit, two-storey passages and crouch refuges, physical distractions and a

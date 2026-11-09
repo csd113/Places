@@ -1,25 +1,29 @@
 # Beginner’s Guide to Your First Places Space
 
-**Start with the [current illustrated book](first-space/index.html).**
+**[Download the complete illustrated PDF](https://github.com/csd113/Places/releases/download/v0.13.1/Beginners_Guide_to_Your_First_Places_Space.pdf)** — one file with every screenshot embedded. Open it directly; no repository clone, folder download or ZIP extraction is needed.
 
-The replacement is a 34-lesson offline HTML guide with 100 screenshot placements,
-red control callouts, zoomable images and an editable example project. It follows
-the editor's Simple workspace from a fresh project through construction, saving,
-building, export and playing. Pool's room, walls, dry basin and water are separate
-steps. [Opening instructions, source files and verification](first-space/README.md)
-are included with the book.
+Prefer to read here? Start with chapter 1 below. These Markdown chapters render directly on GitHub, with screenshots beside the relevant actions in the sequence. Each chapter includes a short contents list and Previous/Next links. Click a screenshot to see it larger.
 
-The release download is `Beginners_Guide_to_Your_First_Places_Space.zip`. Extract
-it first and open `First Places Space/index.html` in your browser.
+You'll build a Backrooms office, a furnished Home room and a Pool room, then link them with elevators and play your finished space. No prior editor knowledge or coding is needed. The whole walkthrough uses the editor’s **Simple** workspace.
 
-## Historical material
+| Chapter | What you’ll do |
+| --- | --- |
+| [1. Start here](chapters/01-start.md) | Open the right executable, create and name a project, learn the camera. |
+| [2. Build Backrooms](chapters/02-backrooms.md) | Draw walls and an open doorway; add pillars, desk, chair and lights. |
+| [3. Build Home](chapters/03-home.md) | Create the room, fit a door, choose surfaces and place the bed and kitchen. |
+| [4. Build Pool](chapters/04-pool.md) | Build the entire shell, cut a dry basin, add water, closet, bench, duck and lights. |
+| [5. Connect the elevators](chapters/05-elevators.md) | Place three cabins and link their stops. |
+| [6. Build, export and play](chapters/06-play.md) | Test, save, build, export, import and walk the complete route. |
+| [7. Troubleshooting](chapters/07-help.md) | Recover from common selection, placement, material and import mistakes. |
 
-The [earlier PDF](../Beginners_Guide_to_Your_First_Places_Space.pdf), the `source/`,
-`screenshots/`, `example-project/` and `verification/` directories directly under
-this folder are preserved historical material. That walkthrough had missing
-construction steps and was superseded by the book in `first-space/`. Do not use
-its PDF or its old verification report as evidence that the current tutorial has
-been completed.
+**Keep these habits:** save at each checkpoint; click empty floor before selecting a different prop model; check a placement preview before you click; leave space for doors to swing.
 
-The accepted replacement keeps its own editable source, images, example project
-and validation together under `first-space/`.
+The finished example uses one level containing three rooms. The pool is shallow, the duck rests on the deck, and the kitchen is decorative. Room creation, the initial pillar, basin and water use the forms that Simple provides; the other construction uses visual placement and handles.
+
+[Start chapter 1 →](chapters/01-start.md)
+
+## Example project and editable source
+
+The optional [example project](example-project/) is the completed fresh-project replay. You do not need it to follow the guide. Copy that whole folder to a writable location if you want to inspect it, then use the editor’s **Open** folder chooser.
+
+[Source and validation notes](source/README.md) explain how the guide is regenerated and what was tested. The screenshots and native replay are from Places 0.13.1 on Mac; Windows executable naming was verified against packaging, but Windows was not run. The PDF has clickable contents and bookmarks; use those to return to a chapter.
