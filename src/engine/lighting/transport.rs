@@ -84,6 +84,7 @@ mod alpha;
 mod bvh;
 pub(crate) mod probe_audit;
 pub mod runtime_visibility;
+mod surface_cache;
 
 pub use alpha::{TransportAlphaSurface, TransportTextureAddress};
 
@@ -216,7 +217,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 6;
+pub const SOLVER_REVISION: u64 = 7;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -2800,7 +2801,7 @@ impl TransportScene {
             let (combined, rays, cells) = self.bounce_orders(
                 receivers,
                 emitters,
-                prepared.cache(self),
+                prepared.cache(self, charts),
                 accumulators,
                 SolveOptions {
                     taps_per_axis: taps,
@@ -2877,7 +2878,7 @@ impl TransportScene {
             *probe_field = Some(bake_probe_field(
                 self,
                 receivers,
-                prepared.cache(self),
+                prepared.cache(self, charts),
                 &indirect,
                 emitters,
                 taps,
@@ -3604,10 +3605,15 @@ impl ReceiverSet {
         })
     }
 
-    fn cache(&self, scene: &TransportScene) -> &RadianceCache {
+    fn cache(&self, scene: &TransportScene, charts: &[(LightmapPatch, Chart)]) -> &RadianceCache {
         self.cache.get_or_init(|| {
             let started = std::time::Instant::now();
-            let cache = RadianceCache::build(&self.receivers, &scene.triangles);
+            let mut cache = RadianceCache::build(&self.receivers, &scene.triangles);
+            cache.surface = Some(surface_cache::SurfaceCache::new(
+                charts,
+                &self.receivers,
+                scene.triangles.len(),
+            ));
             crate::engine::logging::info(format_args!(
                 "[transport-cache] receivers={} build_ms={:.3}",
                 self.receivers.len(),
@@ -3623,7 +3629,13 @@ impl ReceiverSet {
                             cell.capacity()
                                 .saturating_mul(std::mem::size_of::<CacheRepresentative>()),
                         )
-                    }));
+                    }))
+                    .saturating_add(
+                        cache
+                            .surface
+                            .as_ref()
+                            .map_or(0, surface_cache::SurfaceCache::capacity_bytes),
+                    );
                 crate::engine::logging::info(format_args!(
                     "[transport-owned] immutable_cache_capacity_bytes={bytes}"
                 ));
@@ -4298,6 +4310,7 @@ struct RadianceCache {
     dims: [usize; 3],
     /// One receiver per (cell, triangle), chosen nearest the cell centre.
     cells: Vec<Vec<CacheRepresentative>>,
+    surface: Option<surface_cache::SurfaceCache>,
 }
 
 #[derive(Clone, Copy)]
@@ -4390,6 +4403,7 @@ impl RadianceCache {
                 cell: CACHE_CELL_M,
                 dims: [0, 0, 0],
                 cells: Vec::new(),
+                surface: None,
             };
         }
         let extent = [
@@ -4467,6 +4481,7 @@ impl RadianceCache {
             cell: cell_m,
             dims,
             cells: representatives,
+            surface: None,
         }
     }
 
@@ -4562,6 +4577,13 @@ impl RadianceCache {
         receivers: &[TransportReceiver],
         values: &[Accumulator],
     ) -> Accumulator {
+        if let Some(stencil) = self
+            .surface
+            .as_ref()
+            .and_then(|cache| cache.stencil(scene, point, surface, receivers))
+        {
+            return stencil.sample_accumulators(values);
+        }
         if self.cells.is_empty() || !point.iter().all(|value| value.is_finite()) {
             return Accumulator::default();
         }

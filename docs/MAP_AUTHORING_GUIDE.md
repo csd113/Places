@@ -3916,6 +3916,15 @@ variance while preserving the angular energy integral. First-order reflected
 direct light is evaluated at the actual secondary hit, retaining its shadow
 visibility; later diffuse orders retain the surface cache. These preparation
 changes require affected packages to be rebuilt.
+Solver revision 7 samples later diffuse orders from the hit's containing chart
+at its actual UV coordinates, with visibility checks on each supporting receiver.
+The coarse cell cache remains a fallback for surfaces without chart coverage;
+its cell-centre representatives must not replace available endpoint samples.
+This prevents bright interior wall samples from being borrowed at wall-ceiling
+contacts. The indirect denoiser uses opposite supported neighbours with one
+shared bilateral weight per pair, preserving the sample centre at physical
+boundaries. Neither correction adds corner attenuation or changes authored
+light strength, material reflectance, direct visibility, or runtime sampling.
 Full integrates every 4×4 receiver-footprint sample. Differing actual visibility
 signatures additionally integrate 8×8 within the same footprint, retaining all
 original samples in a weighted 80-position estimate. Uniform areas remain exact

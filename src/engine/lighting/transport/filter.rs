@@ -264,29 +264,39 @@ pub(super) fn filter_accumulators(
             let receiver = receivers.get(index).ok_or(LightmapFailure::FillSize)?;
             let mut weight_sum = 1.0;
             let mut total = *centre;
-            for (di, dj) in [
-                (-1_i32, 0_i32),
-                (1_i32, 0_i32),
-                (0_i32, -1_i32),
-                (0_i32, 1_i32),
-            ] {
-                let Some((source, origin)) =
+            for (di, dj, opposite_i, opposite_j) in
+                [(1_i32, 0_i32, -1_i32, 0_i32), (0_i32, 1_i32, 0_i32, -1_i32)]
+            {
+                let Some((positive, positive_origin)) =
                     field.neighbour(chart_index, column, row, di, dj, intervals)
+                else {
+                    continue;
+                };
+                let Some((negative, negative_origin)) =
+                    field.neighbour(chart_index, column, row, opposite_i, opposite_j, intervals)
                 else {
                     continue;
                 };
                 // The stencil connects physical sample positions. A chart
                 // boundary inset can put identical edge samples on opposite
                 // sides of an adjoining hard surface and change visibility.
-                if scene.occluded(receiver.position, origin) {
+                if scene.occluded(receiver.position, positive_origin)
+                    || scene.occluded(receiver.position, negative_origin)
+                {
                     continue;
                 }
-                let diff = (channel_luminance(source.irradiance)
-                    - channel_luminance(centre.irradiance))
-                .abs();
+                // Opposite taps share one weight and must both have support.
+                // Otherwise a clipped stencil shifts the sample toward the
+                // brighter interior, lifting contacts even for a linear field.
+                // Keep the more conservative bilateral weight for the pair.
+                let centre_luminance = channel_luminance(centre.irradiance);
+                let diff = (channel_luminance(positive.irradiance) - centre_luminance)
+                    .abs()
+                    .max((channel_luminance(negative.irradiance) - centre_luminance).abs());
                 let weight = 1.0 / (1.0 + 8.0 * diff);
-                weight_sum += weight;
-                add_scaled(&mut total, &source, weight);
+                weight_sum += 2.0 * weight;
+                add_scaled(&mut total, &positive, weight);
+                add_scaled(&mut total, &negative, weight);
             }
             let mut averaged = Accumulator::default();
             add_scaled(&mut averaged, &total, 1.0 / weight_sum);
@@ -311,3 +321,7 @@ pub(super) fn filter_accumulators(
     )?;
     out.into_iter().collect()
 }
+
+#[cfg(test)]
+#[path = "../../tests/transport_filter.rs"]
+mod tests;

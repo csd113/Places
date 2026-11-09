@@ -128,7 +128,7 @@ impl TransportScene {
         ];
         let bounce_started = std::time::Instant::now();
         let (combined, bounce_rays, cache_cells) = self.bounce_pair_orders(
-            receivers,
+            charts,
             [base_emitters, emitter],
             prepared,
             [direct_base.clone(), direct_switch.clone()],
@@ -195,7 +195,7 @@ impl TransportScene {
 
     fn bounce_pair_orders(
         &self,
-        receivers: &[TransportReceiver],
+        charts: &[(LightmapPatch, Chart)],
         emitters: [&[usize]; 2],
         prepared: &ReceiverSet,
         mut combined: [Vec<Accumulator>; 2],
@@ -207,7 +207,8 @@ impl TransportScene {
         if !active.iter().any(|channel| *channel) {
             return Ok((combined, 0, 0));
         }
-        let cache = prepared.cache(self);
+        let receivers = &prepared.receivers;
+        let cache = prepared.cache(self, charts);
         let mut previous = combined.each_ref().map(|layer| {
             layer
                 .iter()
@@ -404,6 +405,32 @@ pub(super) struct SurfaceStencil {
 }
 
 impl SurfaceStencil {
+    pub(super) fn push(&mut self, receiver: usize, weight: f32) {
+        if let Some(entry) = self.entries.get_mut(self.len) {
+            *entry = (receiver, weight);
+            self.len = self.len.saturating_add(1);
+            self.inverse = 1.0;
+        }
+    }
+
+    pub(super) fn retain(&mut self, mut accept: impl FnMut(usize) -> bool) {
+        let mut kept = 0_usize;
+        let mut weight_sum = 0.0;
+        for index in 0..self.len {
+            let (receiver, weight) = self.entries[index];
+            if accept(receiver) {
+                self.entries[kept] = (receiver, weight);
+                kept = kept.saturating_add(1);
+                weight_sum += weight;
+            }
+        }
+        self.len = kept;
+        self.inverse = if weight_sum > 0.0 {
+            1.0 / weight_sum
+        } else {
+            0.0
+        };
+    }
     pub(super) const fn is_empty(&self) -> bool {
         self.len == 0
     }
@@ -430,6 +457,16 @@ impl SurfaceStencil {
         }
         light
     }
+
+    pub(super) fn sample_accumulators(&self, values: &[Accumulator]) -> Accumulator {
+        let mut total = Accumulator::default();
+        for &(index, weight) in &self.entries[..self.len] {
+            if let Some(value) = values.get(index) {
+                add_scaled(&mut total, value, weight * self.inverse);
+            }
+        }
+        total
+    }
 }
 
 impl RadianceCache {
@@ -441,6 +478,13 @@ impl RadianceCache {
         receivers: &[TransportReceiver],
         audit: Option<&GatherAudit>,
     ) -> SurfaceStencil {
+        if let Some(stencil) = self
+            .surface
+            .as_ref()
+            .and_then(|cache| cache.stencil(scene, point, surface, receivers))
+        {
+            return stencil;
+        }
         // Select once per hit. Normal compilation must not test optional
         // diagnostic state for every cell, candidate and connectivity ray.
         if audit.is_some() {
