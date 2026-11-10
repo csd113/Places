@@ -1,0 +1,14 @@
+{
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "encounter_lab_project",
+  "name": "Backrooms encounter lab",
+  "description": "Opt-in zombie and robot companion test. Two independent spawn zones; no waves.",
+  "entry_level": "encounter_lab",
+  "levels": [
+    {
+      "id": "encounter_lab",
+      "source": "levels/encounter_lab.json"
+    }
+  ]
+}

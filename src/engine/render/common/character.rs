@@ -350,13 +350,15 @@ pub const CHARACTER_BOUNDS_EXPANSION: f32 = 0.15;
 const GLOW_KEY_PREFIX: &str = "glow:";
 
 /// Number of locomotion states the blend vector carries.
-const STATE_COUNT: usize = 5;
+const STATE_COUNT: usize = 7;
 
 const IDLE: usize = 0;
 const WALKING: usize = 1;
 const AIRBORNE: usize = 2;
 const SWIMMING: usize = 3;
 const SURFACE_SWIMMING: usize = 4;
+const CROUCHING: usize = 5;
+const CROUCH_WALKING: usize = 6;
 
 const TAU: f32 = std::f32::consts::TAU;
 
@@ -365,6 +367,8 @@ const fn state_index(state: LocomotionState) -> usize {
     match state {
         LocomotionState::Idle => IDLE,
         LocomotionState::Walking => WALKING,
+        LocomotionState::Crouching => CROUCHING,
+        LocomotionState::CrouchWalking => CROUCH_WALKING,
         LocomotionState::Airborne => AIRBORNE,
         LocomotionState::Swimming => SWIMMING,
         LocomotionState::SurfaceSwimming => SURFACE_SWIMMING,
@@ -784,7 +788,11 @@ impl ClipPlayer {
         }
         for (index, animation) in animations.iter().enumerate() {
             let name = animation.name.to_ascii_lowercase();
-            let slot = if name.contains("idle") {
+            let slot = if name == "crouch_idle" {
+                Some(CROUCHING)
+            } else if name == "crouch_walk" {
+                Some(CROUCH_WALKING)
+            } else if name.contains("idle") {
                 Some(IDLE)
             } else if name.contains("walk") || name.contains("run") {
                 Some(WALKING)
@@ -3516,7 +3524,7 @@ impl CharacterAnimator {
             moved = true;
         }
         match snapshot.state {
-            LocomotionState::Walking => {
+            LocomotionState::Walking | LocomotionState::CrouchWalking => {
                 if speed > 0.0 {
                     self.phase = (speed * step)
                         .mul_add(WALK_CYCLES_PER_METRE, self.phase)
@@ -3527,7 +3535,7 @@ impl CharacterAnimator {
             LocomotionState::Swimming | LocomotionState::SurfaceSwimming => {
                 self.phase = f32::mul_add(step, SWIM_HZ, self.phase).rem_euclid(1.0);
             }
-            LocomotionState::Idle | LocomotionState::Airborne => {}
+            LocomotionState::Idle | LocomotionState::Crouching | LocomotionState::Airborne => {}
         }
         if !moved {
             return false;

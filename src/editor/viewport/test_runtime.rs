@@ -48,6 +48,12 @@ impl Viewport {
     pub const fn runtime_preparing(&self) -> bool {
         self.testing.requested.is_some() && self.testing.session.is_none()
     }
+    pub fn runtime_encounter_prompt(&self) -> Option<String> {
+        self.testing
+            .session
+            .as_ref()
+            .and_then(|session| session.encounter_prompt())
+    }
     pub fn runtime_health(
         &self,
     ) -> Option<(

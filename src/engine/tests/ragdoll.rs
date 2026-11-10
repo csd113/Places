@@ -268,8 +268,11 @@ fn ragdoll_unsupported_rigs_and_shared_budget_fail_without_partial_ownership() -
         .map(|(_, body)| body.mass())
         .sum();
     assert!(
-        (total_mass - 10.625).abs() < 0.001,
-        "ten quarter-scale skeletons must retain density, measured {total_mass} kg"
+        f32::from(u16::try_from(MAX_RAGDOLLS).map_err(|error| error.to_string())?)
+            .mul_add(-1.0625, total_mass)
+            .abs()
+            < 0.001,
+        "quarter-scale skeletons must retain density, measured {total_mass} kg"
     );
     assert_eq!(
         runtime.contact_aliases.len(),
@@ -283,7 +286,7 @@ fn ragdoll_unsupported_rigs_and_shared_budget_fail_without_partial_ownership() -
     );
     assert!(
         world.start_ragdoll("overflow", &input, Vec3::ZERO).is_err(),
-        "eleventh ragdoll must be refused"
+        "an over-budget ragdoll must be refused"
     );
     assert!(
         world.start_ragdoll("actor0", &input, Vec3::ZERO).is_err(),
@@ -550,5 +553,44 @@ fn miniature_rack_contacts_settle_without_forcing_sleep() -> Result<(), String> 
             "miniature contacts retain separation"
         );
     }
+    Ok(())
+}
+
+// Unique regression: a tool ray must hit an articulated physical collider,
+// apply an impulse, and never expose that corpse through the pickup registry.
+// One existing rig and one solver step; no map build or rendering.
+#[test]
+fn corpse_tool_contact_moves_bones_without_granting_pickup() -> Result<(), String> {
+    let asset = model()?;
+    let animator = CharacterAnimator::new(&asset).ok_or("animator missing")?;
+    let current = globals(&asset, &animator)?;
+    let mut world = ItemWorld::default();
+    let input = RagdollInput {
+        skin: asset.skin.as_ref().ok_or("skin missing")?,
+        globals: &current,
+        previous: &current,
+        placement: Mat4::IDENTITY,
+        previous_placement: Mat4::IDENTITY,
+        delta: FIXED_STEP,
+    };
+    world.start_ragdoll("corpse", &input, Vec3::ZERO)?;
+    world.step(FIXED_STEP, player(), &[]);
+    let eye = Vec3::new(0.0, 1.1, 1.0);
+    assert!(world.nearest_pickup(eye, Vec3::NEG_Z).is_none());
+    assert_eq!(
+        world.strike_ragdoll(eye, Vec3::NEG_Z, 1.75).as_deref(),
+        Some("corpse")
+    );
+    let struck = world.ragdoll_snapshots().pop().ok_or("corpse missing")?;
+    assert!(
+        struck.max_speed_mps > 1.0,
+        "contact must impart physical motion"
+    );
+    assert!(world.held().is_none() && world.nearest_pickup(eye, Vec3::NEG_Z).is_none());
+    assert!(world.remove_ragdoll("corpse"));
+    assert!(
+        world.strike_ragdoll(eye, Vec3::NEG_Z, 1.75).is_none(),
+        "cleared bodies cannot retain query handles"
+    );
     Ok(())
 }

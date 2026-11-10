@@ -49,6 +49,9 @@ impl Document {
     /// Reads the contextual property without replacing unsupported source data.
     #[must_use]
     pub fn gameplay_value(&self, id: ObjectId, setting: GameplaySetting) -> Value {
+        if let Some(value) = self.spawn_zone_value(id, setting) {
+            return value;
+        }
         if let Some(value) = self.audio_setting(id, setting) {
             return value;
         }
@@ -132,7 +135,12 @@ impl Document {
                 | GameplaySetting::Bidirectional
                 | GameplaySetting::Locked
                 | GameplaySetting::Once
-                | GameplaySetting::Lifetime => json!(false),
+                | GameplaySetting::Lifetime
+                | GameplaySetting::SpawnZone
+                | GameplaySetting::ZoneCooldown
+                | GameplaySetting::ZoneCount
+                | GameplaySetting::ZoneWidth
+                | GameplaySetting::ZoneDepth => json!(false),
             })
     }
 
@@ -185,6 +193,9 @@ impl Document {
         value: Value,
         catalog: &AssetCatalog,
     ) -> Result<(), String> {
+        if setting.is_spawn_zone() {
+            return self.set_spawn_zone(id, setting, value);
+        }
         let mut raw = self.raw().clone();
         if matches!(
             setting,
@@ -470,7 +481,12 @@ fn resolved_light_value(
             | GameplaySetting::ExitEvent
             | GameplaySetting::FogDensity
             | GameplaySetting::FogFalloff
-            | GameplaySetting::Lifetime => None,
+            | GameplaySetting::Lifetime
+            | GameplaySetting::SpawnZone
+            | GameplaySetting::ZoneCooldown
+            | GameplaySetting::ZoneCount
+            | GameplaySetting::ZoneWidth
+            | GameplaySetting::ZoneDepth => None,
         };
         if let Some(number) = resolved {
             return Some(number);

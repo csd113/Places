@@ -10,6 +10,7 @@ mod behavior;
 mod checkpoints;
 mod properties;
 mod shadow_only;
+mod spawn_zones;
 mod triggers;
 pub(super) fn validate_drafts(raw: &Value) -> Result<(), String> {
     triggers::validate_drafts(raw)
@@ -48,9 +49,25 @@ pub enum GameplaySetting {
     FogDensity,
     FogFalloff,
     Lifetime,
+    SpawnZone,
+    ZoneCooldown,
+    ZoneCount,
+    ZoneWidth,
+    ZoneDepth,
 }
 
 impl GameplaySetting {
+    pub(super) const fn is_spawn_zone(self) -> bool {
+        matches!(
+            self,
+            Self::SpawnZone
+                | Self::ZoneCooldown
+                | Self::ZoneCount
+                | Self::ZoneWidth
+                | Self::ZoneDepth
+        )
+    }
+
     pub(crate) const fn key(self) -> &'static str {
         match self {
             Self::Brightness => "brightness",
@@ -74,12 +91,16 @@ impl GameplaySetting {
             Self::Swing => "swing_degrees",
             Self::Speed => "open_speed_degrees",
             Self::Once => "once",
-            Self::Cooldown => "cooldown_seconds",
+            Self::Cooldown | Self::ZoneCooldown => "cooldown_seconds",
             Self::Aggregate => "occupancy",
             Self::ExitEvent => "on",
             Self::FogDensity => "density",
             Self::FogFalloff => "falloff_m",
             Self::Lifetime => "lifetime_seconds",
+            Self::SpawnZone => "zone",
+            Self::ZoneCount => "count",
+            Self::ZoneWidth => "width",
+            Self::ZoneDepth => "depth",
         }
     }
 }
@@ -119,13 +140,20 @@ pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
                 ),
             )
         }));
-    let all_records = records.chain(
-        level
-            .spawn_points
-            .iter()
-            .enumerate()
-            .map(|(i, v)| (ObjectId::SpawnPoint(i), format!("Spawn / {}", v.id))),
-    );
+    let all_records = records.chain(level.spawn_points.iter().enumerate().map(|(i, v)| {
+        (
+            ObjectId::SpawnPoint(i),
+            format!(
+                "{} / {}",
+                if v.zone.is_some() {
+                    "Spawn zone"
+                } else {
+                    "Spawn"
+                },
+                v.id
+            ),
+        )
+    }));
     let mut result: Vec<_> = all_records
         .filter_map(|(id, label)| {
             transform(level, id).ok().map(|transform| ObjectInfo {
@@ -167,7 +195,7 @@ pub(super) fn transform(level: &LevelDef, id: ObjectId) -> Result<Transform, Str
                     }),
                     v.z,
                 ],
-                [0.5_f32; 3],
+                v.zone.map_or([0.5_f32; 3], |z| [z.width, 0.25, z.depth]),
                 v.yaw_degrees,
             )
         }),

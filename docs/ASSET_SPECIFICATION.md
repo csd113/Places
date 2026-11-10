@@ -2829,3 +2829,28 @@ The pair exceeds the preferred 800-triangle review point, not the 1,500 art
 maximum or unchanged 6,000 engine ceiling. See [exit-door contract](EXIT_DOORS.md)
 for the generic truthful terminology, node/pivot identity and collision preset.
 Run `python3 tools/doors/check.py --check` before normal asset validation.
+
+### Mannequin crouch and crowbar clip extension (0.14.0)
+
+The November encounter extension appends `crouch_idle`, `crouch_walk`,
+`crowbar_idle`, `crowbar_walk`, and `crowbar_swing` to the accepted R2 export.
+All 19 original animations, mesh/skin/node/material objects, existing accessors
+and the complete original BIN payload (including PNGs) remain unchanged. The
+accepted ledger now identifies the 24-clip GLB. No cavity data is used for this
+model; ordinary lighting and existing skin atlases remain authoritative.
+
+`tools/entities/add_encounter_clips.py` uses Blender's math library offline to
+append only animation accessors/channels. Its input is the previous accepted R2
+GLB (`a27aa5b4…291051`), retrievable from the preceding Git revision. It verifies
+original structural objects and binary bytes before writing. Crouch legs solve
+two-bone contact offline; there is no runtime IK or texture generation. New loops
+close; the one-second normalized crowbar swing is sampled by the configured
+combat clock, with contact at 0.32.
+
+The existing `shared/tools/crowbar.glb` also supplies the companion's ordinary
+world prop, attached to `hand.R` at local `(0, 0.055, 0.012)` and −90° about Z.
+This transforms its documented view-grip frame into the hand frame. It receives
+ordinary world lighting; it has no independent pickup or damage collider. Death,
+despawn and encounter reset remove the attachment. The first-person arm mesh and
+its historical export provenance are unchanged; its exporter accepts the new
+source identity only after the append-only structural comparison.

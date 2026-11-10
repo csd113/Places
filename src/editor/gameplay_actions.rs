@@ -25,7 +25,7 @@ pub(super) enum GameplayChoice {
     HealthKitAction,
 }
 
-pub(super) const NUMBER_SETTINGS: [GameplaySetting; 16] = [
+pub(super) const NUMBER_SETTINGS: [GameplaySetting; 20] = [
     GameplaySetting::Brightness,
     GameplaySetting::Range,
     GameplaySetting::Red,
@@ -42,6 +42,10 @@ pub(super) const NUMBER_SETTINGS: [GameplaySetting; 16] = [
     GameplaySetting::Lifetime,
     GameplaySetting::AudioNear,
     GameplaySetting::AudioFar,
+    GameplaySetting::ZoneCooldown,
+    GameplaySetting::ZoneCount,
+    GameplaySetting::ZoneWidth,
+    GameplaySetting::ZoneDepth,
 ];
 
 pub(super) fn number_field(setting: GameplaySetting) -> Option<usize> {

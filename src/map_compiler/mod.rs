@@ -745,6 +745,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if level.stairs.iter().any(|stair| stair.reverse) {
         required.push("reverse-stairs-v1".into());
     }
+    if level.encounter.is_some() || level.spawn_points.iter().any(|p| p.zone.is_some()) {
+        required.push("encounter-v1".into());
+    }
     if level.tools.crowbar {
         required.push("player-tools-v1".into());
     }

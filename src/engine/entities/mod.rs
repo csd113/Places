@@ -32,6 +32,7 @@ pub mod cinematics;
 pub mod components;
 pub mod developer;
 mod elevators;
+pub mod encounter;
 pub mod events;
 mod feltlings;
 mod guest_acoustics;
@@ -440,6 +441,7 @@ enum WeatherEndpoints {
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
     health_settings: crate::engine::health::HealthSettings,
+    encounter: Option<encounter::Encounter>,
     tool_settings: crate::engine::tools::ToolSettings,
     health_events: Vec<crate::engine::health::HealthEvent>,
     checkpoint_entity_count: usize,
@@ -587,6 +589,7 @@ impl EntityWorld {
     pub fn new() -> Self {
         Self {
             health_settings: crate::engine::health::HealthSettings::default(),
+            encounter: None,
             tool_settings: crate::engine::tools::ToolSettings::default(),
             health_events: Vec::new(),
             checkpoint_entity_count: 0,
@@ -844,6 +847,7 @@ impl EntityWorld {
             guest.cancel_capture();
         }
         self.discard_scene_commands();
+        self.clear_encounter();
         self.queue_ragdoll_resets();
         self.scripts.reload();
         self.script_event = None;
@@ -913,19 +917,7 @@ impl EntityWorld {
         self.events.clear();
         self.stimuli.clear();
         self.sim_time = 0.0;
-        self.clear_ai_observations();
-        for (handle, definition) in self.components.ais.iter() {
-            let _restored = self.ai.configure_senses(handle, definition.senses.clone());
-        }
-        self.ai.reset();
-        // AI and scripts/light anchors share transforms. Reset both views even
-        // when the freshly idle actor will not produce a movement handoff.
-        for agent in self.ai.agents() {
-            if let Some(transform) = self.components.transforms.get_mut(agent.handle) {
-                transform.position = agent.position;
-                transform.yaw_degrees = agent.yaw_degrees;
-            }
-        }
+        self.reset_ai_controllers();
         self.reset_carry_ownership();
         for (_, response) in self.components.light_responses.iter_mut() {
             response.active = false;
@@ -941,6 +933,22 @@ impl EntityWorld {
         self.sync_routed_interactables();
         self.rebuild_interactables_from_tables();
         self.rebuild_entity_frames();
+    }
+
+    fn reset_ai_controllers(&mut self) {
+        self.clear_ai_observations();
+        for (handle, definition) in self.components.ais.iter() {
+            let _restored = self.ai.configure_senses(handle, definition.senses.clone());
+        }
+        self.ai.reset();
+        // AI and scripts/light anchors share transforms. Reset both views even
+        // when the freshly idle actor will not produce a movement handoff.
+        for agent in self.ai.agents() {
+            if let Some(transform) = self.components.transforms.get_mut(agent.handle) {
+                transform.position = agent.position;
+                transform.yaw_degrees = agent.yaw_degrees;
+            }
+        }
     }
 
     fn reset_interactions(&mut self) {
@@ -2379,6 +2387,7 @@ impl EntityWorld {
     fn resolve_player_rules(&mut self, level: &LevelDef) {
         self.health_settings = level.health;
         self.tool_settings = level.tools;
+        self.encounter = encounter::Encounter::from_level(level);
         self.health_events.clear();
     }
 
@@ -3962,7 +3971,6 @@ impl EntityWorld {
 
     // ---- spawns --------------------------------------------------------
 
-    #[expect(clippy::too_many_lines, reason = "one cohesive spawn validation path")] // one cohesive spawn validation path
     fn spawn_entity(
         &mut self,
         point: Option<&str>,
@@ -3983,6 +3991,18 @@ impl EntityWorld {
         else {
             return Err(SpawnError::MissingTarget);
         };
+        self.spawn_at_point(&authored_point, template, group, name, depth)
+    }
+
+    #[expect(clippy::too_many_lines, reason = "one cohesive spawn validation path")] // one cohesive spawn validation path
+    fn spawn_at_point(
+        &mut self,
+        authored_point: &spawn::SpawnPointDef,
+        template: Option<&str>,
+        group: Option<&str>,
+        name: Option<&str>,
+        depth: u8,
+    ) -> Result<EntityHandle, SpawnError> {
         let template_id = template
             .map(str::trim)
             .filter(|id| !id.is_empty())
@@ -4576,6 +4596,7 @@ impl EntityWorld {
             if tick.player_reset {
                 return tick;
             }
+            tick.frames_dirty |= self.tick_encounter(ctx);
             self.tick_ai(ctx, &mut tick);
             self.release_orphaned_prey(ctx);
             self.tick_feltlings(ctx);

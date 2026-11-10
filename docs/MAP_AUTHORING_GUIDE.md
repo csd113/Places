@@ -10155,3 +10155,64 @@ additional tools and a horde mode are outside this step.
 Author these fields under **Project > Map settings > Tools** in the native
 editor. They use normal validation, history and save/reopen. Compiled maps that
 grant the crowbar require `player-tools-v1`; older players must refuse them.
+
+## Opt-in encounter test and spawn zones (0.14.0)
+
+`projects/encounter-lab/` is an editable, single 32 × 32 m Backrooms room with a
+10.5 m ceiling. It explicitly enables health and grants a crowbar. Ordinary
+maps retain disabled health and have no encounter controller. There are no waves.
+
+The three wall buttons start the encounter, clear living/dead zombies, and toggle
+one robot companion. Start displays the nonmodal subtitle `zombies incoming`.
+Two zones in the far corners each produce ten zombies, one per second, for twenty
+in about ten simulation seconds. Repeated Start while a round is active does not
+restart clocks or add actors. Clear cancels pending spawns and releases living
+actors and ragdolls; the companion remains until its own toggle. On player death,
+the first-person ragdoll camera remains and the interaction key (normally E)
+respawns the player, clears both teams and waits for Start again.
+
+A zombie has 4 HP in this test, so two accepted default 2-HP crowbar contacts
+kill it. Sixteen of twenty zombies move at 90% of the configured player's walk
+speed; four move at 110%. The assignment order changes by round. Zombies choose
+the closer player or living robot. The robot first targets zombies pursuing it,
+then the nearest remaining zombie; when idle it follows the player. Its crowbar
+uses the map's damage, reach and swing speed, one contact at 32% of each swing,
+with current range and line-of-sight checks. Dead zombies remain articulated
+physical bodies, respond to crowbar impulses and never enter the pickup registry.
+The test uses 0.35 seconds of hit protection, exposed through ordinary map health
+settings and intended for later playtesting. Regeneration is off.
+
+Create a Spawn point, select it, then open **Advanced > Object settings** and
+enable **Spawn zone**.
+Set **Count**, **Cooldown s**, **Width m**, **Depth m** independently for each
+zone. Move/rotate the box using normal editor transforms. The source form is:
+
+```json
+{"id":"zombie_zone_1","x":3,"z":3,"template":"zombie_template",
+ "zone":{"cooldown_seconds":1,"count":10,"width":2,"depth":2}}
+```
+
+Four inset positions cycle within each rotated box. Keep the whole box on clear,
+walkable floor. A zone accepts 1–20 actors, a 0.1–3600 second cooldown and
+0.5–16 m sides. Enabling a zone releases the ordinary point's exclusive group.
+Placing a zone alone does not start a controller or enable health.
+
+The initial encounter controller is explicit source data:
+
+```json
+"encounter":{"control":"encounter_control","companion_point":"robot_point"}
+```
+
+The control is a placed prop with initially false boolean state components named
+`start`, `clear`, and `companion`. Ordinary button `set_state` actions set those
+keys true; the controller consumes and resets each signal. The companion point
+must be an ordinary point. Participating templates require a visible mannequin,
+AI/nav-agent components, positive authored health, no lifetime and no exclusive
+spawn group. At most twenty zone actors are supported by this initial controller.
+The reusable spawn zones and existing AI/navigation/health own movement and
+lifetime; this is not a Game Modes library or multiplayer implementation.
+
+Encounter checkpoint persistence is not implemented: `saving` must be false.
+Native editor Quick test retains its documented NPC-ragdoll limitations; use a
+compiled package to validate the complete encounter. Packages containing a zone
+or encounter require `encounter-v1`, so older players refuse unsupported content.

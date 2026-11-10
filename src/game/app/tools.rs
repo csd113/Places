@@ -2,6 +2,26 @@
 use super::{AppState, FrameLoop};
 
 impl FrameLoop<'_> {
+    pub(super) fn handle_encounter_respawn(&mut self, event: &sdl3::event::Event) -> bool {
+        if !self.game.player_is_dead()
+            || !self.game.entities().has_encounter()
+            || self.console.is_open()
+            || !self.window_focused
+        {
+            return false;
+        }
+        if crate::game::input::pressed_key(event).is_some_and(|key| {
+            key.name()
+                .eq_ignore_ascii_case(&self.settings.bindings.interact)
+        }) {
+            if let Err(problem) = self.game.respawn_encounter() {
+                self.console.write(problem);
+            }
+            return true;
+        }
+        false
+    }
+
     pub(super) fn publish_tool_view(&mut self, camera: crate::engine::render::RenderCamera) {
         let allowed = self.game.app_state() == AppState::Playing
             && !self.cinematic_controls_blocked()

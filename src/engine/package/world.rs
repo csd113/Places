@@ -1162,6 +1162,10 @@ fn validate_required_capabilities(level: &LevelDef, manifest: &Manifest) -> Resu
     for (required, capability) in [
         (level.tools.crowbar, "player-tools-v1"),
         (
+            level.encounter.is_some() || level.spawn_points.iter().any(|p| p.zone.is_some()),
+            "encounter-v1",
+        ),
+        (
             level.stairs.iter().any(|stair| stair.reverse),
             "reverse-stairs-v1",
         ),

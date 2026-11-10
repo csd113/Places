@@ -232,13 +232,18 @@ pub fn strike(
     }
     let mut character = None;
     for id in game.entities().tool_target_ids() {
-        if let Some(bounds) = renderer.character_strike_bounds(id)
+        if !world.has_ragdoll(id)
+            && let Some(bounds) = renderer.character_strike_bounds(id)
             && let Some(distance) = ray_entry(bounds, eye, aim, limit)
         {
             limit = distance;
             character = Some(id.to_string());
             item = None;
         }
+    }
+    if let Some(id) = world.strike_ragdoll(eye, aim, limit) {
+        game.tools.contacts = game.tools.contacts.saturating_add(1);
+        return format!("Crowbar hit ragdoll {id}");
     }
     let target = if let Some((key, _)) = item {
         let _impulse = world.strike_body(key, aim, point_along(eye, aim, limit));

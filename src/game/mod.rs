@@ -5,6 +5,7 @@ pub(crate) mod audio;
 pub mod bench;
 mod campaign;
 mod checkpoint;
+pub mod companion_tool;
 pub mod console;
 pub mod display;
 mod elevator_transport;
@@ -3335,6 +3336,12 @@ impl Game {
                 LocomotionState::SurfaceSwimming
             } else {
                 LocomotionState::Swimming
+            }
+        } else if self.is_crouched() {
+            if speed > WALKING_SPEED_EPSILON_M_PER_S {
+                LocomotionState::CrouchWalking
+            } else {
+                LocomotionState::Crouching
             }
         } else if self.grounded {
             if speed > WALKING_SPEED_EPSILON_M_PER_S {

@@ -150,7 +150,7 @@ pub(super) fn spawn_sheet(
     button(
         vertices,
         hits,
-        [263.0, 155.0, 117.0, 11.0],
+        [263.0, 173.0, 117.0, 11.0],
         "Appearance >",
         Action::GamePick(C::CharacterAppearance),
         true,
@@ -177,38 +177,17 @@ pub(super) fn spawn_sheet(
         Action::GamePick(C::SpawnTemplate),
         true,
     );
-    text(
-        vertices,
-        "Move this marker to choose where entities appear.",
-        140.0,
-        126.0,
-        MUTED,
-        68,
-    );
-    text(
-        vertices,
-        "Trigger Actions > Spawn entity targets this point.",
-        140.0,
-        138.0,
-        MUTED,
-        68,
-    );
-    text(
-        vertices,
-        "One active spawn per point; templates can be shared.",
-        140.0,
-        150.0,
-        MUTED,
-        68,
-    );
-    text(
-        vertices,
-        "Lifetime 0 keeps the entity until despawn/reset.",
-        140.0,
-        162.0,
-        MUTED,
-        68,
-    );
+    property(app, vertices, hits, 2, false, "Spawn zone", S::SpawnZone);
+    if point.is_some_and(|p| p.zone.is_some()) {
+        for (row, right, label, setting) in [
+            (2, true, "Count", S::ZoneCount),
+            (3, false, "Cooldown s", S::ZoneCooldown),
+            (4, false, "Width m", S::ZoneWidth),
+            (4, true, "Depth m", S::ZoneDepth),
+        ] {
+            property(app, vertices, hits, row, right, label, setting);
+        }
+    }
 }
 
 pub(super) fn door_sheet(

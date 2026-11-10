@@ -68,6 +68,8 @@ const fn default_spawn_scale() -> f32 {
 /// One authored spawn point: where a template appears.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct SpawnPointDef {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub zone: Option<super::encounter::SpawnZoneDef>,
     /// Stable point id, unique per level.
     pub id: String,
     /// World X.

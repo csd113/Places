@@ -90,7 +90,7 @@
     ]
   },
   "entities/mannequin/model/mannequin.glb": {
-    "sha256": "a27aa5b4fda530152ba888535e06b21442bb4c05c476ba0028435a4e05291051",
+    "sha256": "a29104cafb8d78beccce14c353cea0436a97a5f40973c38959fe7cea02f85605",
     "triangles": 2412,
     "texture_edge": 1024,
     "identities": [

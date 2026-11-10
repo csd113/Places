@@ -4,6 +4,18 @@ use super::Game;
 use crate::engine::health::{HealthAction, HealthSettings, HealthState, HealthTarget};
 
 impl Game {
+    /// Restores an encounter only after its player has died.
+    /// # Errors
+    /// Refuses an unsafe respawn without clearing the encounter.
+    pub fn respawn_encounter(&mut self) -> Result<bool, String> {
+        if !self.player_is_dead() || !self.entities().has_encounter() {
+            return Ok(false);
+        }
+        let _restored = self.developer_respawn()?;
+        self.entities_mut().clear_encounter();
+        Ok(true)
+    }
+
     #[must_use]
     pub const fn player_is_dead(&self) -> bool {
         self.world.health_settings().enabled && self.player_health.is_dead()

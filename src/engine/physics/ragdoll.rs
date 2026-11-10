@@ -11,7 +11,10 @@ use super::collision::{add, point, pose, quaternion, scaled, subtract, vector};
 use super::world::{ItemWorld, Runtime};
 use crate::engine::gltf::PropSkin;
 
-pub const MAX_RAGDOLLS: usize = 10;
+// Bits 0..8 remain reserved for ordinary scenery/items. One distinct bit per
+// articulated body excludes self-collision while retaining corpse collisions.
+// Twenty zombies, the companion and player must coexist until explicit clear.
+pub const MAX_RAGDOLLS: usize = 24;
 
 /// Immutable current/previous displayed poses; captured only at handoff.
 pub struct RagdollInput<'a> {
@@ -499,6 +502,51 @@ fn install_joints(
 }
 
 impl ItemWorld {
+    /// Strikes the nearest articulated collider within an already occluded ray.
+    /// Bone bodies never enter the ordinary pickup registry. The impulse acts
+    /// at the actual surface, so joints transfer both translation and rotation.
+    pub fn strike_ragdoll(&mut self, eye: Vec3, direction: Vec3, reach: f32) -> Option<String> {
+        if !eye.is_finite() || !reach.is_finite() || !(0.0..=4.0).contains(&reach) {
+            return None;
+        }
+        let aim = direction
+            .try_normalize()
+            .filter(|value| value.is_finite())?;
+        let runtime = self.runtime.as_mut()?;
+        let articulated = |_, collider: &rapier3d::prelude::Collider| {
+            collider.is_enabled()
+                && collider.parent().is_some_and(|parent| {
+                    runtime
+                        .ragdolls
+                        .values()
+                        .any(|ragdoll| ragdoll.bodies.iter().any(|bone| bone.body == parent))
+                })
+        };
+        let ray = rapier3d::prelude::Ray::new(vector(eye), vector(aim));
+        let (collider, distance) = runtime.world.cast_ray(
+            &ray,
+            reach,
+            true,
+            super::collision::query_filter().predicate(&articulated),
+        )?;
+        let handle = runtime.world.colliders.get(collider)?.parent()?;
+        let id = runtime.ragdolls.iter().find_map(|(id, ragdoll)| {
+            ragdoll
+                .bodies
+                .iter()
+                .any(|bone| bone.body == handle)
+                .then(|| id.clone())
+        })?;
+        let contact = add(eye, scaled(aim, distance));
+        let body = runtime.world.bodies.get_mut(handle)?;
+        body.apply_impulse_at_point(
+            vector(scaled(aim, body.mass() * 3.0)),
+            vector(contact),
+            true,
+        );
+        Some(id)
+    }
+
     /// Validates the entire rig/pose/budget before creating any solver handle.
     ///
     /// # Errors
@@ -527,7 +575,7 @@ impl ItemWorld {
             #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
             serial_solver_pool,
         );
-        let slot = (8_u32..18)
+        let slot = (8_u32..32)
             .find(|candidate| {
                 runtime
                     .ragdolls

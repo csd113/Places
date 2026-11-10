@@ -178,6 +178,7 @@ impl Session {
                 self.spawn_dynamic(entity, &model, character_texture.as_deref(), position.to_array(), yaw_degrees, scale, renderer)?;
             }
             WorldCommand::DespawnDynamic { entity, instance_id } => {
+                let _removed_ragdoll = self.physics.world.remove_ragdoll(&instance_id);
                 let _removed_model = renderer.despawn_runtime_model(entity);
                 let _removed_character = renderer.despawn_runtime_character(&instance_id);
             }

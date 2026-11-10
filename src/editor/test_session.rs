@@ -48,6 +48,20 @@ pub(super) struct Session {
 }
 
 impl Session {
+    pub fn encounter_prompt(&self) -> Option<String> {
+        if self.game.player_is_dead() && self.game.entities().has_encounter() {
+            Some(format!(
+                "PRESS {} TO RESPAWN",
+                self.settings.bindings.interact
+            ))
+        } else {
+            self.game
+                .entities()
+                .encounter_subtitle()
+                .map(str::to_string)
+        }
+    }
+
     pub(super) const fn player_health(
         &self,
     ) -> (
@@ -124,9 +138,23 @@ impl Session {
 
     pub fn retire_player_model(&mut self, renderer: &mut Renderer) {
         self.player_model.reset(renderer, &mut self.physics.world);
+        crate::game::companion_tool::clear(renderer);
     }
 
     pub fn event(&mut self, event: &Event) {
+        if self.game.player_is_dead()
+            && self.game.entities().has_encounter()
+            && crate::game::input::pressed_key(event).is_some_and(|key| {
+                key.name()
+                    .eq_ignore_ascii_case(&self.settings.bindings.interact)
+            })
+        {
+            if let Err(error) = self.game.respawn_encounter() {
+                self.warning = error;
+            }
+            self.input.clear_gameplay_inputs();
+            return;
+        }
         if self.observe_tool_event(event) {
             return;
         }
@@ -383,6 +411,9 @@ impl Session {
             self.settings.fov_degrees,
             !self.game.player_is_dead() && self.game.cinematic_owns_controls(),
         );
+        if let Err(error) = crate::game::companion_tool::sync(self.game.entities(), renderer) {
+            self.warning = error;
+        }
         renderer.update_water_player(self.game.player_position, self.game.feet_y());
         let _updated = renderer.update_dynamic(delta);
         renderer.sync_characters();

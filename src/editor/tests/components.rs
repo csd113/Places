@@ -426,3 +426,41 @@ fn individual_health_limits_are_validated_and_saved() -> Result<(), String> {
     assert_eq!(Document::open(&fixture.0)?.raw(), &valid);
     Ok(())
 }
+
+// Protects independent nested zone tuning and ordinary-map opt-in through the
+// actual editor history/save boundary. One tiny project; no assets or map bake.
+#[test]
+fn spawn_zones_keep_independent_tuning_across_history_and_save() -> Result<(), String> {
+    use crate::editor::document::GameplaySetting as S;
+    let (fixture, mut doc) = Fixture::new()?;
+    let catalog = AssetCatalog::from_json_str(r#"{"format_version":2,"assets":[]}"#)?;
+    let left = doc.add(ObjectKind::SpawnPoint, [1.0, 0.0, 1.0], Some("mannequin"))?;
+    let right = doc.add(ObjectKind::SpawnPoint, [3.0, 0.0, 1.0], Some("mannequin"))?;
+    for id in [left, right] {
+        doc.set_gameplay_value(id, S::SpawnZone, json!(true), &catalog)?;
+    }
+    doc.set_gameplay_value(left, S::ZoneCooldown, json!(2.5_f32), &catalog)?;
+    doc.set_gameplay_value(left, S::ZoneCount, json!(7.0_f64), &catalog)?;
+    let accepted = doc.raw().clone();
+    assert!(
+        doc.set_gameplay_value(left, S::ZoneCount, json!(1.5_f64), &catalog)
+            .is_err()
+    );
+    assert_eq!(
+        doc.raw(),
+        &accepted,
+        "fractional counts cannot mutate the source"
+    );
+    assert_eq!(doc.gameplay_value(right, S::ZoneCooldown), json!(1.0_f32));
+    assert_eq!(doc.gameplay_value(left, S::ZoneCount), json!(7_u16));
+    assert!(doc.undo() && doc.redo());
+    assert_eq!(doc.raw(), &accepted);
+    doc.save_all()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(reopened.raw(), &accepted);
+    assert!(
+        !reopened.level().health.enabled && reopened.level().encounter.is_none(),
+        "placing a zone never silently enables combat"
+    );
+    Ok(())
+}

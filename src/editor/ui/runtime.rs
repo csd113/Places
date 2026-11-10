@@ -5,6 +5,9 @@ use crate::engine::render::Vertex;
 
 pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -> usize {
     health_overlay(app, vertices);
+    if let Some(prompt) = app.viewport.runtime_encounter_prompt() {
+        text(vertices, &prompt, 150.0, 205.0, INK, 100);
+    }
     text(
         vertices,
         "PLACES / TEST IN EDITOR / UNBAKED",

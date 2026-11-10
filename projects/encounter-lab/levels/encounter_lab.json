@@ -1,0 +1,382 @@
+{
+  "schema": "places-level",
+  "format_version": 1,
+  "id": "encounter_lab",
+  "name": "Backrooms encounter test",
+  "author": "Places",
+  "spawn": {
+    "x": 16,
+    "z": 29,
+    "yaw_degrees": 180
+  },
+  "defaults": {
+    "wall": "core:wallpaper_yellow_01",
+    "floor": "core:carpet_beige_01",
+    "ceiling": "core:ceiling_panel_01"
+  },
+  "rooms": [
+    {
+      "x": 0,
+      "z": 0,
+      "width": 32,
+      "depth": 32,
+      "height": 10.5
+    }
+  ],
+  "walls": [
+    {
+      "x": -0.3,
+      "z": -0.3,
+      "width": 32.6,
+      "depth": 0.3,
+      "height": 10.5
+    },
+    {
+      "x": -0.3,
+      "z": 32,
+      "width": 32.6,
+      "depth": 0.3,
+      "height": 10.5
+    },
+    {
+      "x": -0.3,
+      "z": 0,
+      "width": 0.3,
+      "depth": 32,
+      "height": 10.5
+    },
+    {
+      "x": 32,
+      "z": 0,
+      "width": 0.3,
+      "depth": 32,
+      "height": 10.5
+    }
+  ],
+  "ceiling_lights": [
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4,
+      "z": 4,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4,
+      "z": 12,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4,
+      "z": 20,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 4,
+      "z": 28,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12,
+      "z": 4,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12,
+      "z": 12,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12,
+      "z": 20,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 12,
+      "z": 28,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 20,
+      "z": 4,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 20,
+      "z": 12,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 20,
+      "z": 20,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 20,
+      "z": 28,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 28,
+      "z": 4,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 28,
+      "z": 12,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 28,
+      "z": 20,
+      "brightness": 2.5,
+      "range": 20
+    },
+    {
+      "fixture": "core:fluorescent_panel_01",
+      "x": 28,
+      "z": 28,
+      "brightness": 2.5,
+      "range": 20
+    }
+  ],
+  "health": {
+    "enabled": true,
+    "regeneration": false,
+    "damage_cooldown_seconds": 0.35
+  },
+  "tools": {
+    "crowbar": true,
+    "damage_hp": 2,
+    "reach_m": 1.75,
+    "swings_per_second": 1.8
+  },
+  "saving": false,
+  "encounter": {
+    "control": "encounter_control",
+    "companion_point": "robot_point"
+  },
+  "props": [
+    {
+      "id": "encounter_control",
+      "model": "collection:fountain_switch_lime",
+      "x": 14,
+      "y": 1.2,
+      "z": 31.96,
+      "rotation_degrees": 180,
+      "scale": 3,
+      "display_name": "Start zombies",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Start zombies",
+          "reach": 4
+        },
+        {
+          "component": "state",
+          "name": "start",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "clear",
+          "value": false
+        },
+        {
+          "component": "state",
+          "name": "companion",
+          "value": false
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "encounter_control",
+              "name": "start",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "clear_button",
+      "model": "collection:fountain_switch_white",
+      "x": 16,
+      "y": 1.2,
+      "z": 31.96,
+      "rotation_degrees": 180,
+      "scale": 3,
+      "display_name": "Clear zombies",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Clear zombies",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "encounter_control",
+              "name": "clear",
+              "value": true
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "companion_button",
+      "model": "collection:fountain_switch_blue",
+      "x": 18,
+      "y": 1.2,
+      "z": 31.96,
+      "rotation_degrees": 180,
+      "scale": 3,
+      "display_name": "Toggle companion",
+      "components": [
+        {
+          "component": "interactable",
+          "prompt": "Toggle companion",
+          "reach": 4
+        }
+      ],
+      "bindings": [
+        {
+          "on": "interact",
+          "actions": [
+            {
+              "action": "set_state",
+              "target": "encounter_control",
+              "name": "companion",
+              "value": true
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "spawn_templates": [
+    {
+      "id": "zombie_template",
+      "model": "mannequin",
+      "character_texture": "core:mannequin_skin_zombie",
+      "components": [
+        {
+          "component": "health",
+          "max_hp": 4,
+          "starting_hp": 4
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.32,
+          "height": 1.724,
+          "speed_mps": 2.25
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.25,
+          "run_speed": 4.5,
+          "sight_range": 0,
+          "hearing_range": 0
+        }
+      ]
+    },
+    {
+      "id": "robot_template",
+      "model": "mannequin",
+      "character_texture": "core:mannequin_skin_robot",
+      "components": [
+        {
+          "component": "health",
+          "max_hp": 12,
+          "starting_hp": 12
+        },
+        {
+          "component": "nav_agent",
+          "radius": 0.32,
+          "height": 1.724,
+          "speed_mps": 2.25
+        },
+        {
+          "component": "ai",
+          "behavior": "idler",
+          "walk_speed": 2.25,
+          "run_speed": 4.5,
+          "sight_range": 0,
+          "hearing_range": 0
+        }
+      ]
+    }
+  ],
+  "spawn_points": [
+    {
+      "id": "zombie_zone_1",
+      "x": 3,
+      "z": 3,
+      "yaw_degrees": 0,
+      "template": "zombie_template",
+      "zone": {
+        "cooldown_seconds": 1,
+        "count": 10,
+        "width": 2,
+        "depth": 2
+      }
+    },
+    {
+      "id": "zombie_zone_2",
+      "x": 29,
+      "z": 3,
+      "yaw_degrees": 0,
+      "template": "zombie_template",
+      "zone": {
+        "cooldown_seconds": 1,
+        "count": 10,
+        "width": 2,
+        "depth": 2
+      }
+    },
+    {
+      "id": "robot_point",
+      "x": 18,
+      "z": 26,
+      "template": "robot_template",
+      "yaw_degrees": 180
+    }
+  ]
+}

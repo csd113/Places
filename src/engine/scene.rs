@@ -8,6 +8,10 @@ pub enum LocomotionState {
     Idle,
     /// Grounded and moving horizontally.
     Walking,
+    /// Grounded with the crouched collision stance.
+    Crouching,
+    /// Moving in the crouched stance.
+    CrouchWalking,
     /// Off the floor: rising in a jump, falling, or leaving the water.
     Airborne,
     /// In deep water with the eye below the surface line.

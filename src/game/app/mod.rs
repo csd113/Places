@@ -1194,6 +1194,10 @@ impl FrameLoop<'_> {
             self.settings.fov_degrees,
             external_player_view,
         );
+        if let Err(problem) = crate::game::companion_tool::sync(self.game.entities(), self.renderer)
+        {
+            crate::engine::logging::warn_once("companion-tool", problem);
+        }
         self.update_carry_contacts(visual_delta);
         self.update_carry_attachments(visual_delta);
         // Publish every final pose once. Water, props and characters observe
@@ -2919,6 +2923,8 @@ impl FrameLoop<'_> {
             {
                 self.input_handler.clear_gameplay_inputs();
                 self.game.handle_escape(); // Opens Pause menu
+            } else if self.handle_encounter_respawn(event) {
+                self.input_handler.clear_gameplay_inputs();
             } else if !self.gameplay_controls_blocked() {
                 if !self.handle_tool_key(event) {
                     self.input_handler
@@ -4771,6 +4777,19 @@ impl FrameLoop<'_> {
             self.game.player_health(),
             self.game.health_settings(),
         );
+        if let Some(subtitle) = self.game.entities().encounter_subtitle() {
+            ui::draw_text(self.ui_scratch, subtitle, 160.0, 235.0, 1.0, [1.0; 3]);
+        }
+        if self.game.player_is_dead() && self.game.entities().has_encounter() {
+            ui::draw_text(
+                self.ui_scratch,
+                &format!("PRESS {} TO RESPAWN", self.settings.bindings.interact),
+                165.0,
+                155.0,
+                1.0,
+                [1.0, 1.0, 1.0],
+            );
+        }
         if self.gameplay_controls_blocked() {
             return;
         }
@@ -4908,6 +4927,10 @@ impl FrameLoop<'_> {
     }
 
     fn trace_health_state(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "encounter".into(),
+            self.game.entities().encounter_snapshot(),
+        ));
         drop(fields.insert("tools".into(), self.game.tool_snapshot()));
         drop(fields.insert(
             "player_model".into(),

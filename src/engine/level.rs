@@ -7512,6 +7512,8 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub encounter: Option<crate::engine::entities::encounter::EncounterDef>,
     /// Map-dependent inventory; tools remain distinct from carried physics props.
     #[serde(default)]
     pub tools: crate::engine::tools::ToolSettings,
