@@ -21,6 +21,13 @@ mod tests;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
 pub enum Action {
+    Health {
+        target: crate::engine::health::HealthTarget,
+        change: crate::engine::health::HealthAction,
+    },
+    HealthRules {
+        rules: crate::engine::health::HealthSettings,
+    },
     Load {
         level: String,
     },
@@ -361,18 +368,36 @@ fn validate_evidence_action(action: &Action) -> Result<(), String> {
     Ok(())
 }
 
-fn validate_action(action: &Action) -> Result<(), String> {
+fn validate_health_action(action: &Action) -> Result<(), String> {
+    if let Action::Health { target: _, change } = action {
+        change.validate().map_err(|problem| problem.to_string())?;
+    }
+    if let Action::HealthRules { rules } = action {
+        rules.validate().map_err(|problem| problem.to_string())?;
+    }
+    Ok(())
+}
+
+fn validate_action_inputs(action: &Action) -> Result<(), String> {
+    validate_health_action(action)?;
     validate_key_action(action)?;
-    validate_evidence_action(action)?;
+    validate_evidence_action(action)
+}
+
+fn validate_window_size(width: u32, height: u32) -> Result<(), String> {
+    if !(64..=8192).contains(&width) || !(64..=8192).contains(&height) {
+        return Err("Native test window dimensions must be 64..8192".to_string());
+    }
+    Ok(())
+}
+
+fn validate_action(action: &Action) -> Result<(), String> {
+    validate_action_inputs(action)?;
     match action {
         Action::Load { level } if level.is_empty() || level.len() > 256 => {
             return Err("Invalid requested level id".to_string());
         }
-        Action::Resize { width, height }
-            if !(64..=8192).contains(width) || !(64..=8192).contains(height) =>
-        {
-            return Err("Native test window dimensions must be 64..8192".to_string());
-        }
+        Action::Resize { width, height } => validate_window_size(*width, *height)?,
         Action::Quality { level }
             if crate::engine::quality::QualityLevel::parse(level).is_none() =>
         {
@@ -393,7 +418,12 @@ fn validate_action(action: &Action) -> Result<(), String> {
         } if button != "left" => {
             return Err("Native item mouse action supports the left button".to_string());
         }
-        Action::ConsoleEnabled { enabled: _ }
+        Action::Health {
+            target: _,
+            change: _,
+        }
+        | Action::HealthRules { rules: _ }
+        | Action::ConsoleEnabled { enabled: _ }
         | Action::Key {
             key: _,
             pressed: _,
@@ -449,10 +479,6 @@ fn validate_action(action: &Action) -> Result<(), String> {
         | Action::Load { level: _ }
         | Action::Audio(_)
         | Action::Escape {}
-        | Action::Resize {
-            width: _,
-            height: _,
-        }
         | Action::Quit {}
         | Action::Quality { level: _ }
         | Action::Lightmaps { quality: _ }

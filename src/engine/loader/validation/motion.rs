@@ -241,7 +241,11 @@ pub(super) fn validate_routes(level: &LevelDef, geometry: &Geometry<'_>) -> Resu
                     speed_mps: _,
                     max_slope: _,
                 } => Some((*radius, *height, *step_height)),
-                ComponentDef::Interactable {
+                ComponentDef::Health {
+                    max_hp: _,
+                    starting_hp: _,
+                }
+                | ComponentDef::Interactable {
                     prompt: _,
                     reach: _,
                     enabled: _,

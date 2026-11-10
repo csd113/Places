@@ -153,6 +153,9 @@ impl Session {
         audio: &mut AudioSystem,
     ) -> Result<(), String> {
         match command {
+            WorldCommand::PlayerHealth { action } => {
+                self.game.apply_health_action(&crate::engine::health::HealthTarget::Player, action)?;
+            }
             WorldCommand::ShowMessage { title, lines } => {
                 self.enqueue_message(title, &lines, false);
             }

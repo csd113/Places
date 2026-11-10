@@ -247,3 +247,134 @@ fn shadow_only_is_independent_of_collision_and_roundtrips() -> Result<(), String
     );
     Ok(())
 }
+
+/// Protects independent health switches, rejection without history mutation,
+/// and persistence through the actual editor document workflow. One tiny source
+/// project is sufficient; no map compilation or native renderer is involved.
+#[test]
+fn health_rules_and_kit_action_survive_editor_history_and_reopen() -> Result<(), String> {
+    let (fixture, mut doc) = Fixture::new()?;
+    assert_eq!(
+        doc.level().health,
+        crate::engine::health::HealthSettings::default()
+    );
+    let initial = doc.raw().clone();
+    let id = crate::editor::document::ObjectId::Prop(0);
+    for (key, value) in [
+        ("enabled", "true"),
+        ("regeneration", "true"),
+        ("health_kits", "false"),
+        ("show_player_health", "false"),
+    ] {
+        doc.set_component_field(
+            id,
+            Field::new(Target::Health, key, "Health", Kind::Bool, "false"),
+            value,
+        )?;
+    }
+    for (key, value) in [
+        ("regeneration_hp_per_second", "0.25"),
+        ("regeneration_delay_seconds", "3.0"),
+        ("damage_cooldown_seconds", "0.5"),
+    ] {
+        let field = Field::new(Target::Health, key, "Regeneration", Kind::Number, "0.0");
+        doc.set_component_field(id, field, value)?;
+        let valid = doc.raw().clone();
+        for invalid in ["-1", "NaN", "inf"] {
+            assert!(doc.set_component_field(id, field, invalid).is_err());
+            assert_eq!(doc.raw(), &valid, "invalid health edits must be atomic");
+        }
+    }
+    for (key, value) in [("player_max_hp", "10"), ("player_starting_hp", "8")] {
+        doc.set_component_field(
+            id,
+            Field::new(Target::Health, key, "Health", Kind::WholeNumber, "6"),
+            value,
+        )?;
+    }
+    let edited = doc.raw().clone();
+    for _ in 0..9_u8 {
+        assert!(doc.undo());
+    }
+    assert_eq!(doc.raw(), &initial);
+    for _ in 0..9_u8 {
+        assert!(doc.redo());
+    }
+    assert_eq!(doc.raw(), &edited);
+    assert!(doc.level().health.regeneration);
+    assert!(!doc.level().health.health_kits);
+    assert!(!doc.level().health.show_player_health);
+    let prop = doc.add(ObjectKind::Prop, [1.0, 0.0, 1.0], Some("core:chair"))?;
+    doc.add_binding_action(
+        prop,
+        0,
+        EventKindName::Interact,
+        json!({"action":"health","target":{"kind":"player"},"change":{"kind":"health_kit","hp":2_u16}}),
+    )?;
+    doc.rename_instance(prop, "kit")?;
+    doc.add_binding_action(prop, 0, EventKindName::Interact,
+        json!({"action":"health","target":{"kind":"entity","id":"kit"},"change":{"kind":"heal","hp":1_u16}}))?;
+    doc.rename_instance(prop, "health_station")?;
+    assert_eq!(
+        doc.raw().pointer("/props/0/bindings/0/actions/1/target/id"),
+        Some(&json!("health_station"))
+    );
+    let complete = doc.raw().clone();
+    assert!(doc.undo());
+    assert!(doc.redo());
+    assert_eq!(doc.raw(), &complete);
+    assert!(doc.add_binding_action(prop, 0, EventKindName::Interact,
+        json!({"action":"health","target":{"kind":"entity","id":"missing"},"change":{"kind":"heal","hp":2_u16}})).is_err());
+    assert_eq!(doc.raw(), &complete);
+    doc.save_all()?;
+    assert_eq!(Document::open(&fixture.0)?.raw(), &complete);
+    Ok(())
+}
+
+/// Covers per-instance HP overrides and bounded whole-number authoring with one
+/// tiny source project, including atomic rejection and normal history/persistence.
+#[test]
+fn individual_health_limits_are_validated_and_saved() -> Result<(), String> {
+    let (fixture, mut doc) = Fixture::new()?;
+    let npc = doc.add(ObjectKind::Entity, [1.0, 0.0, 1.0], Some("mannequin"))?;
+    doc.add_component(npc, "health")?;
+    let maximum = Field::new(
+        Target::Component("health"),
+        "max_hp",
+        "Maximum HP",
+        Kind::WholeNumber,
+        "6",
+    );
+    let starting = Field::new(
+        Target::Component("health"),
+        "starting_hp",
+        "Starting HP",
+        Kind::WholeNumber,
+        "6",
+    );
+    doc.set_component_field(npc, maximum, "12")?;
+    doc.set_component_field(npc, starting, "0")?;
+    assert_eq!(doc.component_value(npc, starting), json!(0_u16));
+    let valid = doc.raw().clone();
+    for value in ["0", "-1", "65536", "2.5"] {
+        assert!(doc.set_component_field(npc, maximum, value).is_err());
+        assert_eq!(doc.raw(), &valid);
+    }
+    assert!(doc.set_component_field(npc, starting, "13").is_err());
+    let player_maximum = Field::new(
+        Target::Health,
+        "player_max_hp",
+        "Maximum HP",
+        Kind::WholeNumber,
+        "6",
+    );
+    assert!(doc.set_component_field(npc, player_maximum, "0").is_err());
+    assert!(doc.set_component_field(npc, player_maximum, "5").is_err());
+    assert_eq!(doc.raw(), &valid);
+    assert!(doc.undo());
+    assert!(doc.redo());
+    assert_eq!(doc.raw(), &valid);
+    doc.save_all()?;
+    assert_eq!(Document::open(&fixture.0)?.raw(), &valid);
+    Ok(())
+}

@@ -10,6 +10,7 @@ pub mod display;
 mod elevator_transport;
 pub mod gameplay_actions;
 pub mod gameplay_runtime;
+mod health;
 pub mod input;
 pub mod perf_overlay;
 pub mod pickup_catalog;
@@ -359,6 +360,7 @@ pub use crate::engine::entities::DispatchReport;
     reason = "The flags are independent, documented state machines (Rust's enum-per-flag would obscure the existing public fields), not interchangeable booleans."
 )]
 pub struct Game {
+    player_health: crate::engine::health::HealthState,
     playable_space: PlayableSpace,
     /// Time continuously outside every authored movement volume.
     outside_map_seconds: f32,
@@ -563,6 +565,7 @@ impl Game {
     pub fn new(spawn_pos: Vec3, spawn_yaw: f32, world: CollisionWorld) -> Self {
         let grounded = false;
         let mut game = Self {
+            player_health: health::initial_player_health(world.world.health_settings()),
             playable_space: world.playable_space,
             outside_map_seconds: 0.0,
             recovery_spawn: None,
@@ -745,6 +748,7 @@ impl Game {
         self.ceiling = world.ceiling;
         self.ladders = world.ladders;
         self.world = world.world;
+        self.player_health = health::initial_player_health(self.world.health_settings());
         self.navigation = world.navigation;
         self.playable_space = world.playable_space;
         self.spawn_position = spawn_pos;
@@ -768,6 +772,7 @@ impl Game {
     /// until released. Label visibility is preserved: it is a view toggle, not
     /// movement state.
     pub fn reset_to_spawn(&mut self) {
+        self.player_health = health::initial_player_health(self.world.health_settings());
         self.trigger_sweep = None;
         self.clear_run_state(self.spawn_position, self.spawn_yaw, true);
         self.world.reset_runtime();
@@ -1257,6 +1262,18 @@ impl Game {
 
         // While paused or in menus, do not update player movement or looking
         if self.app_state != AppState::Playing {
+            return;
+        }
+
+        self.tick_player_health();
+        if self.world.health_settings().enabled && self.player_health.is_dead() {
+            input.release_all();
+            let feet = Vec3::new(
+                self.player_position.x,
+                self.feet_y(),
+                self.player_position.z,
+            );
+            self.update_world(feet);
             return;
         }
 

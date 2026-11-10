@@ -6,6 +6,7 @@ use crate::game::gameplay_actions::{
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum CommandKind {
+    Health,
     Help,
     Clear,
     Crosshair,
@@ -30,6 +31,16 @@ pub struct CommandSpec {
 }
 
 pub const REGISTRY: &[CommandSpec] = &[
+    CommandSpec {
+        kind: CommandKind::Health,
+        name: "health",
+        usage: "/health [player|instance-id] [damage|heal|kit <HP>]",
+        description: "Inspect or exercise the shared health rules (1 HP is half a heart).",
+        help: &[
+            "Default target is player. HP is a positive whole number; kit obeys the map's health-kit toggle. Heal is an explicit scripted override.",
+            "Healing never revives. /respawn explicitly restores the player at a safe spawn; maps decide their own death and restart flow.",
+        ],
+    },
     CommandSpec {
         kind: CommandKind::Ragdoll,
         name: "ragdoll",
@@ -206,6 +217,7 @@ pub fn parse(line: &str) -> Result<Command, String> {
         return Ok(Command::Help(Some(spec.kind)));
     }
     let action = match (spec.kind, args) {
+        (CommandKind::Health, arguments) => return health_command(arguments).map(Command::Action),
         (CommandKind::Help, []) => return Ok(Command::Help(None)),
         (CommandKind::Help, [requested_name]) => {
             return spec_for(requested_name)
@@ -309,4 +321,38 @@ fn ragdoll_command(arguments: &[&str]) -> Result<GameplayAction, String> {
         enabled,
         velocity,
     })
+}
+
+fn health_command(arguments: &[&str]) -> Result<GameplayAction, String> {
+    use crate::engine::health::{HealthAction, HealthTarget};
+    let (id, operation) = match arguments {
+        [] => ("player", &[][..]),
+        [id] | [id, _, _] if is_valid_command_id(id) => {
+            (*id, arguments.get(1..).unwrap_or_default())
+        }
+        _ => return Err("Usage: /health [player|instance-id] [damage|heal|kit <HP>]".into()),
+    };
+    let target = if id == "player" {
+        HealthTarget::Player
+    } else {
+        HealthTarget::Entity { id: id.into() }
+    };
+    if operation.is_empty() {
+        return Ok(GameplayAction::HealthStatus(target));
+    }
+    let [kind, amount] = operation else {
+        return Err("Health needs an operation and HP".into());
+    };
+    let hp = amount
+        .parse::<u16>()
+        .ok()
+        .filter(|hp| *hp > 0)
+        .ok_or("HP must be a positive whole number up to 65535")?;
+    let action = match *kind {
+        "damage" => HealthAction::Damage { hp },
+        "heal" => HealthAction::Heal { hp },
+        "kit" => HealthAction::HealthKit { hp },
+        _ => return Err("Health operation must be damage, heal or kit".into()),
+    };
+    Ok(GameplayAction::Health { target, action })
 }

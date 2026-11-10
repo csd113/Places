@@ -37,6 +37,7 @@ mod feltlings;
 mod guest_acoustics;
 mod guest_lifecycle;
 mod guest_sensing;
+mod health;
 pub mod id;
 mod light_power;
 pub mod passengers;
@@ -137,6 +138,10 @@ pub struct LightResponseObservation<'a> {
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
+    /// Apply to the application-owned player state.
+    PlayerHealth {
+        action: crate::engine::health::HealthAction,
+    },
     SaveCheckpoint {
         name: String,
     },
@@ -434,6 +439,8 @@ enum WeatherEndpoints {
 
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
+    health_settings: crate::engine::health::HealthSettings,
+    health_events: Vec<crate::engine::health::HealthEvent>,
     checkpoint_entity_count: usize,
     transition_targets: std::collections::BTreeSet<String>,
     scripts: crate::engine::scripting::ScriptRuntime,
@@ -578,6 +585,8 @@ impl EntityWorld {
     #[must_use]
     pub fn new() -> Self {
         Self {
+            health_settings: crate::engine::health::HealthSettings::default(),
+            health_events: Vec::new(),
             checkpoint_entity_count: 0,
             transition_targets: std::collections::BTreeSet::new(),
             scripts: crate::engine::scripting::ScriptRuntime::default(),
@@ -703,6 +712,8 @@ impl EntityWorld {
 
     /// Rebuilds this world from a level, invalidating every previous handle.
     pub fn resolve(&mut self, level: &LevelDef) {
+        self.health_settings = level.health;
+        self.health_events.clear();
         self.transition_targets = level.transitions.iter().cloned().collect();
         self.scripts = crate::engine::scripting::ScriptRuntime::new(level);
         self.campaign_level.clone_from(&level.id);
@@ -827,6 +838,7 @@ impl EntityWorld {
     /// Re-seeds every runtime to its authored start state without replacing the
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
+        self.reset_health();
         for guest in &mut self.guests {
             guest.cancel_capture();
         }
@@ -957,6 +969,7 @@ impl EntityWorld {
             !matches!(
                 command,
                 WorldCommand::PlayerForm { model: _, scale: _ }
+                    | WorldCommand::PlayerHealth { action: _ }
                     | WorldCommand::Blood { emission: _ }
                     | WorldCommand::ShowMessage { title: _, lines: _ }
                     | WorldCommand::Ragdoll {
@@ -1452,6 +1465,18 @@ impl EntityWorld {
     ) {
         for def in defs {
             match def {
+                ComponentDef::Health {
+                    max_hp,
+                    starting_hp,
+                } => {
+                    if let Ok(initial) =
+                        crate::engine::health::HealthState::new(*starting_hp, *max_hp)
+                    {
+                        let _previous_initial =
+                            self.components.health_initial.insert(handle, initial);
+                        let _previous_health = self.components.health.insert(handle, initial);
+                    }
+                }
                 ComponentDef::Interactable {
                     prompt,
                     reach,
@@ -2518,6 +2543,16 @@ impl EntityWorld {
             return;
         }
         match action {
+            ActionDef::Health {
+                target,
+                action: change,
+            } => {
+                if self.dispatch_health(target, *change).is_ok() {
+                    report.actions_run = report.actions_run.saturating_add(1);
+                } else {
+                    report.unsupported = report.unsupported.saturating_add(1);
+                }
+            }
             ActionDef::ShowMessage { title, lines } => {
                 if crate::engine::level::validate_message(title, lines).is_ok() {
                     self.commands.push(WorldCommand::ShowMessage {
@@ -4459,6 +4494,7 @@ impl EntityWorld {
 
     /// Advances the whole runtime by one frame.
     pub fn tick(&mut self, ctx: &WorldContext<'_>) -> WorldTick {
+        self.tick_health(ctx.delta_seconds);
         let mut tick = WorldTick::default();
         self.script_player = ctx.feet;
         if self.script_form.as_deref() != ctx.form_model {

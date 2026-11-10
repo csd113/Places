@@ -49,6 +49,8 @@ pub(in crate::editor) fn draw(
                 9 => fields::audio(),
                 10 => fields::map(),
                 13 => fields::carry(),
+                14 => fields::health(),
+                15 => fields::entity_health(),
                 _ => Vec::new(),
             };
             let visible_fields: Vec<_> = list
@@ -57,6 +59,7 @@ pub(in crate::editor) fn draw(
                     Target::Component(kind) => has_component(object, kind),
                     Target::Physics => object.is_some_and(|record| record.get("physics").is_some()),
                     Target::Identity
+                    | Target::Health
                     | Target::Map
                     | Target::Spawn
                     | Target::Defaults
@@ -72,6 +75,7 @@ pub(in crate::editor) fn draw(
                 })
                 .collect();
             form(app, vertices, hits, &visible_fields, section, offset);
+            health_navigation(app, vertices, hits, section);
             if section == 6 && matches!(id, ObjectId::Prop(_)) {
                 button(
                     vertices,
@@ -104,6 +108,52 @@ pub(in crate::editor) fn draw(
     );
 }
 
+fn health_navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, section: usize) {
+    if section == 15 {
+        let exists = app
+            .document
+            .as_ref()
+            .zip(app.selected)
+            .is_some_and(|(doc, id)| has_component(doc.component_object(id), "health"));
+        button(
+            vertices,
+            hits,
+            [263.0, 83.0, 117.0, 10.0],
+            if exists {
+                "Use default health"
+            } else {
+                "Customize health"
+            },
+            if exists {
+                Action::ComponentRemove("health")
+            } else {
+                Action::ComponentAdd("health")
+            },
+            true,
+        );
+    }
+    if section == 14 {
+        text(
+            vertices,
+            "1 HP = half a heart. Recovery options can be combined.",
+            140.0,
+            174.0,
+            MUTED,
+            68,
+        );
+    }
+    if section == 10 {
+        button(
+            vertices,
+            hits,
+            [263.0, 83.0, 117.0, 10.0],
+            "Player health >",
+            Action::Components(14),
+            true,
+        );
+    }
+}
+
 const fn section_title(section: usize) -> &'static str {
     match section {
         1 => "TYPED STATE",
@@ -119,6 +169,8 @@ const fn section_title(section: usize) -> &'static str {
         11 => "CHOOSE STATE CONDITION",
         12 => "ATTACHED SOURCE",
         13 => "NPC ITEM HANDOFF",
+        14 => "PLAYER HEALTH / MAP RULES",
+        15 => "ENTITY HEALTH",
         _ => "CAPABILITIES",
     }
 }
@@ -144,6 +196,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ("Attached audio", 9),
         ("Map settings", 10),
         ("NPC item handoff", 13),
+        ("Entity health", 15),
     ]
     .into_iter()
     .enumerate()
@@ -167,7 +220,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                             matches!(app.selected, Some(ObjectId::Prop(_) | ObjectId::Door(_)))
                         }
                         5 => matches!(app.selected, Some(ObjectId::Prop(_) | ObjectId::Light(_))),
-                        6 | 7 | 13 => matches!(app.selected, Some(ObjectId::Prop(_))),
+                        6 | 7 | 13 | 15 => matches!(app.selected, Some(ObjectId::Prop(_))),
                         _ => true,
                     }),
         );
@@ -428,6 +481,7 @@ pub(in crate::editor) fn draw_text(
             Kind::Vector => "Three numbers in brackets: [x, y, z]",
             Kind::State => "true / false / integer / decimal / quoted text",
             Kind::Text => "Empty clears an optional value. Cmd/Ctrl A clears.",
+            Kind::WholeNumber => "Whole HP: maximum > 0; starting health <= maximum.",
             Kind::Number | Kind::Bool | Kind::Choice(_) => {
                 "Enter a finite number. Cmd/Ctrl A clears."
             }

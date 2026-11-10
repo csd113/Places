@@ -249,7 +249,8 @@ impl EntityRoutes {
                         step_height,
                         speed_mps: _, max_slope: _
                     } => Some((*radius, *height, *step_height)),
-                    crate::engine::level::ComponentDef::Interactable { prompt: _, reach: _, enabled: _, label: _ }
+                    crate::engine::level::ComponentDef::Health { max_hp: _, starting_hp: _ }
+                    | crate::engine::level::ComponentDef::Interactable { prompt: _, reach: _, enabled: _, label: _ }
                     | crate::engine::level::ComponentDef::Animation { clip: _, speed: _, looped: _, playing: _ }
                     | crate::engine::level::ComponentDef::Audio { sound: _, gain: _, looped: _, enabled: _, playing: _, time_domain: _ }
                     | crate::engine::level::ComponentDef::Light { enabled: _, switchable: _, emission_scale: _ }

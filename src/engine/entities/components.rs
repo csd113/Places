@@ -757,6 +757,10 @@ impl LightResponse {
 /// Every component table of one world.
 #[derive(Clone, Debug, Default, PartialEq)]
 pub struct ComponentTables {
+    /// Shared health for entities which have received health operations.
+    pub health: ComponentTable<crate::engine::health::HealthState>,
+    /// Authored starting state retained for explicit resets, never regeneration.
+    pub health_initial: ComponentTable<crate::engine::health::HealthState>,
     /// World pose.
     pub transforms: ComponentTable<Transform>,
     /// What the entity draws.
@@ -810,6 +814,8 @@ impl ComponentTables {
     #[must_use]
     pub const fn new() -> Self {
         Self {
+            health: ComponentTable::new(),
+            health_initial: ComponentTable::new(),
             transforms: ComponentTable::new(),
             renderables: ComponentTable::new(),
             colliders: ComponentTable::new(),
@@ -838,6 +844,8 @@ impl ComponentTables {
 
     /// Drops every component of every kind.
     pub fn clear(&mut self) {
+        self.health.clear();
+        self.health_initial.clear();
         self.transforms.clear();
         self.renderables.clear();
         self.colliders.clear();
@@ -867,6 +875,8 @@ impl ComponentTables {
     #[must_use]
     pub fn len(&self) -> usize {
         [
+            self.health.len(),
+            self.health_initial.len(),
             self.transforms.len(),
             self.renderables.len(),
             self.colliders.len(),
@@ -903,6 +913,8 @@ impl ComponentTables {
 
     /// Removes every component of `handle`.
     pub fn remove_all(&mut self, handle: EntityHandle) {
+        let _health = self.health.remove(handle);
+        let _initial_health = self.health_initial.remove(handle);
         let _removed_value = self.transforms.remove(handle);
         drop(self.renderables.remove(handle));
         let _removed_value_2 = self.colliders.remove(handle);

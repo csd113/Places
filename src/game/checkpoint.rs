@@ -95,6 +95,10 @@ impl Identity {
 #[derive(Clone, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct Player {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    health_rules: Option<crate::engine::health::HealthSettings>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    health: Option<crate::engine::health::HealthState>,
     feet: [f32; 3],
     yaw: f32,
     pitch: f32,
@@ -126,6 +130,8 @@ impl Game {
             return Err("Checkpoint needs a clear supported player pose".into());
         }
         Ok(Player {
+            health_rules: Some(*self.health_settings()),
+            health: self.health_settings().enabled.then_some(self.player_health),
             feet: [self.player_position.x, self.feet_y, self.player_position.z],
             yaw: self.player_yaw,
             pitch: self.player_pitch,
@@ -135,6 +141,9 @@ impl Game {
     /// # Errors
     /// Called on the candidate world before GPU admission; rejects unsafe poses.
     pub(super) fn restore_checkpoint_player(&mut self, player: &Player) -> Result<(), String> {
+        if let Some(rules) = player.health_rules {
+            self.set_health_settings(rules)?;
+        }
         for value in player.feet {
             crate::engine::entities::checkpoint::number(value, 100_000.0)?;
         }
@@ -164,6 +173,9 @@ impl Game {
         {
             return Err("Checkpoint player pose is obstructed or outside this level. Start new to play from the beginning.".into());
         }
+        self.player_health = player
+            .health
+            .unwrap_or_else(|| super::health::initial_player_health(self.world.health_settings()));
         self.reseed_trigger_inside();
         Ok(())
     }

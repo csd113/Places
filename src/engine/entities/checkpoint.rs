@@ -6,6 +6,8 @@ use std::collections::BTreeSet;
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EntityState {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    health: Option<crate::engine::health::HealthState>,
     pub(super) id: String,
     pub(super) transform: Option<([f32; 3], f32)>,
     visible: Option<bool>,
@@ -160,6 +162,7 @@ impl EntityWorld {
                 .map(|value| (value.enabled, value.live_opacity, value.fading_out)),
             glow: components.glows.get(handle).map(|value| value.enabled),
             animation: components.animations.get(handle).cloned(),
+            health: components.health.get(handle).copied(),
         }
     }
 
@@ -337,6 +340,7 @@ impl EntityWorld {
     fn publish_checkpoint(&mut self, time: f32) {
         self.sim_time = time;
         self.events.clear();
+        self.health_events.clear();
         self.commands.clear();
         self.rebuild_door_colliders();
         self.rebuild_interactables_from_tables();
@@ -568,6 +572,10 @@ impl EntityWorld {
         record: &EntityState,
     ) -> Result<(), String> {
         self.restore_state_bag(handle, record)?;
+        let _previous_health = self.components.health.remove(handle);
+        if let Some(health) = record.health {
+            let _previous = self.components.health.insert(handle, health);
+        }
         let components = &mut self.components;
         if let Some(variant) = &record.material {
             let target = components

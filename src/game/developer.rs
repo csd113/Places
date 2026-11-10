@@ -116,6 +116,7 @@ impl Game {
             "Cannot respawn: the validated spawn is blocked or unavailable.".to_string()
         })?;
         self.restore_recovery_destination(destination);
+        self.player_health = super::health::initial_player_health(self.world.health_settings());
         Ok("Respawned at the validated spawn.")
     }
 

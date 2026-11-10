@@ -20,6 +20,7 @@ pub mod environment;
 pub mod feltling;
 pub mod font;
 pub mod gltf;
+pub mod health;
 pub mod input;
 pub mod interact;
 pub mod level;

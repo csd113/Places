@@ -15,6 +15,7 @@ use super::{Document, ObjectId, objects};
 pub enum Target {
     Identity,
     Map,
+    Health,
     Spawn,
     Defaults,
     Presentation,
@@ -35,6 +36,7 @@ pub enum Target {
 pub enum Kind {
     Text,
     Number,
+    WholeNumber,
     Bool,
     Vector,
     State,
@@ -87,6 +89,7 @@ impl Document {
         }
         let object = match field.target {
             Target::Map => Some(self.raw()),
+            Target::Health => self.raw().get("health"),
             Target::Spawn => self.raw().get("spawn"),
             Target::Defaults => self.raw().get("defaults"),
             Target::Presentation => self
@@ -136,17 +139,24 @@ impl Document {
         let mut raw = self.raw().clone();
         if !matches!(
             field.target,
-            Target::Map | Target::Spawn | Target::Defaults | Target::Presentation | Target::Fog
+            Target::Map
+                | Target::Health
+                | Target::Spawn
+                | Target::Defaults
+                | Target::Presentation
+                | Target::Fog
         ) {
             objects::pin_prop_ids(&mut raw, self.level())?;
             super::gameplay::pin_gameplay_ids(&mut raw, self.level())?;
         }
         let record = match field.target {
             Target::Map => raw.as_object_mut().ok_or("Invalid map")?,
-            Target::Spawn | Target::Defaults => raw
+            Target::Health | Target::Spawn | Target::Defaults => raw
                 .as_object_mut()
                 .ok_or("Invalid map")?
-                .entry(if field.target == Target::Spawn {
+                .entry(if field.target == Target::Health {
+                    "health"
+                } else if field.target == Target::Spawn {
                     "spawn"
                 } else {
                     "defaults"
@@ -195,6 +205,7 @@ impl Document {
             return Err("Capabilities belong to a prop or door".into());
         }
         let value = match kind {
+            "health" => json!({"component":"health","max_hp":6_u16,"starting_hp":6_u16}),
             "interactable" => {
                 json!({"component":"interactable","prompt":"Interact","enabled":true})
             }

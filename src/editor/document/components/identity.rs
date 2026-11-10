@@ -114,6 +114,13 @@ impl Document {
 fn replace_references(root: &mut Value, previous: &str, identity: &str) {
     match root {
         Value::Object(object) => {
+            if object.get("action").and_then(Value::as_str) == Some("health")
+                && let Some(target) = object.get_mut("target").and_then(Value::as_object_mut)
+                && target.get("kind").and_then(Value::as_str) == Some("entity")
+                && target.get("id").and_then(Value::as_str) == Some(previous)
+            {
+                drop(target.insert("id".into(), identity.into()));
+            }
             for (key, value) in object {
                 if matches!(key.as_str(), "target" | "instance" | "point")
                     && value.as_str() == Some(previous)

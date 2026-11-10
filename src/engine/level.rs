@@ -782,6 +782,12 @@ impl LadderDef {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "action", rename_all = "snake_case")]
 pub enum ActionDef {
+    /// Shared player/entity health operation.
+    Health {
+        target: crate::engine::health::HealthTarget,
+        #[serde(rename = "change")]
+        action: crate::engine::health::HealthAction,
+    },
     /// Show a dismissible, optional authored explanation without advancing play.
     ShowMessage { title: String, lines: Vec<String> },
     /// Give an AI body a goal through the shared bounded planner and mover.
@@ -1154,6 +1160,10 @@ impl ActionDef {
     )]
     pub const fn kind(&self) -> &'static str {
         match self {
+            Self::Health {
+                target: _,
+                action: _,
+            } => "health",
             Self::ShowMessage { title: _, lines: _ } => "show_message",
             Self::Navigate {
                 target: _,
@@ -1283,6 +1293,10 @@ impl ActionDef {
     )]
     pub fn target(&self) -> Option<&str> {
         match self {
+            Self::Health {
+                target: crate::engine::health::HealthTarget::Entity { id },
+                action: _,
+            } => Some(id),
             Self::Open { target }
             | Self::Close { target }
             | Self::Toggle { target }
@@ -1358,7 +1372,11 @@ impl ActionDef {
                 group: _,
                 enabled: _,
             } => Some(target),
-            Self::ShowMessage { title: _, lines: _ }
+            Self::Health {
+                target: crate::engine::health::HealthTarget::Player,
+                action: _,
+            }
+            | Self::ShowMessage { title: _, lines: _ }
             | Self::EndRun {
                 won: _,
                 title: _,
@@ -1609,6 +1627,8 @@ const fn default_material_emission() -> f32 {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "component", rename_all = "snake_case")]
 pub enum ComponentDef {
+    /// Per-entity health, in half-heart HP units. Zero starting HP is dead.
+    Health { max_hp: u16, starting_hp: u16 },
     /// The entity can be aimed at and interacted with.
     Interactable {
         /// Prompt shown while aimed at; defaults to
@@ -2259,6 +2279,10 @@ impl ComponentDef {
     #[must_use]
     pub const fn kind(&self) -> &'static str {
         match self {
+            Self::Health {
+                max_hp: _,
+                starting_hp: _,
+            } => "health",
             Self::Interactable {
                 prompt: _,
                 reach: _,
@@ -7488,6 +7512,9 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// Reusable health rules selected for this map.
+    #[serde(default)]
+    pub health: crate::engine::health::HealthSettings,
     #[serde(default, skip_serializing_if = "Vec::is_empty")]
     pub elevators: Vec<crate::engine::elevator::ElevatorDef>,
     /// Standalone distributable release; owning projects supply their own version.

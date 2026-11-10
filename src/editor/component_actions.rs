@@ -261,7 +261,7 @@ impl App {
                     });
                 Some(choices.get(index).ok_or("Empty choices")?.to_string())
             }
-            Kind::Text | Kind::Number | Kind::Vector | Kind::State => None,
+            Kind::Text | Kind::Number | Kind::WholeNumber | Kind::Vector | Kind::State => None,
         };
         if let Some(next) = next_value {
             if field.target == super::document::components::Target::Binding(self.selected_binding())

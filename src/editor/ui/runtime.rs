@@ -4,6 +4,7 @@ use crate::editor::{App, test_session::MessageView};
 use crate::engine::render::Vertex;
 
 pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -> usize {
+    health_overlay(app, vertices);
     text(
         vertices,
         "PLACES / TEST IN EDITOR / UNBAKED",
@@ -49,7 +50,13 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
     );
     text(
         vertices,
-        if app.viewport.runtime_cinematic() {
+        if app
+            .viewport
+            .runtime_health()
+            .is_some_and(|(health, settings)| settings.enabled && health.is_dead())
+        {
+            "Health depleted | Esc or Stop test returns to editing"
+        } else if app.viewport.runtime_cinematic() {
             "Cinematic camera | Player controls suspended | Stop test returns to editing"
         } else {
             "WASD move | E use/pickup/drop | F light | F1 hint | Space jump | Ctrl crouch | Stop test returns"
@@ -66,7 +73,14 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
     );
     let modal_start = vertices.len();
     let message = app.runtime_message();
-    if app.runtime_active() && message.is_none() && !app.viewport.runtime_cinematic() {
+    if app.runtime_active()
+        && message.is_none()
+        && !app.viewport.runtime_cinematic()
+        && !app
+            .viewport
+            .runtime_health()
+            .is_some_and(|(health, settings)| settings.enabled && health.is_dead())
+    {
         crosshair(vertices);
     }
     if let Some(view) = message {
@@ -162,4 +176,37 @@ fn message_card(vertices: &mut Vec<Vertex>, view: &MessageView<'_>) {
         INK,
         68,
     );
+}
+
+/// Share heart geometry, but use the editor atlas and footer-safe anchoring.
+fn health_overlay(app: &App, vertices: &mut Vec<Vertex>) {
+    let Some((health, settings)) = app.viewport.runtime_health() else {
+        return;
+    };
+    if !settings.enabled || !settings.show_player_health {
+        return;
+    }
+    let y_offset = app.viewport.layout().bottom_offset() - 28.0;
+    if health.max_hp() > 40 {
+        text(
+            vertices,
+            &format!("HP {} / {}", health.current_hp(), health.max_hp()),
+            12.0,
+            242.0 + y_offset,
+            INK,
+            50,
+        );
+        return;
+    }
+    let hearts = vertices.len();
+    crate::game::ui::append_player_health(vertices, &health, &settings);
+    let source = crate::engine::font::health_heart_uv();
+    let destination = crate::engine::font::editor_health_heart_uv();
+    for vertex in vertices.get_mut(hearts..).unwrap_or_default() {
+        vertex.pos[1] += y_offset;
+        vertex.uv[0] = ((vertex.uv[0] - source[0]) / (source[2] - source[0]))
+            .mul_add(destination[2] - destination[0], destination[0]);
+        vertex.uv[1] = ((vertex.uv[1] - source[1]) / (source[3] - source[1]))
+            .mul_add(destination[3] - destination[1], destination[1]);
+    }
 }

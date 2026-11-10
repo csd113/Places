@@ -10,6 +10,7 @@ pub(super) fn read(source: Option<&Value>, field: Field) -> Value {
     let record = match field.target {
         Target::Identity
         | Target::Object
+        | Target::Health
         | Target::Map
         | Target::Spawn
         | Target::Defaults
@@ -57,6 +58,10 @@ pub(super) fn read(source: Option<&Value>, field: Field) -> Value {
 pub(super) fn parse(field: Field, text: &str) -> Result<Value, String> {
     match field.kind {
         Kind::Text => Ok(text.into()),
+        Kind::WholeNumber => text
+            .parse::<u16>()
+            .map(Value::from)
+            .map_err(|_error| "Enter a whole HP amount from 0 to 65535".into()),
         Kind::Number => {
             let number: f32 = text.parse().map_err(|_error| "Enter a finite number")?;
             if !number.is_finite() {
@@ -104,6 +109,7 @@ pub(super) fn record_mut(
     let record = match target {
         Target::Identity
         | Target::Object
+        | Target::Health
         | Target::Map
         | Target::Spawn
         | Target::Defaults

@@ -57,6 +57,11 @@ fn gameplay_checkpoint_roundtrip_recovers_previous_and_preserves_failed_publicat
         .entities_mut()
         .restore_checkpoint(&recovered.snapshot.world)?;
     restored.restore_checkpoint_player(&recovered.snapshot.player)?;
+    assert_eq!(
+        restored.player_health().current_hp(),
+        3,
+        "checkpoint restore preserves injury rather than silently healing"
+    );
     let handle = restored
         .entities()
         .handle_of("quest")
@@ -107,12 +112,16 @@ fn gameplay_checkpoint_roundtrip_recovers_previous_and_preserves_failed_publicat
 }
 
 fn snapshot_fixture() -> Result<(LevelDef, Snapshot), String> {
-    let level=LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"checkpoint","name":"Checkpoint","saving":true,"spawn":{"x":2,"z":2},"rooms":[{"width":6,"depth":6}],"ceiling_lights":[{"id":"lamp","fixture":"core:fluorescent_panel_01","x":2,"z":2,"switchable":true}],"props":[{"id":"quest","model":"core:chair","x":1,"z":1,"components":[{"component":"state","name":"count","value":0}]}],"doors":[{"id":"door","x":0,"z":0,"width":1,"height":2}]}"#).map_err(|problem|problem.to_string())?;
+    let level=LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"checkpoint","name":"Checkpoint","saving":true,"health":{"enabled":true},"spawn":{"x":2,"z":2},"rooms":[{"width":6,"depth":6}],"ceiling_lights":[{"id":"lamp","fixture":"core:fluorescent_panel_01","x":2,"z":2,"switchable":true}],"props":[{"id":"quest","model":"core:chair","x":1,"z":1,"components":[{"component":"state","name":"count","value":0}]}],"doors":[{"id":"door","x":0,"z":0,"width":1,"height":2}]}"#).map_err(|problem|problem.to_string())?;
     let mut game = Game::new(
         crate::game::spawn_position(&level),
         0.0,
         CollisionWorld::from_level(&level),
     );
+    game.apply_health_action(
+        &crate::engine::health::HealthTarget::Player,
+        crate::engine::health::HealthAction::Damage { hp: 3 },
+    )?;
     let _initial = game.entities_mut().take_commands();
     let _change = game.entities_mut().dispatch_on(
         "quest",

@@ -45,6 +45,15 @@ pub(super) struct Session {
 }
 
 impl Session {
+    pub(super) const fn player_health(
+        &self,
+    ) -> (
+        crate::engine::health::HealthState,
+        crate::engine::health::HealthSettings,
+    ) {
+        (*self.game.player_health(), *self.game.health_settings())
+    }
+
     pub fn new(
         prepared: super::test_prepare::PreparedTest,
         pose: Option<Pose>,
@@ -114,7 +123,7 @@ impl Session {
         {
             return;
         }
-        if self.cinematic_controls_blocked() {
+        if self.gameplay_controls_blocked() {
             self.input.clear_gameplay_inputs();
             self.throw_requested = false;
             return;
@@ -159,7 +168,7 @@ impl Session {
 
         self.game.update_timing();
         self.game.set_benchmark_simulation_delta(seconds);
-        if !self.cinematic_controls_blocked() && self.input.state().was_pressed(Control::Flashlight)
+        if !self.gameplay_controls_blocked() && self.input.state().was_pressed(Control::Flashlight)
         {
             self.flashlight = !self.flashlight;
         }
@@ -183,7 +192,7 @@ impl Session {
             physics::player_context(&self.game),
             self.game.door_colliders(),
         );
-        if self.game.take_interact_press() && !self.cinematic_controls_blocked() {
+        if self.game.take_interact_press() && !self.gameplay_controls_blocked() {
             self.interact(audio)?;
         }
         self.apply_commands(renderer, audio)?;
@@ -193,7 +202,7 @@ impl Session {
             return Ok(());
         }
         if std::mem::take(&mut self.throw_requested)
-            && !self.cinematic_controls_blocked()
+            && !self.gameplay_controls_blocked()
             && self.physics.world.held().is_some()
         {
             self.status = if self.physics.world.throw(self.game.view_direction()) {
@@ -402,6 +411,11 @@ impl Session {
             },
             |(camera, _)| camera,
         )
+    }
+
+    pub fn gameplay_controls_blocked(&self) -> bool {
+        (self.game.health_settings().enabled && self.game.player_health().is_dead())
+            || self.cinematic_controls_blocked()
     }
 
     pub fn cinematic_controls_blocked(&self) -> bool {

@@ -1243,3 +1243,39 @@ an exact storey; blank Y follows the first containing room's ceiling. Fixture
 uses its catalog ID. Blank Power/Range retain legacy defaults. Page exposes yaw
 and alignment. Space / environment > Light / numeric placement edits existing
 records using < / > or creates another with New. Pointer placement is retained.
+
+### Player health rules
+
+Health is opt-in and disabled by default, including in existing maps. Open
+**Project > Map settings > Player health** and turn on **Enable health for this map**
+to activate it. Disabled maps do not process damage, regeneration, hit protection,
+health-kit actions or health HUD, and zero dormant HP cannot block walking.
+
+Use the remaining controls to configure automatic
+regeneration, health kits and visible hearts independently.
+Regeneration rate is HP per second; delay is seconds since the latest damage.
+All numeric values must be finite and non-negative. Hit protection sets how
+long further damage is ignored after a hit (seconds, default 0). Normal player health is
+6 HP (three hearts), with 1 HP represented by half a heart. These settings use
+ordinary map save/load and undo/redo, including maps created before health rules
+were available.
+
+To wire a health kit, select a prop or trigger and open **Capabilities > Events /
+scripts > Actions / scripts > Add action > Health kit / heal player**. Choose
+1–6 HP. An Interact event automatically supplies the prop's interactable
+capability. The action heals instantly only when the map allows health kits.
+Use the event's **Once per reset** option for a one-use station; repeated events
+otherwise remain reusable. This action does not create or remove a pickup mesh.
+
+Health rules are currently selected per map. Reusable Game Modes, rule-set
+import/export and scripted modifiers are not implemented by these controls.
+
+Player maximum and starting HP are separate whole-number settings in **Project >
+Map settings > Player health**. Select an NPC, open **Capabilities > Entity health**,
+and choose **Customize health** to edit that individual's maximum and starting HP.
+**Use default health** removes the override. Both values default to 6; maximum must
+be positive, starting HP may be zero but must not exceed maximum (range 0–65535).
+Raise maximum before raising starting HP; lower starting HP before lowering maximum.
+The source override is `{"component":"health","max_hp":12,"starting_hp":8}`
+in the selected entity's components. All edits use normal save/reopen and undo/redo.
+The HUD draws half-heart units up to 40 HP and an exact HP counter above that limit.

@@ -22,6 +22,7 @@ pub(super) enum GameplayChoice {
     SpawnAction,
     PhysicsAction,
     TransitionAction,
+    HealthKitAction,
 }
 
 pub(super) const NUMBER_SETTINGS: [GameplaySetting; 16] = [
@@ -225,6 +226,9 @@ impl App {
                 .iter()
                 .map(|template| template.id.clone())
                 .collect(),
+            GameplayChoice::HealthKitAction => (1..=6)
+                .map(|hp| format!("Heal {hp} HP (1 HP = half a heart)"))
+                .collect(),
             GameplayChoice::TransitionAction => doc.level_ids().map(str::to_string).collect(),
             GameplayChoice::SoundAction => doc
                 .level()
@@ -312,6 +316,11 @@ impl App {
                 };
                 doc.set_trigger_filter(id, filter)?;
             }
+            GameplayChoice::HealthKitAction => {
+                let hp =
+                    u16::try_from(index.saturating_add(1)).map_err(|error| error.to_string())?;
+                doc.add_binding_action(id, binding, event, json!({"action":"health","target":{"kind":"player"},"change":{"kind":"health_kit","hp":hp}}))?;
+            }
             GameplayChoice::TransitionAction => {
                 doc.add_binding_action(
                     id,
@@ -321,12 +330,7 @@ impl App {
                 )?;
             }
             GameplayChoice::SoundAction => {
-                let looping = doc
-                    .level()
-                    .sound_emitters
-                    .iter()
-                    .find(|emitter| emitter.id == value)
-                    .is_some_and(|emitter| emitter.looped);
+                let looping = emitter_loops(doc, &value);
                 doc.add_binding_action(
                     id,
                     binding,
@@ -365,6 +369,7 @@ impl App {
                 | GameplayChoice::SpawnAction
                 | GameplayChoice::PhysicsAction
                 | GameplayChoice::TransitionAction
+                | GameplayChoice::HealthKitAction
         ) {
             Some(Popup::Components { page: 4 })
         } else {
@@ -445,4 +450,11 @@ impl App {
         self.changed();
         Ok(())
     }
+}
+
+fn emitter_loops(doc: &super::document::Document, id: &str) -> bool {
+    doc.level()
+        .sound_emitters
+        .iter()
+        .any(|emitter| emitter.id == id && emitter.looped)
 }

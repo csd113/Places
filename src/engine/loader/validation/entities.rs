@@ -650,6 +650,13 @@ fn validate_component_value<'a>(
     facts: &mut EntityFacts<'a>,
 ) -> Result<(), String> {
     match component {
+        ComponentDef::Health {
+            max_hp,
+            starting_hp,
+        } => {
+            let _validated = crate::engine::health::HealthState::new(*starting_hp, *max_hp)
+                .map_err(|error| format!("{context}: {error}"))?;
+        }
         ComponentDef::Interactable {
             prompt,
             reach,
@@ -1359,6 +1366,15 @@ fn validate_action(
     index: &LevelIndex<'_>,
 ) -> Result<(), String> {
     match action {
+        ActionDef::Health {
+            target,
+            action: change,
+        } => {
+            change.validate().map_err(|error| error.to_string())?;
+            if let crate::engine::health::HealthTarget::Entity { id } = target {
+                for_each_action_target(action_context, Some(id), implicit, index, |_, _| Ok(()))?;
+            }
+        }
         ActionDef::RunScript { script, handler } => {
             script.require_role("scripts", "luau")?;
             crate::engine::scripting::validate_handler(handler)?;

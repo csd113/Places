@@ -1079,7 +1079,7 @@ impl FrameLoop<'_> {
 
     fn crosshair_visible(&self) -> bool {
         self.game.app_state() == AppState::Playing
-            && !self.cinematic_controls_blocked()
+            && !self.gameplay_controls_blocked()
             && self.load_intent.is_none()
             && self.outcome.is_none()
             && self.message.is_none()
@@ -1118,6 +1118,11 @@ impl FrameLoop<'_> {
             self.subtitles.guidance_requested = None;
             self.update_item_triggers(true);
         }
+    }
+
+    fn gameplay_controls_blocked(&self) -> bool {
+        (self.game.health_settings().enabled && self.game.player_health().is_dead())
+            || self.cinematic_controls_blocked()
     }
 
     fn cinematic_controls_blocked(&self) -> bool {
@@ -1329,14 +1334,14 @@ impl FrameLoop<'_> {
     /// frame after a world commit. Developer diagnostic; empty by default.
     fn dispatch_dev_interactions(&mut self) {
         if self.dev_interactions.is_empty()
-            || self.cinematic_controls_blocked()
+            || self.gameplay_controls_blocked()
             || self.game.app_state() != AppState::Playing
             || self.startup != StartupPhase::Ready
         {
             return;
         }
         for id in std::mem::take(&mut self.dev_interactions) {
-            if self.cinematic_controls_blocked() {
+            if self.gameplay_controls_blocked() {
                 break;
             }
             let Some(index) = self.game.interactables().index_of(&id) else {
@@ -1361,7 +1366,7 @@ impl FrameLoop<'_> {
     /// The dispatcher itself is engine state ([`Game`]); this only narrates
     /// the outcome to the developer log, and never reaches into the renderer.
     fn dispatch_interaction(&mut self) {
-        if self.cinematic_controls_blocked() {
+        if self.gameplay_controls_blocked() {
             return;
         }
         self.observe_held_item();
@@ -1419,6 +1424,14 @@ impl FrameLoop<'_> {
         let commands = self.game.entities_mut().take_commands();
         for command in commands {
             match command {
+                crate::engine::entities::WorldCommand::PlayerHealth { action } => {
+                    if let Err(problem) = self
+                        .game
+                        .apply_health_action(&crate::engine::health::HealthTarget::Player, action)
+                    {
+                        crate::engine::logging::warn(format!("Health action refused: {problem}"));
+                    }
+                }
                 crate::engine::entities::WorldCommand::SaveCheckpoint { name } => {
                     self.checkpoints.request = Some(name);
                 }
@@ -2516,12 +2529,32 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn scripted_health(
+        &mut self,
+        target: &crate::engine::health::HealthTarget,
+        change: crate::engine::health::HealthAction,
+    ) {
+        if let Err(problem) = self.game.apply_health_action(target, change) {
+            self.console
+                .write(format!("Health action refused: {problem}"));
+        }
+    }
+
+    fn scripted_health_rules(&mut self, rules: crate::engine::health::HealthSettings) {
+        if let Err(problem) = self.game.set_health_settings(rules) {
+            self.console
+                .write(format!("Health rules refused: {problem}"));
+        }
+    }
+
     fn handle_scripted_action(&mut self, received: actions::Received) -> bool {
         self.trace_scripted_action(&received);
         self.apply_item_script_action(&received.action);
         self.apply_scripted_caustics(&received.action);
         self.apply_scripted_navigation(&received.action);
         match received.action {
+            actions::Action::Health { target, change } => self.scripted_health(&target, change),
+            actions::Action::HealthRules { rules } => self.scripted_health_rules(rules),
             actions::Action::Load { level } => self.scripted_load_level(&level),
             actions::Action::Escape {} => {
                 self.scripted_key("Escape", true);
@@ -2876,7 +2909,7 @@ impl FrameLoop<'_> {
             {
                 self.input_handler.clear_gameplay_inputs();
                 self.game.handle_escape(); // Opens Pause menu
-            } else if !self.cinematic_controls_blocked() {
+            } else if !self.gameplay_controls_blocked() {
                 self.input_handler
                     .handle_gameplay_event(event, &self.settings.bindings);
             } else {
@@ -2978,7 +3011,7 @@ impl FrameLoop<'_> {
             && self.game.app_state() == AppState::Playing
             && self.outcome.is_none()
             && self.message.is_none()
-            && !self.cinematic_controls_blocked()
+            && !self.gameplay_controls_blocked()
         {
             self.subtitles.guidance_requested = Some(());
             self.game.request_hint();
@@ -4136,7 +4169,7 @@ impl FrameLoop<'_> {
             "player_body": self.trace_player_body(),
             "view_direction": self.game.view_direction().to_array(),
             "interaction_target": self.interaction_target_snapshot(),
-            "interaction_hand_visible": self.items.hand_visible() && !self.cinematic_controls_blocked(),
+            "interaction_hand_visible": self.items.hand_visible() && !self.gameplay_controls_blocked(),
             "player_yaw": self.game.player_yaw, "player_pitch": self.game.player_pitch,
             "lighting": self.settings.lighting_quality().name(),
             "use_low_quality_lighting": self.settings.use_low_quality_lighting,
@@ -4155,6 +4188,7 @@ impl FrameLoop<'_> {
         });
         if let Some(fields) = state.as_object_mut() {
             self.trace_runtime_snapshot_fields(fields);
+            self.trace_health_state(fields);
             drop(fields.insert("crosshair_visible".into(), self.crosshair_visible().into()));
             drop(fields.insert(
                 "crosshair_override".into(),
@@ -4720,7 +4754,12 @@ impl FrameLoop<'_> {
         cam_yaw: f32,
         cam_pitch: f32,
     ) {
-        if self.cinematic_controls_blocked() {
+        ui::append_player_health(
+            self.ui_scratch,
+            self.game.player_health(),
+            self.game.health_settings(),
+        );
+        if self.gameplay_controls_blocked() {
             return;
         }
         if self.crosshair_visible() {
@@ -4854,6 +4893,21 @@ impl FrameLoop<'_> {
         } else {
             self.renderer.render_ui(ui_vertices);
         }
+    }
+
+    fn trace_health_state(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert(
+            "player_health".into(),
+            if self.game.health_settings().enabled {
+                serde_json::json!(self.game.player_health())
+            } else {
+                serde_json::Value::Null
+            },
+        ));
+        drop(fields.insert(
+            "health_rules".into(),
+            serde_json::json!(self.game.health_settings()),
+        ));
     }
 
     fn trace_lighting_capture_state(&self, path: &Path) {

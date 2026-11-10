@@ -7,6 +7,8 @@ use crate::game::AppState;
 use crate::game::display::{DisplayStatus, resolution_label, step_resolution};
 use crate::game::settings::{KeyBindings, Settings, WindowMode};
 
+mod health;
+pub use health::append_player_health;
 mod menu;
 pub(crate) use menu::level_icon_bounds;
 mod subtitles;

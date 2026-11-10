@@ -290,7 +290,26 @@ fn actions(_app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, record: Option<
             .and_then(Value::as_str)
             .unwrap_or("");
         let y = f32::from(u16::try_from(row).unwrap_or(0)).mul_add(10.0, 97.0);
-        text(v, &format!("{kind} {target}"), 140.0, y + 2.0, INK, 58);
+        let label = if kind == "health" {
+            let change = action.get("change");
+            let operation = change
+                .and_then(|value| value.get("kind"))
+                .and_then(Value::as_str)
+                .unwrap_or("health");
+            let hp = change
+                .and_then(|value| value.get("hp"))
+                .and_then(Value::as_u64)
+                .unwrap_or(0);
+            let health_target = action.get("target");
+            let recipient = health_target
+                .and_then(|value| value.get("id").or_else(|| value.get("kind")))
+                .and_then(Value::as_str)
+                .unwrap_or("player");
+            format!("{operation} {recipient}: {hp} HP")
+        } else {
+            format!("{kind} {target}")
+        };
+        text(v, &label, 140.0, y + 2.0, INK, 58);
         button(
             v,
             hits,

@@ -97,6 +97,11 @@ impl Runtime {
             .physics
             .sync_context(player_context(context.game), context.game.door_colliders());
         let result = match action {
+            GameplayAction::Health { target, action: health_action } => {
+                context.game.apply_health_action(target, *health_action)?;
+                context.game.health_report(target)
+            }
+            GameplayAction::HealthStatus(target) => context.game.health_report(target),
             GameplayAction::Noclip(request) => {
                 let enabled = request.unwrap_or_else(|| !context.game.noclip_enabled());
                 if enabled && context.physics.held().is_some() {

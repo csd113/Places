@@ -220,11 +220,12 @@ pub(in crate::editor) fn action_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
         ("Spawn an entity at point", C::SpawnAction),
         ("Activate a physics group", C::PhysicsAction),
         ("Change project level", C::TransitionAction),
+        ("Health kit / heal player", C::HealthKitAction),
     ]
     .into_iter()
     .enumerate()
     {
-        let y = f32::from(u16::try_from(i).unwrap_or(0)).mul_add(18.0, 94.0);
+        let y = f32::from(u16::try_from(i).unwrap_or(0)).mul_add(15.0, 94.0);
         button(
             vertices,
             hits,
@@ -278,6 +279,7 @@ pub(in crate::editor) fn choices_popup(
             C::SpawnAction => "SPAWN ENTITY / choose a point",
             C::PhysicsAction => "ACTIVATE PHYSICS / choose a group",
             C::TransitionAction => "TRANSITION / choose a project level",
+            C::HealthKitAction => "HEALTH KIT / choose healing amount",
         },
         140.0,
         73.0,

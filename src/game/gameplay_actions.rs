@@ -28,6 +28,12 @@ pub enum RepresentationAction {
 
 #[derive(Clone, Debug, PartialEq)]
 pub enum GameplayAction {
+    /// Shared authority-side health request, independent of console syntax.
+    Health {
+        target: crate::engine::health::HealthTarget,
+        action: crate::engine::health::HealthAction,
+    },
+    HealthStatus(crate::engine::health::HealthTarget),
     Noclip(Option<bool>),
     Give(String),
     Respawn,

@@ -411,3 +411,91 @@ pub(super) fn map() -> Vec<F> {
         F::new(T::Fog, "height_gain", "Fog height gain", K::Number, "0.045"),
     ]
 }
+
+/// Independent recovery and presentation switches, stored in the map's reusable rules value.
+pub(super) fn health() -> Vec<F> {
+    vec![
+        F::new(
+            T::Health,
+            "enabled",
+            "Enable health for this map",
+            K::Bool,
+            "false",
+        ),
+        F::new(
+            T::Health,
+            "player_max_hp",
+            "Player maximum HP",
+            K::WholeNumber,
+            "6",
+        ),
+        F::new(
+            T::Health,
+            "player_starting_hp",
+            "Player starting HP",
+            K::WholeNumber,
+            "6",
+        ),
+        F::new(
+            T::Health,
+            "regeneration",
+            "Automatic regeneration",
+            K::Bool,
+            "false",
+        ),
+        F::new(
+            T::Health,
+            "health_kits",
+            "Allow health kits",
+            K::Bool,
+            "true",
+        ),
+        F::new(
+            T::Health,
+            "show_player_health",
+            "Show player hearts",
+            K::Bool,
+            "true",
+        ),
+        F::new(
+            T::Health,
+            "regeneration_hp_per_second",
+            "Regeneration HP / second",
+            K::Number,
+            "1.0",
+        ),
+        F::new(
+            T::Health,
+            "regeneration_delay_seconds",
+            "Delay after damage (seconds)",
+            K::Number,
+            "5.0",
+        ),
+        F::new(
+            T::Health,
+            "damage_cooldown_seconds",
+            "Hit protection (seconds)",
+            K::Number,
+            "0.0",
+        ),
+    ]
+}
+
+pub(super) fn entity_health() -> Vec<F> {
+    vec![
+        F::new(
+            T::Component("health"),
+            "max_hp",
+            "Maximum HP",
+            K::WholeNumber,
+            "6",
+        ),
+        F::new(
+            T::Component("health"),
+            "starting_hp",
+            "Starting HP",
+            K::WholeNumber,
+            "6",
+        ),
+    ]
+}

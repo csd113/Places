@@ -10016,3 +10016,92 @@ teleports, automatic wall avoidance or a timeline/video editor. Existing maps
 without this metadata are unchanged. See [the complete source/ownership and
 authoring contract](CINEMATICS.md), including interruption, busy/reentry policy,
 checkpoint boundaries and `live-cinematics-v1` package admission.
+
+## Player health rules
+
+The optional top-level `health` object is a reusable health-rules value selected
+for this map. Missing objects or fields use these defaults:
+
+```json
+"health": {
+  "enabled": false,
+  "player_max_hp": 6,
+  "player_starting_hp": 6,
+  "regeneration": false,
+  "health_kits": true,
+  "show_player_health": true,
+  "regeneration_hp_per_second": 1.0,
+  "regeneration_delay_seconds": 5.0,
+  "damage_cooldown_seconds": 0.0
+}
+```
+
+Health is explicitly opt-in: set `enabled: true` for the map. Missing health
+objects, missing `enabled` fields and old maps keep health disabled. Disabled
+maps skip health simulation and display, reject damage/healing/kit actions, and
+never let dormant zero HP block movement. Old saves cannot activate health.
+
+Recovery and presentation toggles are independent once health is enabled. Hidden hearts can accompany
+regeneration, kits can accompany slow regeneration, or both
+recovery sources can be disabled. Rates and delays must be finite and
+non-negative. Normal health is 6 HP (three hearts); each HP is half a heart.
+Accepted damage restarts the regeneration delay. `damage_cooldown_seconds`
+sets a finite, non-negative protection interval after a hit; 0 disables it. Fractional rates accumulate toward whole
+HP rather than changing the half-heart granularity.
+
+Bindings may use a shared health action with a player or named entity target:
+
+```json
+{"action":"health","target":{"kind":"player"},"change":{"kind":"health_kit","hp":2}}
+```
+
+`change.kind` accepts `damage`, `heal`, or `health_kit`; `hp` is a nonzero unsigned
+16-bit integer. An entity target is `{"kind":"entity","id":"guard"}` and must
+resolve to an authored instance or spawn template. Health-kit actions obey the
+selected kit rule; ordinary `heal` actions are explicit scripted/event healing.
+The event's usual once/cooldown policy applies. A kit action alone does not spawn,
+hide or consume a prop. Use existing event/object authoring for presentation.
+
+The native editor exposes these rules under **Project > Map settings > Player
+health** and player kit actions in the event action picker. Rules and actions
+participate in normal validation, save/reopen and undo/redo. They do not implement
+a Game Modes library or rule-set import/export yet.
+
+### Health runtime boundary
+
+Player health begins at its authored starting HP on a new map, explicit run reset, or developer
+`/respawn`. Repositioning, camera/form changes and graphics updates preserve it.
+Checkpoints retain injury, terminal death, fractional regeneration and the
+current validated health rules. Older checkpoints without health fields retain
+the loaded map's rules and authored initial state. Disabled checkpoints omit
+dormant player HP; loading them does not opt the map into health.
+
+The reusable `HealthSettings` value is separate from `HealthState`; applying new
+rules changes no HP. Player regeneration follows active world time, including
+world time scaling, and stops while paused. Heart visibility is independently selectable.
+
+Damage is applied immediately unless an authored hit-protection interval is active.
+At zero HP, ordinary healing and regeneration cannot revive. The player stops
+accepting movement and interaction, while the world continues to update; no
+automatic respawn, restart panel or multiplayer death policy is selected here.
+Entity health is available for live named entities (including NPCs) and remains
+state only: actor-specific death animation, ragdoll, AI suspension and retirement
+are a later mode/combat integration. NPCs without a health override start at the normal six-HP default;
+scenery only allocates health state if a health action targets it.
+
+`/health [player|instance-id] [damage|heal|kit <HP>]` exercises the same typed
+runtime used by authored actions; omit the operation for a readout. The bounded
+health-change event stream identifies world generation and entity handle
+generation. It is a foundation for observers, not a networking protocol or a
+reliable replication queue. No new health-kit model or automatic pickup/consume
+system is included in this stage.
+
+Player maximum and starting HP are separate whole-number settings in **Project >
+Map settings > Player health**. Select an NPC, open **Capabilities > Entity health**,
+and choose **Customize health** to edit that individual's maximum and starting HP.
+**Use default health** removes the override. Both values default to 6; maximum must
+be positive, starting HP may be zero but must not exceed maximum (range 0–65535).
+Raise maximum before raising starting HP; lower starting HP before lowering maximum.
+The source override is `{"component":"health","max_hp":12,"starting_hp":8}`
+in the selected entity's components. All edits use normal save/reopen and undo/redo.
+The HUD draws half-heart units up to 40 HP and an exact HP counter above that limit.

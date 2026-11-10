@@ -255,3 +255,15 @@ pub fn get_white_uv() -> [f32; 4] {
 pub const fn interaction_hand_uv() -> [f32; 4] {
     [0.0, 0.5, 0.25, 1.0]
 }
+
+/// Committed upright heart silhouette in the reserved second lower atlas cell.
+#[must_use]
+pub const fn health_heart_uv() -> [f32; 4] {
+    [0.25, 0.5, 0.5, 1.0]
+}
+
+/// Matching committed health silhouette in the editor's 512x448 glyph atlas.
+#[must_use]
+pub const fn editor_health_heart_uv() -> [f32; 4] {
+    [0.0, 384.0 / 448.0, 64.0 / 512.0, 1.0]
+}

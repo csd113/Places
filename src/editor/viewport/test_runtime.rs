@@ -48,6 +48,17 @@ impl Viewport {
     pub const fn runtime_preparing(&self) -> bool {
         self.testing.requested.is_some() && self.testing.session.is_none()
     }
+    pub fn runtime_health(
+        &self,
+    ) -> Option<(
+        crate::engine::health::HealthState,
+        crate::engine::health::HealthSettings,
+    )> {
+        self.testing
+            .session
+            .as_ref()
+            .map(|session| session.player_health())
+    }
     pub fn runtime_status(&self) -> Option<&str> {
         self.testing
             .failure

@@ -11,6 +11,16 @@ the numbering resets, tag coverage and evidence gaps. The
 [former detailed changelog](https://github.com/csd113/Places/blob/3fee560e484d5dbc61496b34c90cdef8292dbe2b/CHANGELOG.md)
 and linked reports retain historical implementation and validation details.
 
+## 0.14.0 — In development
+
+- Add an opt-in player/entity health foundation, disabled by default for new
+  and existing maps. Enabled maps use six HP (three hearts), half-heart damage
+  and healing, typed death changes, and checkpoint persistence.
+  Map authors can set starting and maximum health separately for the player
+  and individual NPCs, and independently configure regeneration, instant kit
+  healing and visible hearts. Hit protection is configurable with a zero-second
+  default. No screen effects, weapons or multiplayer respawn policy is added.
+
 ## 0.13.1 — 2026-11-09
 
 - Add an illustrated beginner editor guide in seven GitHub-readable chapters
