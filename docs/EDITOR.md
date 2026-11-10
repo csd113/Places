@@ -1279,3 +1279,11 @@ Raise maximum before raising starting HP; lower starting HP before lowering maxi
 The source override is `{"component":"health","max_hp":12,"starting_hp":8}`
 in the selected entity's components. All edits use normal save/reopen and undo/redo.
 The HUD draws half-heart units up to 40 HP and an exact HP counter above that limit.
+
+Quick tests use the same local player mannequin and head-attached death view as
+the packaged player. The body is hidden in first person. The saved player colour
+preference is read when starting a test; it does not become map data. Starting
+with zero HP on an enabled-health map enters ragdoll death immediately. Stopping
+the test retires that body, and starting another test creates a fresh session.
+NPC ragdolls and the other final-package-only features listed in the test notice
+still require packaged validation.

@@ -1005,10 +1005,6 @@ impl FrameLoop<'_> {
         self.log_player_state();
         self.reconcile_cinematic_input();
         self.publish_frame_camera();
-        // Publish the current listener once, after movement and before any
-        // interaction can start a sound. A second mix later in this frame only
-        // repeated voice work and filled the bounded room-parameter queue.
-        self.update_audio_mix();
         // One press is one interaction: consume the edge the movement update
         // latched, resolve the object under the crosshair and run its
         // map-authored actions. `window_focused` gates the key the same way it
@@ -1034,6 +1030,8 @@ impl FrameLoop<'_> {
         // spawned object) once per frame: transform only, never a geometry or
         // lightmap rebuild.
         self.update_world_presentation();
+        self.publish_frame_camera();
+        self.update_audio_mix();
         self.update_game_audio();
         self.write_nav_debug(false);
         if self.gameplay_active() {
@@ -1151,6 +1149,9 @@ impl FrameLoop<'_> {
 
     fn publish_frame_camera(&mut self) {
         self.effective_camera = None;
+        if self.game.player_is_dead() {
+            self.game.entities_mut().cancel_cinematic();
+        }
         self.game.entities_mut().refresh_cinematic_view();
         let cinematic = self.game.cinematic_owns_controls();
         self.effective_camera = Some((self.select_frame_camera(), cinematic));
@@ -1184,6 +1185,14 @@ impl FrameLoop<'_> {
         let characters = self
             .renderer
             .advance_characters(visual_delta, self.game.entity_frames());
+        let external_player_view = self.bench.camera_position_override().is_some()
+            || (!self.game.player_is_dead() && self.cinematic_controls_blocked());
+        self.console_runtime.player_model.refresh(
+            self.game,
+            self.renderer,
+            self.settings.fov_degrees,
+            external_player_view,
+        );
         self.update_carry_contacts(visual_delta);
         self.update_carry_attachments(visual_delta);
         // Publish every final pose once. Water, props and characters observe
@@ -4897,6 +4906,12 @@ impl FrameLoop<'_> {
 
     fn trace_health_state(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
         drop(fields.insert(
+            "player_model".into(),
+            self.console_runtime.player_model.snapshot(),
+        ));
+        let camera = self.frame_camera();
+        drop(fields.insert("render_camera".into(), serde_json::json!({"position":camera.position,"yaw":camera.yaw,"pitch":camera.pitch,"up":camera.up})));
+        drop(fields.insert(
             "player_health".into(),
             if self.game.health_settings().enabled {
                 serde_json::json!(self.game.player_health())
@@ -5072,7 +5087,7 @@ impl FrameLoop<'_> {
 
     fn listener_pose(&self) -> (Vec3, Vec3) {
         match self.effective_camera {
-            Some((camera, true)) => (
+            Some((camera, cinematic)) if cinematic || self.game.player_is_dead() => (
                 camera.position,
                 Vec3::new(
                     camera.yaw.sin() * camera.pitch.cos(),
@@ -5080,11 +5095,17 @@ impl FrameLoop<'_> {
                     -camera.yaw.cos() * camera.pitch.cos(),
                 ),
             ),
-            Some((_, false)) | None => (self.game.player_position, self.game.view_direction()),
+            Some((_, _)) | None => (self.game.player_position, self.game.view_direction()),
         }
     }
 
     fn select_frame_camera(&self) -> render::RenderCamera {
+        if self.bench.camera_override().is_none()
+            && self.bench.camera_position_override().is_none()
+            && let Some(camera) = self.console_runtime.player_model.camera()
+        {
+            return camera;
+        }
         let representation_camera = self.console_runtime.representation.camera(
             Vec3::new(
                 self.game.player_position.x,
@@ -5189,7 +5210,8 @@ impl FrameLoop<'_> {
 
         let skip_render = self.bench.skip_render();
         if !skip_render {
-            let camera = self.prepare_flashlight(render_position, render_yaw, render_pitch);
+            let mut camera = self.prepare_flashlight(render_position, render_yaw, render_pitch);
+            camera.up = frame_camera.up;
             self.renderer.set_blood_enabled(self.settings.blood);
             self.renderer.render_scene(camera);
         }

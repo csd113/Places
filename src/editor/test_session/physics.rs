@@ -26,7 +26,7 @@ pub(super) fn player_context(game: &Game) -> PlayerContext {
         height: game.body_height(),
         view: game.view_direction(),
         yaw: game.player_yaw,
-        active: !game.noclip_enabled(),
+        active: !game.noclip_enabled() && !game.player_is_dead(),
     }
 }
 

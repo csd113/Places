@@ -184,7 +184,7 @@ pub(super) fn player_context(game: &crate::game::Game) -> PlayerContext {
         height: game.body_height(),
         view: game.view_direction(),
         yaw: game.player_yaw,
-        active: !game.noclip_enabled(),
+        active: !game.noclip_enabled() && !game.player_is_dead(),
     }
 }
 
@@ -764,6 +764,15 @@ impl FrameLoop<'_> {
         } else {
             0.0
         };
+        if let Err(problem) = self.console_runtime.player_model.sync(
+            self.game,
+            self.settings.player_colour,
+            delta,
+            self.renderer,
+            &mut self.items.world,
+        ) {
+            crate::engine::logging::warn_once("player-model", format!("Player model: {problem}"));
+        }
         let started = Instant::now();
         let context = PlayerContext {
             half: self.game.body_half(),
@@ -776,7 +785,7 @@ impl FrameLoop<'_> {
             height: self.game.body_height(),
             view: self.game.view_direction(),
             yaw: self.game.player_yaw,
-            active: !self.game.noclip_enabled(),
+            active: !self.game.noclip_enabled() && !self.game.player_is_dead(),
         };
         self.items.world.sync_water(&self.game.water);
         self.items

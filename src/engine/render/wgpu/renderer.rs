@@ -3262,6 +3262,11 @@ impl WgpuRenderer {
         )
     }
 
+    /// Changes an actor's linear tint without changing shared geometry or images.
+    pub fn set_runtime_character_tint(&mut self, id: &str, tint: [f32; 3]) -> bool {
+        self.characters.set_runtime_character_tint(id, tint)
+    }
+
     /// Resolves a fitted appearance separately from character geometry.
     /// # Errors
     /// Rejects missing actors, invalid assets or exhausted runtime budgets.

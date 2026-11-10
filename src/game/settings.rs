@@ -494,6 +494,8 @@ impl SettingsApply {
     reason = "These are independent player preferences, not mutually exclusive states."
 )]
 pub struct Settings {
+    /// Per-player mannequin tint; sRGB hex, never a map or texture mutation.
+    pub player_colour: super::player_colour::PlayerColour,
     pub bindings: KeyBindings,
     #[serde(default = "default_look_speed_h")]
     pub look_speed_h: f32, // deg/s
@@ -694,6 +696,7 @@ const fn default_window_height() -> u32 {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            player_colour: super::player_colour::PlayerColour::default(),
             bindings: KeyBindings::default(),
             look_speed_h: default_look_speed_h(),
             look_speed_v: default_look_speed_v(),

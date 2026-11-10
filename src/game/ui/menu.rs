@@ -754,7 +754,7 @@ fn description(
     match state {
         AppState::MainMenu => match ui.main_menu_idx {
             0 => "Choose a place to explore at your own pace.",
-            1 => "Graphics, display, audio and controls.",
+            1 => "Graphics, display, audio, controls and player appearance.",
             _ => "Close Places.",
         },
         AppState::Paused => match ui.pause_menu_idx {
@@ -778,6 +778,7 @@ fn description(
                 Some(SettingsRowKind::Open(SettingsPage::Controls)) => {
                     "Key bindings, mouse look and movement."
                 }
+                Some(SettingsRowKind::Open(SettingsPage::Player)) => "Your mannequin colour.",
                 Some(SettingsRowKind::RestoreDefaults) => {
                     "Restore all preferences, including audio and controls."
                 }
@@ -837,6 +838,9 @@ fn description(
                         "Enable testing commands. Press backtick during play."
                     }
                     SettingsValue::WalkSpeed => "Your movement speed while walking.",
+                    SettingsValue::PlayerColour => {
+                        "Choose a colour for your mannequin. First person keeps the body hidden."
+                    }
                     SettingsValue::Fov => "How much of your surroundings you can see.",
                 },
                 Some(SettingsRowKind::Back | SettingsRowKind::Open(SettingsPage::Root)) | None => {
@@ -897,6 +901,7 @@ fn screen_titles(state: AppState, ui: &UiState) -> (&str, &str) {
                 SettingsPage::Graphics => "Settings / Graphics",
                 SettingsPage::Display => "Settings / Display",
                 SettingsPage::Audio => "Settings / Audio",
+                SettingsPage::Player => "Settings / Player",
                 SettingsPage::Controls => {
                     if ui.settings_idx < 11 {
                         "Key bindings"

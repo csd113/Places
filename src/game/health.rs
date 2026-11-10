@@ -5,6 +5,10 @@ use crate::engine::health::{HealthAction, HealthSettings, HealthState, HealthTar
 
 impl Game {
     #[must_use]
+    pub const fn player_is_dead(&self) -> bool {
+        self.world.health_settings().enabled && self.player_health.is_dead()
+    }
+    #[must_use]
     pub const fn player_health(&self) -> &HealthState {
         &self.player_health
     }

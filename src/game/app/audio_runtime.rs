@@ -89,7 +89,7 @@ impl FrameLoop<'_> {
             Listener {
                 position,
                 forward,
-                up: Vec3::Y,
+                up: self.frame_camera().up,
             },
             !self.simulation_active(),
             self.items.world.simulation_state().time_scale,

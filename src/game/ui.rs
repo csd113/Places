@@ -36,6 +36,8 @@ pub enum SettingsPage {
     Audio,
     /// Bindings and control preferences.
     Controls,
+    /// Personal mannequin appearance.
+    Player,
 }
 
 impl SettingsPage {
@@ -48,6 +50,7 @@ impl SettingsPage {
             Self::Display => "DISPLAY",
             Self::Audio => "AUDIO",
             Self::Controls => "CONTROLS",
+            Self::Player => "PLAYER",
         }
     }
 
@@ -60,7 +63,9 @@ impl SettingsPage {
     #[must_use]
     pub const fn item_count(self, advanced_expanded: bool) -> usize {
         match self {
-            Self::Root | Self::Audio => 6,
+            Self::Root => 7,
+            Self::Audio => 6,
+            Self::Player => 2,
             Self::Graphics => {
                 if advanced_expanded {
                     11
@@ -109,6 +114,7 @@ pub enum SettingsRowKind {
 /// The adjustable options, named so behaviour never depends on a row index.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsValue {
+    PlayerColour,
     GraphicsQuality,
     VisualStyle,
     Bloom,
@@ -278,6 +284,7 @@ fn ui_signature(
     display.hash(&mut hasher);
     version.hash(&mut hasher);
 
+    settings.player_colour.hash(&mut hasher);
     let b = &settings.bindings;
     b.forward.hash(&mut hasher);
     b.backward.hash(&mut hasher);
@@ -597,11 +604,12 @@ fn row_y(index: usize, line_h: f32, start_y: f32) -> f32 {
 }
 
 /// The section entries the Settings root offers, in menu order.
-pub const SETTINGS_SECTIONS: [SettingsPage; 4] = [
+pub const SETTINGS_SECTIONS: [SettingsPage; 5] = [
     SettingsPage::Graphics,
     SettingsPage::Display,
     SettingsPage::Audio,
     SettingsPage::Controls,
+    SettingsPage::Player,
 ];
 
 impl SettingsPage {
@@ -614,6 +622,7 @@ impl SettingsPage {
             Self::Display => "Display",
             Self::Audio => "Audio",
             Self::Controls => "Controls",
+            Self::Player => "Player",
         }
     }
 }
@@ -692,7 +701,27 @@ pub fn settings_rows(
         SettingsPage::Display => display_rows(settings, display),
         SettingsPage::Audio => audio_rows(settings),
         SettingsPage::Controls => controls_rows(settings),
+        SettingsPage::Player => player_rows(settings),
     }
+}
+
+fn player_rows(settings: &Settings) -> Vec<SettingsRow> {
+    vec![
+        SettingsRow {
+            label: "Body colour".into(),
+            value: format!(
+                "{} {}",
+                settings.player_colour.label(),
+                settings.player_colour.hex()
+            ),
+            kind: SettingsRowKind::Value(SettingsValue::PlayerColour),
+        },
+        SettingsRow {
+            label: "Back".into(),
+            value: String::new(),
+            kind: SettingsRowKind::Back,
+        },
+    ]
 }
 
 /// The Settings root: one entry per section, Restore Defaults and Back.
@@ -1027,6 +1056,7 @@ fn adjust_value(
             ui_state.set_status(format!("Graphics quality: {}", next.label()), false);
         }
         SettingsValue::Blood => adjust_blood(ui_state, settings),
+        SettingsValue::PlayerColour => adjust_player_colour(ui_state, settings, direction),
         SettingsValue::Bloom => adjust_bloom(ui_state, settings),
         SettingsValue::Reflections => {
             if !settings.lightmaps_enabled() {
@@ -1117,6 +1147,14 @@ fn adjust_value(
             ui_state.set_status("Field of view updated", false);
         }
     }
+}
+
+fn adjust_player_colour(ui_state: &mut UiState, settings: &mut Settings, direction: i32) {
+    settings.player_colour = settings.player_colour.step(direction);
+    ui_state.set_status(
+        format!("Player colour: {}", settings.player_colour.label()),
+        false,
+    );
 }
 
 fn adjust_blood(ui_state: &mut UiState, settings: &mut Settings) {

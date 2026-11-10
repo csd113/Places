@@ -270,6 +270,15 @@ Data owns `levels/` (installed maps), `import/` (drop-in inbox), `projects/`
 under the settings directory. Projects may live elsewhere: a project root is an
 explicit authoring folder, never an inference from the resource or data root.
 
+**Settings > Player > Body colour** selects the local mannequin's colour and
+saves it with the other preferences. The default is muted teal (`#4F7774`);
+existing settings acquire that default without changing other preferences.
+The body stays hidden in normal first-person play, even when looking down.
+On maps that enable health, death uses the existing physical ragdoll and keeps
+the view attached to its head, including roll. Healing does not revive a dead
+player; an explicit reset or respawn starts a new body. Tool arms and multiplayer
+spectating are not yet implemented.
+
 The player persists settings, installed packages and saved editor projects.
 Quiet Collection favor completions also persist as small atomic JSON receipts
 under `saves/`, keyed to the canonical installed package path and declared project

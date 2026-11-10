@@ -43,6 +43,7 @@ pub struct Runtime {
     last_world_reset_count: u64,
     console_enabled: bool,
     pub representation: PlayerRepresentation,
+    pub player_model: super::player_model::PlayerModel,
 }
 
 fn player_context(game: &Game) -> PlayerContext {
@@ -57,7 +58,7 @@ fn player_context(game: &Game) -> PlayerContext {
         height: game.body_height(),
         view: game.view_direction(),
         yaw: game.player_yaw,
-        active: !game.noclip_enabled(),
+        active: !game.noclip_enabled() && !game.player_is_dead(),
     }
 }
 
@@ -539,6 +540,7 @@ impl Runtime {
         physics: &mut ItemWorld,
     ) {
         if self.last_reset_count != game.reset_count() {
+            self.player_model.reset(renderer, physics);
             let _released = physics.release_held_for_reset();
             self.last_reset_count = game.reset_count();
             self.representation.reset(renderer);
@@ -551,6 +553,7 @@ impl Runtime {
     }
 
     pub fn clear_given_props(&mut self, renderer: &mut Renderer, physics: &mut ItemWorld) {
+        self.player_model.reset(renderer, physics);
         self.representation.reset(renderer);
         self.clear_session_props(renderer, physics);
     }

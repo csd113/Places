@@ -168,6 +168,7 @@ impl Viewport {
         let started = Instant::now();
         let snapshot = self.testing.session.take().map(|mut session| {
             self.testing.trace = Some(session.trace());
+            session.retire_player_model(&mut self.renderer);
             session.stop(audio);
             session.snapshot()
         });

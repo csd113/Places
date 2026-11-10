@@ -2248,6 +2248,27 @@ impl CharacterScene {
         Ok(())
     }
 
+    /// Changes per-instance linear albedo, preserving the shared PNG and rig.
+    pub fn set_runtime_character_tint(&mut self, id: &str, tint: [f32; 3]) -> bool {
+        if !tint
+            .into_iter()
+            .all(|value| value.is_finite() && (0.0..=1.0).contains(&value))
+        {
+            return false;
+        }
+        let real_self_shadows = self.real_self_shadows;
+        let Some(actor) = self.runtime_character_mut(id) else {
+            return false;
+        };
+        if actor.albedo_tint.map(f32::to_bits) != tint.map(f32::to_bits) {
+            actor.albedo_tint = tint;
+            actor.albedo = tinted_albedo(&actor.asset, tint, real_self_shadows);
+            actor.albedo_revision = actor.albedo_revision.wrapping_add(1);
+            actor.animator.revision = actor.animator.revision.wrapping_add(1);
+        }
+        true
+    }
+
     /// Selects an albedo binding while retaining the actor's independent pose.
     pub fn set_runtime_character_texture(
         &mut self,

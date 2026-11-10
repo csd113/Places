@@ -17,7 +17,7 @@ use crate::game::play_spawn::Pose;
 use crate::game::settings::Settings;
 use crate::game::{AppState, Game};
 
-const LIMITATIONS: &str = "Quick test: approximate lighting. Cross-level travel, saved checkpoints, player forms, ragdolls, mannequin pin games, actor carry/use assemblies require a final package test.";
+const LIMITATIONS: &str = "Quick test: approximate lighting. Cross-level travel, saved checkpoints, player forms, NPC ragdolls, mannequin pin games, actor carry/use assemblies require a final package test.";
 
 pub(super) struct MessageView<'a> {
     pub title: &'a str,
@@ -27,6 +27,7 @@ pub(super) struct MessageView<'a> {
 }
 pub(super) struct Session {
     game: Game,
+    player_model: crate::game::player_model::PlayerModel,
     physics: PreparedPhysics,
     input: InputHandler,
     settings: Settings,
@@ -88,9 +89,16 @@ impl Session {
         game.reset_timing();
         let mut session = Self {
             game,
+            player_model: crate::game::player_model::PlayerModel::default(),
             physics: prepared.physics,
             input: InputHandler::new(),
-            settings: Settings::default(),
+            settings: Settings {
+                // Quick testing may read appearance but must not repair or
+                // rename files in the player's persistent profile.
+                player_colour: Settings::load_or_default_from_path(Settings::default_path()?)
+                    .player_colour,
+                ..Settings::default()
+            },
             warning: prepared.warning,
             status: "Testing the current unsaved scene.".into(),
             speech: speech::Speech::default(),
@@ -109,6 +117,10 @@ impl Session {
         session.apply_commands(renderer, audio)?;
         session.update_script_status()?;
         Ok(session)
+    }
+
+    pub fn retire_player_model(&mut self, renderer: &mut Renderer) {
+        self.player_model.reset(renderer, &mut self.physics.world);
     }
 
     pub fn event(&mut self, event: &Event) {
@@ -229,6 +241,7 @@ impl Session {
         let toggles = self.game.take_light_toggles();
         renderer.apply_light_toggles(&toggles);
         self.audio.light_toggles(&toggles);
+        self.sync_player_model(seconds, renderer)?;
         self.physics.step(&mut self.game, seconds, renderer);
         self.apply_commands(renderer, audio)?;
         self.reconcile_cinematic_input();
@@ -237,8 +250,8 @@ impl Session {
             return Ok(());
         }
         self.speech.tick(seconds);
-        self.publish_camera();
         self.advance_presentation(seconds, renderer);
+        self.publish_camera();
         if let Some(step) = self.audio.footstep(&mut self.game, &self.physics.world) {
             let _played = audio.play(step.cue, step.request());
         }
@@ -257,6 +270,16 @@ impl Session {
             return Err("The test runtime stopped; all temporary state was discarded.".into());
         }
         Ok(())
+    }
+
+    fn sync_player_model(&mut self, seconds: f32, renderer: &mut Renderer) -> Result<(), String> {
+        self.player_model.sync(
+            &self.game,
+            self.settings.player_colour,
+            seconds,
+            renderer,
+            &mut self.physics.world,
+        )
     }
 
     fn enqueue_message(&mut self, title: String, lines: &[String], completed: bool) {
@@ -352,7 +375,14 @@ impl Session {
 
     fn advance_presentation(&mut self, seconds: f32, renderer: &mut Renderer) {
         let delta = self.game.scale_world_delta(seconds);
+        renderer.sync_ragdolls(&self.physics.world);
         let characters = renderer.advance_characters(delta, self.game.entity_frames());
+        self.player_model.refresh(
+            &self.game,
+            renderer,
+            self.settings.fov_degrees,
+            !self.game.player_is_dead() && self.game.cinematic_owns_controls(),
+        );
         renderer.update_water_player(self.game.player_position, self.game.feet_y());
         let _updated = renderer.update_dynamic(delta);
         renderer.sync_characters();
@@ -382,7 +412,7 @@ impl Session {
             Listener {
                 position,
                 forward,
-                up: Vec3::Y,
+                up: self.camera().up,
             },
             paused,
             self.physics.world.simulation_state().time_scale,
@@ -402,12 +432,14 @@ impl Session {
     pub fn camera(&self) -> RenderCamera {
         self.effective_camera.map_or_else(
             || {
-                RenderCamera::new(
-                    self.game.player_position,
-                    self.game.player_yaw,
-                    self.game.player_pitch,
-                    self.settings.fov_degrees,
-                )
+                self.player_model.camera().unwrap_or_else(|| {
+                    RenderCamera::new(
+                        self.game.player_position,
+                        self.game.player_yaw,
+                        self.game.player_pitch,
+                        self.settings.fov_degrees,
+                    )
+                })
             },
             |(camera, _)| camera,
         )
@@ -438,6 +470,9 @@ impl Session {
 
     fn publish_camera(&mut self) {
         self.effective_camera = None;
+        if self.game.player_is_dead() {
+            self.game.entities_mut().cancel_cinematic();
+        }
         self.game.entities_mut().refresh_cinematic_view();
         let presentation = self.game.entities().cinematic_view();
         let camera = presentation.map_or_else(
@@ -456,7 +491,7 @@ impl Session {
 
     fn listener_pose(&self) -> (Vec3, Vec3) {
         match self.effective_camera {
-            Some((camera, true)) => (
+            Some((camera, cinematic)) if cinematic || self.game.player_is_dead() => (
                 camera.position,
                 Vec3::new(
                     camera.yaw.sin() * camera.pitch.cos(),
@@ -464,7 +499,7 @@ impl Session {
                     -camera.yaw.cos() * camera.pitch.cos(),
                 ),
             ),
-            Some((_, false)) | None => (self.game.player_position, self.game.view_direction()),
+            Some((_, _)) | None => (self.game.player_position, self.game.view_direction()),
         }
     }
 
@@ -509,10 +544,11 @@ impl Session {
         let hearing = serde_json::json!({"time":self.game.entities().sim_time(),"stimuli":stimuli,"agents":agents});
         serde_json::json!({
             "hearing": hearing,
+            "player_model": self.player_model.snapshot(),
             "eye": self.game.player_position.to_array(),
             "cinematic_control_active": self.game.cinematic_owns_controls(),
             "effective_camera": {"position": self.camera().position.to_array(),
-                "yaw": self.camera().yaw,"pitch":self.camera().pitch},
+                "yaw": self.camera().yaw,"pitch":self.camera().pitch,"up":self.camera().up},
             "listener_position": self.listener_pose().0.to_array(),
             "yaw": self.game.player_yaw,
             "pitch": self.game.player_pitch,

@@ -40,6 +40,16 @@ impl PlayerShape {
 }
 impl Game {
     #[must_use]
+    pub fn player_velocity(&self) -> glam::Vec3 {
+        glam::Vec3::new(
+            self.horizontal_velocity.x,
+            self.vertical_velocity,
+            self.horizontal_velocity.y,
+        )
+        .clamp_length_max(15.0)
+    }
+
+    #[must_use]
     pub const fn body_half(&self) -> f32 {
         match self.player_shape {
             Some(shape) => shape.half,

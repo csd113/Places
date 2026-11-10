@@ -14,6 +14,8 @@ mod health;
 pub mod input;
 pub mod perf_overlay;
 pub mod pickup_catalog;
+pub mod player_colour;
+pub mod player_model;
 pub mod player_shape;
 pub mod representation;
 mod representation_camera;

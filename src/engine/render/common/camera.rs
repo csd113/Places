@@ -20,6 +20,8 @@ pub struct RenderCamera {
     pub yaw: f32,
     /// Look pitch in radians.
     pub pitch: f32,
+    /// Camera up; ordinary play is upright, a physical head can roll.
+    pub up: glam::Vec3,
     /// Configured vertical field of view, in degrees.
     pub vertical_fov_degrees: f32,
 }
@@ -37,7 +39,21 @@ impl RenderCamera {
             position,
             yaw,
             pitch,
+            up: glam::Vec3::Y,
             vertical_fov_degrees,
+        }
+    }
+
+    /// Builds a view from a physical pose without discarding head roll.
+    #[must_use]
+    pub fn from_basis(position: glam::Vec3, forward: glam::Vec3, up: glam::Vec3, fov: f32) -> Self {
+        let direction = forward.normalize_or(glam::Vec3::NEG_Z);
+        Self {
+            position,
+            yaw: direction.x.atan2(-direction.z),
+            pitch: direction.y.clamp(-1.0, 1.0).asin(),
+            up: up.normalize_or(glam::Vec3::Y),
+            vertical_fov_degrees: fov,
         }
     }
 
@@ -79,7 +95,13 @@ impl RenderCamera {
         let view = glam::camera::rh::view::look_at_mat4(
             self.position,
             self.position + forward,
-            glam::Vec3::Y,
+            if forward.dot(self.up).abs() < 0.999 {
+                self.up
+            } else if forward.y.abs() < 0.999 {
+                glam::Vec3::Y
+            } else {
+                glam::Vec3::Z
+            },
         );
         #[expect(
             clippy::arithmetic_side_effects,

@@ -781,6 +781,11 @@ impl Renderer {
         self.renderer.set_runtime_character_texture(id, texture)
     }
 
+    /// Changes one actor's linear albedo without replacing its shared asset.
+    pub fn set_runtime_character_tint(&mut self, id: &str, tint: [f32; 3]) -> bool {
+        self.renderer.set_runtime_character_tint(id, tint)
+    }
+
     pub fn set_runtime_character_pose(
         &mut self,
         instance_id: &str,

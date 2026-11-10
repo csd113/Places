@@ -13,6 +13,13 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.14.0 — In development
 
+- Add a local player mannequin with eight saved colour choices, defaulting to
+  muted teal (`#4F7774`). Keep the body hidden in first person, including when
+  looking down. On enabled-health maps, death transfers the mannequin to the
+  existing ragdoll solver and keeps vision and audio attached to its physical
+  head. Explicit respawn, map reload and editor test exit retire the old body.
+  Held-tool arms and multiplayer spectating remain future work.
+
 - Add an opt-in player/entity health foundation, disabled by default for new
   and existing maps. Enabled maps use six HP (three hearts), half-heart damage
   and healing, typed death changes, and checkpoint persistence.
