@@ -17,6 +17,17 @@ pub struct MouseContext {
 }
 
 impl CarryInput {
+    /// A tool claims the complete eligible mouse edge before carry/elevator
+    /// dispatch. The same click cannot also throw or press a world button.
+    pub const fn take_tool_click(&mut self, eligible: bool) -> bool {
+        if !eligible {
+            return false;
+        }
+        let clicked = self.world_click || self.pending.is_some();
+        self.world_click = false;
+        self.pending = None;
+        clicked
+    }
     pub const fn invalidate(&mut self) {
         self.pending = None;
         self.world_click = false;

@@ -9,7 +9,7 @@ use glam::Vec3;
 
 pub(in crate::editor) struct PreparedPhysics {
     pub(super) world: ItemWorld,
-    authored: Vec<(u64, String, String)>,
+    pub(super) authored: Vec<(u64, String, String)>,
     spawns: Vec<(u64, usize, [f32; 3])>,
     trigger_bodies: Vec<crate::engine::physics::ItemTriggerBody>,
 }

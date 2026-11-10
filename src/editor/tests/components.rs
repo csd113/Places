@@ -15,6 +15,54 @@ use crate::engine::physics::config::{BodyMotion, ShapeDef};
 use serde_json::json;
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+// Protects the actual map-owned inventory document boundary: independent health
+// opt-in, rejected tuning without edits, history and save/reopen. One tiny source
+// project, a few JSON fields, no assets or package bake (milliseconds).
+#[test]
+fn map_tool_inventory_and_tuning_survive_editor_history_and_reopen() -> Result<(), String> {
+    let (fixture, mut doc) = Fixture::new()?;
+    let id = crate::editor::document::ObjectId::Prop(0);
+    assert!(!doc.level().tools.crowbar && !doc.level().health.enabled);
+    doc.set_component_field(
+        id,
+        Field::new(Target::Tools, "crowbar", "Crowbar", Kind::Bool, "false"),
+        "true",
+    )?;
+    for (key, value, kind) in [
+        ("damage_hp", "3", Kind::WholeNumber),
+        ("reach_m", "2.25", Kind::Number),
+        ("swings_per_second", "2.5", Kind::Number),
+    ] {
+        doc.set_component_field(
+            id,
+            Field::new(Target::Tools, key, "Tuning", kind, "1"),
+            value,
+        )?;
+    }
+    let accepted = doc.raw().clone();
+    assert!(
+        doc.set_component_field(
+            id,
+            Field::new(Target::Tools, "reach_m", "Reach", Kind::Number, "1.75"),
+            "5"
+        )
+        .is_err()
+    );
+    assert_eq!(doc.raw(), &accepted, "invalid tuning cannot mutate history");
+    assert!(doc.undo() && doc.redo());
+    assert_eq!(doc.raw(), &accepted);
+    assert!(
+        !doc.level().health.enabled,
+        "granting a tool cannot opt into health"
+    );
+    doc.save_all()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(reopened.raw(), &accepted);
+    assert_eq!(reopened.level().tools.damage_hp, 3);
+    Ok(())
+}
+
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Result<(Self, Document), String> {

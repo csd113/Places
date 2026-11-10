@@ -1287,3 +1287,19 @@ with zero HP on an enabled-health map enters ragdoll death immediately. Stopping
 the test retires that body, and starting another test creates a fresh session.
 NPC ragdolls and the other final-package-only features listed in the test notice
 still require packaged validation.
+
+### Player tool inventory
+
+Open **Project > Map settings > Tools**, then enable **Give player crowbar**.
+It is off by default for new and old maps. Set damage in whole HP, reach in
+metres and swing speed in swings per second (including recovery). Allowed ranges
+are damage 1–65535, reach 0.1–4 m, speed 0.25–5/s. Changes use ordinary undo/redo
+and save/reopen. Granting a tool does not enable the separate health rules.
+
+In **Test**, `1` holsters/redraws the crowbar and one left click starts one swing.
+A carried physics prop is safely dropped first on that same click; with the
+tool holstered, left click keeps its normal throw behavior. Holding a button
+does not repeat attacks, and clicks during recovery are not queued. The small
+first-person hand/forearm uses the player's saved colour. Stopping or restarting
+a test discards its temporary inventory/swing state. NPC death reaction policy
+is separate from the HP changes; this step adds no automatic NPC defeat behavior.

@@ -11,6 +11,7 @@ pub(super) fn read(source: Option<&Value>, field: Field) -> Value {
         Target::Identity
         | Target::Object
         | Target::Health
+        | Target::Tools
         | Target::Map
         | Target::Spawn
         | Target::Defaults
@@ -110,6 +111,7 @@ pub(super) fn record_mut(
         Target::Identity
         | Target::Object
         | Target::Health
+        | Target::Tools
         | Target::Map
         | Target::Spawn
         | Target::Defaults

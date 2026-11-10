@@ -1,0 +1,42 @@
+{
+  "source_mannequin": "a27aa5b4fda530152ba888535e06b21442bb4c05c476ba0028435a4e05291051",
+  "contract": "grip origin; +Y up; +Z toward eye; original PNGs and arm UVs",
+  "models": {
+    "right_arm": {
+      "triangles": 740,
+      "bounds": [
+        [
+          -0.029691867530345917,
+          -0.05103300139307976,
+          -0.0911177396774292
+        ],
+        [
+          0.3139508068561554,
+          0.08270500600337982,
+          0.02422061748802662
+        ]
+      ],
+      "sha256": "5a197a26cb0355e22ce7ee6a910a98b8532c0e121e8b48a65bd6c59a78092b81",
+      "png": "assets/entities/mannequin/textures/mannequin-skin.png",
+      "png_sha256": "1cffbe5fa7ef1c8e50a9257819ce810a03c9adebb52d7fd539add3b9bd86219d"
+    },
+    "crowbar": {
+      "triangles": 176,
+      "bounds": [
+        [
+          -0.0115,
+          -0.1915,
+          -0.09932276606559753
+        ],
+        [
+          0.0115,
+          0.390953928232193,
+          0.00952627882361412
+        ]
+      ],
+      "sha256": "cefb951d10f43a9ed4301f7c4b3185ee2ae7501793e58a2d5afb01c9a5085de7",
+      "png": "assets/shared/textures/white_01.png",
+      "png_sha256": "b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f"
+    }
+  }
+}

@@ -44,6 +44,7 @@ pub mod scene;
 pub mod spatial;
 pub(crate) mod structure;
 pub mod tall_guest;
+pub mod tools;
 pub mod weather;
 
 #[cfg(test)]

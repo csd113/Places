@@ -499,3 +499,30 @@ pub(super) fn entity_health() -> Vec<F> {
         ),
     ]
 }
+
+pub(super) fn tools() -> Vec<F> {
+    vec![
+        F::new(T::Tools, "crowbar", "Give player crowbar", K::Bool, "false"),
+        F::new(
+            T::Tools,
+            "damage_hp",
+            "Crowbar damage (HP)",
+            K::WholeNumber,
+            "2",
+        ),
+        F::new(
+            T::Tools,
+            "reach_m",
+            "Crowbar reach (metres)",
+            K::Number,
+            "1.75",
+        ),
+        F::new(
+            T::Tools,
+            "swings_per_second",
+            "Crowbar swings / second",
+            K::Number,
+            "1.8",
+        ),
+    ]
+}

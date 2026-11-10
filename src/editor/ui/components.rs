@@ -51,6 +51,7 @@ pub(in crate::editor) fn draw(
                 13 => fields::carry(),
                 14 => fields::health(),
                 15 => fields::entity_health(),
+                16 => fields::tools(),
                 _ => Vec::new(),
             };
             let visible_fields: Vec<_> = list
@@ -60,6 +61,7 @@ pub(in crate::editor) fn draw(
                     Target::Physics => object.is_some_and(|record| record.get("physics").is_some()),
                     Target::Identity
                     | Target::Health
+                    | Target::Tools
                     | Target::Map
                     | Target::Spawn
                     | Target::Defaults
@@ -109,6 +111,16 @@ pub(in crate::editor) fn draw(
 }
 
 fn health_navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, section: usize) {
+    if section == 10 {
+        button(
+            vertices,
+            hits,
+            [200.0, 83.0, 60.0, 10.0],
+            "Tools >",
+            Action::Components(16),
+            true,
+        );
+    }
     if section == 15 {
         let exists = app
             .document
@@ -171,6 +183,7 @@ const fn section_title(section: usize) -> &'static str {
         13 => "NPC ITEM HANDOFF",
         14 => "PLAYER HEALTH / MAP RULES",
         15 => "ENTITY HEALTH",
+        16 => "MAP TOOL INVENTORY",
         _ => "CAPABILITIES",
     }
 }

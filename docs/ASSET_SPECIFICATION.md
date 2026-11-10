@@ -824,6 +824,24 @@ the frame rails provide the painting's physical depth.
 Prop and entity textures are different from world textures in almost every
 respect. They are not tiles: they are fitted to a model's own UV map.
 
+### Engine-owned first-person tool meshes
+
+`assets/shared/tools/` contains engine-owned GLBs, not map-placeable props.
+They use the same embedded-PNG/UV/material limits below. The right arm retains
+the installed mannequin's exact fitted UVs and `mannequin-skin.png` pixels;
+its grip pose and cropped geometry are exported offline. The crowbar embeds
+the existing shared white PNG and uses material/vertex colour for painted steel.
+No texture imagery is synthesized by the game or the exporter.
+
+These meshes have a grip origin at `(0,0,0)`, metres, +Y up and camera-local
++Z toward the eye. This is an explicit exception to map props' floor origin
+and +Z-front conventions. Both meshes share that grip frame. The renderer
+loads their fixed resource paths only for a granted tool, applies ordinary
+environment lighting sampled at the player's eye, and draws them through a
+private depth attachment after the world. They do not participate in world
+collision, reflection captures, grounding or shadows. Tool hits use separate
+world-space targeting; these view meshes never define reach or hitboxes.
+
 ### 8.1 Format and location
 
 * Models are self-contained binary glTF 2.0 files (`.glb`), read by

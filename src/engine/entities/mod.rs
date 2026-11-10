@@ -440,6 +440,7 @@ enum WeatherEndpoints {
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
     health_settings: crate::engine::health::HealthSettings,
+    tool_settings: crate::engine::tools::ToolSettings,
     health_events: Vec<crate::engine::health::HealthEvent>,
     checkpoint_entity_count: usize,
     transition_targets: std::collections::BTreeSet<String>,
@@ -586,6 +587,7 @@ impl EntityWorld {
     pub fn new() -> Self {
         Self {
             health_settings: crate::engine::health::HealthSettings::default(),
+            tool_settings: crate::engine::tools::ToolSettings::default(),
             health_events: Vec::new(),
             checkpoint_entity_count: 0,
             transition_targets: std::collections::BTreeSet::new(),
@@ -712,8 +714,7 @@ impl EntityWorld {
 
     /// Rebuilds this world from a level, invalidating every previous handle.
     pub fn resolve(&mut self, level: &LevelDef) {
-        self.health_settings = level.health;
-        self.health_events.clear();
+        self.resolve_player_rules(level);
         self.transition_targets = level.transitions.iter().cloned().collect();
         self.scripts = crate::engine::scripting::ScriptRuntime::new(level);
         self.campaign_level.clone_from(&level.id);
@@ -2356,6 +2357,29 @@ impl EntityWorld {
     #[must_use]
     pub fn entity_frames(&self) -> &[EntityFrame] {
         &self.entity_frames
+    }
+
+    #[must_use]
+    pub const fn tool_settings(&self) -> crate::engine::tools::ToolSettings {
+        self.tool_settings
+    }
+
+    /// Passive placed characters also take tool hits; animation-frame membership
+    /// is presentation state, not the identity/liveness authority.
+    pub fn tool_target_ids(&self) -> impl Iterator<Item = &str> {
+        self.components
+            .renderables
+            .iter()
+            .filter(|(handle, renderable)| {
+                !renderable.shadow_only && self.frame_opacity(*handle) > 0.0
+            })
+            .filter_map(|(handle, _)| self.id_of(handle))
+    }
+
+    fn resolve_player_rules(&mut self, level: &LevelDef) {
+        self.health_settings = level.health;
+        self.tool_settings = level.tools;
+        self.health_events.clear();
     }
 
     /// The live animation override for an instance id, if any.

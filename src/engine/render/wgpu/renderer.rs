@@ -36,6 +36,9 @@ use std::sync::{Arc, OnceLock};
 #[path = "startup.rs"]
 mod startup;
 
+#[path = "tool_view.rs"]
+mod tool_view;
+
 use sdl3::video::Window;
 
 use super::character::{CharacterUploadContext, WgpuCharacters};
@@ -831,6 +834,7 @@ pub struct WgpuRenderer {
     /// `set_dynamic_demo` and the level's doors through `spawn_doors`; the GPU
     /// side lives in `world_dynamic`.
     dynamic: DynamicScene,
+    tool_view: Option<tool_view::ToolView>,
     /// The engine's runtime spawn keys and the live dynamic object each one
     /// holds, so a key can replace, move, re-material and despawn its object
     /// without the engine ever naming a [`DynamicId`]. Cleared wherever the
@@ -1322,6 +1326,7 @@ impl WgpuRenderer {
             fatal: None,
             device_lost,
             dynamic: DynamicScene::new(),
+            tool_view: None,
             runtime_objects: HashMap::new(),
             effects: EffectScene::new(),
             blood: crate::engine::render::common::blood::BloodScene::default(),
@@ -1531,6 +1536,12 @@ impl WgpuRenderer {
     /// Actual selected mode; requested vertical synchronization alone is insufficient evidence.
     pub const fn presentation_mode(&self) -> &'static str {
         present_mode_label(self.config.present_mode)
+    }
+
+    /// Actual physical dimensions used by the scene projection.
+    #[must_use]
+    pub const fn drawable_size(&self) -> DrawableSize {
+        self.drawable_size
     }
 
     /// Records the drawable size and schedules a surface/depth rebuild.
@@ -2421,8 +2432,7 @@ impl WgpuRenderer {
         self.world_dynamic = None;
         self.world_characters = None;
         self.world_effects = None;
-        self.characters = CharacterScene::new();
-        self.dynamic = DynamicScene::new();
+        self.clear_actor_scenes();
         self.dynamic_visibility =
             crate::engine::render::common::dynamic_visibility::DynamicVisibility::new();
         self.dynamic_visibility_error = None;
@@ -3438,6 +3448,14 @@ impl WgpuRenderer {
     pub fn character_posed_bounds(&self, id: &str) -> Option<crate::engine::spatial::Aabb> {
         self.characters
             .character(id)
+            .map(crate::engine::render::common::character::Character::posed_bounds)
+    }
+
+    #[must_use]
+    pub fn character_strike_bounds(&self, id: &str) -> Option<crate::engine::spatial::Aabb> {
+        self.characters
+            .character(id)
+            .filter(|character| character.is_visible())
             .map(crate::engine::render::common::character::Character::posed_bounds)
     }
 
@@ -6298,6 +6316,7 @@ impl WgpuRenderer {
             #[cfg(feature = "visual-diagnostics")]
             self.trace_gpu_resources("post-targets-resized");
         }
+        self.prepare_tool_depth();
         ready
     }
 
@@ -6410,6 +6429,7 @@ impl WgpuRenderer {
         // The resolve (or present copy) lands on the presented target, the
         // backend's default-framebuffer equivalent; the UI blends into it in
         // display space and it is encoded to the sRGB surface afterwards.
+        totals.absorb(self.encode_tool_view(encoder, post, frame));
         if let Some(presented) = post.presented_view() {
             post.encode_resolve(encoder, presented, settings, blooms, timer);
         }

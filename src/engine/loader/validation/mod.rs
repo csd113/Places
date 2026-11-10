@@ -103,6 +103,7 @@ pub fn validate_level(level: &LevelDef) -> Result<(), String> {
 fn validate_general(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
     level.health.validate().map_err(|error| error.to_string())?;
+    level.tools.validate()?;
     validate_acoustics(level)?;
     if level.transitions.len() > 256 {
         return Err("Too many level transition destinations".into());

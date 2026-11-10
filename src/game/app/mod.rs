@@ -15,6 +15,7 @@ mod loading;
 mod mannequin_bowling;
 mod ragdoll_runtime;
 mod startup;
+mod tools;
 mod video;
 
 use crate::engine::{diagnostics, level, loader, logging, perf, quality, render};
@@ -2919,8 +2920,10 @@ impl FrameLoop<'_> {
                 self.input_handler.clear_gameplay_inputs();
                 self.game.handle_escape(); // Opens Pause menu
             } else if !self.gameplay_controls_blocked() {
-                self.input_handler
-                    .handle_gameplay_event(event, &self.settings.bindings);
+                if !self.handle_tool_key(event) {
+                    self.input_handler
+                        .handle_gameplay_event(event, &self.settings.bindings);
+                }
             } else {
                 self.input_handler.clear_gameplay_inputs();
             }
@@ -4905,6 +4908,7 @@ impl FrameLoop<'_> {
     }
 
     fn trace_health_state(&self, fields: &mut serde_json::Map<String, serde_json::Value>) {
+        drop(fields.insert("tools".into(), self.game.tool_snapshot()));
         drop(fields.insert(
             "player_model".into(),
             self.console_runtime.player_model.snapshot(),
@@ -5212,6 +5216,7 @@ impl FrameLoop<'_> {
         if !skip_render {
             let mut camera = self.prepare_flashlight(render_position, render_yaw, render_pitch);
             camera.up = frame_camera.up;
+            self.publish_tool_view(camera);
             self.renderer.set_blood_enabled(self.settings.blood);
             self.renderer.render_scene(camera);
         }

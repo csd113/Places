@@ -200,6 +200,39 @@ fn carry_waypoint(
 }
 
 impl ItemWorld {
+    /// A tool contact applies the existing throw-strength mass curve at the
+    /// contact point. It neither picks up the body nor changes inventory.
+    pub fn strike_body(&mut self, key: u64, direction: Vec3, contact: Vec3) -> bool {
+        let Some(aim) = direction.try_normalize().filter(|aim| aim.is_finite()) else {
+            return false;
+        };
+        if !contact.is_finite() || self.held() == Some(key) {
+            return false;
+        }
+        let Some(runtime) = self.runtime.as_mut() else {
+            return false;
+        };
+        if !runtime.activate_key(key) {
+            return false;
+        }
+        let Some(entry) = runtime.entries.get(&key) else {
+            return false;
+        };
+        if entry.motion != super::BodyMotion::Dynamic {
+            return false;
+        }
+        let Some(body) = runtime.world.bodies.get_mut(entry.body) else {
+            return false;
+        };
+        let mass = body.mass();
+        if !mass.is_finite() || mass <= 0.0 {
+            return false;
+        }
+        let speed = 8.0 / mass.sqrt().max(1.0);
+        body.apply_impulse_at_point(vector(scaled(aim, mass * speed)), vector(contact), true);
+        true
+    }
+
     /// Checks the prescribed player capsule against live item bodies only.
     /// Static level geometry remains the owning controller's responsibility.
     #[must_use]

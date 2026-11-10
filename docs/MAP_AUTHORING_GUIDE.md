@@ -10105,3 +10105,53 @@ Raise maximum before raising starting HP; lower starting HP before lowering maxi
 The source override is `{"component":"health","max_hp":12,"starting_hp":8}`
 in the selected entity's components. All edits use normal save/reopen and undo/redo.
 The HUD draws half-heart units up to 40 HP and an exact HP counter above that limit.
+
+## Map-dependent player tools (0.14.0)
+
+Tools are inventory, separate from carried physics props. Omitted `tools` fields
+use the following defaults; old maps grant no tool:
+
+```json
+"tools": {
+  "crowbar": false,
+  "damage_hp": 2,
+  "reach_m": 1.75,
+  "swings_per_second": 1.8
+}
+```
+
+Set `crowbar: true` to grant this version's one supported tool. It starts drawn;
+`1` holsters/redraws it. One eligible captured left click starts one swing.
+Holding the button never repeats. Clicks during recovery are consumed, not
+queued. `E` remains the ordinary interaction/pickup/drop control. While a prop
+is carried, the equipped crowbar's attack click drops it safely and begins the
+swing on that same input. An obstructed release refuses the swing and keeps the
+prop owned. With the crowbar holstered or absent, left click retains ordinary
+throwing and elevator-button behavior. Holstering cancels a pending hit while
+retaining recovery, so rapid redraw cannot bypass the configured swing speed.
+
+Damage is whole positive HP (1–65535); 1 HP is half a heart. Reach is a finite
+0.1–4 metres. Speed is a finite 0.25–5 swings per second, including recovery.
+Contact occurs once at 32% of the swing, using the current physical eye/aim and
+nearest current character bounds or physics surface. World geometry and closed
+doors stop reach. A light physical prop receives the existing throw-strength
+mass curve (8 m/s through 1 kg; `8 / sqrt(mass)` above that), as an impulse at
+contact. Fixed bodies remain fixed. The visual crowbar never defines the hitbox.
+
+Crowbar inventory does **not** enable health. Damage uses the existing typed
+health action only when `health.enabled` is true, obeying terminal health and
+configured hit protection. Entity death remains state/event data; NPC-specific
+defeat, ragdoll, AI suspension and retirement policy remain later combat work.
+Player death already uses the first-person ragdoll view and hides the tool.
+
+The small hand/forearm and crowbar are first-person presentation only. They hide
+while holstered, carrying a prop, in a cinematic, or dead; the player's colour
+also tints the arm. A private depth pass prevents close walls clipping the hand.
+The world mannequin remains hidden in the local first-person view. Explicit
+respawn/reload restores map inventory; current checkpoints do not persist a
+holster selection or a partly completed swing. Multiplayer, weapon pickup,
+additional tools and a horde mode are outside this step.
+
+Author these fields under **Project > Map settings > Tools** in the native
+editor. They use normal validation, history and save/reopen. Compiled maps that
+grant the crowbar require `player-tools-v1`; older players must refuse them.

@@ -20,6 +20,7 @@ pub mod player_shape;
 pub mod representation;
 mod representation_camera;
 pub mod settings;
+pub mod tools;
 pub mod ui;
 pub mod world_labels;
 
@@ -362,6 +363,7 @@ pub use crate::engine::entities::DispatchReport;
     reason = "The flags are independent, documented state machines (Rust's enum-per-flag would obscure the existing public fields), not interchangeable booleans."
 )]
 pub struct Game {
+    tools: tools::PlayerTools,
     player_health: crate::engine::health::HealthState,
     playable_space: PlayableSpace,
     /// Time continuously outside every authored movement volume.
@@ -568,6 +570,7 @@ impl Game {
         let grounded = false;
         let mut game = Self {
             player_health: health::initial_player_health(world.world.health_settings()),
+            tools: tools::PlayerTools::default(),
             playable_space: world.playable_space,
             outside_map_seconds: 0.0,
             recovery_spawn: None,

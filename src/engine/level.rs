@@ -7512,6 +7512,9 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// Map-dependent inventory; tools remain distinct from carried physics props.
+    #[serde(default)]
+    pub tools: crate::engine::tools::ToolSettings,
     /// Reusable health rules selected for this map.
     #[serde(default)]
     pub health: crate::engine::health::HealthSettings,

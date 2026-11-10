@@ -66,6 +66,10 @@ changed in Settings; Escape always pauses.
 | Interact | `E` |
 | Pause | `ESC` |
 
+Maps may explicitly grant a crowbar. On those maps, `1` holsters/redraws it and
+left click swings once. An attack while carrying a prop drops it and swings on
+the same click. With no drawn tool, left click retains its ordinary throw behavior.
+
 ## About this version
 
 **Places 0.13.1** provides separate Mac and Windows packages, each containing

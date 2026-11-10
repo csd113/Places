@@ -2,6 +2,7 @@
 mod commands;
 mod physics;
 mod speech;
+mod tools;
 
 pub(super) use physics::PreparedPhysics;
 
@@ -35,6 +36,7 @@ pub(super) struct Session {
     status: String,
     speech: speech::Speech,
     throw_requested: bool,
+    attack_down: bool,
     flashlight: bool,
     interactions: u64,
     world_reset: u64,
@@ -103,6 +105,7 @@ impl Session {
             status: "Testing the current unsaved scene.".into(),
             speech: speech::Speech::default(),
             throw_requested: false,
+            attack_down: false,
             flashlight: false,
             interactions: 0,
             world_reset: 0,
@@ -124,6 +127,9 @@ impl Session {
     }
 
     pub fn event(&mut self, event: &Event) {
+        if self.observe_tool_event(event) {
+            return;
+        }
         self.reconcile_cinematic_input();
         if self.message_event(event) {
             return;
@@ -159,7 +165,8 @@ impl Session {
                 y: _,
             }
         ) {
-            self.throw_requested = true;
+            self.throw_requested |= !self.attack_down;
+            self.attack_down = true;
         }
     }
 
@@ -213,16 +220,7 @@ impl Session {
         if self.pause_for_message(audio) {
             return Ok(());
         }
-        if std::mem::take(&mut self.throw_requested)
-            && !self.gameplay_controls_blocked()
-            && self.physics.world.held().is_some()
-        {
-            self.status = if self.physics.world.throw(self.game.view_direction()) {
-                "Threw held item".into()
-            } else {
-                "Throw blocked: move the item clear".into()
-            };
-        }
+        self.dispatch_mouse_actions();
         self.audio.update_elevator_ride(&self.game, true, audio);
         for (position, cue) in self.game.entities_mut().take_elevator_sounds() {
             let _played = audio.play(
@@ -252,6 +250,7 @@ impl Session {
         self.speech.tick(seconds);
         self.advance_presentation(seconds, renderer);
         self.publish_camera();
+        self.publish_tool_view(renderer)?;
         if let Some(step) = self.audio.footstep(&mut self.game, &self.physics.world) {
             let _played = audio.play(step.cue, step.request());
         }
@@ -273,6 +272,7 @@ impl Session {
     }
 
     fn sync_player_model(&mut self, seconds: f32, renderer: &mut Renderer) -> Result<(), String> {
+        self.advance_tool_strike(renderer);
         self.player_model.sync(
             &self.game,
             self.settings.player_colour,
@@ -545,6 +545,7 @@ impl Session {
         serde_json::json!({
             "hearing": hearing,
             "player_model": self.player_model.snapshot(),
+            "tools": self.game.tool_snapshot(),
             "eye": self.game.player_position.to_array(),
             "cinematic_control_active": self.game.cinematic_owns_controls(),
             "effective_camera": {"position": self.camera().position.to_array(),

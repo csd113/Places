@@ -1160,6 +1160,7 @@ fn requires_compound_door_actions(level: &LevelDef) -> bool {
 
 fn validate_required_capabilities(level: &LevelDef, manifest: &Manifest) -> Result<(), String> {
     for (required, capability) in [
+        (level.tools.crowbar, "player-tools-v1"),
         (
             level.stairs.iter().any(|stair| stair.reverse),
             "reverse-stairs-v1",

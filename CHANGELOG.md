@@ -13,6 +13,14 @@ and linked reports retain historical implementation and validation details.
 
 ## 0.14.0 — In development
 
+- Add a map-granted crowbar, separate from carried props, with a compact
+  first-person mannequin hand/forearm. `1` holsters/redraws it; one click starts
+  one swing. Attacking while carrying safely drops the prop and swings on the
+  same input. Tool contact launches light props with throw-comparable force and
+  applies configured HP damage only on maps that enable health. Expose damage,
+  reach and swing speed through normal editor map settings. Old walking maps
+  grant no tool and keep health disabled.
+
 - Add a local player mannequin with eight saved colour choices, defaulting to
   muted teal (`#4F7774`). Keep the body hidden in first person, including when
   looking down. On enabled-health maps, death transfers the mannequin to the

@@ -24,6 +24,7 @@ mod prop_interactions;
 mod prop_rotation;
 mod release_contact;
 mod shared_ai;
+mod tool_impulse;
 mod trigger_index;
 mod trigger_occupants;
 

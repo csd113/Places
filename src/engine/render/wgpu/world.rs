@@ -4119,6 +4119,19 @@ impl WorldPipeline {
         }
     }
 
+    /// The first-person pair shares ordinary material/light response, but owns
+    /// a separate depth pass and never submits world or capture geometry.
+    pub fn encode_view_tool<'a>(
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        inputs: WorldEncodeInputs<'a>,
+        dynamic: &'a super::dynamic::WgpuDynamic,
+    ) -> WorldDrawTotals {
+        let mut totals = self.encode_dynamic(pass, inputs, dynamic, false, BatchPass::Opaque, None);
+        totals.absorb(self.encode_dynamic(pass, inputs, dynamic, false, BatchPass::Cutout, None));
+        totals
+    }
+
     fn encode_dynamic<'a>(
         &'a self,
         pass: &mut wgpu::RenderPass<'a>,

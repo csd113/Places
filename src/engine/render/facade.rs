@@ -89,6 +89,15 @@ pub struct RuntimeModelInfo {
 }
 
 impl Renderer {
+    /// Updates the dedicated first-person tool pair, independent of world props.
+    /// # Errors
+    /// Rejects missing assets or invalid poses without a partial presentation.
+    pub fn set_tool_view(
+        &mut self,
+        pose: Option<crate::engine::tools::ToolViewPose>,
+    ) -> Result<(), String> {
+        self.renderer.set_tool_view(pose)
+    }
     /// Builds the renderer for `window`.
     ///
     /// The window is a plain SDL3 window; the raw-window-handle path needs no
@@ -350,6 +359,11 @@ impl Renderer {
     /// Records the physical drawable size; returns `true` when it changed.
     pub fn set_drawable_size(&mut self, size: DrawableSize) -> bool {
         self.renderer.set_drawable_size(size)
+    }
+
+    #[must_use]
+    pub const fn drawable_size(&self) -> DrawableSize {
+        self.renderer.drawable_size()
     }
 
     /// Live presentation styles leave graphics resource preferences untouched.
@@ -893,6 +907,11 @@ impl Renderer {
     #[must_use]
     pub fn character_posed_bounds(&self, id: &str) -> Option<crate::engine::spatial::Aabb> {
         self.renderer.character_posed_bounds(id)
+    }
+
+    #[must_use]
+    pub fn character_strike_bounds(&self, id: &str) -> Option<crate::engine::spatial::Aabb> {
+        self.renderer.character_strike_bounds(id)
     }
 
     /// World bounds of the actual carried prop resource.

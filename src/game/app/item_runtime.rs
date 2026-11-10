@@ -613,6 +613,7 @@ impl FrameLoop<'_> {
             && !self.console.is_open()
             && self.load_intent.is_none()
             && !self.game.noclip_enabled();
+        self.dispatch_tool_click(allowed && !self.game.player_is_dead());
         let raw_click = self.items.input.take_world_click(allowed);
         let elevator_target = self.items.target.is_some_and(|target| match target {
             InteractionTarget::World { index, distance: _ } => self
@@ -764,6 +765,7 @@ impl FrameLoop<'_> {
         } else {
             0.0
         };
+        self.advance_tool_strike();
         if let Err(problem) = self.console_runtime.player_model.sync(
             self.game,
             self.settings.player_colour,
