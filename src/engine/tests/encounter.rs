@@ -140,7 +140,9 @@ fn independent_clocks_and_repeated_rounds_retire_all_owned_state() -> Result<(),
 fn companion_prioritizes_its_pursuer_and_swings_hit_only_once() -> Result<(), String> {
     let mut world = EntityWorld::from_level(&level()?);
     let mut encounter = world.encounter.take().ok_or("encounter missing")?;
-    encounter.robot = Some(world.spawn_combat_actor("robot", "encounter:robot", false, None)?);
+    encounter
+        .robots
+        .push(world.spawn_combat_actor("robot", "encounter:robot", false, None)?);
     encounter
         .zombies
         .push(world.spawn_combat_actor("left", "left_zombie", false, None)?);
@@ -190,5 +192,91 @@ fn companion_prioritizes_its_pursuer_and_swings_hit_only_once() -> Result<(), St
     );
     let commands = world.take_commands();
     assert_eq!(commands.iter().filter(|c| matches!(c, super::super::WorldCommand::Ragdoll { target, enabled: true, velocity: _ } if target == "left_zombie")).count(), 1, "death requests exactly one physical handoff");
+    Ok(())
+}
+
+// Five companions must retain individual target identity and release every
+// owned actor/tool slot. This extends the tiny CPU fixture; no assets or baking.
+#[test]
+fn companion_group_targets_individuals_and_toggle_retires_every_member() -> Result<(), String> {
+    let mut definition = level()?;
+    definition
+        .encounter
+        .as_mut()
+        .ok_or("definition missing")?
+        .companion_count = 5;
+    validate(&definition)?;
+    let mut world = EntityWorld::from_level(&definition);
+    let baseline = (world.store.len(), world.components.len());
+    signal(&mut world, "companion")?;
+    step(&mut world, 0.01, Vec3::splat(20.0));
+    assert_eq!(world.live_spawns.len(), 5);
+    assert_eq!(
+        (0..MAX_COMPANIONS)
+            .filter(|i| world.companion_tool_id(*i).is_some())
+            .count(),
+        5
+    );
+    let positions: Vec<_> = world
+        .encounter
+        .as_ref()
+        .ok_or("encounter missing")?
+        .robots
+        .iter()
+        .filter_map(|r| world.combat_position(&r.id))
+        .collect();
+    assert!(positions.windows(2).all(|pair| {
+        pair.first()
+            .zip(pair.last())
+            .is_some_and(|(a, b)| a.distance(*b) > 1.0)
+    }));
+    signal(&mut world, "start")?;
+    step(&mut world, 1.0, Vec3::splat(20.0));
+    assert_eq!(
+        world
+            .encounter
+            .as_ref()
+            .and_then(|e| e.zombies.first())
+            .and_then(|z| z.target_robot.as_deref()),
+        Some("encounter:robot:1")
+    );
+    assert_eq!(
+        world
+            .encounter_pose("encounter:zombie:0", true)
+            .and_then(|p| p.clip_name().map(str::to_string))
+            .as_deref(),
+        Some("run_arms_forward")
+    );
+    let _killed = world.dispatch_health(
+        &HealthTarget::Entity {
+            id: "encounter:robot:1".into(),
+        },
+        HealthAction::Damage { hp: u16::MAX },
+    );
+    step(&mut world, 0.01, Vec3::splat(20.0));
+    assert_eq!(
+        world
+            .encounter
+            .as_ref()
+            .and_then(|e| e.zombies.first())
+            .and_then(|z| z.target_robot.as_deref()),
+        Some("encounter:robot")
+    );
+    assert!(world.companion_tool_id(1).is_none());
+    signal(&mut world, "companion")?;
+    step(&mut world, 0.01, Vec3::splat(20.0));
+    assert!((0..MAX_COMPANIONS).all(|i| world.companion_tool_id(i).is_none()));
+    signal(&mut world, "clear")?;
+    step(&mut world, 0.01, Vec3::splat(20.0));
+    assert_eq!((world.store.len(), world.components.len()), baseline);
+    assert!(world.live_spawns.is_empty() && world.ai.agents().is_empty());
+    for invalid in [0, MAX_COMPANIONS + 1] {
+        definition
+            .encounter
+            .as_mut()
+            .ok_or("definition missing")?
+            .companion_count = invalid;
+        assert!(validate(&definition).is_err());
+    }
     Ok(())
 }

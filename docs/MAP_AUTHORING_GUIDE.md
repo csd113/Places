@@ -10212,6 +10212,15 @@ spawn group. At most twenty zone actors are supported by this initial controller
 The reusable spawn zones and existing AI/navigation/health own movement and
 lifetime; this is not a Game Modes library or multiplayer implementation.
 
+`encounter.companion_count` optionally selects 1–5 robots; omission preserves the
+original single-companion toggle. The button toggles the whole authored group.
+Group members spawn 1.4 m apart, centered on the companion point's local X axis;
+keep that span clear and on walkable floor. Each zombie chooses the closest
+living robot or player, and each robot prioritizes its own pursuers. Clearing
+zombies leaves the group present; respawning removes all members and bodies.
+Group maps require `encounter-groups-v1`. The shipped encounter lab remains at one
+companion. Zombies use the existing arms-forward idle and movement clips.
+
 Encounter checkpoint persistence is not implemented: `saving` must be false.
 Native editor Quick test retains its documented NPC-ragdoll limitations; use a
 compiled package to validate the complete encounter. Packages containing a zone

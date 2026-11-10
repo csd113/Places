@@ -117,7 +117,11 @@ def bar_pose(phase, walking=False, attack=False):
     lower = smooth_keys(phase, [-90, -170, -80, -30, -90]) if attack else -90
     for part, angle in [('upper_arm', upper), ('forearm', lower), ('hand', lower)]:
         name = f'{part}.R'
-        rotation_global(local, name, Quaternion((1, 0, 0), math.radians(angle)) @ rest[indices[name]].to_quaternion())
+        rotation = Quaternion((1, 0, 0), math.radians(angle)) @ rest[indices[name]].to_quaternion()
+        # Roll the closed hand around its forearm axis: the grasp and shaft
+        # rotate together, so the crowbar points upward rather than sideways.
+        if part == 'hand': rotation = rotation @ Quaternion((0, 1, 0), math.pi / 2)
+        rotation_global(local, name, rotation)
     for name, i in indices.items():
         if name.endswith('.R') and any(n in name for n in ('index.', 'middle.', 'ring.', 'pinky.')):
             p, q, scale = local[i].decompose()

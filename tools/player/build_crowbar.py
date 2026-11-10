@@ -20,7 +20,7 @@ from tools.props.mesh import Mesh
 from tools.props.glb import write_glb
 
 SOURCE = ROOT / "assets/entities/mannequin/model/mannequin.glb"
-EXPECTED = "a29104cafb8d78beccce14c353cea0436a97a5f40973c38959fe7cea02f85605"
+EXPECTED = "fe72580b3dd2cd5ec6459a316677cb1488f113a1ef20b97205d92a12c34a3df9"
 OUT = ROOT / "assets/shared/tools"
 
 

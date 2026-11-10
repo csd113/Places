@@ -1162,6 +1162,13 @@ fn validate_required_capabilities(level: &LevelDef, manifest: &Manifest) -> Resu
     for (required, capability) in [
         (level.tools.crowbar, "player-tools-v1"),
         (
+            level
+                .encounter
+                .as_ref()
+                .is_some_and(|e| e.companion_count > 1),
+            "encounter-groups-v1",
+        ),
+        (
             level.encounter.is_some() || level.spawn_points.iter().any(|p| p.zone.is_some()),
             "encounter-v1",
         ),

@@ -12,8 +12,23 @@ use serde::{Deserialize, Serialize};
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 pub struct EncounterDef {
+    #[serde(default = "one_companion", skip_serializing_if = "is_one_companion")]
+    pub companion_count: u8,
     pub control: String,
     pub companion_point: String,
+}
+
+pub const MAX_COMPANIONS: u8 = 5;
+const fn one_companion() -> u8 {
+    1
+}
+// Serde's skip predicate requires a reference to the serialized field.
+#[allow(
+    clippy::trivially_copy_pass_by_ref,
+    reason = "Serde requires a reference predicate"
+)]
+const fn is_one_companion(count: &u8) -> bool {
+    *count == 1
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Serialize, Deserialize)]
@@ -46,7 +61,7 @@ struct Actor {
     dead: bool,
     cooldown: f32,
     fast: bool,
-    targets_robot: bool,
+    target_robot: Option<String>,
     swing: Option<Swing>,
 }
 struct Swing {
@@ -66,7 +81,7 @@ pub(super) struct Encounter {
     definition: EncounterDef,
     zones: Vec<Zone>,
     zombies: Vec<Actor>,
-    robot: Option<Actor>,
+    robots: Vec<Actor>,
     started: bool,
     round: u64,
     announcement_seconds: f32,
@@ -89,7 +104,7 @@ impl Encounter {
                 })
                 .collect(),
             zombies: Vec::with_capacity(20),
-            robot: None,
+            robots: Vec::with_capacity(usize::from(MAX_COMPANIONS)),
             started: false,
             round: 0,
             announcement_seconds: 0.0,
@@ -118,6 +133,9 @@ pub fn validate(level: &LevelDef) -> Result<(), String> {
         }
     }
     if let Some(def) = &level.encounter {
+        if !(1..=MAX_COMPANIONS).contains(&def.companion_count) {
+            return Err("Encounter companion_count must be between 1 and 5".into());
+        }
         if !level.health.enabled || total == 0 || total > 20 {
             return Err(
                 "An encounter requires explicitly enabled health and 1..20 total zone spawns"
@@ -182,10 +200,45 @@ impl EntityWorld {
     pub fn clear_encounter(&mut self) {
         if let Some(mut encounter) = self.encounter.take() {
             self.clear_zombies(&mut encounter);
-            if let Some(robot) = encounter.robot.take() {
-                self.remove_combat_actor(&robot.id);
-            }
+            self.clear_companions(&mut encounter);
             self.encounter = Some(encounter);
+        }
+    }
+    fn clear_companions(&mut self, encounter: &mut Encounter) {
+        for robot in encounter.robots.drain(..) {
+            self.remove_combat_actor(&robot.id);
+        }
+    }
+    fn toggle_companions(&mut self, encounter: &mut Encounter) {
+        if !encounter.robots.is_empty() {
+            self.clear_companions(encounter);
+            return;
+        }
+        let count = encounter.definition.companion_count;
+        for index in 0..count {
+            let id = if index == 0 {
+                "encounter:robot".into()
+            } else {
+                format!("encounter:robot:{index}")
+            };
+            let offset = Vec3::new(
+                f32::from(count.saturating_sub(1)).mul_add(-0.5, f32::from(index)) * 1.4,
+                0.0,
+                0.0,
+            );
+            match self.spawn_combat_actor(
+                &encounter.definition.companion_point,
+                &id,
+                false,
+                Some(offset),
+            ) {
+                Ok(robot) => encounter.robots.push(robot),
+                Err(error) => {
+                    self.clear_companions(encounter);
+                    encounter.failure = Some(error);
+                    break;
+                }
+            }
         }
     }
     fn remove_combat_actor(&mut self, id: &str) {
@@ -231,19 +284,7 @@ impl EntityWorld {
             self.clear_zombies(&mut encounter);
         }
         if self.encounter_signal(&encounter.definition.control, "companion") {
-            if let Some(robot) = encounter.robot.take() {
-                self.remove_combat_actor(&robot.id);
-            } else {
-                match self.spawn_combat_actor(
-                    &encounter.definition.companion_point,
-                    "encounter:robot",
-                    false,
-                    None,
-                ) {
-                    Ok(robot) => encounter.robot = Some(robot),
-                    Err(error) => encounter.failure = Some(error),
-                }
-            }
+            self.toggle_companions(&mut encounter);
         }
         if self.encounter_signal(&encounter.definition.control, "start") && !encounter.started {
             encounter.started = true;
@@ -284,7 +325,7 @@ impl EntityWorld {
             dead: false,
             cooldown: 0.0,
             fast,
-            targets_robot: false,
+            target_robot: None,
             swing: None,
         })
     }
@@ -346,11 +387,18 @@ impl EntityWorld {
         true
     }
     fn advance_combat(&mut self, encounter: &mut Encounter, ctx: &WorldContext<'_>) {
-        let robot_position = encounter.robot.as_mut().and_then(|r| {
-            self.combat_alive(r, ctx.delta_seconds)
-                .then(|| self.combat_position(&r.id))
-                .flatten()
-        });
+        let robot_positions: Vec<_> = encounter
+            .robots
+            .iter_mut()
+            .filter_map(|robot| {
+                self.combat_alive(robot, ctx.delta_seconds)
+                    .then(|| {
+                        self.combat_position(&robot.id)
+                            .map(|p| (robot.id.clone(), p))
+                    })
+                    .flatten()
+            })
+            .collect();
         for zombie in &mut encounter.zombies {
             if !self.combat_alive(zombie, ctx.delta_seconds) {
                 continue;
@@ -358,21 +406,24 @@ impl EntityWorld {
             let Some(position) = self.combat_position(&zombie.id) else {
                 continue;
             };
-            zombie.targets_robot = robot_position.is_some_and(|robot| {
-                position.distance_squared(robot) < position.distance_squared(ctx.feet)
-            });
-            let goal = if zombie.targets_robot {
-                robot_position.unwrap_or(ctx.feet)
-            } else {
-                ctx.feet
-            };
-            let target = if zombie.targets_robot {
-                HealthTarget::Entity {
-                    id: "encounter:robot".into(),
-                }
-            } else {
-                HealthTarget::Player
-            };
+            let nearest_robot = robot_positions
+                .iter()
+                .min_by(|(_, a), (_, b)| {
+                    position
+                        .distance_squared(*a)
+                        .total_cmp(&position.distance_squared(*b))
+                })
+                .filter(|(_, p)| {
+                    position.distance_squared(*p) < position.distance_squared(ctx.feet)
+                });
+            zombie.target_robot = nearest_robot.map(|(id, _)| id.clone());
+            let goal = nearest_robot.map_or(ctx.feet, |(_, p)| *p);
+            let target = zombie
+                .target_robot
+                .as_ref()
+                .map_or(HealthTarget::Player, |id| HealthTarget::Entity {
+                    id: id.clone(),
+                });
             let speed = ctx.player_walk_speed * if zombie.fast { 1.1 } else { 0.9 };
             self.combat_step(
                 zombie,
@@ -388,24 +439,24 @@ impl EntityWorld {
                 ctx,
             );
         }
-        if robot_position.is_some() {
-            self.advance_companion(encounter, ctx);
+        for robot in &mut encounter.robots {
+            if !robot.dead {
+                self.advance_companion(robot, &encounter.zombies, ctx);
+            }
         }
     }
-    fn advance_companion(&mut self, encounter: &mut Encounter, ctx: &WorldContext<'_>) {
-        let Some(robot) = encounter.robot.as_mut() else {
-            return;
-        };
+    fn advance_companion(&mut self, robot: &mut Actor, zombies: &[Actor], ctx: &WorldContext<'_>) {
         let Some(position) = self.combat_position(&robot.id) else {
             return;
         };
-        let target = encounter
-            .zombies
+        let target = zombies
             .iter()
             .filter(|z| !z.dead)
             .filter_map(|z| self.combat_position(&z.id).map(|p| (z, p)))
             .min_by(|(a, pa), (b, pb)| {
-                b.targets_robot.cmp(&a.targets_robot).then_with(|| {
+                let pursues_robot =
+                    |z: &Actor| z.target_robot.as_deref() == Some(robot.id.as_str());
+                pursues_robot(b).cmp(&pursues_robot(a)).then_with(|| {
                     position
                         .distance_squared(*pa)
                         .total_cmp(&position.distance_squared(*pb))
@@ -498,7 +549,19 @@ impl EntityWorld {
     }
     pub(super) fn encounter_pose(&self, id: &str, moving: bool) -> Option<PoseCue> {
         let e = self.encounter.as_ref()?;
-        let robot = e.robot.as_ref().filter(|a| a.id == id && !a.dead)?;
+        if e.zombies.iter().any(|z| z.id == id && !z.dead) {
+            return Some(PoseCue::Clip {
+                name: if moving {
+                    "run_arms_forward"
+                } else {
+                    "pose_arms_forward"
+                }
+                .into(),
+                once: false,
+                paused: false,
+            });
+        }
+        let robot = e.robots.iter().find(|a| a.id == id && !a.dead)?;
         let Some(swing) = robot.swing.as_ref() else {
             return Some(PoseCue::Clip {
                 name: if moving {
@@ -517,11 +580,13 @@ impl EntityWorld {
         })
     }
     #[must_use]
-    pub fn companion_tool_visible(&self) -> bool {
+    pub fn companion_tool_id(&self, index: u8) -> Option<&str> {
         self.encounter
-            .as_ref()
-            .and_then(|e| e.robot.as_ref())
-            .is_some_and(|r| !r.dead)
+            .as_ref()?
+            .robots
+            .get(usize::from(index))
+            .filter(|r| !r.dead)
+            .map(|r| r.id.as_str())
     }
     #[must_use]
     pub fn encounter_subtitle(&self) -> Option<&str> {
@@ -534,8 +599,9 @@ impl EntityWorld {
     #[must_use]
     pub fn encounter_snapshot(&self) -> serde_json::Value {
         self.encounter.as_ref().map_or(serde_json::Value::Null,|e|serde_json::json!({
-            "started":e.started,"round":e.round,"failure":e.failure,"entities":self.store.len(),"components":self.components.len(),"bindings":self.bindings.len(),"live_spawns":self.live_spawns.len(),"ai_agents":self.ai.agents().len(),"dynamic_keys":self.dynamic_keys.len(),"zombies":e.zombies.iter().map(|z|serde_json::json!({"id":z.id,"dead":z.dead,"fast":z.fast,"targets_robot":z.targets_robot})).collect::<Vec<_>>(),
-            "robot":e.robot.as_ref().map(|r|serde_json::json!({"id":r.id,"dead":r.dead,"swing_remaining":r.cooldown})),
+            "started":e.started,"round":e.round,"failure":e.failure,"entities":self.store.len(),"components":self.components.len(),"bindings":self.bindings.len(),"live_spawns":self.live_spawns.len(),"ai_agents":self.ai.agents().len(),"dynamic_keys":self.dynamic_keys.len(),"zombies":e.zombies.iter().map(|z|serde_json::json!({"id":z.id,"dead":z.dead,"fast":z.fast,"targets_robot":z.target_robot.is_some(),"target_robot":z.target_robot})).collect::<Vec<_>>(),
+            "robot":e.robots.first().map(|r|serde_json::json!({"id":r.id,"dead":r.dead,"swing_remaining":r.cooldown})),
+            "robots":e.robots.iter().map(|r|serde_json::json!({"id":r.id,"dead":r.dead,"swing_remaining":r.cooldown})).collect::<Vec<_>>(),
             "zones":e.zones.iter().map(|z|serde_json::json!({"id":z.point,"spawned":z.spawned,"elapsed":z.elapsed})).collect::<Vec<_>>() }))
     }
 }

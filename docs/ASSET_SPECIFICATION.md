@@ -2854,3 +2854,9 @@ ordinary world lighting; it has no independent pickup or damage collider. Death,
 despawn and encounter reset remove the attachment. The first-person arm mesh and
 its historical export provenance are unchanged; its exporter accepts the new
 source identity only after the append-only structural comparison.
+
+The crowbar clips roll the closed right hand 90° about its local Y axis, keeping
+the fingers and tool together while placing the held shaft upright. The socket
+offset above is unchanged. First-person presentation also holds the shaft nearly
+vertical, farther from the camera and close to the lower-right edge to retain a
+small screen footprint. These are pose changes, not geometry or texture changes.

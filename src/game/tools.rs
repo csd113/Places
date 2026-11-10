@@ -55,11 +55,11 @@ impl Game {
         );
         // Keep the cropped elbow below the drawable edge across FOV/aspect
         // changes; the grip remains just above that edge during the sweep.
-        let lower_edge = -0.8 * (fov.to_radians() * 0.5).tan();
+        let lower_edge = -1.05 * (fov.to_radians() * 0.5).tan();
         let local = Vec3::new(
-            (-0.25_f32).mul_add(swing, 0.42),
-            0.08_f32.mul_add(swing, lower_edge + 0.05),
-            0.1_f32.mul_add(swing, -0.8),
+            (-0.25_f32).mul_add(swing, 0.5),
+            0.08_f32.mul_add(swing, lower_edge - 0.015),
+            0.1_f32.mul_add(swing, -1.05),
         );
         let offset = basis.mul_vec3(local);
         Some(crate::engine::tools::ToolViewPose {
@@ -71,8 +71,9 @@ impl Game {
             rotation: basis.mul_quat(glam::Quat::from_euler(
                 glam::EulerRot::XYZ,
                 -0.65 * swing,
-                -0.2 * swing,
-                (-0.35_f32).mul_add(swing, -0.9),
+                // Turn the forearm toward the eye so its cropped end stays below frame.
+                0.65_f32.mul_add(swing, -0.85),
+                (-0.35_f32).mul_add(swing, -0.12),
             )),
             eye: camera.position,
             arm_tint: colour.linear_rgb(),

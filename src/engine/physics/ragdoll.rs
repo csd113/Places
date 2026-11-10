@@ -11,10 +11,10 @@ use super::collision::{add, point, pose, quaternion, scaled, subtract, vector};
 use super::world::{ItemWorld, Runtime};
 use crate::engine::gltf::PropSkin;
 
-// Bits 0..8 remain reserved for ordinary scenery/items. One distinct bit per
+// Bits 0..6 remain reserved for ordinary scenery/items. One distinct bit per
 // articulated body excludes self-collision while retaining corpse collisions.
-// Twenty zombies, the companion and player must coexist until explicit clear.
-pub const MAX_RAGDOLLS: usize = 24;
+// Twenty zombies, five companions and the player must coexist until explicit clear.
+pub const MAX_RAGDOLLS: usize = 26;
 
 /// Immutable current/previous displayed poses; captured only at handoff.
 pub struct RagdollInput<'a> {
@@ -575,7 +575,7 @@ impl ItemWorld {
             #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
             serial_solver_pool,
         );
-        let slot = (8_u32..32)
+        let slot = (6_u32..32)
             .find(|candidate| {
                 runtime
                     .ragdolls

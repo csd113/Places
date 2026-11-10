@@ -748,6 +748,13 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     if level.encounter.is_some() || level.spawn_points.iter().any(|p| p.zone.is_some()) {
         required.push("encounter-v1".into());
     }
+    if level
+        .encounter
+        .as_ref()
+        .is_some_and(|e| e.companion_count > 1)
+    {
+        required.push("encounter-groups-v1".into());
+    }
     if level.tools.crowbar {
         required.push("player-tools-v1".into());
     }
