@@ -7512,6 +7512,9 @@ const fn outward_faces(min: [f32; 3], max: [f32; 3]) -> [VoidWallFace; 6] {
 /// The level definition: rooms, geometry, props, fixtures and interactions.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LevelDef {
+    /// Copied rules identity and movement override; absent on legacy maps.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub game_mode: Option<crate::engine::game_mode::ModeInfo>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub encounter: Option<crate::engine::entities::encounter::EncounterDef>,
     /// Map-dependent inventory; tools remain distinct from carried physics props.

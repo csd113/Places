@@ -16,6 +16,7 @@ mod ducts;
 mod elevators;
 mod flicker;
 mod focus;
+mod game_modes;
 mod gameplay_actions;
 mod geometry_actions;
 mod input;
@@ -127,6 +128,7 @@ struct App {
     audio_capture: Option<crate::game::audio::Capture>,
     sound_preview_until: Option<std::time::Instant>,
     popup: Option<Popup>,
+    mode_presets: Vec<game_modes::Preset>,
     script_feedback: String,
     behavior: Option<behavior::Draft>,
     cinematics: Option<cinematics::Draft>,
@@ -558,6 +560,7 @@ fn create_app(
         compile: None,
         play: None,
         last_play_trace: None,
+        mode_presets: Vec::new(),
         pending_play: None,
         play_floor_pick: false,
         project_operation: None,

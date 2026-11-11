@@ -988,6 +988,41 @@ fn scripted_run_speed_is_bounded_and_plain_navigation_restores_walking() -> Resu
     Ok(())
 }
 
+// A moving target used to erase its pursuer's route between budgeted searches.
+// This 81-cell fixture checks continuous pursuit, bounded queries and immediate
+// explicit stopping in 12 ticks; no baked map, assets or renderer.
+#[test]
+fn moving_targets_keep_routes_between_replans_and_hold_stops() -> Result<(), String> {
+    let mut fixture = Fixture::new(grid(9, 9, &(0_usize..81).collect::<Vec<_>>()))?;
+    let (floor, ceiling) = room_floor(r#"[{"x":0,"z":0,"width":9,"depth":9,"height":3}]"#)?;
+    fixture.floor = floor;
+    fixture.ceiling = ceiling;
+    let mut world = AiWorld::new();
+    let _handle = register(&mut world, 0, AiDef::default(), Vec3::new(1.5, 0.0, 1.5));
+    for step in 0_u16..12 {
+        let goal = Vec3::new(7.5, 0.0, f32::from(step).mul_add(0.3, 2.0));
+        assert!(world.set_navigation_goal_with_speed("agent_0", goal, Some(2.0)));
+        world.set_combat_facing("agent_0", goal);
+        world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+        if step > 1 {
+            assert!(
+                world.agent("agent_0").ok_or("agent")?.speed_mps > 0.1,
+                "pursuit stopped at {step}"
+            );
+        }
+    }
+    let agent = world.agent("agent_0").ok_or("agent")?;
+    assert!(
+        agent.path_queries <= 4,
+        "target updates must respect query cooldown"
+    );
+    let stopped = agent.position;
+    assert!(world.set_navigation_goal("agent_0", stopped));
+    world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+    assert_eq!(world.agent("agent_0").ok_or("agent")?.position, stopped);
+    Ok(())
+}
+
 // These two tiny fixtures protect the outward-search deadline, genuine observed
 // memory and completed-route admission, absent from ordinary chase coverage.
 // They use at most 81 synthetic cells, no assets/bakes/GPU and bounded CPU ticks.

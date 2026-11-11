@@ -11,6 +11,7 @@ my-project/
   places.project.json
   levels/entry.json
   levels/second.json
+  game_modes/              independent copied mode snapshots, when used
   scripts/                 optional project-local .luau modules
   thumbnails/              optional validated PNG thumbnails
   assets/textures/          reserved for later custom importing
@@ -356,3 +357,40 @@ level and permits updating the same project even when its entry choice changes.
 Discovery uses project metadata for the remaining levels, and loads no inactive
 level’s source, scripts, prepared geometry or lighting. Transition/reset creates
 fresh per-level runtime state; persistent campaign variables are future work.
+
+
+## Copied Game Modes (0.14.0)
+
+Optional level `game_mode: {"name":"My mode","walk_speed":3.75}` selects an
+explicit map-owned movement override. Health and tool rules retain the existing
+`health` and `tools` level fields. Missing `game_mode` preserves old settings
+behavior and requires no mode file. Missing health always defaults disabled.
+Mode names are nonblank, at most 64 UTF-8 bytes, without control characters;
+walking speed must be finite and within 1–10 m/s.
+
+The saved project also owns a `game_modes/<sha256>.json` file for the complete
+rules value, with this versioned shape:
+
+```json
+{
+  "schema": "places-game-mode",
+  "format_version": 1,
+  "mode": {"name":"My mode","walk_speed":3.75},
+  "health": {"enabled":false},
+  "tools": {"crowbar":false}
+}
+```
+
+The editor serializes all health/tool defaults explicitly, appends a newline,
+and hashes those canonical pretty-printed bytes to derive the copy's path.
+It publishes that immutable copy before atomically replacing the level source.
+The inline level rules support self-contained compilation/runtime semantics;
+project reads require the local copy to agree, refusing missing, unsafe or
+conflicting files. Preset files in the personal library are never dependencies.
+A mode edit creates another immutable revision. Unreferenced revisions remain
+available locally but are not included in project packages. Each copy/preset is
+bounded to 16 KiB. Project package validation and recovery include selected mode
+copies and compare compiled rules with editable source. Standalone compiled maps
+carry their complete rules inline and do not need a preset library or loose file.
+Packages with an explicit mode require `game-modes-v1`, so older runtimes refuse
+rather than silently ignoring the movement override.

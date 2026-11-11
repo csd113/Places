@@ -537,6 +537,8 @@ pub struct AiAgent {
     pub navigation_goal: Option<Vec3>,
     /// Explicit script speed for the current collision-respecting navigation goal.
     pub navigation_speed: Option<f32>,
+    /// Opt-in combat facing; also enables acceleration and turn-aware travel.
+    pub combat_facing: Option<Vec3>,
     /// The goal whose route was already walked to its end. An empty path for
     /// this goal is arrival, not a reason to plan again.
     pub path_done_goal: Option<Vec3>,
@@ -1000,6 +1002,7 @@ impl AiWorld {
             path_queries: 0,
             navigation_goal: None,
             navigation_speed: None,
+            combat_facing: None,
             path_done_goal: None,
             current_waypoint: 0,
             spawned,
@@ -1107,6 +1110,7 @@ impl AiWorld {
             agent.path_queries = 0;
             agent.navigation_goal = None;
             agent.navigation_speed = None;
+            agent.combat_facing = None;
             agent.path_done_goal = None;
             agent.current_waypoint = 0;
             agent.speed_mps = 0.0;
@@ -1210,6 +1214,7 @@ impl AiWorld {
         agent.state = state;
         agent.navigation_goal = None;
         agent.navigation_speed = None;
+        agent.combat_facing = None;
         agent.path.clear();
         agent.path_goal = None;
         true
@@ -1244,20 +1249,37 @@ impl AiWorld {
             return false;
         }
         agent.navigation_speed = speed;
+        let holding = agent.position.distance_squared(goal) < 0.0025;
         if agent
             .navigation_goal
             .is_some_and(|previous| previous.distance_squared(goal) < 0.0625)
+            && !holding
         {
             return true;
         }
+        let continuing = agent.navigation_goal.is_some() && !holding;
         agent.navigation_goal = Some(goal);
         agent.state = AiState::Investigate { point: goal };
-        agent.path.clear();
-        agent.path_goal = None;
+        // Keep walking the collision-checked route while a moving target waits
+        // for its next budgeted replan. An explicit hold still stops immediately.
+        if !continuing {
+            agent.path.clear();
+            agent.path_goal = None;
+        }
         agent.path_done_goal = None;
         agent.path_failed_at = None;
         agent.stuck_seconds = 0.0;
         true
+    }
+
+    /// Encounter-only facing and locomotion. Other authored navigation keeps
+    /// its existing speed contract. A stationary combatant still faces its foe.
+    pub fn set_combat_facing(&mut self, id: &str, target: Vec3) {
+        if target.is_finite()
+            && let Some(agent) = self.agents.iter_mut().find(|a| a.instance_id == id)
+        {
+            agent.combat_facing = Some(target);
+        }
     }
 
     /// Submit or replace an authored task key. Eight bounded continuations per actor.
@@ -1690,6 +1712,30 @@ impl AiWorld {
                 decide(agent, ctx, out);
             }
             advance(agent, ctx, out, &self.actor_positions);
+            if agent.speed_mps <= 0.01
+                && let Some(target) = agent.combat_facing
+            {
+                let direction = Vec3::new(
+                    target.x - agent.position.x,
+                    target.y - agent.position.y,
+                    target.z - agent.position.z,
+                );
+                if direction.x.hypot(direction.z) > 0.05 {
+                    agent.yaw_degrees = crate::engine::entity::turn_toward(
+                        agent.yaw_degrees.to_radians(),
+                        direction.x.atan2(direction.z),
+                        crate::engine::entity::ENTITY_TURN_RATE_DEGREES_PER_SECOND.to_radians()
+                            * ctx.delta,
+                    )
+                    .to_degrees();
+                    out.moved.push((
+                        agent.handle,
+                        agent.position,
+                        agent.yaw_degrees,
+                        agent.spawned,
+                    ));
+                }
+            }
             out.cues_changed |= agent.pose_dirty.take();
             out.cues_changed |= agent.speed_mps != previous_speed;
             noise = noise.saturating_add(release_noise(agent, out));
@@ -2382,6 +2428,21 @@ fn advance(
             }
             agent.path_goal = Some(goal_position);
             agent.current_waypoint = 0;
+            // Replanning projects the start onto its cell centre. A combatant
+            // already inside that cell must not turn back to that artificial
+            // point on every target update. Skip it only when the next segment
+            // is independently clear from the actor's actual position.
+            if agent.combat_facing.is_some()
+                && let Some(next) = agent.path.waypoints.get(1).copied()
+                && agent
+                    .path
+                    .waypoints
+                    .first()
+                    .is_some_and(|first| first.distance(agent.position) <= nav.grid().cell_m * 0.75)
+                && nav.segment_clear(class, agent.position, next, ctx, false)
+            {
+                agent.current_waypoint = 1;
+            }
         } else {
             // Keep the age and the attempted goal: the caller's timeout
             // rules and the retry cadence both read them.
@@ -2480,7 +2541,7 @@ fn advance(
             }
             let progress =
                 next_waypoint.distance(agent.position) - next_waypoint.distance(position);
-            if progress <= 0.0005 {
+            if progress <= 0.0005 && (yaw_degrees - agent.yaw_degrees).abs() < 0.01 {
                 agent.stuck_seconds += ctx.delta;
             } else {
                 agent.stuck_seconds = 0.0;
@@ -2657,6 +2718,14 @@ fn local_move_step(
                 continue;
             }
             let mut mover = base;
+            if agent.combat_facing.is_some() {
+                let heading = agent.yaw_degrees.to_radians();
+                let alignment = steering.dot(glam::Vec2::new(heading.sin(), heading.cos()));
+                // Accelerate the body, not just the animation. Tight turns
+                // plant the feet before moving forward into the new heading.
+                mover.speed_mps =
+                    speed.min(agent.speed_mps + 9.0 * ctx.delta) * alignment.max(0.08);
+            }
             let result = mover.step_with_solids(
                 probe,
                 ctx.delta,

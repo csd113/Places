@@ -583,7 +583,10 @@ impl Game {
             sim_delta_seconds: 0.0,
             world_time_scale: 1.0,
             frame_count: 0,
-            configured_walk_speed: portal_movement::WALK_SPEED,
+            configured_walk_speed: world
+                .world
+                .mode_walk_speed()
+                .unwrap_or(portal_movement::WALK_SPEED),
             player_floor_y: spawn_pos.y - EYE_HEIGHT,
             player_position: spawn_pos,
             feet_y: spawn_pos.y - EYE_HEIGHT,
@@ -754,6 +757,10 @@ impl Game {
         self.ceiling = world.ceiling;
         self.ladders = world.ladders;
         self.world = world.world;
+        self.configured_walk_speed = self
+            .world
+            .mode_walk_speed()
+            .unwrap_or(portal_movement::WALK_SPEED);
         self.player_health = health::initial_player_health(self.world.health_settings());
         self.navigation = world.navigation;
         self.playable_space = world.playable_space;
@@ -1209,6 +1216,10 @@ impl Game {
     /// is crossable) and the swimming band. Ladder attachment runs before all
     /// of them and owns the frame while attached. Area triggers run last, on
     /// the swept segment from the frame's start feet to the resolved feet.
+    fn walk_speed(&self, settings: &Settings) -> f32 {
+        self.world.mode_walk_speed().unwrap_or(settings.walk_speed)
+    }
+
     pub fn update_player_movement(&mut self, input: &mut InputState, settings: &Settings) {
         self.update_player_movement_constrained(input, settings, |game| game.player_position);
     }
@@ -1296,7 +1307,7 @@ impl Game {
             return;
         }
 
-        self.configured_walk_speed = settings.walk_speed;
+        self.configured_walk_speed = self.walk_speed(settings);
         let trigger_origin = self.update_playing_frame_checked(
             &frame_input,
             settings,
@@ -1469,7 +1480,7 @@ impl Game {
                 self.horizontal_velocity =
                     portal_movement::friction(self.horizontal_velocity, self.surface_friction);
             }
-            let speed = settings.walk_speed
+            let speed = self.walk_speed(settings)
                 * if self.duck_fraction > 0.0 {
                     1.0 / 3.0
                 } else {
@@ -1618,7 +1629,7 @@ impl Game {
                 self.horizontal_velocity,
                 Vec2::new(sin_yaw, -cos_yaw),
                 forward,
-                settings.walk_speed,
+                self.walk_speed(settings),
                 self.is_crouched(),
             );
             self.vertical_velocity = JUMP_VELOCITY;
@@ -3271,7 +3282,7 @@ impl Game {
         if move_dir.length_squared() > 0.0 {
             self.move_horizontal(
                 move_dir,
-                settings.walk_speed * LADDER_SIDE_SPEED_FACTOR,
+                self.walk_speed(settings) * LADDER_SIDE_SPEED_FACTOR,
                 delta,
                 HorizontalMode::Airborne,
             );

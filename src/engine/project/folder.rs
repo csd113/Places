@@ -121,6 +121,7 @@ impl ProjectFolder {
         super::metadata::validate_drafts(&raw)?;
         let level =
             LevelDef::from_json(text).map_err(|error| format!("{}: {error}", path.display()))?;
+        self.verify_game_mode(&level)?;
         if !level.script_sources.is_empty() {
             return Err("script_sources is compiler-owned".into());
         }
@@ -177,6 +178,17 @@ impl ProjectFolder {
                 });
         }
         crate::engine::scripting::validate_sources(level)
+    }
+
+    pub(crate) fn verify_game_mode(&self, level: &LevelDef) -> Result<(), String> {
+        if level.game_mode.is_some() {
+            let mode = crate::engine::game_mode::GameMode::from_level(level);
+            mode.verify_copy(&read_bounded_file(
+                &self.resolve(&mode.project_path()?)?,
+                crate::engine::game_mode::MAX_MODE_BYTES,
+            )?)?;
+        }
+        Ok(())
     }
 
     fn validate_files(&self) -> Result<(), String> {

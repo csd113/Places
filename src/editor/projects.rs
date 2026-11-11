@@ -307,13 +307,15 @@ fn draw_level(
     v: &mut Vec<crate::engine::render::Vertex>,
     hits: &mut Vec<Hit>,
 ) {
-    ui::popup_button(
-        v,
-        hits,
-        [30.0, 195.0, 190.0, 13.0],
-        "Map settings >",
-        Action::Components(10),
-    );
+    for (x, label, page) in [(30.0, "Map settings >", 10), (126.0, "Game Modes >", 17)] {
+        ui::popup_button(
+            v,
+            hits,
+            [x, 195.0, 94.0, 13.0],
+            label,
+            Action::Components(page),
+        );
+    }
     ui::popup_button(
         v,
         hits,

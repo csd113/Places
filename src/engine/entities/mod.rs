@@ -443,6 +443,7 @@ pub struct EntityWorld {
     health_settings: crate::engine::health::HealthSettings,
     encounter: Option<encounter::Encounter>,
     tool_settings: crate::engine::tools::ToolSettings,
+    mode_walk_speed: Option<f32>,
     health_events: Vec<crate::engine::health::HealthEvent>,
     checkpoint_entity_count: usize,
     transition_targets: std::collections::BTreeSet<String>,
@@ -591,6 +592,7 @@ impl EntityWorld {
             health_settings: crate::engine::health::HealthSettings::default(),
             encounter: None,
             tool_settings: crate::engine::tools::ToolSettings::default(),
+            mode_walk_speed: None,
             health_events: Vec::new(),
             checkpoint_entity_count: 0,
             transition_targets: std::collections::BTreeSet::new(),
@@ -2368,6 +2370,11 @@ impl EntityWorld {
     }
 
     #[must_use]
+    pub const fn mode_walk_speed(&self) -> Option<f32> {
+        self.mode_walk_speed
+    }
+
+    #[must_use]
     pub const fn tool_settings(&self) -> crate::engine::tools::ToolSettings {
         self.tool_settings
     }
@@ -2387,6 +2394,7 @@ impl EntityWorld {
     fn resolve_player_rules(&mut self, level: &LevelDef) {
         self.health_settings = level.health;
         self.tool_settings = level.tools;
+        self.mode_walk_speed = level.game_mode.as_ref().map(|mode| mode.walk_speed);
         self.encounter = encounter::Encounter::from_level(level);
         self.health_events.clear();
     }
@@ -3648,6 +3656,14 @@ impl EntityWorld {
                         weight: _,
                     }
                     | PoseCue::Walk { speed_mps: _ }
+                    | PoseCue::Gait {
+                        name: _,
+                        speed_mps: _,
+                    }
+                    | PoseCue::Action {
+                        name: _,
+                        progress: _,
+                    }
                     | PoseCue::Clip {
                         name: _,
                         once: _,

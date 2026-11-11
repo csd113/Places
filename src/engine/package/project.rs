@@ -382,6 +382,7 @@ fn validate_sources<R: Read + Seek>(
             let _declared = index.project.level(Some(destination))?;
         }
         let _inserted = expected.insert(record.source.as_str().to_string());
+        validate_mode_source(&level, &files, &mut expected)?;
         expected.extend(
             record
                 .thumbnail
@@ -412,17 +413,7 @@ fn validate_sources<R: Read + Seek>(
         }
         crate::engine::scripting::check_level(&level)?;
         let compiled = super::world::open_level(package_path, &record.id)?;
-        if compiled.level.script_sources != level.script_sources
-            || compiled.level.scripts != level.scripts
-            || compiled.level.transitions != level.transitions
-            || compiled.level.name != level.name
-            || compiled.level.author != level.author
-        {
-            return Err(format!(
-                "Editable/runtime identity, script or transition mismatch in '{}'",
-                record.id
-            ));
-        }
+        validate_runtime_rules(&compiled.level, &level)?;
     }
     if expected
         .iter()
@@ -434,12 +425,56 @@ fn validate_sources<R: Read + Seek>(
     Ok(())
 }
 
+fn validate_runtime_rules(
+    compiled: &crate::engine::level::LevelDef,
+    level: &crate::engine::level::LevelDef,
+) -> Result<(), String> {
+    if crate::engine::game_mode::GameMode::from_level(compiled)
+        != crate::engine::game_mode::GameMode::from_level(level)
+        || compiled.game_mode != level.game_mode
+        || compiled.script_sources != level.script_sources
+        || compiled.scripts != level.scripts
+        || compiled.transitions != level.transitions
+        || compiled.name != level.name
+        || compiled.author != level.author
+    {
+        return Err(format!(
+            "Editable/runtime identity, script or transition mismatch in '{}'",
+            level.id
+        ));
+    }
+    Ok(())
+}
+
+fn validate_mode_source(
+    level: &crate::engine::level::LevelDef,
+    files: &BTreeMap<&str, Vec<u8>>,
+    expected: &mut BTreeSet<String>,
+) -> Result<(), String> {
+    if level.game_mode.is_some() {
+        let mode = crate::engine::game_mode::GameMode::from_level(level);
+        let mode_path = mode.project_path()?;
+        mode.verify_copy(
+            files
+                .get(mode_path.as_str())
+                .ok_or("Missing map game-mode copy")?,
+        )?;
+        let _mode_inserted = expected.insert(mode_path.as_str().to_string());
+    }
+    Ok(())
+}
+
 fn source_limit(path: &ProjectPath) -> Result<u64, String> {
     if path.as_str() == MANIFEST_NAME {
         return Ok(crate::engine::project::MAX_MANIFEST_BYTES);
     }
     for (folder, extension, limit) in [
         ("levels", "json", crate::engine::level::MAX_LEVEL_JSON_BYTES),
+        (
+            "game_modes",
+            "json",
+            crate::engine::game_mode::MAX_MODE_BYTES,
+        ),
         (
             "scripts",
             "luau",
@@ -534,6 +569,10 @@ pub fn snapshot(
         let (_, bytes, mut level) = project.read_level(Some(&record.id))?;
         crate::engine::project::check_editable_source(&bytes)?;
         let _inserted = paths.insert(record.source.clone());
+        if level.game_mode.is_some() {
+            let _mode_inserted = paths
+                .insert(crate::engine::game_mode::GameMode::from_level(&level).project_path()?);
+        }
         paths.extend(record.scripts.iter().cloned());
         paths.extend(record.thumbnail.iter().cloned());
         paths.extend(level.scripts.iter().cloned());

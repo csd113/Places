@@ -65,6 +65,11 @@ pub enum PoseCue {
     /// Loop the walk or run clip, time-scaled so one gait cycle matches the
     /// route speed and the authored stride.
     Walk { speed_mps: f32 },
+    /// Named locomotion with phase driven by measured travel / authored stride.
+    Gait { name: String, speed_mps: f32 },
+    /// Gameplay-timed character action with a brief visual entry blend. Unlike
+    /// Sample, this must never own a moving solid's collision transform.
+    Action { name: String, progress: f32 },
     /// Play a named clip; `once` holds the last pose and reports completion,
     /// `paused` freezes the current time.
     Clip {
@@ -109,6 +114,8 @@ impl PoseCue {
                 paused: _,
             }
             | Self::Scrub { name, target: _ }
+            | Self::Gait { name, speed_mps: _ }
+            | Self::Action { name, progress: _ }
             | Self::Sample { name, progress: _ }
             | Self::Articulated {
                 name,

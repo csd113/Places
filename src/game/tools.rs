@@ -57,8 +57,8 @@ impl Game {
         // changes; the grip remains just above that edge during the sweep.
         let lower_edge = -1.05 * (fov.to_radians() * 0.5).tan();
         let local = Vec3::new(
-            (-0.25_f32).mul_add(swing, 0.5),
-            0.08_f32.mul_add(swing, lower_edge - 0.015),
+            (-0.25_f32).mul_add(swing, 0.47),
+            0.08_f32.mul_add(swing, lower_edge + 0.045),
             0.1_f32.mul_add(swing, -1.05),
         );
         let offset = basis.mul_vec3(local);

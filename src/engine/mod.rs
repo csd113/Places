@@ -19,6 +19,7 @@ pub mod entity;
 pub mod environment;
 pub mod feltling;
 pub mod font;
+pub mod game_mode;
 pub mod gltf;
 pub mod health;
 pub mod input;

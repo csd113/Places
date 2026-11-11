@@ -830,8 +830,11 @@ respect. They are not tiles: they are fitted to a model's own UV map.
 They use the same embedded-PNG/UV/material limits below. The right arm retains
 the installed mannequin's exact fitted UVs and `mannequin-skin.png` pixels;
 its grip pose and cropped geometry are exported offline. The crowbar embeds
-the existing shared white PNG and uses material/vertex colour for painted steel.
-No texture imagery is synthesized by the game or the exporter.
+`shared/tools/crowbar.png`, a 512-square opaque fitted GIMP atlas: upper three
+quarters painted oxblood steel, lower quarter bare forged steel. Circumference
+runs along U and shaft length along V inside each region; no tiling. The retained
+GIMP XCF and Blender source are authoring masters. No imagery is synthesized
+by the game; Blender loads the committed PNG before exporting the model.
 
 These meshes have a grip origin at `(0,0,0)`, metres, +Y up and camera-local
 +Z toward the eye. This is an explicit exception to map props' floor origin
@@ -1769,7 +1772,7 @@ changing compression is safe, but changing layout or orientation is not.
 
 | Image | Catalog id and repository path | Contract |
 |---|---|---|
-| 256×128 HUD font/hand atlas | `core:tex_ui_font_01` → `assets/shared/ui/font_01.png` | **2:1** RGBA8 sheet, top-down. Original 128×64 ASCII block retains every 8×8 glyph and white-cell pixel at the upper left. Glyph/white-cell UVs use the new sheet dimensions. ASCII 32–126 retains sixteen cells per glyph row; cell zero stays opaque white. An upright 64×64 hand cell occupies pixels `(0,64)..(64,128)` in the formerly unused lower-left area. Thumb points left; hand interior/exterior are alpha zero with antialiased off-white ink and a thin dark edge. No baked key or badge, no tiling. An upright white 64×64 health-heart silhouette occupies `(64,64)..(128,128)`, with transparent outside pixels and antialiased edges. The HUD samples each vertical half separately, tints it red or empty, and preserves the full 1:1 shape. `tools/fonts/build_health_icon.swift` is its offline authoring source; it preserves every other atlas pixel. Other unused cells stay transparent. The catalog's historical 128×64 description names the logical grid; its bytes stay unchanged for package compatibility. |
+| 256×128 HUD font/hand atlas | `core:tex_ui_font_01` → `assets/shared/ui/font_01.png` | **2:1** RGBA8 sheet, top-down. Original 128×64 ASCII block retains every 8×8 glyph and white-cell pixel at the upper left. Glyph/white-cell UVs use the new sheet dimensions. ASCII 32–126 retains sixteen cells per glyph row; cell zero stays opaque white. An upright 64×64 hand cell occupies pixels `(0,64)..(64,128)` in the formerly unused lower-left area. Thumb points left; hand interior/exterior are alpha zero with antialiased off-white ink and a thin dark edge. No baked key or badge, no tiling. An upright white 64×64 health-heart with an 88% edge and 34% translucent centre occupies `(64,64)..(128,128)`, with transparent outside pixels and antialiased edges. The HUD samples each vertical half separately, tints it red or empty, and preserves the full 1:1 shape. `tools/player/paint_tools_gimp.py` and its retained XCF are its current GIMP authoring source; it preserves every other atlas pixel. Other unused cells stay transparent. The catalog's historical 128×64 description names the logical grid; its bytes stay unchanged for package compatibility. |
 | Editor font atlas | `assets/shared/ui/editor_font.png` | **8:7**, 512×448 RGBA8, top-down, 16 columns × 8 rows of 32×56 cells. ASCII 32–126, cell zero solid white; the reserved `(0,384)..(64,448)` cell carries the same upright white health-heart silhouette as the game HUD. Other unused cells stay transparent. The shared offline health-icon builder preserves every existing glyph pixel. Roboto Mono medium, genuine antialiased outlines, OFL source and explicit offline builder under `tools/fonts/`. Editor-only clamped linear sampler, no mipmaps, independent of game texture quality. Rectangles/viewport guides sample inside the white first cell. No runtime rasterization. |
 | 256×256 validation decal atlas | `core:decal_test_01` → `assets/shared/decals/validation_atlas_01.png` | Fixed square RGBA8 sheet; four 128×128 cells, eight-pixel UV gutters, only slot zero contains the existing frame and text. The PNG retains the atlas's bottom-up row convention, so its text appears vertically inverted in an ordinary image viewer. Preserve that orientation and alpha-zero background; the existing atlas UVs make it upright in game. No tiling. |
 | 64×64 missing-texture checker | `core:tex_missing` → `assets/shared/textures/missing_01.png` | Fixed square opaque RGBA8 sheet; eight-pixel cells alternate `[255, 0, 255, 255]` and `[24, 24, 24, 255]`, starting magenta at the top-left. Preserve its symmetric orientation and checker period. |
@@ -2833,10 +2836,10 @@ Run `python3 tools/doors/check.py --check` before normal asset validation.
 ### Mannequin crouch and crowbar clip extension (0.14.0)
 
 The November encounter extension appends `crouch_idle`, `crouch_walk`,
-`crowbar_idle`, `crowbar_walk`, and `crowbar_swing` to the accepted R2 export.
+`crowbar_idle`, `crowbar_walk`, `crowbar_run`, and `crowbar_swing` to the accepted R2 export.
 All 19 original animations, mesh/skin/node/material objects, existing accessors
 and the complete original BIN payload (including PNGs) remain unchanged. The
-accepted ledger now identifies the 24-clip GLB. No cavity data is used for this
+accepted ledger now identifies the 25-clip GLB. No cavity data is used for this
 model; ordinary lighting and existing skin atlases remain authoritative.
 
 `tools/entities/add_encounter_clips.py` uses Blender's math library offline to
@@ -2858,5 +2861,39 @@ source identity only after the append-only structural comparison.
 The crowbar clips roll the closed right hand 90° about its local Y axis, keeping
 the fingers and tool together while placing the held shaft upright. The socket
 offset above is unchanged. First-person presentation also holds the shaft nearly
-vertical, farther from the camera and close to the lower-right edge to retain a
-small screen footprint. These are pose changes, not geometry or texture changes.
+vertical at the lower right, with the redesigned forged hook and slightly raised
+grip giving it more screen presence. The original Blender geometry and GIMP
+albedo/XCF are retained under `tools/player/source/`. Named encounter gaits use
+measured travel divided by their authored reference speed; the robot now uses
+its crowbar run clip. A brief visual entry blend preserves gameplay swing timing.
+
+### Mannequin silhouette and stride refinement (0.14.0)
+
+The November 11 refinement is a derivative of the 25-clip encounter export,
+reproduced by `tools/entities/refine_mannequin.py` after
+`tools/entities/add_encounter_clips.py`. It retains 2,412 triangles, 37 joints,
+all node/rest transforms, original primitive/material order, fitted UVs, skin
+weights, triangle indices and exact embedded PNG bytes. All standalone skin
+atlases, Black tint, sockets, and catalog envelopes remain unchanged. Small
+position changes taper the crown/jaw, soften the shoulder outline and round the
+toes; normals follow those positions. No subdivision, new texture or material
+lighting workaround is introduced.
+
+`walk`, `carry_walk`, `crowbar_walk`, `run`, `run_arms_forward`, and `crowbar_run`
+share new baked root/pelvis/leg channels with continuous foot recovery, flat stance
+travel matched to their reference speeds, heel/toe roll, and yielding
+knees. Walking retains its 1 m/s reference. The three running clips use a
+3.2 m/s reference and 30% stance fraction at the retained 0.68-second duration,
+keeping stance travel matched while giving recovery more time at encounter
+speed. Gameplay movement speed is unchanged. The unchanged local upper-body
+channels preserve carrying, forward zombie arms,
+and the upright crowbar grip. The other 19 clips remain exact, including all
+interaction timing and crouch/swing clips. This is offline flat-floor authoring,
+not runtime foot IK, slope correction or a locomotion-controller change.
+
+The accepted-export ledger pins the new binary and measured bounds. The dated
+November 7 shadow inventory remains historical for the mannequin's prior
+export; this derivative has no cavity data, and ordinary lighting remains its
+default. Its exact contracts and bounded stance measurements are checked with
+`tools/entities/check_mannequin_refinement.py BEFORE.glb AFTER.glb`; native
+moving review is separate. See the [refinement report](reports/mannequin-refinement-0.14.0-mac.md).

@@ -1247,7 +1247,7 @@ records using < / > or creates another with New. Pointer placement is retained.
 ### Player health rules
 
 Health is opt-in and disabled by default, including in existing maps. Open
-**Project > Map settings > Player health** and turn on **Enable health for this map**
+**Project > Game Modes > Health, recovery and display** and turn on **Enable health for this map**
 to activate it. Disabled maps do not process damage, regeneration, hit protection,
 health-kit actions or health HUD, and zero dormant HP cannot block walking.
 
@@ -1271,7 +1271,7 @@ Health rules are currently selected per map. Reusable Game Modes, rule-set
 import/export and scripted modifiers are not implemented by these controls.
 
 Player maximum and starting HP are separate whole-number settings in **Project >
-Map settings > Player health**. Select an NPC, open **Capabilities > Entity health**,
+Game Modes > Health, recovery and display**. Select an NPC, open **Capabilities > Entity health**,
 and choose **Customize health** to edit that individual's maximum and starting HP.
 **Use default health** removes the override. Both values default to 6; maximum must
 be positive, starting HP may be zero but must not exceed maximum (range 0–65535).
@@ -1290,7 +1290,7 @@ still require packaged validation.
 
 ### Player tool inventory
 
-Open **Project > Map settings > Tools**, then enable **Give player crowbar**.
+Open **Project > Game Modes > Crowbar**, then enable **Give player crowbar**.
 It is off by default for new and old maps. Set damage in whole HP, reach in
 metres and swing speed in swings per second (including recovery). Allowed ranges
 are damage 1–65535, reach 0.1–4 m, speed 0.25–5/s. Changes use ordinary undo/redo
@@ -1303,3 +1303,42 @@ does not repeat attacks, and clicks during recovery are not queued. The small
 first-person hand/forearm uses the player's saved colour. Stopping or restarting
 a test discards its temporary inventory/swing state. NPC death reaction policy
 is separate from the HP changes; this step adds no automatic NPC defeat behavior.
+
+
+## Game Modes (0.14.0 foundation)
+
+Open **Tools > Project / export > Game Modes**. This section edits the selected
+map, using its normal undo/redo and Save controls. Opening it never turns on
+health or changes an old map.
+
+1. Choose **New mode (walking defaults)** for a fresh rule set, or keep the current
+   map's existing settings. New modes start with health off, no crowbar and
+   3.75 m/s walking speed.
+2. **Name and movement speed** gives the mode a recognizable name and sets speed
+   from 1 to 10 m/s. Crouching keeps its one-third ratio. A mode's speed overrides
+   the player's default speed on that map; maps without a mode keep their previous
+   behavior.
+3. **Health, recovery and display** exposes explicit health enablement, starting
+   and maximum HP, regeneration, health kits and hearts. The next page contains
+   regeneration rate, delay and hit protection. Health remains off until enabled;
+   a hidden display alone does not disable health. One HP is half a heart.
+4. **Crowbar** controls availability, damage, reach and swing speed. Granting it
+   does not enable health.
+5. **Save as named preset** stores these settings in your personal mode library.
+   **Choose saved preset** copies one to the current map. **Update named preset**
+   replaces the library version with the same name; existing maps are unaffected.
+   Rename first to make another preset. Library saves are separate from map Save
+   and map undo history.
+6. **Save** writes the map and its independent mode copy into the project folder.
+   Test in editor or build the map as usual. Presets are never looked up by Play.
+
+Mode copies live in `game_modes/` alongside `levels/`, and complete project
+exports/source recovery retain them. They are immutable snapshots; earlier
+revisions can remain on disk, while export includes only currently selected
+copies. Do not edit a snapshot separately: the editor checks it against the saved
+map and refuses conflicting changes. Edit the map's Game Modes fields instead.
+Personal presets live in the Places user-data `game_modes/` folder (up to 128).
+
+This first version has no dedicated mode import/export UI, mode-specific Luau
+rules, arbitrary modifiers, or zombie waves. Existing general map scripts remain
+available separately; they are not included in these presets.

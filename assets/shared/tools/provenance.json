@@ -1,6 +1,6 @@
 {
-  "source_mannequin": "a27aa5b4fda530152ba888535e06b21442bb4c05c476ba0028435a4e05291051",
-  "contract": "grip origin; +Y up; +Z toward eye; original PNGs and arm UVs",
+  "source_mannequin": "dcaa55ad8065de0653a4821507fd19cd568386cdfb3257ec233f6ef4ff9d7e54",
+  "contract": "grip origin; +Y up; +Z toward eye; retained mannequin arm UVs/PNG and original GIMP crowbar atlas",
   "models": {
     "right_arm": {
       "triangles": 740,
@@ -21,22 +21,22 @@
       "png_sha256": "1cffbe5fa7ef1c8e50a9257819ce810a03c9adebb52d7fd539add3b9bd86219d"
     },
     "crowbar": {
-      "triangles": 176,
+      "triangles": 1276,
       "bounds": [
         [
-          -0.0115,
-          -0.1915,
-          -0.09932276606559753
+          -0.019290741533041,
+          -0.21050000190734863,
+          -0.011086554266512394
         ],
         [
-          0.0115,
-          0.390953928232193,
-          0.00952627882361412
+          0.019290741533041,
+          0.4659828543663025,
+          0.14532442390918732
         ]
       ],
-      "sha256": "cefb951d10f43a9ed4301f7c4b3185ee2ae7501793e58a2d5afb01c9a5085de7",
-      "png": "assets/shared/textures/white_01.png",
-      "png_sha256": "b8ece440e5c8cb37b58d8246bf4eb8e3bd6747d2103193cc96f208634bd1222f"
+      "sha256": "5b12dc07f3d7615951ffb1540d0c6b910673197e22aec84eda6d47411e360a05",
+      "png": "assets/shared/tools/crowbar.png",
+      "png_sha256": "ed857a2cf15d9f51aa346b9b4f3745fce0a4853f15d8ad40adb9329df3928a06"
     }
   }
 }

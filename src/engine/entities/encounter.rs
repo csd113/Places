@@ -62,6 +62,7 @@ struct Actor {
     cooldown: f32,
     fast: bool,
     target_robot: Option<String>,
+    target_enemy: Option<String>,
     swing: Option<Swing>,
 }
 struct Swing {
@@ -326,6 +327,7 @@ impl EntityWorld {
             cooldown: 0.0,
             fast,
             target_robot: None,
+            target_enemy: None,
             swing: None,
         })
     }
@@ -457,12 +459,21 @@ impl EntityWorld {
                 let pursues_robot =
                     |z: &Actor| z.target_robot.as_deref() == Some(robot.id.as_str());
                 pursues_robot(b).cmp(&pursues_robot(a)).then_with(|| {
-                    position
-                        .distance_squared(*pa)
-                        .total_cmp(&position.distance_squared(*pb))
+                    // Keep an equally suitable opponent until a different one
+                    // is clearly nearer. Own pursuers still take precedence.
+                    let score = |z: &Actor, p: Vec3| {
+                        position.distance_squared(p)
+                            * if robot.target_enemy.as_deref() == Some(z.id.as_str()) {
+                                0.8
+                            } else {
+                                1.0
+                            }
+                    };
+                    score(a, *pa).total_cmp(&score(b, *pb))
                 })
             });
         if let Some((zombie, goal)) = target {
+            robot.target_enemy = Some(zombie.id.clone());
             let rules = self.tool_settings;
             self.combat_step(
                 robot,
@@ -480,6 +491,7 @@ impl EntityWorld {
                 ctx,
             );
         } else {
+            robot.target_enemy = None;
             robot.swing = None;
             let destination = if position.distance(ctx.feet) > 2.5 {
                 ctx.feet
@@ -491,6 +503,7 @@ impl EntityWorld {
                 destination,
                 Some(ctx.player_walk_speed),
             );
+            self.ai.set_combat_facing(&robot.id, ctx.feet);
         }
     }
     fn combat_step(
@@ -509,8 +522,19 @@ impl EntityWorld {
         let _goal = self.ai.set_navigation_goal_with_speed(
             &actor.id,
             destination,
-            Some(intent.speed.clamp(0.05, 8.0)),
+            // Brake into reach instead of sliding at full speed into a swing.
+            Some(
+                intent
+                    .speed
+                    .min(
+                        ((position.distance(intent.goal) - intent.reach).max(0.0) * 16.0)
+                            .sqrt()
+                            .max(0.35),
+                    )
+                    .clamp(0.05, 8.0),
+            ),
         );
+        self.ai.set_combat_facing(&actor.id, intent.goal);
         if actor.cooldown <= 0.0 {
             actor.swing = None;
             if close {
@@ -547,34 +571,33 @@ impl EntityWorld {
             let _hit = self.dispatch_health(&intent.target, HealthAction::Damage { hp: intent.hp });
         }
     }
-    pub(super) fn encounter_pose(&self, id: &str, moving: bool) -> Option<PoseCue> {
+    pub(super) fn encounter_pose(&self, id: &str, speed_mps: f32) -> Option<PoseCue> {
         let e = self.encounter.as_ref()?;
+        let moving = speed_mps > 0.01;
         if e.zombies.iter().any(|z| z.id == id && !z.dead) {
-            return Some(PoseCue::Clip {
+            return Some(PoseCue::Gait {
                 name: if moving {
                     "run_arms_forward"
                 } else {
                     "pose_arms_forward"
                 }
                 .into(),
-                once: false,
-                paused: false,
+                speed_mps,
             });
         }
         let robot = e.robots.iter().find(|a| a.id == id && !a.dead)?;
         let Some(swing) = robot.swing.as_ref() else {
-            return Some(PoseCue::Clip {
+            return Some(PoseCue::Gait {
                 name: if moving {
-                    "crowbar_walk"
+                    "crowbar_run"
                 } else {
                     "crowbar_idle"
                 }
                 .into(),
-                once: false,
-                paused: false,
+                speed_mps,
             });
         };
-        Some(PoseCue::Sample {
+        Some(PoseCue::Action {
             name: "crowbar_swing".into(),
             progress: (1.0 - robot.cooldown / swing.interval).clamp(0.0, 1.0),
         })

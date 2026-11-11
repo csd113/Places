@@ -258,13 +258,7 @@ impl EntityWorld {
         &self,
         agent: &crate::engine::ai::AiAgent,
     ) -> crate::engine::entity::PoseCue {
-        if let Some(cue) = self.encounter_pose(
-            &agent.instance_id,
-            matches!(
-                agent.cue(),
-                crate::engine::entity::PoseCue::Walk { speed_mps: _ }
-            ),
-        ) {
+        if let Some(cue) = self.encounter_pose(&agent.instance_id, agent.speed_mps) {
             return cue;
         }
         let cue = if agent.authored_pose() {

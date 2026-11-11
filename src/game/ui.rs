@@ -937,7 +937,7 @@ fn controls_rows(settings: &Settings) -> Vec<SettingsRow> {
     );
     push_row(
         &mut rows,
-        "Walk Speed",
+        "Default Walk Speed",
         selector(&format!("{:.1} m/s", settings.walk_speed)),
         SettingsRowKind::Value(SettingsValue::WalkSpeed),
     );

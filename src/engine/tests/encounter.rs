@@ -242,7 +242,7 @@ fn companion_group_targets_individuals_and_toggle_retires_every_member() -> Resu
     );
     assert_eq!(
         world
-            .encounter_pose("encounter:zombie:0", true)
+            .encounter_pose("encounter:zombie:0", 3.375)
             .and_then(|p| p.clip_name().map(str::to_string))
             .as_deref(),
         Some("run_arms_forward")

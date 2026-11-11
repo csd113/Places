@@ -111,8 +111,9 @@ def smooth_keys(t, values):
             return values[i-1]*(1-u)+values[i]*u
     return values[-1]
 
-def bar_pose(phase, walking=False, attack=False):
-    local = local_from_global(sampled('walk', phase*1.1)) if walking else [m.copy() for m in stand]
+def bar_pose(phase, walking=False, attack=False, running=False):
+    gait = 'run' if running else 'walk'
+    local = local_from_global(sampled(gait, phase*clips[gait]['duration'])) if walking or running else [m.copy() for m in stand]
     upper = smooth_keys(phase, [-30, -120, -65, -10, -30]) if attack else -30
     lower = smooth_keys(phase, [-90, -170, -80, -30, -90]) if attack else -90
     for part, angle in [('upper_arm', upper), ('forearm', lower), ('hand', lower)]:
@@ -146,6 +147,7 @@ for name, duration, loop, speed, sample in [
     ('crouch_walk', 1.0, True, 0.56, lambda t: crouch(t, True)),
     ('crowbar_idle', 1, True, None, lambda t: bar_pose(0)),
     ('crowbar_walk', 1.1, True, 1.0, lambda t: bar_pose(t, walking=True)),
+    ('crowbar_run', clips['run']['duration'], True, 2.244582043, lambda t: bar_pose(t, running=True)),
     ('crowbar_swing', 1, False, None, lambda t: bar_pose(t, attack=True)),
 ]:
     count = 61
@@ -181,7 +183,7 @@ output.parent.mkdir(parents=True, exist_ok=True)
 output.write_bytes(struct.pack('<III', 0x46546C67, 2, 28+len(raw)+len(binary)) + struct.pack('<II',len(raw),0x4E4F534A) + raw + struct.pack('<II',len(binary),0x004E4942) + binary)
 verified = Model(output)
 report = {'source_sha256': SOURCE_HASH, 'sha256': hashlib.sha256(output.read_bytes()).hexdigest(), 'preserved_binary_bytes': len(model.binary), 'samples': {}}
-for clip in verified.clips[-5:]:
+for clip in verified.clips[-6:]:
     extents = []
     for t in (0, .18, .32, .5, .75, 1):
         vertices = verified._skin(verified._pose_globals(clip, t*clip['duration']))

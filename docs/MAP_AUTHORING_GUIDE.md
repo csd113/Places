@@ -10062,10 +10062,9 @@ selected kit rule; ordinary `heal` actions are explicit scripted/event healing.
 The event's usual once/cooldown policy applies. A kit action alone does not spawn,
 hide or consume a prop. Use existing event/object authoring for presentation.
 
-The native editor exposes these rules under **Project > Map settings > Player
-health** and player kit actions in the event action picker. Rules and actions
-participate in normal validation, save/reopen and undo/redo. They do not implement
-a Game Modes library or rule-set import/export yet.
+The native editor exposes these rules under **Project > Game Modes > Health, recovery and display** and player kit actions in the event action picker. Rules and actions
+participate in normal validation, save/reopen and undo/redo. Reusable copied presets are now available in Game Modes; dedicated rule-set
+import/export remains future work.
 
 ### Health runtime boundary
 
@@ -10225,3 +10224,20 @@ Encounter checkpoint persistence is not implemented: `saving` must be false.
 Native editor Quick test retains its documented NPC-ragdoll limitations; use a
 compiled package to validate the complete encounter. Packages containing a zone
 or encounter require `encounter-v1`, so older players refuse unsupported content.
+
+
+## Game Modes foundation (0.14.0)
+
+**Project > Game Modes** groups health enablement/recovery/display, movement
+speed and crowbar settings. Applying a reusable preset copies its values;
+subsequent library edits never affect the map. Health stays opt-in. New walking
+modes disable health and tools and use 3.75 m/s movement (supported range 1–10).
+Legacy maps without a mode keep their global movement setting and existing
+health/tool defaults. Do not turn on health for ordinary walking maps.
+
+The editor saves an independent versioned rules snapshot under project-local
+`game_modes/`, alongside `levels/`, with inline level values validated against
+that copy. Complete project export/recovery retains it; compiled Play never
+reads the user's preset library. See [the source contract](PROJECT_FORMAT.md#copied-game-modes-0140)
+and [editor workflow](EDITOR.md#game-modes-0140-foundation). This phase does not
+add mode import/export UI, Luau mode rules, unrestricted modifiers or waves.

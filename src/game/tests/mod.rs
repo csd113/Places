@@ -21,3 +21,5 @@ mod movement_hearing;
 mod cinematics;
 
 mod health;
+
+mod game_modes;

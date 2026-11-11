@@ -100,20 +100,20 @@ impl Game {
         let forward = Vec3::new(yaw_sin * pitch_cos, pitch_sin, -yaw_cos * pitch_cos);
         let right = Vec3::new(yaw_cos, 0.0, yaw_sin);
         let mut wish = Vec3::new(
-            forward.x.mul_add(forward_axis, right.x * side_axis) * settings.walk_speed,
-            forward.y * forward_axis * settings.walk_speed,
-            forward.z.mul_add(forward_axis, right.z * side_axis) * settings.walk_speed,
+            forward.x.mul_add(forward_axis, right.x * side_axis) * self.walk_speed(settings),
+            forward.y * forward_axis * self.walk_speed(settings),
+            forward.z.mul_add(forward_axis, right.z * side_axis) * self.walk_speed(settings),
         );
         if input.is_held(Control::Jump) {
-            wish.y += settings.walk_speed;
+            wish.y += self.walk_speed(settings);
             self.vertical_velocity = JUMP_RISE_SPEED;
         } else if forward_axis == 0.0 && side_axis == 0.0 {
             wish.y -= IDLE_SINK_SPEED;
         } else {
-            wish.y += (forward_axis * settings.walk_speed * pitch_sin * 2.0)
-                .clamp(0.0, settings.walk_speed);
+            wish.y += (forward_axis * self.walk_speed(settings) * pitch_sin * 2.0)
+                .clamp(0.0, self.walk_speed(settings));
         }
-        let wish_speed = wish.length().min(settings.walk_speed) * WATER_SPEED_FACTOR;
+        let wish_speed = wish.length().min(self.walk_speed(settings)) * WATER_SPEED_FACTOR;
         let fluid = self.player_fluid_velocity();
         let mut relative = Vec3::new(
             self.horizontal_velocity.x - fluid.x,

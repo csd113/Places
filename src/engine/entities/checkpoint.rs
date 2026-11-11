@@ -635,9 +635,13 @@ fn validate_pose(cue: &crate::engine::entity::PoseCue) -> Result<(), String> {
             once: _,
             paused: _,
         } => Ok(()),
-        PoseCue::Walk { speed_mps } => number(*speed_mps, 1000.0),
+        PoseCue::Walk { speed_mps } | PoseCue::Gait { name: _, speed_mps } => {
+            number(*speed_mps, 1000.0)
+        }
         PoseCue::Scrub { name: _, target } => unit(*target),
-        PoseCue::Sample { name: _, progress } => unit(*progress),
+        PoseCue::Sample { name: _, progress } | PoseCue::Action { name: _, progress } => {
+            unit(*progress)
+        }
         PoseCue::Articulated {
             name: _,
             progress,

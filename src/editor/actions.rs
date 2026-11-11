@@ -396,7 +396,8 @@ impl App {
     }
 
     fn contextual_action(&mut self, action: Action, window: &Window) -> Result<bool, String> {
-        Ok(self.sign_action(action)?
+        Ok(self.game_mode_action(action)?
+            || self.sign_action(action)?
             || self.reuse_action(action)?
             || self.lighting_action(action)?
             || self.focus_action(action)?

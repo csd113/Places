@@ -17,6 +17,7 @@ pub enum Target {
     Map,
     Health,
     Tools,
+    GameMode,
     Spawn,
     Defaults,
     Presentation,
@@ -92,6 +93,7 @@ impl Document {
             Target::Map => Some(self.raw()),
             Target::Health => self.raw().get("health"),
             Target::Tools => self.raw().get("tools"),
+            Target::GameMode => self.raw().get("game_mode"),
             Target::Spawn => self.raw().get("spawn"),
             Target::Defaults => self.raw().get("defaults"),
             Target::Presentation => self
@@ -144,6 +146,7 @@ impl Document {
             Target::Map
                 | Target::Health
                 | Target::Tools
+                | Target::GameMode
                 | Target::Spawn
                 | Target::Defaults
                 | Target::Presentation
@@ -154,10 +157,16 @@ impl Document {
         }
         let record = match field.target {
             Target::Map => raw.as_object_mut().ok_or("Invalid map")?,
-            Target::Health | Target::Tools | Target::Spawn | Target::Defaults => raw
+            Target::Health
+            | Target::Tools
+            | Target::GameMode
+            | Target::Spawn
+            | Target::Defaults => raw
                 .as_object_mut()
                 .ok_or("Invalid map")?
-                .entry(if field.target == Target::Tools {
+                .entry(if field.target == Target::GameMode {
+                    "game_mode"
+                } else if field.target == Target::Tools {
                     "tools"
                 } else if field.target == Target::Health {
                     "health"
@@ -201,6 +210,18 @@ impl Document {
             drop(record.remove(field.key));
         } else {
             drop(record.insert(field.key.into(), value));
+        }
+        if matches!(
+            field.target,
+            Target::Health | Target::Tools | Target::GameMode
+        ) {
+            let _mode = raw
+                .as_object_mut()
+                .ok_or("Invalid level")?
+                .entry("game_mode")
+                .or_insert_with(
+                    || serde_json::json!(crate::engine::game_mode::ModeInfo::default()),
+                );
         }
         self.accept_edit(raw)
     }

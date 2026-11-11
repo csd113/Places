@@ -90,7 +90,7 @@
     ]
   },
   "entities/mannequin/model/mannequin.glb": {
-    "sha256": "fe72580b3dd2cd5ec6459a316677cb1488f113a1ef20b97205d92a12c34a3df9",
+    "sha256": "4042ec146859a9184b6f5799a611d049091c2c03f58211ccef2e12479a04de8a",
     "triangles": 2412,
     "texture_edge": 1024,
     "identities": [
@@ -100,12 +100,12 @@
     "bounds_min": [
       -0.28588390350341797,
       0.0,
-      -0.10175465047359467
+      -0.10095217823982239
     ],
     "bounds_max": [
       0.28588390350341797,
       1.7230345010757446,
-      0.15848200023174286
+      0.15543562173843384
     ]
   },
   "entities/pumpkin-skeleton/model/pumpkin-skeleton.glb": {

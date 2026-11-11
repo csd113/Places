@@ -526,3 +526,16 @@ pub(super) fn tools() -> Vec<F> {
         ),
     ]
 }
+
+pub(super) fn mode() -> Vec<F> {
+    vec![
+        F::new(T::GameMode, "name", "Mode name", K::Text, "\"Custom mode\""),
+        F::new(
+            T::GameMode,
+            "walk_speed",
+            "Walk speed (m/s, 1-10)",
+            K::Number,
+            "3.75",
+        ),
+    ]
+}

@@ -92,6 +92,7 @@ impl LevelDocument {
                 self.path.display()
             ));
         }
+        super::game_modes::verify_saved_copy(project, &self.saved)?;
         drop(validate_raw(&self.raw, &self.level.id)?);
         Ok(())
     }
@@ -106,6 +107,7 @@ impl LevelDocument {
         if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_LEVEL_JSON_BYTES {
             return Err("Formatted level source exceeds the engine source limit".into());
         }
+        super::game_modes::publish_copy(project.root(), &self.level)?;
         atomic_replace(&self.path, &bytes)?;
         self.disk_bytes = bytes;
         self.saved = self.raw.clone();
@@ -213,7 +215,7 @@ fn write_contents(file: &mut File, path: &Path, bytes: &[u8]) -> Result<(), Stri
         .map_err(|error| format!("{}: {error}", path.display()))
 }
 
-pub(super) fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(in crate::editor) fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path.parent().ok_or("Source has no parent folder")?;
     let (temporary, mut file) = reserve_temporary(parent)?;
     let result = (|| {
@@ -232,7 +234,7 @@ pub(super) fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
     result
 }
 
-pub(super) fn atomic_create(path: &Path, bytes: &[u8]) -> Result<(), String> {
+pub(in crate::editor) fn atomic_create(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path.parent().ok_or("Source has no parent folder")?;
     let (temporary, mut file) = reserve_temporary(parent)?;
     let result = (|| {

@@ -52,6 +52,7 @@ impl Document {
         }
         self.save_all()?;
         let path = self.root().join(target.as_str());
+        super::game_modes::publish_copy(self.root(), &level)?;
         persistence::atomic_create(&path, &bytes)?;
         if let Err(error) = self.publish_manifest(&manifest) {
             // Delete only the exact source this operation published. A source

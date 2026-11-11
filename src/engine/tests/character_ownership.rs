@@ -95,6 +95,47 @@ fn tiny_rig() -> Arc<LoadedPropAsset> {
     })
 }
 
+// Named combat gaits previously ignored measured speed, and exact samples
+// snapped directly into swings. Two synthetic clips protect both clocks and
+// the legacy collision-owned Sample contract in microseconds, without assets.
+#[test]
+fn combat_gait_tracks_travel_and_actions_blend_without_retiming() -> Result<(), String> {
+    let mut model = tiny_rig().model.clone();
+    model
+        .animations
+        .get_mut(1)
+        .ok_or("gait")?
+        .reference_speed_mps = Some(2.0);
+    let mut animator = CharacterAnimator::new(&model).ok_or("animator")?;
+    let gait = |speed_mps| PoseCue::Gait {
+        name: "walk".into(),
+        speed_mps,
+    };
+    assert!(animator.update_cued(0.1, &gait(3.0)));
+    assert!((animator.cue.as_ref().ok_or("cue")?.time - 0.15).abs() < 0.0001);
+    assert!(animator.update_cued(0.1, &gait(1.0)));
+    assert!((animator.cue.as_ref().ok_or("cue")?.time - 0.2).abs() < 0.0001);
+    let _updated = animator.update_cued(
+        0.0,
+        &PoseCue::Action {
+            name: "pose_stand".into(),
+            progress: 0.32,
+        },
+    );
+    assert_eq!(animator.cue.as_ref().ok_or("action")?.time, 0.32);
+    assert_eq!(animator.cue_fade, Some(0.0), "entry retains displayed pose");
+    let _sampled = animator.update_cued(
+        0.0,
+        &PoseCue::Sample {
+            name: "walk".into(),
+            progress: 0.75,
+        },
+    );
+    assert_eq!(animator.cue.as_ref().ok_or("sample")?.time, 0.75);
+    assert!(animator.cue_fade.is_none(), "physics samples remain exact");
+    Ok(())
+}
+
 // Protects observed idle skin/upload waste and cue-to-automatic ownership.
 // One synthetic node and two keys check exact pose retention plus real motion;
 // this adds milliseconds, no asset decode, GPU, simulation or map bake.

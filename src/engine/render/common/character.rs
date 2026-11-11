@@ -3297,6 +3297,25 @@ impl CueState {
 }
 
 /// The clip-time a scrub cue eases toward, or `None` for a playing cue.
+// Short combat entry blends preserve contact timing without snapping the stance.
+fn cue_blend_step(cue: &PoseCue, step: f32) -> f32 {
+    let rate = if matches!(
+        cue,
+        PoseCue::Gait {
+            name: _,
+            speed_mps: _
+        } | PoseCue::Action {
+            name: _,
+            progress: _
+        }
+    ) {
+        3.0
+    } else {
+        1.0
+    };
+    step * rate
+}
+
 fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
     match cue {
         PoseCue::Scrub { target, name: _ } => {
@@ -3309,6 +3328,14 @@ fn scrub_target_for(cue: &PoseCue, duration: f32) -> Option<f32> {
         }
         PoseCue::Idle
         | PoseCue::Walk { speed_mps: _ }
+        | PoseCue::Gait {
+            name: _,
+            speed_mps: _,
+        }
+        | PoseCue::Action {
+            name: _,
+            progress: _,
+        }
         | PoseCue::Sample {
             name: _,
             progress: _,
@@ -4141,9 +4168,12 @@ impl CharacterAnimator {
         };
         let previous_time = state.time;
         self.cue_finished |= state.advance(step, rate, duration);
+        if let PoseCue::Action { name: _, progress } = cue {
+            state.time = duration * progress.clamp(0.0, 1.0);
+        }
         let previous_fade = self.cue_fade.map(f32::to_bits);
         if let Some(elapsed) = self.cue_fade.as_mut() {
-            *elapsed = (*elapsed + step).min(CUE_BLEND_SETTLE_SECONDS);
+            *elapsed = (cue_blend_step(cue, step) + *elapsed).min(CUE_BLEND_SETTLE_SECONDS);
         }
         if !changed
             && !self.cue_needs_sample
@@ -4293,12 +4323,14 @@ impl CharacterAnimator {
             PoseCue::Clip { name, once, paused } => {
                 (self.clip_index(name).unwrap_or(0), *once, *paused, 1.0)
             }
+            PoseCue::Gait { name, speed_mps } => self.resolve_gait(name, *speed_mps),
             // A scrub cue never advances on its own: `update_cued` eases its
             // time toward the authored fraction instead.
             PoseCue::Scrub { name, target: _ } => {
                 (self.clip_index(name).unwrap_or(0), true, false, 1.0)
             }
             PoseCue::Sample { name, progress: _ }
+            | PoseCue::Action { name, progress: _ }
             | PoseCue::Articulated {
                 name,
                 progress: _,
@@ -4312,6 +4344,22 @@ impl CharacterAnimator {
                 weight: _,
             } => (self.clip_index(name).unwrap_or(0), true, true, 1.0),
         }
+    }
+
+    fn resolve_gait(&self, name: &str, speed_mps: f32) -> (usize, bool, bool, f32) {
+        let clip = self.clip_index(name).unwrap_or(0);
+        let reference = self
+            .clip_reference_speeds
+            .get(clip)
+            .copied()
+            .flatten()
+            .unwrap_or(self.walk_reference_speed);
+        let rate = if speed_mps.is_finite() {
+            (speed_mps / reference).clamp(0.0, 4.0)
+        } else {
+            0.0
+        };
+        (clip, false, false, rate)
     }
 
     /// Samples the active cue (and its crossfade source) into the pose buffers.

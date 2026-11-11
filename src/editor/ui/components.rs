@@ -24,21 +24,13 @@ pub(in crate::editor) fn draw(
         return;
     };
     let id = app.selected.unwrap_or(ObjectId::Prop(0));
-    if section != 0 {
-        button(
-            vertices,
-            hits,
-            [140.0, 83.0, 55.0, 10.0],
-            "< Sections",
-            Action::Components(0),
-            true,
-        );
-    }
+    section_back(vertices, hits, section);
     match section {
         0 => hub(app, vertices, hits),
         1 => states(app, vertices, hits, offset),
         2..=4 | 11 => events::draw(app, vertices, hits, section, offset),
         12 => source(app, vertices, hits, offset),
+        17 | 18 => super::super::game_modes::draw(app, vertices, hits, page),
         _ => {
             let object = doc.component_object(id);
             let list = match section {
@@ -52,6 +44,7 @@ pub(in crate::editor) fn draw(
                 14 => fields::health(),
                 15 => fields::entity_health(),
                 16 => fields::tools(),
+                19 => fields::mode(),
                 _ => Vec::new(),
             };
             let visible_fields: Vec<_> = list
@@ -62,6 +55,7 @@ pub(in crate::editor) fn draw(
                     Target::Identity
                     | Target::Health
                     | Target::Tools
+                    | Target::GameMode
                     | Target::Map
                     | Target::Spawn
                     | Target::Defaults
@@ -110,6 +104,27 @@ pub(in crate::editor) fn draw(
     );
 }
 
+fn section_back(vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, section: usize) {
+    if section != 0 {
+        button(
+            vertices,
+            hits,
+            [140.0, 83.0, 55.0, 10.0],
+            if matches!(section, 14 | 16 | 18 | 19) {
+                "< Modes"
+            } else {
+                "< Sections"
+            },
+            Action::Components(if matches!(section, 14 | 16 | 18 | 19) {
+                17
+            } else {
+                0
+            }),
+            true,
+        );
+    }
+}
+
 fn health_navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, section: usize) {
     if section == 10 {
         button(
@@ -142,6 +157,32 @@ fn health_navigation(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>,
                 Action::ComponentAdd("health")
             },
             true,
+        );
+    }
+    if section == 19 {
+        text(
+            vertices,
+            "Normal: 3.75 m/s. Crouching uses one third.",
+            140.0,
+            135.0,
+            MUTED,
+            68,
+        );
+        text(
+            vertices,
+            "This map overrides the player's default speed.",
+            140.0,
+            148.0,
+            MUTED,
+            68,
+        );
+        text(
+            vertices,
+            "Rename before saving to make a different preset.",
+            140.0,
+            161.0,
+            MUTED,
+            68,
         );
     }
     if section == 14 {
@@ -178,6 +219,9 @@ const fn section_title(section: usize) -> &'static str {
         8 => "IDENTITY / INTERACTION",
         9 => "ATTACHED AUDIO",
         10 => "MAP SETTINGS",
+        17 => "GAME MODES",
+        18 => "SAVED GAME MODES",
+        19 => "MODE NAME AND MOVEMENT",
         11 => "CHOOSE STATE CONDITION",
         12 => "ATTACHED SOURCE",
         13 => "NPC ITEM HANDOFF",
@@ -208,6 +252,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ("AI / beam response", 7),
         ("Attached audio", 9),
         ("Map settings", 10),
+        ("Game Modes", 17),
         ("NPC item handoff", 13),
         ("Entity health", 15),
     ]
@@ -226,7 +271,7 @@ fn hub(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             ],
             label,
             Action::Components(page),
-            page == 10
+            matches!(page, 10 | 17)
                 || (supported
                     && match page {
                         1 | 9 => {
@@ -453,7 +498,7 @@ fn source(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, index: usize) {
     pagination(v, hits, 12, index, count);
 }
 
-pub(super) fn pagination(
+pub(in crate::editor) fn pagination(
     v: &mut Vec<Vertex>,
     hits: &mut Vec<Hit>,
     section: usize,

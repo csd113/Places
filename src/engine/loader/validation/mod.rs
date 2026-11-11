@@ -104,6 +104,9 @@ fn validate_general(level: &LevelDef) -> Result<(), String> {
     validate_header(level)?;
     level.health.validate().map_err(|error| error.to_string())?;
     level.tools.validate()?;
+    if let Some(mode) = &level.game_mode {
+        mode.validate()?;
+    }
     crate::engine::entities::encounter::validate(level)?;
     validate_acoustics(level)?;
     if level.transitions.len() > 256 {

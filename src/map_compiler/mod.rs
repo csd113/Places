@@ -755,6 +755,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     {
         required.push("encounter-groups-v1".into());
     }
+    if level.game_mode.is_some() {
+        required.push("game-modes-v1".into());
+    }
     if level.tools.crowbar {
         required.push("player-tools-v1".into());
     }
