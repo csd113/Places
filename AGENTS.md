@@ -2,6 +2,13 @@
 
 ## Map and Environment Authoring
 
+All future level builds made by Codex must use the game's actual in-game editor.
+Create, edit, validate, save, and build/export levels through that editor. Do not
+manually edit level files or generate or patch them with scripts, code, or other
+external tools. Do not bypass editor validation to create geometry or settings
+that the editor would reject. If the editor cannot perform a required operation,
+report the limitation instead of editing the level files directly.
+
 Before creating or substantially modifying any map, level file, or map asset
 (texture, material, decal, prop, or light placement), read
 `docs/MAP_AUTHORING_GUIDE.md`. It is the canonical reference for the currently
