@@ -27,7 +27,7 @@ PLATFORMS = ('macOS-arm64', 'Windows')
 
 def run(*args: str | Path, **kwargs) -> str:
     try:
-        return subprocess.check_output(list(map(str, args)), text=True, **kwargs).strip()
+        return subprocess.check_output(list(map(str, args)), text=True, encoding='utf8', **kwargs).strip()
     except subprocess.CalledProcessError as error:
         print(error.output, file=sys.stderr)
         raise
@@ -43,14 +43,14 @@ def write_json(path: Path, value: object) -> None:
 
 
 def version() -> str:
-    value = tomllib.loads((ROOT / 'Cargo.toml').read_text())['package']['version']
+    value = tomllib.loads((ROOT / 'Cargo.toml').read_text(encoding='utf8'))['package']['version']
     if not re.fullmatch(r'\d+\.\d+\.\d+', value):
         raise ValueError('Expected a numeric Cargo release version')
-    lock = tomllib.loads((ROOT / 'Cargo.lock').read_text())
+    lock = tomllib.loads((ROOT / 'Cargo.lock').read_text(encoding='utf8'))
     packages = [p['version'] for p in lock['package'] if p['name'] == 'places']
     changelog = re.search(r'^## (\S+) — (?:Unreleased|\d{4}-\d{2}-\d{2})$',
-                          (ROOT / 'CHANGELOG.md').read_text(), re.M)
-    inventory = json.loads((ROOT / 'tools/release-projects.json').read_text())
+                          (ROOT / 'CHANGELOG.md').read_text(encoding='utf8'), re.M)
+    inventory = json.loads((ROOT / 'tools/release-projects.json').read_text(encoding='utf8'))
     if packages != [value] or not changelog or changelog[1] != value or inventory['version'] != value:
         raise ValueError('Cargo.lock, changelog and map inventory must match Cargo.toml')
     return value
@@ -181,7 +181,7 @@ def verify_artifacts(folder: Path, info: dict) -> list[dict]:
     records = []
     expected = set()
     for platform in PLATFORMS:
-        record = json.loads((folder / f'{platform}.json').read_text())
+        record = json.loads((folder / f'{platform}.json').read_text(encoding='utf8'))
         name = f"Places-{info['version']}-{platform}.zip"
         for key in ('version', 'source_commit', 'repository', 'run_id'):
             if record[key] != info[key]:

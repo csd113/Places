@@ -20,6 +20,23 @@ SPEC.loader.exec_module(hosted)
 
 
 class HostedReleaseTests(unittest.TestCase):
+    def test_version_metadata_uses_utf8_on_legacy_windows_locales(self):
+        # Reproduce the hosted Windows cp1252 changelog failure without a build
+        # or Windows dependency: missing encodings use that legacy default.
+        with tempfile.TemporaryDirectory() as scratch:
+            root = Path(scratch)
+            (root / 'tools').mkdir()
+            (root / 'Cargo.toml').write_text('[package]\nversion="1.2.3"\n', encoding='utf8')
+            (root / 'Cargo.lock').write_text('[[package]]\nname="places"\nversion="1.2.3"\n', encoding='utf8')
+            (root / 'CHANGELOG.md').write_bytes('## 1.2.3 — Unreleased\r\n'.encode('utf8'))
+            (root / 'tools/release-projects.json').write_text('{"version":"1.2.3"}', encoding='utf8')
+
+            def legacy_read(path, encoding=None):
+                return path.read_bytes().decode(encoding or 'cp1252').replace('\r\n', '\n')
+
+            with patch.object(hosted, 'ROOT', root), patch.object(Path, 'read_text', legacy_read):
+                self.assertEqual(hosted.version(), '1.2.3')
+
     def test_artifacts_must_belong_to_same_run_and_source(self):
         info = dict(version='1.2.3', source_commit='a' * 40, repository='owner/repo', run_id='123')
         with tempfile.TemporaryDirectory() as scratch:
