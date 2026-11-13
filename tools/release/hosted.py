@@ -65,8 +65,8 @@ def api(endpoint: str) -> object:
     return json.loads(run('gh', 'api', endpoint))
 
 
-def destination(info: dict) -> dict:
-    """Require the explicit tag to still resolve to the built checkout and a draft."""
+def verify_tag(info: dict) -> str:
+    """Require the explicit tag to still resolve to the built checkout."""
     tag = f"v{info['version']}"
     if os.environ.get('GITHUB_REF') != f'refs/tags/{tag}':
         raise ValueError(f'Upload requires running this workflow on the existing {tag} tag')
@@ -75,8 +75,26 @@ def destination(info: dict) -> dict:
     commit = api(f'repos/{repo}/commits/{encoded}')
     if commit['sha'] != info['source_commit']:
         raise ValueError('Release tag moved or does not match the compiled source')
-    release = api(f'repos/{repo}/releases/tags/{encoded}')
-    if release['tag_name'] != tag or not release['draft'] or release.get('immutable', False):
+    return tag
+
+
+def destination(info: dict) -> dict:
+    """Discover drafts with the upload job's push access, including older pages."""
+    tag = verify_tag(info)
+    # The by-tag endpoint is documented for published releases. The list endpoint
+    # includes drafts for callers with push access; build tokens stay read-only.
+    matches = []
+    page = 1
+    while True:
+        releases = api(f"repos/{info['repository']}/releases?per_page=100&page={page}")
+        matches.extend(release for release in releases if release['tag_name'] == tag)
+        if len(releases) < 100:
+            break
+        page += 1
+    if len(matches) != 1:
+        raise ValueError('Expected exactly one accessible release for the selected tag')
+    release = matches[0]
+    if not release['draft'] or release.get('immutable', False):
         raise ValueError('Target must be an existing mutable draft release; published releases are untouched')
     return release
 
@@ -84,7 +102,7 @@ def destination(info: dict) -> dict:
 def preflight() -> None:
     info = identity()
     if os.environ.get('UPLOAD_TO_DRAFT') == 'true':
-        destination(info)
+        verify_tag(info)
     with open(os.environ['GITHUB_OUTPUT'], 'a', encoding='utf8') as stream:
         stream.write(f"version={info['version']}\n")
     print(json.dumps(info, indent=2))

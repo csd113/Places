@@ -45,7 +45,11 @@ For version X.Y.Z the release receives:
 - `HOSTED_SHA256SUMS.txt`: application archive checksums.
 
 Only the upload job has `contents: write`; build jobs have read-only repository
-access. Checkout credentials are not persisted. The upload job accepts only
+access. Preflight checks the version and exact tag; draft discovery is deferred
+to the upload job because draft visibility requires push access. It uses the
+paginated release list, not the published-release tag lookup. A missing or
+inaccessible draft stops upload after the builds complete.
+Checkout credentials are not persisted. The upload job accepts only
 both platform outputs from its own run and commit. It rechecks the tag and draft
 before uploading and never uses `--clobber`. Existing identical assets can be
 skipped after an interrupted upload; differing namesakes stop the run before

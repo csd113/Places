@@ -55,11 +55,17 @@ class HostedReleaseTests(unittest.TestCase):
         info = dict(version='1.2.3', source_commit='a' * 40, repository='owner/repo')
         draft = dict(id=12, tag_name='v1.2.3', draft=True, immutable=False)
         with patch.dict(os.environ, GITHUB_REF='refs/tags/v1.2.3'):
-            with patch.object(hosted, 'api', side_effect=[{'sha': 'a' * 40}, draft]):
+            # A draft beyond page one must be found without the published-only
+            # by-tag endpoint. This models the API visibility boundary cheaply.
+            older = [dict(tag_name=f'v0.0.{index}') for index in range(100)]
+            with patch.object(hosted, 'api', side_effect=[{'sha': 'a' * 40}, older, [draft]]) as api:
                 self.assertEqual(hosted.destination(info), draft)
-            for commit, release in [('b' * 40, draft), ('a' * 40, draft | {'draft': False}),
-                                    ('a' * 40, draft | {'immutable': True})]:
-                with patch.object(hosted, 'api', side_effect=[{'sha': commit}, release]), self.assertRaises(ValueError):
+                self.assertEqual(api.call_args_list[-1].args[0],
+                                 'repos/owner/repo/releases?per_page=100&page=2')
+            for commit, releases in [('b' * 40, [draft]), ('a' * 40, [draft | {'draft': False}]),
+                                     ('a' * 40, [draft | {'immutable': True}]),
+                                     ('a' * 40, []), ('a' * 40, [draft, draft])]:
+                with patch.object(hosted, 'api', side_effect=[{'sha': commit}, releases]), self.assertRaises(ValueError):
                     hosted.destination(info)
         with patch.dict(os.environ, GITHUB_REF='refs/heads/main'), patch.object(hosted, 'api') as api:
             with self.assertRaises(ValueError):
