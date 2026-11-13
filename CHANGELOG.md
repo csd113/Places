@@ -11,7 +11,11 @@ the numbering resets, tag coverage and evidence gaps. The
 [former detailed changelog](https://github.com/csd113/Places/blob/3fee560e484d5dbc61496b34c90cdef8292dbe2b/CHANGELOG.md)
 and linked reports retain historical implementation and validation details.
 
-## 0.14.0 — In development
+## 0.14.0 — Unreleased
+
+- Add GitHub-hosted Mac arm64 and Windows x64 release builds with downloadable
+  application ZIPs and explicit, additive uploads to an existing draft release.
+  Maps and the illustrated guide remain separate release assets.
 
 - Add a map-granted crowbar, separate from carried props, with a compact
   first-person mannequin hand/forearm. `1` holsters/redraws it; one click starts
