@@ -134,6 +134,12 @@ def package() -> None:
     stage = OUTPUT / 'stage'
     suffix = '.exe' if os.name == 'nt' else ''
     compiler = ROOT / f'target/release/places-compile{suffix}'
+    if os.name == 'nt':
+        runtime = Path(os.environ['PLACES_WINDOWS_RUNTIME'])
+        # Headless reflection capture requires DXC beside the compiler, not only
+        # on PATH. Install the same runtime used by the package before any CLI.
+        for path in runtime.glob('*.dll'):
+            shutil.copy2(path, compiler.parent / path.name)
     run(sys.executable, ROOT / 'tools/verify-luau-release.py', '--compiler', compiler)
     menu = OUTPUT / 'menu.placesmap'
     # Preparation identity includes target/compiler inputs. Never reuse an old
@@ -142,10 +148,6 @@ def package() -> None:
         '--variants', 'static,full', '--asset-root', ROOT / 'assets',
         '--workers', '3', '--progress', 'off')
     if os.name == 'nt':
-        runtime = Path(os.environ['PLACES_WINDOWS_RUNTIME'])
-        # Also copy beside EXEs so the native commands use their packaged DLLs.
-        for path in runtime.glob('*.dll'):
-            shutil.copy2(path, compiler.parent / path.name)
         run(sys.executable, ROOT / 'tools/package-windows.py', stage, '--with-editor',
             '--runtime-dir', runtime, '--sdl-license', runtime / 'SDL3-LICENSE.txt',
             '--menu-package', menu)
