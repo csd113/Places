@@ -1,7 +1,10 @@
 //! Owned runtime collision models and their bounded compiled codecs.
 //! Authoring definitions remain in the parent; public level paths are reexported.
 
+mod mesh;
 mod physics;
+
+pub use mesh::MeshClearance;
 
 use super::{
     CeilingProfileDef, DEFAULT_WATER_MATERIAL, LevelDef, LevelSurfaces, MIN_STRUCTURE_M,
@@ -653,25 +656,38 @@ impl WalkableFloor {
     pub fn lowest_room_underside(&self, point: glam::Vec2, radius: f32, feet: f32) -> Option<f32> {
         self.rooms
             .iter()
-            .filter(|room| room.floor_y > feet + crate::engine::collision::CONTACT_EPS)
-            .filter_map(|room| {
-                let x = point.x.clamp(room.x0, room.x1);
-                let z = point.y.clamp(room.z0, room.z1);
-                if point.distance_squared(glam::Vec2::new(x, z)) >= radius * radius {
-                    return None;
-                }
-                Self::room_height_at(room, x, z, StairSampling::Stepped)
-                    .map(|top| {
-                        let ramp_low = room
-                            .ramps
-                            .iter()
-                            .find(|r| r.surface.contains(x, z))
-                            .map_or(top, |r| r.floor_y + r.surface.low_offset());
-                        top.min(room.floor_y).min(ramp_low) - MIN_STRUCTURE_M
-                    })
-                    .filter(|height| *height > feet + crate::engine::collision::CONTACT_EPS)
-            })
+            .filter_map(|room| Self::room_underside_disc(room, point, radius, feet))
             .min_by(f32::total_cmp)
+    }
+
+    fn room_underside_disc(
+        room: &WalkableRoom,
+        point: glam::Vec2,
+        radius: f32,
+        feet: f32,
+    ) -> Option<f32> {
+        let above_feet = feet + crate::engine::collision::CONTACT_EPS;
+        if !matches!(
+            room.floor_y.partial_cmp(&above_feet),
+            Some(std::cmp::Ordering::Greater)
+        ) {
+            return None;
+        }
+        let x = point.x.clamp(room.x0, room.x1);
+        let z = point.y.clamp(room.z0, room.z1);
+        if point.distance_squared(glam::Vec2::new(x, z)) >= radius * radius {
+            return None;
+        }
+        Self::room_height_at(room, x, z, StairSampling::Stepped)
+            .map(|top| {
+                let ramp_low = room
+                    .ramps
+                    .iter()
+                    .find(|r| r.surface.contains(x, z))
+                    .map_or(top, |r| r.floor_y + r.surface.low_offset());
+                top.min(room.floor_y).min(ramp_low) - MIN_STRUCTURE_M
+            })
+            .filter(|height| *height > above_feet)
     }
 
     /// Same authored surfaces queried by the fixed square player hull.
@@ -1110,6 +1126,11 @@ impl WalkableCeilingRoom {
         self.shape_height_range(point, radius, false)
     }
 
+    fn height_above_disc(&self, point: glam::Vec2, radius: f32, feet: f32) -> Option<f32> {
+        let [height, _] = self.disc_height_range(point, radius)?;
+        (height > feet + crate::engine::collision::CONTACT_EPS).then_some(height)
+    }
+
     fn hull_height_range(&self, point: glam::Vec2, radius: f32) -> Option<[f32; 2]> {
         self.shape_height_range(point, radius, true)
     }
@@ -1236,10 +1257,7 @@ impl WalkableCeiling {
     pub fn ceiling_above_disc(&self, x: f32, z: f32, radius: f32, feet: f32) -> Option<f32> {
         self.rooms
             .iter()
-            .filter_map(|room| {
-                let [height, _] = room.disc_height_range(glam::Vec2::new(x, z), radius)?;
-                (height > feet + crate::engine::collision::CONTACT_EPS).then_some(height)
-            })
+            .filter_map(|room| room.height_above_disc(glam::Vec2::new(x, z), radius, feet))
             .min_by(f32::total_cmp)
     }
 

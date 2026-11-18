@@ -7,6 +7,7 @@ mod balloon;
 pub use balloon::{BalloonColor, BalloonDef};
 pub mod environment;
 mod runtime_collision;
+pub(crate) use runtime_collision::MeshClearance;
 pub use runtime_collision::{
     Ladder, Ladders, WalkableCeiling, WalkableFloor, WaterSample, WaterVolume, WaterVolumes,
 };

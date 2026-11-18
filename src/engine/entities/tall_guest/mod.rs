@@ -1,6 +1,7 @@
 //! Opt-in, blind acoustic hunter. Sensing owns observations; motion and audio
 //! consume their sampled evidence, never a live hidden target transform.
 pub mod audio_fence;
+mod body;
 mod capture;
 pub(crate) use capture::Tick as CaptureTick;
 mod checkpoint;
@@ -24,7 +25,7 @@ use crate::engine::ai::perception::{Stimulus, sight_clear_with_solids};
 use crate::engine::collision::{DoorCollider, WallAabb};
 use crate::engine::entities::WorldContext;
 use crate::engine::entity::{EntityFrame, PoseCue};
-use crate::engine::level::{LevelDef, LevelSurfaces};
+use crate::engine::level::{LevelDef, LevelSurfaces, MeshClearance};
 use crate::engine::nav::{NavBounds, NavScratch, Path, PathQuery};
 use crate::engine::physics::{ImpactEvent, ImpactRelease};
 use crate::engine::props::LoadedPropAsset;
@@ -351,6 +352,7 @@ pub struct Guest {
     animator: CharacterAnimator,
     vertices: Vec<Vec3>,
     body_bounds: (Vec3, Vec3),
+    body_clusters: body::Clusters,
     ceiling: crate::engine::level::WalkableCeiling,
     path: Path,
     scratch: NavScratch,
@@ -588,6 +590,7 @@ impl Guest {
             audio_epoch: 0,
             vertices: vec![Vec3::ZERO; asset.model.vertices.len()],
             body_bounds: (Vec3::ZERO, Vec3::ZERO),
+            body_clusters: body::Clusters::new(&asset.model),
             ceiling,
             stages: Vec::new(),
             definition,
@@ -2490,6 +2493,7 @@ impl Guest {
     }
 
     fn fill_vertices(&mut self) {
+        self.body_clusters.invalidate();
         let transform = self.transform();
         self.body_bounds = (Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY));
         for (i, vertex) in self.asset.model.vertices.iter().enumerate() {
@@ -2512,62 +2516,15 @@ impl Guest {
     /// visible surface can fall between proxies. The hollow rim is solid.
     #[must_use]
     pub fn body_colliders(&self) -> Vec<DoorCollider> {
-        if !self.enabled() {
-            return Vec::new();
+        self.posed_colliders().to_vec()
+    }
+
+    fn posed_colliders(&self) -> &[DoorCollider] {
+        if self.enabled() {
+            self.body_clusters.colliders(&self.vertices)
+        } else {
+            &[]
         }
-        let count = self
-            .asset
-            .model
-            .skin
-            .as_ref()
-            .map_or(0, |skin| skin.joints.len());
-        let mut bounds = vec![(Vec3::splat(f32::INFINITY), Vec3::splat(f32::NEG_INFINITY)); count];
-        for face in self.asset.model.indices.as_chunks::<3>().0 {
-            let Some(first) = face.first().copied().map(usize::from) else {
-                continue;
-            };
-            let Some(joints) = self.asset.model.joints.get(first) else {
-                continue;
-            };
-            let Some(weights) = self.asset.model.weights.get(first) else {
-                continue;
-            };
-            let Some(slot) = weights
-                .iter()
-                .enumerate()
-                .max_by(|(_, a), (_, b)| a.total_cmp(b))
-                .and_then(|(i, _)| joints.get(i))
-            else {
-                continue;
-            };
-            let Some((lo, hi)) = bounds.get_mut(usize::from(*slot)) else {
-                continue;
-            };
-            for index in face {
-                if let Some(point) = self.vertices.get(usize::from(*index)) {
-                    *lo = lo.min(*point);
-                    *hi = hi.max(*point);
-                }
-            }
-        }
-        bounds
-            .into_iter()
-            .filter_map(|(lo, hi)| {
-                if !lo.is_finite() || !hi.is_finite() {
-                    return None;
-                }
-                Some(DoorCollider {
-                    hinge_x: lo.x,
-                    hinge_y: lo.y,
-                    hinge_z: lo.z.midpoint(hi.z),
-                    dir_x: 1.0,
-                    dir_z: 0.0,
-                    width: (hi.x - lo.x).max(0.001),
-                    height: (hi.y - lo.y).max(0.001),
-                    thickness: (hi.z - lo.z).max(0.001),
-                })
-            })
-            .collect()
     }
 
     fn check_attack(
@@ -2738,29 +2695,23 @@ impl Guest {
         solids: &[WallAabb],
     ) -> bool {
         let feet = self.state.position.y;
-        let ceiling_clear = self.vertices.iter().all(|point| {
-            self.ceiling
-                .ceiling_above_disc(point.x, point.z, 0.002, feet)
-                .is_none_or(|height| point.y + 0.03 < height)
-                && ctx
-                    .floor
-                    .lowest_room_underside(glam::Vec2::new(point.x, point.z), 0.002, feet)
-                    .is_none_or(|height| point.y + 0.03 < height)
-                && ctx
-                    .floor
-                    .height_below(point.x, point.z, feet + 0.45)
-                    .is_none_or(|height| point.y + 0.005 >= height)
-        });
+        let surface_clear = MeshClearance {
+            disc_radius: 0.002,
+            head_margin: 0.03,
+            ground_slop: 0.005,
+            ground_reach: 0.45,
+        }
+        .is_clear(ctx.floor, &self.ceiling, &self.vertices, feet);
         // The player sweeps against the conservative published joint proxies,
         // not only the exact skin. A triangle-free corner of a foot proxy can
         // otherwise enter the player and make every subsequent sweep refuse its
         // initial overlap. Admit the same physical envelope that we publish.
         let player = glam::Vec2::new(ctx.feet.x, ctx.feet.z);
-        let player_proxy_clear = self.body_colliders().iter().all(|body| {
+        let player_proxy_clear = self.posed_colliders().iter().all(|body| {
             !body.overlaps_body_y(ctx.feet.y, ctx.body_height)
                 || !crate::engine::collision::square_overlaps_door(player, ctx.body_half, body)
         });
-        let accepted = ceiling_clear
+        let accepted = surface_clear
             && player_proxy_clear
             && self.contacts_fit()
             && !self
