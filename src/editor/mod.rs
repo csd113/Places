@@ -543,12 +543,20 @@ fn create_app(
     performance_test: bool,
     pump: &mut impl FnMut() -> Result<(), String>,
 ) -> Result<App, String> {
+    let asset_root = paths::assets()?;
+    let startup_audio = audio_preview::StartupAudio::start(asset_root);
     let viewport = Viewport::new(window, performance_test, pump)?;
     let (dialog_sender, dialog_receiver) = mpsc::channel();
     let capture = capture_dir.map(Capture::new).transpose()?;
     let catalog = assets::AssetCatalog::load_default();
     let browser = browser::Browser::new(&catalog);
     pump()?;
+    let sound_cues = crate::engine::audio::AudioCatalog::load(asset_root)?
+        .cue_ids()
+        .filter(|cue| *cue != "ambience_hvac")
+        .map(str::to_string)
+        .collect();
+    let preview_audio = startup_audio.finish(sdl, pump)?;
     let app = App {
         capture,
         document: None,
@@ -587,12 +595,8 @@ fn create_app(
         object_scroll: 0,
         object_query: String::new(),
         prop: "core:chair".into(),
-        sound_cues: crate::engine::audio::AudioCatalog::load(paths::assets()?)?
-            .cue_ids()
-            .filter(|cue| *cue != "ambience_hvac")
-            .map(str::to_string)
-            .collect(),
-        preview_audio: crate::engine::audio::AudioSystem::new(paths::assets()?, sdl),
+        sound_cues,
+        preview_audio,
         audio_capture: crate::game::audio::Capture::new(),
         sound_preview_until: None,
         popup: None,

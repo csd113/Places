@@ -1,9 +1,68 @@
-//! One preloaded, listener-centred chooser sample, capped at three seconds.
+//! Editor audio preparation and the short listener-centred chooser preview.
 
+use std::path::Path;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
+use std::thread::{self, JoinHandle};
 use std::time::{Duration, Instant};
 
 use super::App;
-use crate::engine::audio::{AudioSettings, Listener, PlayRequest};
+use crate::engine::audio::{AudioSettings, AudioSystem, Listener, PlayRequest, PreparedAudio};
+
+pub(super) struct StartupAudio {
+    asset_root: &'static Path,
+    cancelled: Arc<AtomicBool>,
+    worker: Option<JoinHandle<Result<PreparedAudio, String>>>,
+}
+
+impl StartupAudio {
+    pub(super) fn start(asset_root: &'static Path) -> Self {
+        let cancelled = Arc::new(AtomicBool::new(false));
+        let worker_cancelled = Arc::clone(&cancelled);
+        let worker = thread::Builder::new()
+            .name("places-editor-audio-prepare".into())
+            .spawn(move || {
+                AudioSystem::prepare(asset_root, || worker_cancelled.load(Ordering::Relaxed))
+            })
+            .ok();
+        Self {
+            asset_root,
+            cancelled,
+            worker,
+        }
+    }
+
+    pub(super) fn finish(
+        mut self,
+        sdl: &sdl3::Sdl,
+        pump: &mut impl FnMut() -> Result<(), String>,
+    ) -> Result<AudioSystem, String> {
+        if let Some(worker) = &self.worker {
+            while !worker.is_finished() {
+                pump()?;
+                thread::sleep(Duration::from_millis(2));
+            }
+        }
+        let prepared = self.worker.take().map_or_else(
+            || AudioSystem::prepare(self.asset_root, || false),
+            |worker| {
+                worker
+                    .join()
+                    .unwrap_or_else(|_| Err("Editor audio preparation panicked".into()))
+            },
+        );
+        Ok(AudioSystem::from_prepared(prepared, sdl))
+    }
+}
+
+impl Drop for StartupAudio {
+    fn drop(&mut self) {
+        if let Some(worker) = self.worker.take() {
+            self.cancelled.store(true, Ordering::Relaxed);
+            let _retired = worker.join();
+        }
+    }
+}
 
 impl App {
     pub(super) fn preview_sound(&mut self, index: usize) -> Result<(), String> {
