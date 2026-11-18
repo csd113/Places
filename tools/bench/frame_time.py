@@ -139,7 +139,11 @@ def main() -> None:
     parser.add_argument("--fullscreen", action="store_true")
     parser.add_argument("--console-open", action="store_true", help="enable/open the console through the SDL acceptance action path")
     parser.add_argument("--vsync", action="store_true", help="otherwise request Immediate presentation")
-    parser.add_argument("--frame-latency", type=int, choices=(1, 2, 3), help="diagnostic surface queue-depth hint; normal default is 2, not an FPS limit")
+    parser.add_argument(
+        "--frame-latency", type=int, choices=(1, 2, 3),
+        help="diagnostic surface queue-depth hint (default: 1 on Metal Immediate, 2 otherwise). "
+             "For matched-depth comparisons, pass the same value on both revisions (e.g. --frame-latency 2).",
+    )
     parser.add_argument("--dx12-frame-wait", choices=("wait", "dontwait", "none"), help="benchmark-only DX12 acquisition wait control; normal default is wait")
     parser.add_argument("--texture-quality", choices=("low", "medium", "high"), default="high", help="independent texture residency for matched timing")
     parser.add_argument("--texture-filtering", choices=("low", "medium", "high"), default="high", help="independent sampler setting for matched timing")

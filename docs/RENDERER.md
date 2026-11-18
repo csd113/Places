@@ -1513,11 +1513,13 @@ logging runs are diagnostic and must not be used as authoritative FPS results.
 `PLACES_BENCH_GPU_TIMING=off` under the benchmark disables query/readback
 resources for a same-build instrumentation control and reports that explicit
 reason. These switches are inert in normal play.
-`PLACES_BENCH_FRAME_LATENCY=1..3` (harness `--frame-latency`) overrides only the
-benchmark's surface queue-depth hint, whose normal value remains 2. It does not
-set an FPS limit or change presentation mode. The requested hint is logged;
-backend behavior is measured rather than inferred from that hint. Queue-depth
-and forced-completion controls are diagnostic, not substitute acceptance runs.
+`PLACES_BENCH_FRAME_LATENCY=1..3` (harness `--frame-latency`) overrides the
+benchmark's surface queue-depth hint. The default is 1 on Metal with Immediate
+presentation and 2 otherwise. For a matched-depth comparison, explicitly pass the
+same value on both revisions (for example, `--frame-latency 2`). The override
+leaves the FPS limit and presentation mode as configured. The log records the
+requested hint. Verify actual pacing separately. Queue-depth and
+forced-completion controls serve diagnostic runs.
 On Windows, `PLACES_BENCH_DX12_FRAME_WAIT=wait|dontwait|none` (harness
 `--dx12-frame-wait`) independently controls the DX12 acquisition wait for
 diagnosis. Normal play retains the backend's Wait policy. Presentation mode,
