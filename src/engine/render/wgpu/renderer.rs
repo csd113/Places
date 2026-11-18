@@ -1268,17 +1268,7 @@ impl WgpuRenderer {
             present_mode,
             alpha_mode,
             view_formats: Vec::new(),
-            // Explicit queue-depth attribution only; ordinary play retains
-            // the existing two-frame hint. This does not select an FPS cap.
-            desired_maximum_frame_latency: if std::env::var("PLACES_BENCH").as_deref() == Ok("1") {
-                std::env::var("PLACES_BENCH_FRAME_LATENCY")
-                    .ok()
-                    .and_then(|value| value.parse::<u32>().ok())
-                    .filter(|value| (1..=3).contains(value))
-                    .unwrap_or(2)
-            } else {
-                2
-            },
+            desired_maximum_frame_latency: surface::desired_frame_latency(present_mode),
         };
 
         logging::info(format!(
@@ -8337,6 +8327,11 @@ impl WgpuRenderer {
             self.config.width = self.drawable_size.width;
             self.config.height = self.drawable_size.height;
             if let Some(surface) = self.surface.as_ref() {
+                let latency = surface::desired_frame_latency(self.config.present_mode);
+                if latency != self.config.desired_maximum_frame_latency {
+                    self.config.desired_maximum_frame_latency = latency;
+                    logging::info(format!("[wgpu] desired maximum frame latency {latency}"));
+                }
                 surface.configure(&self.device, &self.config);
             }
             self.needs_configure = false;

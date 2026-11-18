@@ -85,6 +85,27 @@ pub const fn native_power_preference() -> wgpu::PowerPreference {
     }
 }
 
+/// Queue depth follows the selected mode. Metal Immediate uses a two-drawable
+/// pool to reduce acquisition stalls measured with the native Danger route.
+pub(super) fn desired_frame_latency(mode: wgpu::PresentMode) -> u32 {
+    if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+        && let Some(depth) = std::env::var("PLACES_BENCH_FRAME_LATENCY")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .filter(|value| (1..=3).contains(value))
+    {
+        return depth;
+    }
+    if matches!(
+        (NATIVE_BACKEND, mode),
+        (wgpu::Backend::Metal, wgpu::PresentMode::Immediate)
+    ) {
+        1
+    } else {
+        2
+    }
+}
+
 /// FXC cannot compile the world's bounded uniform-array loops. Require the
 /// matching local DXC runtime instead of silently falling back and panicking.
 #[cfg(target_os = "windows")]
