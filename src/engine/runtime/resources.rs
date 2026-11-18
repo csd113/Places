@@ -68,6 +68,18 @@ impl DecodeBudget {
             measured_usage: None,
         })
     }
+
+    #[cfg(test)]
+    pub(crate) fn with_test_limit(limit: u64) -> Arc<Self> {
+        Arc::new(Self {
+            cancelled: Arc::new(AtomicBool::new(false)),
+            decoded: AtomicU64::new(0),
+            refused: AtomicBool::new(false),
+            reserved: AtomicU64::new(0),
+            limit,
+            measured_usage: Some(0),
+        })
+    }
 }
 thread_local! { static CURRENT: RefCell<Option<Arc<DecodeBudget>>> = const { RefCell::new(None) }; }
 pub struct DecodeScope(Option<Arc<DecodeBudget>>);

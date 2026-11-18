@@ -644,14 +644,20 @@ pub(crate) fn validate_cached_lighting<R: std::io::Read + std::io::Seek>(
     if variant.lightmap_failure.is_none() {
         return Ok(());
     }
-    // The only admitted marker is chartless success. Resolve both receiver
-    // records, including shared prop sections, just as world decode does.
-    let mesh_bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
-    let mesh = read_mesh(&mesh_bytes)?;
-    drop(mesh_bytes);
-    let props_bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
-    let props = read_props(&props_bytes)?;
-    validate_chartless_receivers(variant, &mesh, &props)
+    let _scope = crate::engine::resources::admission_scope();
+    // Currentness only needs receiver flags. Let the first parsed record and its
+    // input retire before reconstructing the second.
+    let mesh_has_receivers = {
+        let bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
+        let mesh = crate::engine::resources::decode(&bytes, read_mesh)?;
+        mesh_has_atlas_receivers(&mesh)
+    };
+    let props_have_receivers = {
+        let bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
+        let props = crate::engine::resources::decode(&bytes, read_props)?;
+        props_have_atlas_receivers(&props)
+    };
+    check_chartless_receivers(mesh_has_receivers || props_have_receivers)
 }
 
 /// Reattaches PNG allocations for compiled material variants. Only semantic
@@ -833,17 +839,30 @@ fn validate_chartless_receivers(
     mesh: &LevelMesh,
     props: &[PropMeshBatch],
 ) -> Result<(), String> {
-    if variant.lightmap_failure.as_deref() == Some(super::NO_LIGHTMAP_CHARTS)
-        && (mesh
-            .ranges
-            .iter()
-            .flat_map(|range| &range.vertices)
-            .any(crate::engine::render::Vertex::is_lightmapped)
-            || props
-                .iter()
-                .flat_map(|batch| batch.vertices.iter())
-                .any(|vertex| vertex.is_lightmapped()))
-    {
+    if variant.lightmap_failure.as_deref() == Some(super::NO_LIGHTMAP_CHARTS) {
+        check_chartless_receivers(
+            mesh_has_atlas_receivers(mesh) || props_have_atlas_receivers(props),
+        )?;
+    }
+    Ok(())
+}
+
+fn mesh_has_atlas_receivers(mesh: &LevelMesh) -> bool {
+    mesh.ranges
+        .iter()
+        .flat_map(|range| &range.vertices)
+        .any(crate::engine::render::Vertex::is_lightmapped)
+}
+
+fn props_have_atlas_receivers(props: &[PropMeshBatch]) -> bool {
+    props
+        .iter()
+        .flat_map(|batch| batch.vertices.iter())
+        .any(|vertex| vertex.is_lightmapped())
+}
+
+fn check_chartless_receivers(has_receivers: bool) -> Result<(), String> {
+    if has_receivers {
         return Err("chartless lighting has geometry that references an atlas".into());
     }
     Ok(())
