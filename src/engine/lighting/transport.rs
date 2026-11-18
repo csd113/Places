@@ -1401,8 +1401,7 @@ pub fn probe_targets(
     lighting: &LevelLighting,
     charts: &[(LightmapPatch, Chart)],
 ) -> Vec<ProbeTarget> {
-    chart_probe_lattice(charts)
-        .map_or_default(|lattice| lattice_probe_targets(lighting, lattice))
+    chart_probe_lattice(charts).map_or_default(|lattice| lattice_probe_targets(lighting, lattice))
 }
 
 fn chart_probe_lattice(charts: &[(LightmapPatch, Chart)]) -> Option<ProbeLattice> {
