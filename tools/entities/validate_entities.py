@@ -63,7 +63,7 @@ DEFAULT_ASSETS = (
     "assets/entities/beach_fish/model/beach_fish.glb",
 )
 
-# Engine ceilings, mirrored from src/engine/gltf.rs / src/level.rs.
+# Engine ceilings, mirrored from src/engine/gltf/ and src/engine/level/.
 SAMPLES_PER_SECOND = 60.0
 FRAME_CHUNK = 16
 # One loaded entity is small; 64 MiB of accumulated per-worker arrays is a

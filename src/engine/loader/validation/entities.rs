@@ -12,7 +12,7 @@ use crate::engine::level::{
     ActionDef, ComponentDef, ConditionDef, EventBindingDef, EventKindName, LevelDef,
     MAX_ACTIONS_PER_SOURCE, MAX_BINDINGS_PER_ENTITY, TriggerVolumeDef,
 };
-use crate::engine::loader::PropCatalog;
+use crate::engine::props::catalog::PropCatalog;
 use glam::Vec3;
 use std::collections::{HashMap, HashSet};
 

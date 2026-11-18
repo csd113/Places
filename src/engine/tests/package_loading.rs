@@ -108,6 +108,41 @@ fn manifest_declarations_must_match_the_archive_before_decoding() -> Result<(), 
     Ok(())
 }
 
+// Protects the runtime admission boundary for generic maps whose historical
+// failed Full variant was still valid to inspect. One in-memory ZIP, no bake.
+#[test]
+fn failed_full_lighting_is_inspectable_and_refused_before_world_decode() -> Result<(), String> {
+    let mut manifest = minimal_manifest()?;
+    let variant = manifest
+        .variants
+        .first_mut()
+        .ok_or("Missing fixture variant")?;
+    world::validate_playable_lighting(variant)?;
+    variant.lightmap_quality = "full".into();
+    variant.quality_profile = "full".into();
+    variant.lightmap_failure = Some(crate::engine::package::NO_LIGHTMAP_CHARTS.into());
+    world::validate_playable_lighting(variant)?;
+    variant.lightmap_failure = Some("worker failed".into());
+
+    let bytes = fixture_archive(&manifest)?;
+    let reader = crate::engine::package::PackageReader::new(Cursor::new(&bytes))
+        .map_err(|error| error.to_string())?;
+    manifest.validate(reader.names())?;
+    let error = world::load_variant_bytes(
+        &bytes,
+        &manifest,
+        LightmapQuality::Full,
+        &mut PropAssets::default(),
+    )
+    .err()
+    .ok_or("Failed Full variant was admitted")?;
+    assert!(
+        error.contains("prepared lighting failed (worker failed)"),
+        "The error should identify the lighting failure before reading world bytes: {error}"
+    );
+    Ok(())
+}
+
 fn minimal_manifest() -> Result<Manifest, String> {
     let blob = hash::blob_name(&[], ".mesh");
     serde_json::from_value(serde_json::json!({

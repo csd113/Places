@@ -38,7 +38,7 @@ sys.path.insert(0, str(PACKAGE / "tools" / "levels"))
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
-# Texture dimension policy, mirrored from `src/engine/assets.rs`: `MAX_TEXTURE_DIMENSION`
+# Texture dimension policy, mirrored from `src/engine/assets/mod.rs`: `MAX_TEXTURE_DIMENSION`
 # is the ordinary hard runtime limit, `MAX_SKY_TEXTURE_DIMENSION` the sky-only
 # limit, `PREFERRED_TEXTURE_DIMENSION` the soft warning
 # budget, and `MAX_SURFACE_TEXTURE_BYTES` the per-sheet decoded budget. Python
@@ -1381,7 +1381,7 @@ class PoolContentTests(unittest.TestCase):
         # The current intentional contract: the sign sheet is a square
         # power-of-two sheet authored at the hard 1024x1024 budget, not a
         # 128x128 placeholder. The numbers come from the mirrored policy constants
-        # above (see `src/engine/assets.rs`).
+        # above (see `src/engine/assets/mod.rs`).
         self.assertEqual(width, height, "the sign sheet must be square")
         self.assertTrue(
             width > 0 and (width & (width - 1)) == 0,

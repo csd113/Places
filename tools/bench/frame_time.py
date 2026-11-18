@@ -143,6 +143,7 @@ def main() -> None:
     parser.add_argument("--dx12-frame-wait", choices=("wait", "dontwait", "none"), help="benchmark-only DX12 acquisition wait control; normal default is wait")
     parser.add_argument("--texture-quality", choices=("low", "medium", "high"), default="high", help="independent texture residency for matched timing")
     parser.add_argument("--texture-filtering", choices=("low", "medium", "high"), default="high", help="independent sampler setting for matched timing")
+    parser.add_argument("--bloom", choices=("on", "off"), default="on", help="initial persisted bloom setting; default preserves existing runs")
     parser.add_argument("--frames", type=int, default=600)
     parser.add_argument("--seconds", type=float, help="matched wall-clock ready interval (2..60 s), ending through a native quit action")
     parser.add_argument("--warmup", type=int, default=120)
@@ -167,6 +168,7 @@ def main() -> None:
     parser.add_argument("--runtime-workers", type=int, choices=range(1, 9), help="bounded CPU pool; 1 runs inline")
     parser.add_argument("--low-lighting", action="store_true", help="independent Low lighting mode; preserve texture quality")
     parser.add_argument("--lightmaps", choices=("static", "full"), default="full", help="matched lighting control")
+    parser.add_argument("--expected-variant", choices=("off", "full"), help="require this actual package lighting variant even with actions/settings cycles; otherwise infer only for runs without them")
     parser.add_argument("--entity-light-trace", default="", help="capture-only entity lighting payload witness")
     parser.add_argument("--cpu-trace", action="store_true", help="three steady frames of CPU stage spans; diagnostic")
     parser.add_argument("--render-trace", action="store_true", help="bounded render preparation/acquisition/encode/submit spans; diagnostic")
@@ -220,7 +222,7 @@ def main() -> None:
         window_width=width, window_height=height,
         window_mode="fullscreen" if args.fullscreen else "windowed", vsync=args.vsync,
         quality=args.texture_quality, texture_filtering=args.texture_filtering, lightmaps=args.lightmaps, reflections="full",
-        bloom=True, use_low_quality_lighting=args.low_lighting, fov_degrees=60, developer_console=args.console_open,
+        bloom=args.bloom == "on", use_low_quality_lighting=args.low_lighting, fov_degrees=60, developer_console=args.console_open,
     )
     # A direct native child uses the same isolated state on every platform.
     settings_path = out / "settings-input.json"
@@ -347,8 +349,11 @@ def main() -> None:
         raise RuntimeError(f"native run failed ({child.returncode}); see {out / 'native.log'}")
     # Discovery can prefer another same-ID bundled archive over --package.
     # Accept only the planned member and lighting payload, independent of ZIP layout.
-    # Explicit action/settings scripts may deliberately change lighting variants.
-    planned_variant = None if args.actions or args.graphics_cycle else "off" if args.lightmaps == "static" else "full"
+    # Explicit action/settings scripts may deliberately change lighting variants,
+    # but an explicit expectation must still hold for every observed identity.
+    planned_variant = args.expected_variant
+    if planned_variant is None and not (args.actions or args.graphics_cycle):
+        planned_variant = "off" if args.lightmaps == "static" else "full"
     verify_runtime_identity(log, args.level, planned_variant, manifest_identity)
     verify_player_recovery(log)
     if any(message in log.lower() for message in ("validation error", "panicked", "fatal device", "catalog hash mismatch")):
@@ -399,7 +404,7 @@ def main() -> None:
         requested_ready_seconds=args.seconds, warmup_frames=args.warmup,
         started_utc=started_utc, elapsed_seconds=time.monotonic() - started,
         binary=str(binary), binary_sha256=binary_sha256, package=str(package), package_sha256=package_sha256,
-        member_manifest_sha256=manifest_identity,
+        member_manifest_sha256=manifest_identity, expected_variant=planned_variant,
         loaded_package_identities=[line for line in log.splitlines()
                                    if line.startswith("[loading] package identity ")],
         asset_root=str(asset_root), settings=settings, spawn=args.spawn, camera=args.camera,

@@ -697,6 +697,7 @@ impl WgpuDynamic {
         queue: &wgpu::Queue,
         scene: &DynamicScene,
         environment: &EnvironmentUniform,
+        receiver_gain: Option<(usize, f32)>,
         visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
         caustics: Option<(
             &super::caustics::Caustics,
@@ -732,6 +733,11 @@ impl WgpuDynamic {
             let mut uniform = model_environment
                 .with_entity_lighting(live.entity_lighting())
                 .with_spatial_lighting(live.spatial_lighting());
+            if let Some((direct_slot, gain)) = receiver_gain
+                && let Some(source) = uniform.entity_direct.get_mut(direct_slot)
+            {
+                source.color_strength[3] *= gain;
+            }
             uniform.uv_receiver = object.uv_receiver.sample(
                 visibility.filter(|_| object.uv_reactive && environment.has_active_blacklights()),
                 live.mesh().bounds,

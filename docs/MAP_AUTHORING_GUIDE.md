@@ -72,7 +72,7 @@ A new map does not have to resemble it aesthetically — it is not a mandatory v
 template — but when in doubt about how a feature is authored, the demo (and the
 regression fixtures in `tests/fixtures/levels/`) is the pattern to cross-check against.
 Do not blindly copy mistakes from it either: every pattern here was re-verified against
-`src/engine/level.rs`, the loader/validator, the renderer, retained Python tools, and the catalogs.
+`src/engine/level/mod.rs`, the loader/validator, the renderer, retained Python tools, and the catalogs.
 
 ---
 
@@ -80,17 +80,17 @@ Do not blindly copy mistakes from it either: every pattern here was re-verified 
 
 When any two sources disagree, resolve in this order:
 
-1. **Runtime implementation** — `src/engine/level.rs` (level schema and geometry rules),
-   `src/engine/loader.rs` (validation and package discovery), `src/engine/package/` +
+1. **Runtime implementation** — `src/engine/level/mod.rs` (level schema and geometry rules),
+   `src/engine/loader/` (validation and package discovery), `src/engine/package/` +
    `docs/PACKAGE_FORMAT.md` (the compiled world the player loads),
    `src/map_compiler/mod.rs` + `src/bin/places-compile.rs` (offline preparation),
-   `src/game/mod.rs` / `src/engine/collision.rs` (movement and collision), `src/engine/door.rs`
+   `src/game/mod.rs` / `src/engine/collision.rs` (movement and collision), `src/engine/mechanisms/door.rs`
    (door state and collision pose), `src/engine/render/` (meshes, decals, fixtures,
    props, doors, reflections, post-processing), `src/engine/lighting/` (bake and
-   lightmaps), `src/engine/materials/` + `src/engine/assets.rs` (catalog and materials),
+   lightmaps), `src/engine/materials/` + `src/engine/assets/mod.rs` (catalog and materials),
    `src/engine/quality.rs` + `src/game/settings.rs` (quality levels).
 2. **Validation and diagnostics** — runtime source validation in
-   `src/engine/loader.rs`, package validation in `src/engine/package/`,
+   `src/engine/loader/`, package validation in `src/engine/package/`,
    `src/map_compiler/geometry_check.rs`, Python asset/source contracts and
    explicit native diagnostics. The 0.11.0 cleanup removed the Rust test suite.
 3. **Asset catalog** — `assets/catalog.json`, plus `docs/assets/README.md`.
@@ -104,19 +104,19 @@ Authoritative paths:
 
 | What | Path |
 | --- | --- |
-| Level schema | `src/engine/level.rs` |
-| Loader / validator | `src/engine/loader.rs` |
+| Level schema | `src/engine/level/mod.rs` |
+| Loader / validator | `src/engine/loader/` |
 | Compiled package format | `docs/PACKAGE_FORMAT.md`, `src/engine/package/` |
 | Offline compiler | `src/map_compiler/mod.rs`, `src/bin/places-compile.rs` |
 | Collision / walkable floor | `src/engine/collision.rs`, `src/game/mod.rs` |
-| Door state / collision pose | `src/engine/door.rs` |
+| Door state / collision pose | `src/engine/mechanisms/door.rs` |
 | Door geometry | `src/engine/render/common/doors.rs` |
 | Mesh generation | `src/engine/render/common/mod.rs`, `src/engine/render/common/geometry.rs` |
 | Decals | `src/engine/render/common/decals.rs`, `src/engine/render/common/mod.rs` |
 | Fixture geometry | `src/engine/render/common/fixtures.rs`, `src/engine/lighting/tuning.rs` |
-| Prop loading | `src/engine/props.rs`, `src/engine/gltf.rs`, `src/engine/render/common/props.rs` |
+| Prop loading | `src/engine/props/`, `src/engine/gltf/`, `src/engine/render/common/props.rs` |
 | Lighting bake | `src/engine/lighting/` (bake, visibility, occlusion, lightmap) |
-| Materials / textures | `src/engine/materials/`, `src/engine/assets.rs` |
+| Materials / textures | `src/engine/materials/`, `src/engine/assets/mod.rs` |
 | Reflections | `src/engine/render/common/reflections.rs` (routing) and `src/engine/render/wgpu/reflections.rs` (probe cubemaps and the planar target) |
 | Post-processing / fog | `src/engine/render/common/postprocess.rs`, `src/engine/render/common/atmosphere.rs`, `src/engine/render/common/framebuffer.rs` |
 | Quality levels / settings | `src/engine/quality.rs`, `src/game/settings.rs` |
@@ -753,7 +753,7 @@ former 16-bit index boundary) and the maintained dense fixture
 18 routed entities) on the release build. The sparse source was retired
 earlier because the package compiler cannot represent its navigation grid;
 The explicit capacity campaign retains these measured boundaries; each value is a named
-constant in `src/engine/level.rs`, not an inline literal.
+constant in `src/engine/level/mod.rs`, not an inline literal.
 
 | Limit | Value | Enforced as |
 | --- | --- | --- |
@@ -4406,7 +4406,7 @@ entries by fixture id.
 
 ## 19. Prop Placement
 
-Exact level syntax (all fields verified against `src/engine/level.rs::PropDef`):
+Exact level syntax (all fields verified against `src/engine/level/mod.rs::PropDef`):
 
 ```jsonc
 {
@@ -5796,7 +5796,7 @@ props, doors, fixtures, volumes, timers, spawn points and spawn templates all
 wire behaviour the same way. Stage 6 adds a bounded Luau host through the same
 action pipeline; see [SCRIPTING.md](SCRIPTING.md). This
 section is the field-by-field contract; every name below is verified against
-`src/engine/level.rs` (`ComponentDef`, `EventBindingDef`, `ConditionDef`, `ActionDef`,
+`src/engine/level/mod.rs` (`ComponentDef`, `EventBindingDef`, `ConditionDef`, `ActionDef`,
 `EventKindName`, `TriggerVolumeDef`) and `src/engine/entities/`
 (`TimerDef`, `SequenceDef`, `Spawn*Def`).
 
@@ -6633,9 +6633,9 @@ interactable component:
 
 A door is a single movable leaf with its own state machine, collision and
 component/binding surface; `effects[]` adds presentation-only ambient emitters.
-Every field below is verified against `src/engine/level.rs` (`DoorDef`, `DoorFrame`,
-`LevelDef::door_frame`, `EffectDef`), `src/engine/loader.rs` (`validate_doors`,
-`validate_effects`, `validate_bindings`), `src/engine/door.rs` and the build in
+Every field below is verified against `src/engine/level/mod.rs` (`DoorDef`, `DoorFrame`,
+`LevelDef::door_frame`, `EffectDef`), `src/engine/loader/validation/` (`validate_doors`,
+`validate_effects`, `validate_bindings`), `src/engine/mechanisms/door.rs` and the build in
 `src/engine/render/common/doors.rs`.
 
 ### Doors
@@ -8430,7 +8430,7 @@ authoring. They are not invitations to change the engine as part of an authoring
     behavior; catalog profiles alone do not move them. The washer-drum
     demonstration is spawned by placing `core:washing_machine`.
 15. **Documentation drift in shipped sources** (recorded here so agents trust the
-    code): `src/engine/level.rs`'s `y` comment says a ceiling fixture's `y` is ignored,
+    code): `src/engine/level/mod.rs`'s `y` comment says a ceiling fixture's `y` is ignored,
     but the bake honours it for storey selection.
 16. **Tooling vs runtime strictness.** The Rust runtime is permissive (unknown
     class/type, missing `model`, invalid `size`, unknown fixture/prop ids degrade);

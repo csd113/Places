@@ -848,7 +848,7 @@ world-space targeting; these view meshes never define reach or hitboxes.
 ### 8.1 Format and location
 
 * Models are self-contained binary glTF 2.0 files (`.glb`), read by
-  `src/engine/gltf.rs`. The supported subset is deliberately narrow: triangles only,
+  `src/engine/gltf/`. The supported subset is deliberately narrow: triangles only,
   `POSITION`, `TEXCOORD_0` and optional `COLOR_0`, 16/32-bit indices, optional
   skins (`JOINTS_0`/`WEIGHTS_0`, one skin per model) and optional LINEAR/STEP
   animation clips, no morph targets. A skinned model's static prop batch draws
@@ -2271,7 +2271,7 @@ real-window/GPU checks; see [VERIFICATION.md](VERIFICATION.md).
 | NO DIVING sign: 1024², RGBA, transparent pixel | `tests/test_package.py` | same | yes |
 | Prop GLB: container parses, one mesh, `TEXCOORD_0` present | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) for a missing or unparseable model; budgets, UV range and scale/origin are not evaluated here |
 | Prop GLB decoded texture memory (per-texture and pack total) | `tools/props/build.py --check` | `python3 tools/props/build.py --check` | yes (exit 1) |
-| Model textures: embedded PNG only, ≤1024, UV bounds | `src/engine/gltf.rs` parser (runtime) | compiler / game run | parser error / fallback box |
+| Model textures: embedded PNG only, ≤1024, UV bounds | `src/engine/gltf/` importer (runtime) | compiler / game run | parser error / fallback box |
 
 The Rust-only shipped-sheet, fallback identity, fixture orientation and prop art
 budget assertions were removed with the Rust suite. Their asset contracts remain

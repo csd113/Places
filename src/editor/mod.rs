@@ -739,7 +739,7 @@ fn application(options: Options) -> Result<(), String> {
 }
 
 /// Starts the separate native editor application.
-#[must_use]
+#[must_use = "use the editor exit status to report success or failure"]
 pub fn run() -> std::process::ExitCode {
     match options().and_then(|value| value.map_or(Ok(()), application)) {
         Ok(()) => std::process::ExitCode::SUCCESS,

@@ -222,8 +222,8 @@ measurement-led choices.
 ### 4.1 Data flow
 
 ```text
-LevelDef (src/engine/level.rs)
-        |  LoadedLevel { level, materials, ... }             (src/engine/loader.rs)
+LevelDef (src/engine/level/mod.rs)
+        |  LoadedLevel { level, materials, ... }             (src/engine/loader/mod.rs)
         v
 loading::Loader worker                                    (src/game/app/loading.rs)
         |  resolve assets, prepare geometry/lighting, restore or fill atlas

@@ -241,6 +241,11 @@ impl Renderer {
         self.renderer.abort_resource_request();
     }
 
+    /// Rejects an incompatible atlas before staging uploads for the next world.
+    pub(crate) fn check_prepared_atlas(&self, build: &super::LevelBuild) -> Result<(), String> {
+        self.renderer.check_prepared_atlas(build)
+    }
+
     /// Checks aggregate old/new map admission without mutating either live world.
     /// # Errors
     /// Refuses an overlap that exceeds the operating GPU budget.
@@ -315,7 +320,10 @@ impl Renderer {
     }
 
     /// Advances bounded GPU preparation; true only once the whole world is installed.
-    pub fn advance_prepared_install(&mut self) -> bool {
+    ///
+    /// # Errors
+    /// Returns a rejected upload or a fatal device failure before commit.
+    pub fn advance_prepared_install(&mut self) -> Result<bool, String> {
         self.renderer.advance_prepared_install()
     }
 

@@ -2331,6 +2331,10 @@ impl LevelLighting {
             && !self.visibility.occludes_anywhere(from, to)
     }
 
+    pub(super) fn recovery_occluders(&self) -> &Occluders {
+        self.visibility.wall_occluders()
+    }
+
     /// Baked baseline illumination of the area containing `(x, z)` in `room`.
     ///
     /// A room with no internal partition returns its room-wide

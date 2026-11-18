@@ -18,7 +18,8 @@ mod startup;
 mod tools;
 mod video;
 
-use crate::engine::{diagnostics, level, loader, logging, perf, quality, render};
+use crate::engine::diagnostics::journal as diagnostics;
+use crate::engine::{level, loader, logging, perf, quality, render};
 use crate::game::perf_overlay::PerfOverlay;
 use crate::game::{self, bench, console, display, input, settings, ui, world_labels};
 
@@ -134,18 +135,13 @@ fn log_prop_usage(renderer: &Renderer) {
         level.lighting.average_baseline
     );
     println!(
-        "[lightmaps] {} page(s), {} chart(s), {} chart texels, {} page texels ({} KiB), filled in {:.1} ms{}",
+        "[lightmaps] {} page(s), {} chart(s), {} chart texels, {} page texels ({} KiB), filled in {:.1} ms",
         level.lightmap_pages,
         level.lightmap_charts,
         level.lightmap_chart_texels,
         level.lightmap_texels,
         level.lightmap_texels.saturating_mul(16) / 1024,
-        level.lightmap_millis,
-        if level.lightmap_fallback {
-            " (fallback: vertex lighting)"
-        } else {
-            ""
-        }
+        level.lightmap_millis
     );
     log_dynamic_scene(renderer);
 }
@@ -487,7 +483,7 @@ fn capture_time_from_env() -> Option<f32> {
 fn interact_overrides_from_env() -> Vec<String> {
     std::env::var("PLACES_INTERACT")
         .ok()
-        .map(|value| {
+        .map_or_default(|value| {
             value
                 .split(',')
                 .map(str::trim)
@@ -495,7 +491,6 @@ fn interact_overrides_from_env() -> Vec<String> {
                 .map(str::to_string)
                 .collect()
         })
-        .unwrap_or_default()
 }
 
 /// The `PLACES_MOVE_SCRIPT` developer override: held controls for a run.
@@ -1215,17 +1210,13 @@ impl FrameLoop<'_> {
     }
 
     fn reset_menu_items(&mut self) {
-        let groups = self
-            .current_level
-            .as_ref()
-            .map(|loaded| {
-                loaded
-                    .level
-                    .physics_reset_groups()
-                    .map(str::to_string)
-                    .collect::<Vec<_>>()
-            })
-            .unwrap_or_default();
+        let groups = self.current_level.as_ref().map_or_default(|loaded| {
+            loaded
+                .level
+                .physics_reset_groups()
+                .map(str::to_string)
+                .collect::<Vec<_>>()
+        });
         for group in groups {
             self.reset_item_group(&group);
         }
@@ -3064,20 +3055,16 @@ impl FrameLoop<'_> {
                 self.outcome = None;
                 self.game.reset_to_spawn();
                 self.synchronize_physical_player();
-                let groups = self
-                    .current_level
-                    .as_ref()
-                    .map(|loaded| {
-                        loaded
-                            .level
-                            .props
-                            .iter()
-                            .filter_map(|prop| {
-                                prop.physics.as_ref().and_then(|p| p.reset_group.clone())
-                            })
-                            .collect::<std::collections::BTreeSet<_>>()
-                    })
-                    .unwrap_or_default();
+                let groups = self.current_level.as_ref().map_or_default(|loaded| {
+                    loaded
+                        .level
+                        .props
+                        .iter()
+                        .filter_map(|prop| {
+                            prop.physics.as_ref().and_then(|p| p.reset_group.clone())
+                        })
+                        .collect::<std::collections::BTreeSet<_>>()
+                });
                 for group in groups {
                     self.reset_item_group(&group);
                 }
@@ -3850,6 +3837,10 @@ impl FrameLoop<'_> {
                         return;
                     };
                     self.trace_preparation_result(id, &prepared);
+                    if let Err(error) = self.renderer.check_prepared_atlas(&prepared.build) {
+                        self.recover_from_preparation_failure(id, &error);
+                        return;
+                    }
                     let loading::PreparedWorld {
                         cargo,
                         geometry,
@@ -3912,17 +3903,29 @@ impl FrameLoop<'_> {
                 Err(error) => self.recover_from_preparation_failure(id, &error),
             }
         }
+        self.advance_prepared_upload();
+        self.update_loading_progress();
+    }
+
+    fn advance_prepared_upload(&mut self) {
         if self.pending_commit.is_some() {
             self.trace
                 .record("upload_step_begin", self.load_generation, "");
-            let committed = self.renderer.advance_prepared_install();
+            let upload = self.renderer.advance_prepared_install();
             self.trace
                 .record("upload_step_end", self.load_generation, "");
-            if committed {
-                self.commit_loaded_world();
+            match upload {
+                Ok(true) => self.commit_loaded_world(),
+                Ok(false) => {}
+                Err(error) => {
+                    let id = self
+                        .pending_commit
+                        .take()
+                        .map_or(self.load_generation, |pending| pending.id);
+                    self.recover_from_preparation_failure(id, &error);
+                }
             }
         }
-        self.update_loading_progress();
     }
 
     fn trace_preparation_result(&mut self, id: u64, prepared: &loading::PreparedWorld) {
@@ -4239,10 +4242,10 @@ impl FrameLoop<'_> {
             drop(fields.insert("audio".into(), serde_json::json!(self.audio.system.stats())));
             drop(fields.insert("audio_settings".into(), serde_json::json!({"master":self.settings.master_volume,"effects":self.settings.effects_volume,"ambience":self.settings.ambient_volume,"muted":self.settings.muted,"spatial_audio":self.settings.spatial_audio})));
             drop(fields.insert("console_session".into(), self.console_runtime.snapshot()));
-            let fixed_instances = self.current_level.as_ref().map(|loaded| {
+            let fixed_instances = self.current_level.as_ref().map_or_default(|loaded| {
                 let ids=loaded.level.prop_instance_ids();
                 loaded.level.props.iter().zip(ids).filter(|(prop,_)| !prop.is_physics_movable()).map(|(prop,id)| serde_json::json!({"id":id,"model":prop.model,"entity_live":self.game.entities().handle_of(&id).is_some()})).collect::<Vec<_>>()
-            }).unwrap_or_default();
+            });
             drop(fields.insert("fixed_instances".into(), fixed_instances.into()));
             drop(fields.insert(
                 "menu_beat".into(),

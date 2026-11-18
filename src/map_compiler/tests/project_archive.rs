@@ -18,7 +18,10 @@ impl Drop for Fixture {
     }
 }
 
-fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), String> {
+fn write_fixture(
+    root: &Path,
+    bad_chartless: bool,
+) -> Result<(PathBuf, project::ProjectPackage), String> {
     let project_bytes = br#"{"schema":"places-project","project_format":1,"id":"cache","name":"Cache","entry_level":"entry","levels":[{"id":"entry","source":"levels/entry.json"},{"id":"second","source":"levels/second.json"}]}"#;
     let manifest = ProjectManifest::from_json(project_bytes)?;
     let mut blobs = BTreeMap::new();
@@ -49,7 +52,11 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
         let prepared = hash::blob_name(&[], ".fixture");
         let common = hash::blob_name(&[], ".record");
         drop(blobs.insert(common.clone(), Vec::new()));
-        let inner = serde_json::json!({"schema":"places-map","package_format":crate::engine::package::FORMAT_VERSION,"package_id":index.project.id,"package_version":index.project.package_version,"places_version":index.places_version,"id":id,"name":id,"lighting_fingerprint":"stage","entries":[{"name":"build-inputs.json","role":"compiler-inputs","bytes":inputs.len(),"sha256":hash::sha256_hex(&inputs)},{"name":prepared,"role":"","bytes":0_u32,"sha256":hash::sha256_hex(&[])}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared,"props":prepared,"lighting":prepared,"collision":prepared,"navigation":prepared}}]});
+        let mut inner = serde_json::json!({"schema":"places-map","package_format":crate::engine::package::FORMAT_VERSION,"package_id":index.project.id,"package_version":index.project.package_version,"places_version":index.places_version,"id":id,"name":id,"lighting_fingerprint":"stage","entries":[{"name":"build-inputs.json","role":"compiler-inputs","bytes":inputs.len(),"sha256":hash::sha256_hex(&inputs)},{"name":prepared,"role":"","bytes":0_u32,"sha256":hash::sha256_hex(&[])}],"variants":[{"lightmap_quality":"off","quality_profile":"low","entries":{"mesh":prepared,"props":prepared,"lighting":prepared,"collision":prepared,"navigation":prepared}}]});
+        let mut alternate = BTreeMap::new();
+        if bad_chartless && id == "second" {
+            add_inconsistent_chartless(&mut inner, &mut alternate, &mut blobs, &prepared)?;
+        }
         let inner_bytes = serde_json::to_vec(&inner).map_err(|e| e.to_string())?;
         let inner_blob = hash::blob_name(&inner_bytes, ".record");
         drop(blobs.insert(inner_blob.clone(), inner_bytes));
@@ -59,7 +66,10 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
                 ("manifest.json".into(), inner_blob),
                 ("build-inputs.json".into(), blob),
                 (prepared, common),
-            ]),
+            ])
+            .into_iter()
+            .chain(alternate)
+            .collect(),
         });
     }
     let package = root.join("project.placesmap");
@@ -75,6 +85,115 @@ fn write_fixture(root: &Path) -> Result<(PathBuf, project::ProjectPackage), Stri
     Ok((package, index))
 }
 
+fn add_inconsistent_chartless(
+    manifest: &mut serde_json::Value,
+    records: &mut BTreeMap<String, String>,
+    blobs: &mut BTreeMap<String, Vec<u8>>,
+    other: &str,
+) -> Result<(), String> {
+    use crate::engine::render::{
+        LevelMesh, LevelMeshBatches, LevelMeshRange, SurfaceKey, SurfaceKind, Vertex,
+    };
+
+    let vertices = vec![
+        Vertex::lightmapped([0.0, 0.0, 0.0], [1.0; 4], [0.0; 2], [0; 2], 0),
+        Vertex::new([0.0, 0.0, 1.0], [1.0; 4], [0.0; 2]),
+        Vertex::new([1.0, 0.0, 0.0], [1.0; 4], [0.0; 2]),
+    ];
+    let mesh = LevelMesh {
+        ranges: vec![LevelMeshRange {
+            key: SurfaceKey::new(SurfaceKind::Floor, 0),
+            vertices,
+            indices: vec![0, 1, 2],
+            bounds: crate::engine::spatial::Aabb {
+                min: [0.0; 3],
+                max: [1.0, 0.0, 1.0],
+            },
+        }],
+        batches: LevelMeshBatches::default(),
+        vertex_count: 3,
+        index_count: 3,
+    };
+    let entries = manifest
+        .get_mut("entries")
+        .and_then(serde_json::Value::as_array_mut)
+        .ok_or("Missing fixture entries")?;
+    let mut insert = |bytes: Vec<u8>, suffix: &str, role: &str| {
+        let physical = hash::blob_name(&bytes, ".record");
+        let logical = hash::blob_name(&bytes, suffix);
+        entries.push(serde_json::json!({
+            "name":logical, "role":role, "bytes":bytes.len(), "sha256":hash::sha256_hex(&bytes)
+        }));
+        drop(records.insert(logical.clone(), physical.clone()));
+        drop(blobs.insert(physical, bytes));
+        logical
+    };
+    let mesh_record = insert(
+        crate::engine::package::mesh::write_mesh(&mesh)?,
+        ".mesh",
+        "mesh",
+    );
+    let props = insert(
+        crate::engine::package::props::write_props(&[])?,
+        ".props",
+        "props",
+    );
+    manifest.get_mut("variants").and_then(serde_json::Value::as_array_mut).ok_or("Missing fixture variants")?.push(serde_json::json!({
+        "lightmap_quality":"full", "quality_profile":"full",
+        "lightmap_failure":crate::engine::package::NO_LIGHTMAP_CHARTS,
+        "entries":{"mesh":mesh_record,"props":props,"lighting":other,"collision":other,"navigation":other}
+    }));
+    Ok(())
+}
+
+// One triangle in a two-member cache proves that correctly hashed records
+// cannot claim chartless success while sampling an atlas. No bake or GPU.
+#[test]
+fn project_prepared_reuse_admits_static_and_rejects_chartless_atlas_references()
+-> Result<(), String> {
+    use crate::engine::quality::LightmapQuality;
+    let root = Fixture(std::env::temp_dir().join(format!(
+        "places-compiler-lighting-cache-{}-{}",
+        std::process::id(),
+        SEQUENCE.fetch_add(1, Ordering::Relaxed)
+    )));
+    fs::create_dir(&root.0).map_err(|error| error.to_string())?;
+    let (package, _) = write_fixture(&root.0, true)?;
+    let first = crate::engine::package::world::inspect_level(&package, "entry")?;
+    super::super::verify_prepared_entries(&package, &first)?;
+    let selected = crate::engine::package::world::inspect_level(&package, "second")?;
+    super::super::verify_declared_entries(&package, &selected)?;
+    let reason = super::super::verify_prepared_entries(&package, &selected)
+        .err()
+        .ok_or("Invalid chartless member was current")?;
+    assert!(
+        reason.contains("chartless lighting has geometry that references an atlas"),
+        "{reason}"
+    );
+
+    let inputs = super::super::read_build_inputs(&package, &selected)?;
+    let level = crate::engine::level::LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"second","name":"Second","spawn":{"x":1,"z":1}}"#)
+        .map_err(|error| error.to_string())?;
+    let (reused, _) = super::super::reuse_prepared_lighting(
+        &package,
+        "stage",
+        &level,
+        &[LightmapQuality::Off, LightmapQuality::Full],
+        &inputs,
+        &mut Vec::new(),
+    )?;
+    let variants: Vec<_> = reused
+        .iter()
+        .map(|variant| variant.lightmap_quality.as_str())
+        .collect();
+    assert_eq!(
+        variants,
+        ["off"],
+        "a rejected Full record must not discard valid Static"
+    );
+    Ok(())
+}
+
 #[test]
 fn project_provenance_and_cache_seed_select_and_verify_exact_records() -> Result<(), String> {
     let root = Fixture(std::env::temp_dir().join(format!(
@@ -83,7 +202,7 @@ fn project_provenance_and_cache_seed_select_and_verify_exact_records() -> Result
         SEQUENCE.fetch_add(1, Ordering::Relaxed)
     )));
     fs::create_dir(&root.0).map_err(|e| e.to_string())?;
-    let (package, index) = write_fixture(&root.0)?;
+    let (package, index) = write_fixture(&root.0, false)?;
     let selected = crate::engine::package::world::inspect_level(&package, "second")?;
     let inputs = super::super::read_build_inputs(&package, &selected)?;
     assert_eq!(

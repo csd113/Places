@@ -957,7 +957,7 @@ impl FrameLoop<'_> {
             bounds.expand(prop_bounds.min);
             bounds.expand(prop_bounds.max);
             attachment.bounds = Some(bounds);
-            attachment.hidden = crate::engine::carry_visibility::assembly_hidden(
+            attachment.hidden = crate::engine::entities::carry::assembly_hidden(
                 eye,
                 bounds,
                 &self.items.carry.occluders,

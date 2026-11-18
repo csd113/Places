@@ -111,9 +111,6 @@ pub struct LevelBuildStats {
     pub lightmap_chart_texels: usize,
     /// Time spent filling and packing the lightmap atlas, in ms.
     pub lightmap_millis: f64,
-    /// True when a lightmap build failed and the level fell back to vertex
-    /// lighting; the reason is on the level build, not in this counter.
-    pub lightmap_fallback: bool,
 }
 
 /// Source geometry in one family, before/after the main view's conservative

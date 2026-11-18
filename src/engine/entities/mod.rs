@@ -27,6 +27,7 @@
 mod ai_runtime;
 mod audio;
 pub mod balloon;
+pub mod carry;
 pub mod checkpoint;
 pub mod cinematics;
 pub mod components;
@@ -34,6 +35,7 @@ pub mod developer;
 mod elevators;
 pub mod encounter;
 pub mod events;
+pub mod feltling;
 mod feltlings;
 mod guest_acoustics;
 mod guest_lifecycle;
@@ -46,6 +48,7 @@ mod ragdoll;
 mod sequence_runtime;
 pub mod sequences;
 pub mod spawn;
+pub mod tall_guest;
 pub mod timers;
 pub mod volumes;
 
@@ -1494,11 +1497,7 @@ impl EntityWorld {
                     enabled,
                     label,
                 } => {
-                    let prompt_text = prompt
-                        .as_deref()
-                        .map(str::trim)
-                        .unwrap_or_default()
-                        .to_string();
+                    let prompt_text = prompt.as_deref().map_or_default(str::trim).to_string();
                     let reach_m = reach
                         .filter(|candidate_reach| {
                             candidate_reach.is_finite() && *candidate_reach > 0.0
@@ -1592,7 +1591,7 @@ impl EntityWorld {
                         .map(str::trim)
                         .filter(|name| !name.is_empty())
                         .map_or_else(
-                            || variants.first().map(|v| v.name.clone()).unwrap_or_default(),
+                            || variants.first().map_or_default(|v| v.name.clone()),
                             str::to_string,
                         );
                     drop(
@@ -2067,8 +2066,7 @@ impl EntityWorld {
                     self.handle_of(&id)
                         .unwrap_or(EntityHandle::from_parts(0, 0)),
                 )
-                .map(|component| component.prompt.clone())
-                .unwrap_or_default();
+                .map_or_default(|component| component.prompt.clone());
             let _sync_door_status =
                 self.interactables
                     .sync_door(index, &collider, phase, Some(&prompt));
@@ -3480,7 +3478,7 @@ impl EntityWorld {
         if light.enabled == on {
             return false;
         }
-        let id = self.id_of(handle).map(str::to_string).unwrap_or_default();
+        let id = self.id_of(handle).map_or_default(str::to_string);
         if let Some(entry) = self.components.lights.get_mut(handle) {
             entry.enabled = on;
             entry.dirty = true;

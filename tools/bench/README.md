@@ -84,6 +84,16 @@ RSS query records unavailable sampling without abandoning the live child.
 No launcher changes permissions, TCC settings or identities. The retired bundle
 launcher has been removed; preserved earlier bundle evidence remains historical.
 
+`frame_time.py --bloom off` writes ordinary isolated bloom-off settings; the
+default remains `--bloom on`. For an action-driven run that must stay on Full,
+also pass `--expected-variant full`: every observed package identity must match
+that variant as well as the selected member and manifest. `--expected-variant off`
+supports an explicitly Static payload expectation. Without an explicit expectation,
+the existing behavior remains: infer the variant from `--lightmaps` when there are
+no actions/settings cycles, and allow deliberate variant transitions otherwise.
+The selected expectation is retained in `receipt.json`. These options do not
+establish effective settings, roots or uncapped presentation without runtime evidence.
+
 The navigation acceptance fixture stays outside routine tests and CI. Compile
 its Static variant explicitly, then supply the package and a direct player.
 Diagnostic goals drive the ordinary planner and mover; actor poses are never

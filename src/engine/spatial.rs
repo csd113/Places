@@ -569,7 +569,7 @@ fn centroid(vertices: &[crate::engine::render::Vertex]) -> [f32; 3] {
 
 /// Builds spatially bucketed vertex ranges from a stream of contiguous quads.
 ///
-/// Every emitter in `render.rs` writes whole quads (six vertices) into a scratch
+/// Every emitter in `render::common` writes whole quads (six vertices) into a scratch
 /// buffer. Feeding those runs here splits them by the cell containing each quad's
 /// centroid, so a room, a 40-metre wall or a single fixture all end up in the
 /// right cells without the emitting code knowing anything about the grid.

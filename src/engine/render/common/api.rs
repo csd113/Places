@@ -7,7 +7,7 @@
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
-use super::geometry::build_level_geometry_mesh_with_fixture_models;
+use super::geometry::{LevelMeshPreparation, build_level_geometry_mesh_with_fixture_models};
 use super::props::{
     PropMeshBatch, resolve_prop_fallbacks, resolve_prop_instances,
     resolve_prop_instances_lightmapped,
@@ -182,9 +182,7 @@ impl LightmapBuildOptions {
         )
     }
 
-    /// [`Self::for_lightmaps`] with an explicit mode, for the callers that
-    /// deliberately need the historical vertex-lit build whatever the setting
-    /// says (the renderer's defensive atlas-upload fallback).
+    /// [`Self::for_lightmaps`] with an explicit mode for preparation tools.
     #[must_use]
     pub const fn for_lightmap_quality(
         lightmaps: crate::engine::quality::LightmapQuality,
@@ -271,13 +269,8 @@ pub struct StaticLightState {
     pub batches: Vec<PropMeshBatch>,
 }
 
-/// Everything one level build produced.
-///
-/// `lightmaps` is `Some` only when the level was built *and* baked with
-/// [`LightmapMode::On`]; `lightmap_failure` is set when an `On` build had to
-/// fall back, which is the named reason the caller can log. A build that was
-/// asked for `Off` has both `None` and is the historical vertex-lit level,
-/// byte for byte.
+/// Everything one level preparation produced. Intentional Static and a
+/// successful chartless scene omit the atlas. Failures return before staging.
 pub struct LevelBuild {
     pub mesh: Arc<LevelMesh>,
     pub batches: Vec<PropMeshBatch>,
@@ -288,8 +281,6 @@ pub struct LevelBuild {
     /// The prepared irradiance field moving objects sample, when this build
     /// produced one.
     pub probes: Option<Arc<crate::engine::lighting::probes::ProbeField>>,
-    /// Why an `On` build fell back to vertex colours, if it did.
-    pub lightmap_failure: Option<LightmapFailure>,
     /// Wall-clock cost of filling and packing the atlas, in milliseconds.
     pub lightmap_millis: f64,
 }
@@ -640,7 +631,6 @@ fn authoring_preview_parts(
             timings,
             lightmaps: None,
             probes: None,
-            lightmap_failure: None,
             lightmap_millis: 0.0,
         },
         complete_props,
@@ -726,7 +716,7 @@ pub(super) fn illuminate_preview_vertices(vertices: &mut [super::Vertex]) {
 /// The loader prepares lighting, props, and the plan-stamped mesh on its
 /// worker before completing the cancellable per-texel fill. `fill` is `None`
 /// exactly when the build is complete — a cache hit, [`LightmapMode::Off`], or
-/// a plan failure that already fell back to the historical vertex-lit mesh.
+/// a completed preparation with no atlas requested.
 pub struct PreparedLightmapBuild {
     /// The mesh (stamped with the lightmap plan when one was asked for), the
     /// prop batches, the baked lighting and the stage timings.
@@ -775,26 +765,12 @@ pub struct LightmapFillProduct {
 /// What one lightmap fill produced.
 #[derive(Debug)]
 pub enum LightmapFillOutcome {
-    /// The atlas was filled; its pages are identical to an inline bake of the
-    /// same request, and the prepared probe field is included when asked for.
+    /// The atlas was filled. The prepared probe field is included when requested.
     Filled(Box<LightmapFillProduct>),
-    /// The fill failed (`FillSize`, `FillNonFinite`, `Layout`, ...); the caller
-    /// must keep the historical vertex-lit fallback.
+    /// The fill failed. Its candidate must be discarded.
     Failed(LightmapFailure),
     /// A newer request superseded this one; the result must never activate.
     Cancelled,
-}
-
-/// Fills one request synchronously, retaining its prepared probe field.
-///
-/// # Errors
-///
-/// Returns the named [`LightmapFailure`] when a chart's texels are not exactly
-/// what the plan described; the caller must rebuild the vertex-lit level.
-pub fn fill_lightmaps_full(
-    request: &LightmapFillRequest,
-) -> Result<LightmapFillProduct, LightmapFailure> {
-    bake_request(request, None)
 }
 
 /// Fills one request on the worker, with cancellation polled by the
@@ -811,19 +787,6 @@ pub fn fill_lightmaps_cancellable(
         Err(_) if cancel.load(Ordering::Relaxed) => LightmapFillOutcome::Cancelled,
         Err(failure) => LightmapFillOutcome::Failed(failure),
     }
-}
-
-/// The shared fill body, optionally cancellation-aware.
-///
-/// Cancellation is polled inside the transport solve; a cancelled solve stops
-/// early and reports a fill failure, which the worker maps to `Cancelled` by
-/// re-checking the flag after the fact, so a cancellation is never mistaken for
-/// a real bake failure.
-fn bake_request(
-    request: &LightmapFillRequest,
-    cancel: Option<&AtomicBool>,
-) -> Result<LightmapFillProduct, LightmapFailure> {
-    bake_request_with_workers(request, cancel, 1)
 }
 
 /// Process-wide atlas-fill worker override, set once by the offline compiler
@@ -974,15 +937,7 @@ fn bake_request_with_workers(
     })
 }
 
-/// [`build_level_geometry_timed_with_lightmaps`] up to, but not including, the
-/// lightmap fill.
-///
-/// This is the renderer's entry point for a runtime graphics change: it bakes
-/// the lighting, instances the props and emits the plan-stamped mesh in one
-/// pass, then reports whether an atlas fill is still owed. A cache hit is
-/// already activated in the returned build, so the caller never starts a
-/// worker for an atlas it already has.
-#[must_use]
+/// Prepares scene geometry and, for Full, the work for a separate atlas fill.
 #[expect(
     clippy::too_many_lines,
     reason = "one cohesive prepare-and-decide pass"
@@ -995,35 +950,22 @@ fn prepare_level_geometry_scoped(
     mut options: LightmapBuildOptions,
     cache: Option<&mut LightmapCache>,
     preview_scope: Option<[f32; 4]>,
-) -> PreparedLightmapBuild {
+) -> Result<PreparedLightmapBuild, LightmapFailure> {
     let started = std::time::Instant::now();
-    // The vertex-lit mode is the *historical* path and must stay byte-identical
-    // to it, so it bakes with [`BakeConfig::HARD`] whatever level is active: a
-    // soft-shadow, fine-occluder bake would change vertex colours that the
-    // fallback contract says are the historical ones.
-    let bake = match options.mode {
-        LightmapMode::On => options.bake,
-        LightmapMode::Off => BakeConfig::HARD,
-    };
-    let lighting = LevelLighting::bake_with(level, bake);
+    let lighting = LevelLighting::bake_with(level, options.bake);
     let lighting_millis = elapsed_millis(started);
     options = options.with_prepared_page_budget(level, &lighting);
 
     let surfaces = LevelSurfaces::new(level);
     let props_started = std::time::Instant::now();
-    let (mut batches, fallbacks) = if options.mode == LightmapMode::On {
-        resolve_prop_fallbacks(level, catalog, assets, &lighting, &surfaces, materials)
-    } else {
-        resolve_prop_instances(level, catalog, assets, &lighting, &surfaces, materials)
-    };
+    let (mut batches, fallbacks) =
+        resolve_prop_fallbacks(level, catalog, assets, &lighting, &surfaces, materials);
     let mut props_millis = elapsed_millis(props_started);
 
-    let mut plan = (options.mode == LightmapMode::On).then(|| {
-        let plan = LightmapPlan::new(options.config);
-        preview_scope.map_or(plan, |bounds| {
-            LightmapPlan::new(options.config).with_preview_scope(bounds)
-        })
-    });
+    let mut plan = preview_scope.map_or_else(
+        || LightmapPlan::new(options.config),
+        |bounds| LightmapPlan::new(options.config).with_preview_scope(bounds),
+    );
     let surfaces_started = std::time::Instant::now();
     let mesh = build_mesh_for_options(
         level,
@@ -1031,26 +973,18 @@ fn prepare_level_geometry_scoped(
         &fallbacks,
         &lighting,
         materials,
-        plan.as_mut(),
+        Some(&mut plan),
         &batches,
     );
     let surfaces_millis = elapsed_millis(surfaces_started);
-    if let Some(active_plan) = plan.as_mut() {
-        let receivers_started = std::time::Instant::now();
-        let (receivers, _) = resolve_prop_instances_lightmapped(
-            level,
-            catalog,
-            assets,
-            &lighting,
-            &surfaces,
-            materials,
-            active_plan,
-        );
-        if !active_plan.failed() {
-            batches = receivers;
-        }
-        props_millis += elapsed_millis(receivers_started);
+    let receivers_started = std::time::Instant::now();
+    let (receivers, _) = resolve_prop_instances_lightmapped(
+        level, catalog, assets, &lighting, &surfaces, materials, &mut plan,
+    );
+    if !plan.failed() {
+        batches = receivers;
     }
+    props_millis += elapsed_millis(receivers_started);
 
     let mut build = LevelBuild {
         static_light_off: None,
@@ -1064,107 +998,79 @@ fn prepare_level_geometry_scoped(
         },
         lightmaps: None,
         probes: None,
-        lightmap_failure: None,
         lightmap_millis: 0.0,
     };
     let mut fill: Option<LightmapFillRequest> = None;
-    if let Some(active_plan) = plan.as_ref() {
-        // Report invisible slivers the plan skipped: the level kept its whole
-        // lightmap, but the author should still know the geometry is there.
-        let slivers = active_plan.slivers_skipped();
-        if slivers > 0 {
-            crate::engine::logging::warn_once(
-                format!("lightmap-slivers:{}", level.id),
-                format!(
-                    "[lightmaps] '{}' left {} sub-texel sliver quad(s) vertex-lit",
-                    level.id, slivers
-                ),
-            );
-        }
-        if let Some(plan_failure) = active_plan.failure() {
-            build.lightmap_failure = Some(plan_failure);
-        } else {
-            // This transient key covers source/settings/solver inputs, not
-            // resolved catalog, PNG or GLB bytes. A caller retaining this cache
-            // must keep those inputs immutable or clear it after an asset edit.
-            // The compiler starts a fresh cache per build; its package/stage
-            // fingerprints cover resolved resources. The player consumes those
-            // prepared packages and verifies installed dependency hashes.
-            let key = lightmap_content_key(level, &build.lighting, options);
-            if let Some(cached) = cache.and_then(|lightmap_cache| lightmap_cache.get(&key)) {
-                build.lightmaps = Some(cached);
-            } else {
-                let scene_started = std::time::Instant::now();
-                match super::light_transport::build_transport_scene(
-                    level,
-                    &build.mesh,
-                    &build.batches,
-                    materials,
-                    &build.lighting,
-                    active_plan.charts(),
-                )
-                .and_then(|(scene, stats)| {
-                    scene
-                        .with_chart_sample_density(active_plan.sample_densities().to_vec())
-                        .map(|sampled_scene| (sampled_scene, stats))
-                }) {
-                    Some((transport, scene_stats)) => {
-                        crate::engine::logging::info(format_args!(
-                            "[lightmaps] transport scene triangles={} ({} skipped) emitters={} ({} switchable)",
-                            scene_stats.triangles,
-                            scene_stats.skipped_triangles,
-                            scene_stats.emitters,
-                            scene_stats.switchable_emitters
-                        ));
-                        fill = Some(LightmapFillRequest {
-                            config: options.config,
-                            charts: active_plan.charts().to_vec(),
-                            page_count: active_plan.page_count(),
-                            content_key: key,
-                            transport: Arc::new(transport),
-                            options: options.solve,
-                            probe_bake: true,
-                        });
-                    }
-                    None => {
-                        build.lightmap_failure = Some(LightmapFailure::TransportScene);
-                    }
-                }
-                crate::engine::logging::info(format_args!(
-                    "[lightmap-timing] transport_scene_and_targets_ms={:.3}",
-                    elapsed_millis(scene_started)
-                ));
-            }
-        }
-    }
-
-    // A failed plan must never be drawn: rebuild the static mesh with the
-    // historical vertex path against the lighting already baked above. This is
-    // the exact fallback the inline entry point always ran, and it does not
-    // re-bake the lighting (which would change every vertex colour).
-    if build.lightmap_failure.is_some() && options.mode == LightmapMode::On {
-        let fallback_started = std::time::Instant::now();
-        (build.batches, _) = resolve_prop_instances(
-            level,
-            catalog,
-            assets,
-            &build.lighting,
-            &surfaces,
-            materials,
+    // Report invisible slivers the plan skipped: the level kept its whole
+    // lightmap, but the author should still know the geometry is there.
+    let slivers = plan.slivers_skipped();
+    if slivers > 0 {
+        crate::engine::logging::warn_once(
+            format!("lightmap-slivers:{}", level.id),
+            format!(
+                "[lightmaps] '{}' left {} sub-texel sliver quad(s) vertex-lit",
+                level.id, slivers
+            ),
         );
-        build.mesh = Arc::new(build_level_geometry_mesh_with_fixture_models(
-            level,
-            catalog,
-            &fallbacks,
-            &build.lighting,
-            materials,
-            None,
-            &build.batches,
-        ));
-        build.timings.surfaces_millis += elapsed_millis(fallback_started);
+    }
+    if let Some(plan_failure) = plan.failure() {
+        return Err(plan_failure);
+    }
+    {
+        // This transient key covers source/settings/solver inputs, not
+        // resolved catalog, PNG or GLB bytes. A caller retaining this cache
+        // must keep those inputs immutable or clear it after an asset edit.
+        // The compiler starts a fresh cache per build; its package/stage
+        // fingerprints cover resolved resources. The player consumes those
+        // prepared packages and verifies installed dependency hashes.
+        let key = lightmap_content_key(level, &build.lighting, options);
+        if let Some(cached) = cache.and_then(|lightmap_cache| lightmap_cache.get(&key)) {
+            build.lightmaps = Some(cached);
+        } else {
+            let scene_started = std::time::Instant::now();
+            match super::light_transport::build_transport_scene(
+                level,
+                &build.mesh,
+                &build.batches,
+                materials,
+                &build.lighting,
+                plan.charts(),
+            )
+            .and_then(|(scene, stats)| {
+                scene
+                    .with_chart_sample_density(plan.sample_densities().to_vec())
+                    .map(|sampled_scene| (sampled_scene, stats))
+            }) {
+                Some((transport, scene_stats)) => {
+                    crate::engine::logging::info(format_args!(
+                        "[lightmaps] transport scene triangles={} ({} skipped) emitters={} ({} switchable)",
+                        scene_stats.triangles,
+                        scene_stats.skipped_triangles,
+                        scene_stats.emitters,
+                        scene_stats.switchable_emitters
+                    ));
+                    fill = Some(LightmapFillRequest {
+                        config: options.config,
+                        charts: plan.charts().to_vec(),
+                        page_count: plan.page_count(),
+                        content_key: key,
+                        transport: Arc::new(transport),
+                        options: options.solve,
+                        probe_bake: true,
+                    });
+                }
+                None => {
+                    return Err(LightmapFailure::TransportScene);
+                }
+            }
+            crate::engine::logging::info(format_args!(
+                "[lightmap-timing] transport_scene_and_targets_ms={:.3}",
+                elapsed_millis(scene_started)
+            ));
+        }
     }
 
-    PreparedLightmapBuild { build, fill }
+    Ok(PreparedLightmapBuild { build, fill })
 }
 
 /// Source/settings identity for a transient atlas cache and compiler metadata.
@@ -1196,113 +1102,6 @@ pub fn lightmap_content_key(
             .to_le_bytes(),
     );
     content_key_with_extra(level, &options.config, options.profile, &extra)
-}
-
-/// Rebuilds the historical vertex-lit mesh against an already-baked lighting
-/// field.
-///
-/// The fallback both the inline and the asynchronous fills use when a plan or
-/// fill fails: the same lighting keeps every baked vertex colour, and the
-/// result is exactly the mesh a [`LightmapMode::Off`] build produces. Prop
-/// instancing is re-resolved here, so the original build's batches are not
-/// needed; that repeats a little work, but only on the failure path.
-#[must_use]
-pub fn rebuild_vertex_lit_level(
-    level: &LevelDef,
-    catalog: &crate::engine::loader::PropCatalog,
-    assets: &mut crate::engine::props::PropAssets,
-    materials: &MaterialTable,
-    lighting: &LevelLighting,
-    batches: &mut Vec<PropMeshBatch>,
-) -> LevelMesh {
-    let surfaces = LevelSurfaces::new(level);
-    let (legacy, fallbacks) =
-        resolve_prop_instances(level, catalog, assets, lighting, &surfaces, materials);
-    *batches = legacy;
-    build_level_geometry_mesh_with_fixture_models(
-        level, catalog, &fallbacks, lighting, materials, None, batches,
-    )
-}
-
-/// [`prepare_level_geometry_with_lightmaps`] finished inline.
-///
-/// This is the historical synchronous entry point: it prepares the build and
-/// fills any owed lightmaps on the calling thread, so a plan or fill failure
-/// degrades to the exact vertex-lit level. The renderer's runtime changes use
-/// the two halves separately and fill on a worker; both share
-/// the same request bake, so their pages cannot drift.
-///
-/// A failed plan (page overflow, a degenerate quad) or a failed fill is rebuilt
-/// once with the historical mesh path and the same baked lighting, so the
-/// returned level is always drawable: `lightmaps` is then `None` and
-/// `lightmap_failure` names the reason. There is deliberately no third state —
-/// never a half-baked atlas, never black surfaces.
-///
-/// `cache` is best-effort: a hit skips the fill pass entirely, and `None`
-/// always bakes fresh (which is what the tests use to prove determinism).
-pub fn build_level_geometry_timed_with_lightmaps(
-    level: &LevelDef,
-    catalog: &crate::engine::loader::PropCatalog,
-    assets: &mut crate::engine::props::PropAssets,
-    materials: &MaterialTable,
-    options: LightmapBuildOptions,
-    mut cache: Option<&mut LightmapCache>,
-) -> LevelBuild {
-    let PreparedLightmapBuild { mut build, fill } = prepare_level_geometry_with_lightmaps(
-        level,
-        catalog,
-        assets,
-        materials,
-        options,
-        cache.as_deref_mut(),
-    );
-    let Some(request) = fill else {
-        if options.mode == LightmapMode::On && build.lightmap_failure.is_none() {
-            super::props::relight_probe_props(&mut build.batches, &build.lighting, None);
-        }
-        return build;
-    };
-    match fill_lightmaps_full(&request) {
-        Ok(product) => {
-            let crate::engine::render::common::api::LightmapFillProduct { lightmaps, probes } =
-                product;
-            super::props::relight_probe_props(&mut build.batches, &build.lighting, probes.as_ref());
-            let shared_lightmaps = Arc::new(lightmaps);
-            build.lightmap_millis = shared_lightmaps.stats.bake_millis;
-            dump_lightmaps_for_level(level, &shared_lightmaps);
-            if let Some(lightmap_cache) = cache {
-                lightmap_cache.insert(&request.content_key, Arc::clone(&shared_lightmaps));
-            }
-            // The prepared solve lights the surfaces; blended feather decals
-            // must read with it instead of the vertex-lit approximation (see
-            // `relight_blend_decals`). Cut-out decals are untouched.
-            if let Some(field) = probes.as_ref() {
-                crate::engine::render::relight_blend_decals(
-                    Arc::make_mut(&mut build.mesh),
-                    level,
-                    catalog.assets(),
-                    &build.lighting,
-                    field,
-                );
-            }
-            build.lightmaps = Some(shared_lightmaps);
-        }
-        Err(fill_failure) => {
-            build.lightmap_failure = Some(fill_failure);
-            let started = std::time::Instant::now();
-            let mesh = rebuild_vertex_lit_level(
-                level,
-                catalog,
-                assets,
-                materials,
-                &build.lighting,
-                &mut build.batches,
-            );
-            build.timings.surfaces_millis += elapsed_millis(started);
-            build.mesh = Arc::new(mesh);
-        }
-    }
-    build
 }
 
 /// Builds the static mesh for one build: stamped with the lightmap plan when one
@@ -1369,9 +1168,7 @@ fn dump_lightmaps_if_requested(level: &LevelDef, lightmaps: &LevelLightmaps) {
 /// Writes every atlas page of `lightmaps` under `target/diagnostics/atlases/`
 /// when `PLACES_DUMP_LIGHTMAPS=1` is set.
 ///
-/// Public so the renderer can dump an asynchronously filled atlas exactly as
-/// the inline path dumps its own; the identifier sanitising and the target
-/// directory are the developer dump's, unchanged.
+/// The compiler uses the same developer dump for every freshly filled atlas.
 pub fn dump_lightmaps_for_level(level: &LevelDef, lightmaps: &LevelLightmaps) {
     dump_lightmaps_if_requested(level, lightmaps);
 }
@@ -1468,17 +1265,101 @@ pub fn build_level_geometry_with_catalog_and_materials(
     build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials)
 }
 
-/// Prepares the ordinary final compiler plan, optionally consulting its cache.
-#[must_use]
-pub fn prepare_level_geometry_with_lightmaps(
+fn prepare_static_level<'a>(
+    level: &'a LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &'a MaterialTable,
+) -> (LevelBuild, LevelMeshPreparation<'a>) {
+    let started = std::time::Instant::now();
+    let lighting = LevelLighting::bake(level);
+    let lighting_millis = elapsed_millis(started);
+
+    let geometry_started = std::time::Instant::now();
+    let preparation = LevelMeshPreparation::new(level, materials, false);
+    let geometry_millis = elapsed_millis(geometry_started);
+    let (mesh, batches, mut timings) =
+        prepare_static_receivers(&preparation, catalog, assets, &lighting);
+    timings.lighting_millis = lighting_millis;
+    timings.surfaces_millis += geometry_millis;
+    let build = LevelBuild {
+        static_light_off: None,
+        mesh: Arc::new(mesh),
+        batches,
+        lighting,
+        timings,
+        lightmaps: None,
+        probes: None,
+        lightmap_millis: 0.0,
+    };
+    (build, preparation)
+}
+
+fn prepare_static_receivers(
+    preparation: &LevelMeshPreparation<'_>,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    lighting: &LevelLighting,
+) -> (LevelMesh, Vec<PropMeshBatch>, BuildTimings) {
+    let props_started = std::time::Instant::now();
+    let (batches, fallbacks) = resolve_prop_instances(
+        preparation.level,
+        catalog,
+        assets,
+        lighting,
+        &preparation.surfaces,
+        preparation.materials,
+    );
+    let props_millis = elapsed_millis(props_started);
+    let surfaces_started = std::time::Instant::now();
+    let mesh = preparation.emit(catalog, &fallbacks, lighting, None, &batches);
+    let timings = BuildTimings {
+        props_millis,
+        surfaces_millis: elapsed_millis(surfaces_started),
+        ..BuildTimings::default()
+    };
+    (mesh, batches, timings)
+}
+
+/// Prepare one offline lighting product. Static can include an authored
+/// alternate without preparing the scene a second time or doing GPU work.
+pub fn prepare_compiled_level_geometry(
     level: &LevelDef,
     catalog: &crate::engine::loader::PropCatalog,
     assets: &mut crate::engine::props::PropAssets,
     materials: &MaterialTable,
     options: LightmapBuildOptions,
-    cache: Option<&mut LightmapCache>,
-) -> PreparedLightmapBuild {
-    prepare_level_geometry_scoped(level, catalog, assets, materials, options, cache, None)
+    cache: &mut LightmapCache,
+) -> Result<PreparedLightmapBuild, String> {
+    if options.mode == LightmapMode::On {
+        return prepare_level_geometry_scoped(
+            level,
+            catalog,
+            assets,
+            materials,
+            options,
+            Some(cache),
+            None,
+        )
+        .map_err(|failure| format!("lighting preparation failed: {}", failure.name()));
+    }
+    let (mut build, preparation) = prepare_static_level(level, catalog, assets, materials);
+    let state_started = std::time::Instant::now();
+    if let Some(circuit) = build.lighting.prepare_static_circuit(level)? {
+        let (mesh, batches, _) =
+            prepare_static_receivers(&preparation, catalog, assets, &circuit.unpowered);
+        build.static_light_off = Some(Arc::new(StaticLightState {
+            fixtures: circuit.fixtures,
+            mesh,
+            batches,
+        }));
+        crate::engine::logging::info(format_args!(
+            "[compiler-state] shared_visibility_bytes={} static_off_prepare_ms={:.3}",
+            build.lighting.shared_visibility_bytes(),
+            elapsed_millis(state_started)
+        ));
+    }
+    Ok(PreparedLightmapBuild { build, fill: None })
 }
 
 /// Prepares a private bounded receiver plan with complete scene geometry.
@@ -1489,7 +1370,7 @@ pub fn prepare_local_lightmap_geometry(
     materials: &MaterialTable,
     options: LightmapBuildOptions,
     bounds: [f32; 4],
-) -> PreparedLightmapBuild {
+) -> Result<PreparedLightmapBuild, LightmapFailure> {
     prepare_level_geometry_scoped(
         level,
         catalog,

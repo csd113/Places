@@ -217,7 +217,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 8;
+pub const SOLVER_REVISION: u64 = 9;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -1347,8 +1347,9 @@ fn fill_texel(texel: &mut LightmapTexel, normal: [f32; 3], target: [f32; 3]) {
 /// [`TransportScene::receivers`] builds receivers.
 ///
 /// Each texel's room is the patch's own resolved `room` hint when set (the
-/// face's authoritative room), else the room containing its patch point. The
-/// target is the room area's baseline above [`AMBIENT_LEVEL`], not the full
+/// face's authoritative room), else the room containing its patch point. A
+/// certified open coplanar floor join caps only the extra target in its
+/// bounded strip. The target is the room area's baseline above [`AMBIENT_LEVEL`], not the full
 /// vertex-lit sample. The continuous soft floor preserves at least half the
 /// physical gradient and becomes the identity above four times the target. A texel in no room gets zero.
 /// The lookup is the baked zone grid, so it stays cheap per texel.
@@ -1362,6 +1363,8 @@ pub fn receiver_targets(
     lighting: &LevelLighting,
     charts: &[(LightmapPatch, Chart)],
 ) -> Vec<[f32; 3]> {
+    let recovery = super::floor_recovery::FloorRecovery::new(lighting, charts);
+    let target = |room, x, z| target_in_room(lighting, room, x, z);
     let mut out = Vec::new();
     for (patch, chart) in charts {
         let width = usize::try_from(chart.width).unwrap_or(0);
@@ -1370,15 +1373,17 @@ pub fn receiver_targets(
         if width == 0 || height == 0 {
             continue;
         }
+        let floor_join = recovery.for_patch(patch);
         for_each_texel(chart, |u, v| {
             let point = patch.point_at(u, v);
             let origin = receiver_ray_origin(patch, u, v, patch_normal(patch));
             let room = patch
                 .room
                 .or_else(|| lighting.room_index_at_height(point[0], point[1], point[2]));
-            out.push(room.map_or([0.0; 3], |room_index| {
-                target_in_room(lighting, room_index, origin[0], origin[2])
-            }));
+            let original = room.map_or([0.0; 3], |room_index| {
+                target(room_index, origin[0], origin[2])
+            });
+            out.push(floor_join.cap(point, target, original));
         });
     }
     out
@@ -1397,8 +1402,7 @@ pub fn probe_targets(
     charts: &[(LightmapPatch, Chart)],
 ) -> Vec<ProbeTarget> {
     chart_probe_lattice(charts)
-        .map(|lattice| lattice_probe_targets(lighting, lattice))
-        .unwrap_or_default()
+        .map_or_default(|lattice| lattice_probe_targets(lighting, lattice))
 }
 
 fn chart_probe_lattice(charts: &[(LightmapPatch, Chart)]) -> Option<ProbeLattice> {

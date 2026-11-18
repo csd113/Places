@@ -19,10 +19,9 @@
 //!         -> Vertex::lightmap       -> one RGBA16F layer pair per page
 //! ```
 //!
-//! The vertex-lit path stays alive as an exact fallback: a vertex whose
-//! [`crate::engine::render::LIGHTMAP_NONE`] page byte is set never samples the atlas,
-//! and a build whose lightmaps could not be produced is rebuilt with
-//! [`LightmapMode::Off`], which reproduces the historical vertex colours.
+//! A vertex whose [`crate::engine::render::LIGHTMAP_NONE`] page byte is set
+//! never samples the atlas. Explicit Static uses [`LightmapMode::Off`].
+//! Failed Full preparations are refused.
 //!
 //! Module layout
 //! -------------
@@ -202,9 +201,7 @@ impl LightmapTexel {
 
 /// Why a lightmap build did not produce a usable atlas.
 ///
-/// Every one of these makes the level rebuild with [`LightmapMode::Off`] and
-/// draw the historical vertex-lit colours; none of them may leave a surface
-/// black.
+/// The failed candidate is discarded before any prepared lighting is published.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum LightmapFailure {
     /// The packer needed more pages than [`LightmapConfig::max_pages`].
@@ -225,8 +222,6 @@ pub enum LightmapFailure {
     InvalidConfig,
     /// The static scene exceeded the transport solver's triangle budget.
     TransportScene,
-    /// The renderer could not upload an atlas page.
-    Upload,
 }
 
 impl LightmapFailure {
@@ -243,7 +238,6 @@ impl LightmapFailure {
             Self::TransportEnergy => "transport energy mismatch",
             Self::InvalidConfig => "invalid config",
             Self::TransportScene => "transport scene",
-            Self::Upload => "page upload",
         }
     }
 }

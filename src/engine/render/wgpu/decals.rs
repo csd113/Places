@@ -57,6 +57,7 @@ pub const DECAL_SHADER_SRC: &str = concat!(
     include_str!("attached_lights.wgsl"),
     "\n",
     include_str!("decals.wgsl"),
+    include_str!("../../lighting/prepared_decal_light.wgsl"),
     include_str!("atmosphere.wgsl"),
     "\n",
     include_str!("caustics.wgsl")

@@ -56,6 +56,7 @@ impl PostSettings {
     }
 
     /// Diagnostic display encoding without exposure, tone, grade or bloom.
+    #[cfg(feature = "visual-diagnostics")]
     pub const DIAGNOSTIC: Self = Self {
         exposure: 1.0,
         tone_knee: 1.0,

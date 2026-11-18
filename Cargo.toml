@@ -2,7 +2,7 @@
 name = "places"
 version = "0.14.0"
 edition = "2024"
-rust-version = "1.99"
+rust-version = "1.100.0"
 description = "Places: a slow first-person exploration experience"
 license = "MIT"
 repository = "https://github.com/csd113/Places"
@@ -31,7 +31,7 @@ bytemuck = { version = "1.25.2", default-features = false, features = ["derive"]
 # Compiler-only terminal sizing and cooperative Ctrl-C handling; no UI runtime.
 ctrlc = "3.5.2"
 terminal_size = "0.4.4"
-glam = { version = "0.34.1", features = ["serde"] }
+glam = { version = "0.34.3", features = ["serde"] }
 # Maintained pure-Rust rigid bodies (native and future WASM); the player keeps
 # its established controller and shares the same metre/second gravity value.
 rapier3d = "0.36.1"
@@ -44,7 +44,7 @@ pollster = "1.0.1"
 # wgpu 30 uses and provides HasWindowHandle/HasDisplayHandle for the window. No
 # other SDL3 features are enabled. The player renders through wgpu; the small
 # compiler GUI uses SDL's 2D renderer. Neither uses SDL's GPU API.
-sdl3 = { version = "0.20.0", features = ["use-pkg-config", "raw-window-handle"] }
+sdl3 = { version = "0.22.1", features = ["use-pkg-config", "raw-window-handle"] }
 serde = { version = "1.0.229", features = ["derive"] }
 # Raw editor JSON must reread its own floating-point serialization exactly.
 # The default fast parser can round the last decimal digit differently.
@@ -58,11 +58,11 @@ sha2 = "0.11.1"
 # Vulkan on Linux, Direct3D 12 on Windows. The GLES, WebGPU and WebGL backends
 # stay off; `render::wgpu` never falls back to GL. `wgsl` is the shader
 # language the world, decal, post and UI pipelines use.
-wgpu = { version = "30.0.1", default-features = false, features = ["std", "wgsl"] }
-zip = { version = "9.0.5", default-features = false, features = ["deflate-flate2-zlib-rs", "zstd"] }
+wgpu = { version = "30.0.2", default-features = false, features = ["std", "wgsl"] }
+zip = { version = "9.5.1", default-features = false, features = ["deflate-flate2-zlib-rs", "zstd"] }
 # Shared ZIP transport uses our window-bounded decoder, not ZIP's default adapter.
-zstd = { version = "0.14.3", default-features = false }
-crc32fast = "1.5.3"
+zstd = { version = "0.14.4", default-features = false }
+crc32fast = "1.5.5"
 # Shared sandboxed Luau, statically built; no JIT, FFI or module loader.
 mlua = { version = "0.12.2", default-features = false, features = ["luau", "vendored", "send"] }
 
@@ -75,23 +75,23 @@ sha2 = "0.11.1"
 rayon = "1.12.0"
 # Static, preloaded WAV playback; the browser target uses the engine's silent
 # backend. No streaming decoder or general-purpose async runtime is enabled.
-kira = { version = "0.12.5", default-features = false, features = ["wav", "pcm"] }
+kira = { version = "0.12.6", default-features = false, features = ["wav", "pcm"] }
 # Kira already uses this bounded SPSC queue; the optional developer PCM tap
 # shares it and never blocks or writes files on the audio callback.
-rtrb = "0.4.0"
+rtrb = "0.4.1"
 
 [target.'cfg(unix)'.dependencies]
 # Atomic directory recovery must refuse a destination created by another process.
 libc = "0.2.191"
 
 [target.'cfg(target_os = "linux")'.dependencies]
-wgpu = { version = "30.0.1", default-features = false, features = ["vulkan", "wgsl"] }
+wgpu = { version = "30.0.2", default-features = false, features = ["vulkan", "wgsl"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
-wgpu = { version = "30.0.1", default-features = false, features = ["metal", "wgsl"] }
+wgpu = { version = "30.0.2", default-features = false, features = ["metal", "wgsl"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
-wgpu = { version = "30.0.1", default-features = false, features = ["dx12", "wgsl"] }
+wgpu = { version = "30.0.2", default-features = false, features = ["dx12", "wgsl"] }
 
 [lints.rust]
 warnings = "deny"
@@ -99,7 +99,7 @@ future_incompatible = { level = "deny", priority = -1 }
 unused_results = "deny"
 unsafe_op_in_unsafe_fn = "deny"
 
-# Rust 1.99.1 is pinned in rust-toolchain.toml. Keep the policy here so check,
+# Rust 1.100.0 is pinned in rust-toolchain.toml. Keep the policy here so check,
 # Clippy and the desktop verification gate agree without duplicating flags.
 [lints.clippy]
 all = { level = "deny", priority = -1 }

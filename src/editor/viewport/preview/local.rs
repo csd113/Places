@@ -95,7 +95,8 @@ pub(super) fn prepare(
         bounds[3] + halo,
     ];
     let mut prepared =
-        render::prepare_local_lightmap_geometry(level, catalog, assets, materials, options, scope);
+        render::prepare_local_lightmap_geometry(level, catalog, assets, materials, options, scope)
+            .map_err(|failure| format!("Local preview preparation failed: {}", failure.name()))?;
     let mut fill = prepared
         .fill
         .take()
@@ -124,13 +125,12 @@ pub(super) fn prepare(
     let scene = Arc::try_unwrap(fill.transport)
         .map_err(|_shared| "Preview transport is unexpectedly shared")?;
     fill.transport = Arc::new(scene.restrict_preview_receivers(&fill.charts, &selected));
-    let retained: Vec<_> = fill
+    fill.charts = fill
         .charts
         .iter()
         .zip(selected)
         .filter_map(|(chart, keep)| keep.then_some(*chart))
         .collect();
-    fill.charts = retained;
     fill.content_key = "ephemeral-local-preview-not-for-export".into();
     fill.probe_bake = false;
     let cancel = crate::engine::progress::cancellation_flag();

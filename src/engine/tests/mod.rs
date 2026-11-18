@@ -9,6 +9,7 @@ mod entity_routes;
 mod entity_sequences;
 mod essential_recovery;
 mod feltling;
+mod floor_recovery;
 mod fog_volumes;
 mod gameplay_authoring;
 mod held_auto_drop;
@@ -72,3 +73,5 @@ mod tall_guest_player;
 mod tall_guest_live_solids;
 
 mod health;
+
+mod static_circuit;

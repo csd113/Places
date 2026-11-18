@@ -5,7 +5,7 @@ A bufferView's ``byteLength`` is relative to its own ``byteOffset``: the view is
 addresses must fit inside that view. A binary chunk that continues past the
 declared view does not make a crossing accessor valid.
 
-The Rust reader (``src/engine/gltf.rs::accessor_data``) and the toolkit reader
+The Rust reader (``src/engine/gltf/accessor.rs::accessor_data``) and the toolkit reader
 (``tools/props/glb.py::_read_accessor``) apply the same checks. This module
 covers the toolkit fixtures. ``glb.py`` supports SCALAR/VEC2/VEC3/VEC4 float
 and integer accessors only; MAT4 inverse-bind handling remains in the production

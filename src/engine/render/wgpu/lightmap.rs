@@ -31,9 +31,7 @@
 //! byte and group it stamps, and no memory is reserved for pages the bake did
 //! not produce. A page set that cannot share one square edge, whose switchable
 //! contributions disagree on the page count, or that carries more switchable
-//! groups than the uniform's four-bit count is rejected as a whole and binds
-//! the fallback, which the renderer's [`needs_upload_fallback`] rule turns into
-//! the vertex-lit rebuild.
+//! groups than the uniform's four-bit count is rejected before allocation.
 //!
 //! The atlas is a *level* resource: the array is created at level upload and
 //! dropped with the renderer's `lightmaps` field, never per frame. Nothing here
@@ -98,34 +96,13 @@ pub fn pair_upload_plan(maps: &LevelLightmaps) -> PairUploadPlan {
 /// Number of base atlas pages (layer pairs) one layer group can hold.
 ///
 /// One page pair per page and switchable group, selected by the vertex page
-/// byte plus the uniform's group index. A bake that needs more pages fails over
-/// to vertex lighting instead of dropping pages silently. Mirrors
+/// byte plus the uniform's group index. A bake that needs more pages is rejected.
+/// Mirrors
 /// [`crate::engine::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES`] (forty Full pages:
 /// a 640 MiB layer group at its 1024px edge). Medium retains eight 1024px pages
 /// and Low eight 512px pages; only resident pages and prepared groups allocate.
 pub const LIGHTMAP_ATLAS_MAX_PAGES: usize =
     crate::engine::lighting::lightmap::LIGHTMAP_ATLAS_MAX_PAGES;
-
-/// Whether an On-mode build whose atlas failed to upload must be rebuilt with
-/// vertex lighting.
-///
-/// A plan or fill failure never qualifies: `has_lightmaps` is false and the
-/// neutral build has already returned the historical vertex-lit mesh with the
-/// same lighting, exactly like the reference (which does not even attempt an
-/// upload for a missing atlas). Only a built page set whose GPU atlas is not
-/// resident triggers the reference's `Upload` fallback. Applying the rule to a
-/// plan or fill failure would re-bake the level with `BakeConfig::HARD` and
-/// change every vertex colour, so only the upload failure kind qualifies.
-#[must_use]
-pub const fn needs_upload_fallback(
-    mode: crate::engine::lighting::lightmap::LightmapMode,
-    has_lightmaps: bool,
-    atlas_resident: bool,
-) -> bool {
-    matches!(mode, crate::engine::lighting::lightmap::LightmapMode::On)
-        && has_lightmaps
-        && !atlas_resident
-}
 
 /// The page edge, in texels, the fallback sheet uses.
 const FALLBACK_EDGE: u32 = 1;
@@ -238,15 +215,14 @@ fn white_array_bytes(edge: u32, layers: u32) -> Vec<u8> {
     bytes
 }
 
-/// The pure upload plan: what [`LightmapAtlas::upload`] will bind and report.
+/// The pure upload plan for depth, dimensions and device accounting.
 ///
 /// The bake's base pages and every switchable contribution become layer pairs
 /// of one array, so every page of every group must match a single square edge
 /// and the base set must fit the page capacity. A set that carries too many
 /// pages or groups, disagrees on an edge or a group's page count, or carries no
-/// usable page at all is not uploadable: the returned stats are empty and the
-/// caller binds the fallback, which the renderer's [`needs_upload_fallback`]
-/// rule turns into the vertex-lit rebuild. No page is ever dropped silently.
+/// usable page yields empty stats. [`validate_limits`] rejects that shape when
+/// an atlas record is present.
 #[must_use]
 pub fn upload_stats(lightmaps: Option<&LevelLightmaps>) -> LightmapUploadStats {
     let mut stats = LightmapUploadStats {
@@ -324,7 +300,7 @@ pub fn validate_limits(
     maximum_layers: u32,
 ) -> Result<(), String> {
     let stats = upload_stats(lightmaps);
-    if lightmaps.is_some_and(|maps| !maps.pages.is_empty()) && stats.pages == 0 {
+    if lightmaps.is_some() && stats.pages == 0 {
         return Err("The prepared lightmap pages cannot form a valid square array".into());
     }
     let layers = stats.physical_pairs.saturating_mul(2);
@@ -360,11 +336,10 @@ pub struct LightmapAtlas {
 }
 
 impl LightmapAtlas {
-    /// Allocates a prepared atlas as one array of layer pairs, or the fallback
-    /// for the vertex-lit path.
+    /// Allocates a prepared atlas, or binds a neutral pair for intentional
+    /// Static and successful chartless scenes.
     ///
     /// Malformed or unsupported imported atlases fail before device allocation.
-    /// An absent/empty atlas retains the explicit vertex-lighting fallback.
     ///
     /// # Errors
     /// Returns a load error when physical layers or dimensions exceed the device.
@@ -373,13 +348,20 @@ impl LightmapAtlas {
         queue: &wgpu::Queue,
         lightmaps: Option<&LevelLightmaps>,
     ) -> Result<Self, String> {
+        Self::validate_device_limits(device, lightmaps)?;
+        Ok(Self::begin_validated(device, queue, lightmaps))
+    }
+
+    pub(super) fn validate_device_limits(
+        device: &wgpu::Device,
+        lightmaps: Option<&LevelLightmaps>,
+    ) -> Result<(), String> {
         let limits = device.limits();
         validate_limits(
             lightmaps,
             limits.max_texture_dimension_2d,
             limits.max_texture_array_layers,
-        )?;
-        Ok(Self::begin_validated(device, queue, lightmaps))
+        )
     }
 
     /// The fixed one-pixel/two-layer fallback fits every supported device.
@@ -408,20 +390,6 @@ impl LightmapAtlas {
             contents: bytemuck::cast_slice(&pair_plan.layers),
             usage: wgpu::BufferUsages::UNIFORM,
         });
-        if let Some(level_lightmaps) = lightmaps
-            && stats.pages == 0
-            && !level_lightmaps.pages.is_empty()
-        {
-            crate::engine::logging::warn_once(
-                "lightmap-atlas-pages-rejected",
-                format!(
-                    "[lightmaps] atlas carries {} page(s) that cannot share one square array \
-                     (resident {}); binding the vertex-lit fallback",
-                    level_lightmaps.pages.len(),
-                    stats.pages
-                ),
-            );
-        }
         let mut page_array = None;
         let mut view = None;
         if stats.pages > 0 {
@@ -451,43 +419,32 @@ impl LightmapAtlas {
         }
     }
 
-    /// Uploads all pages immediately for compiler/tool callers.
-    ///
-    /// # Errors
-    /// Returns the same atlas validation errors as [`Self::begin_upload`].
-    pub fn upload(
-        device: &wgpu::Device,
-        queue: &wgpu::Queue,
-        lightmaps: Option<&LevelLightmaps>,
-    ) -> Result<Self, String> {
-        let atlas = Self::begin_upload(device, queue, lightmaps)?;
-        let mut cursor = 0;
-        while atlas.upload_next_page(queue, lightmaps, &mut cursor) {}
-        Ok(atlas)
-    }
-
     /// Copies one complete page pair. A pending renderer install publishes the
     /// atlas only after this cursor reaches the end and its queue work completes.
+    ///
+    /// # Errors
+    /// Returns an error if the frozen upload plan cannot resolve its next page.
     pub fn upload_next_page(
         &self,
         queue: &wgpu::Queue,
         lightmaps: Option<&LevelLightmaps>,
         cursor: &mut usize,
-    ) -> bool {
-        let Some(texture) = &self.pages else {
-            return false;
-        };
+    ) -> Result<bool, String> {
         let Some(source) = self.pair_plan.sources.get(*cursor) else {
-            return false;
+            return Ok(false);
         };
-        let Some(page) = lightmaps.and_then(|maps| {
-            maps.pages
-                .iter()
-                .chain(maps.switchable.iter().flat_map(|group| &group.pages))
-                .nth(*source)
-        }) else {
-            return false;
-        };
+        let texture = self
+            .pages
+            .as_ref()
+            .ok_or("The prepared atlas has no page texture")?;
+        let page = lightmaps
+            .and_then(|maps| {
+                maps.pages
+                    .iter()
+                    .chain(maps.switchable.iter().flat_map(|group| &group.pages))
+                    .nth(*source)
+            })
+            .ok_or("The prepared atlas is missing a planned page")?;
         let bytes = page_rgba16f(page);
         let edge = self.stats.page_edge;
         let layer = u32::try_from(*cursor)
@@ -517,7 +474,7 @@ impl LightmapAtlas {
             },
         );
         *cursor = cursor.saturating_add(1);
-        true
+        Ok(true)
     }
 
     /// Creates a `layers`-deep array of `edge`-texel fallback layers: white

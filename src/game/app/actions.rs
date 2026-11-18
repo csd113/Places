@@ -18,140 +18,152 @@ const MAX_SCRIPT_BYTES: u64 = 65_536;
 #[path = "../tests/native_actions.rs"]
 mod tests;
 
-#[derive(Clone, Debug, Deserialize)]
-#[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
-pub enum Action {
-    Health {
-        target: crate::engine::health::HealthTarget,
-        change: crate::engine::health::HealthAction,
-    },
-    HealthRules {
-        rules: crate::engine::health::HealthSettings,
-    },
-    Load {
-        level: String,
-    },
-    Escape {},
-    Audio(AudioAction),
-    ConsoleEnabled {
-        enabled: bool,
-    },
-    /// Fault injection through the real rollback/diagnostic path; no map bake.
-    Ragdoll {
-        id: String,
-        enabled: bool,
-    },
-    Key {
-        key: String,
-        pressed: bool,
-        #[serde(default)]
-        repeat: bool,
-    },
-    Text {
-        text: String,
-        #[serde(default)]
-        submit: bool,
-    },
-    Player {
-        position: [f32; 3],
-        yaw: f32,
-        pitch: f32,
-    },
-    /// Camera orientation only, for native playthroughs using ordinary movement
-    /// and interaction input without prescribing the player's position.
-    View {
-        yaw: f32,
-        pitch: f32,
-    },
-    /// Aim from the actual eye at a world point without moving any actor.
-    ViewAt {
-        position: [f32; 3],
-    },
-    /// Gives an installed actor a diagnostic goal through its normal planner
-    /// and collision-respecting mover; never changes its position.
-    NavigationGoal {
-        id: String,
-        position: [f32; 3],
-    },
-    ItemPose {
-        id: String,
-        position: [f32; 3],
-        rotation: [f32; 4],
-    },
-    ItemVelocity {
-        id: String,
-        linear: [f32; 3],
-        angular: [f32; 3],
-    },
-    Fixture {
-        id: String,
-        on: bool,
-    },
-    /// Adjusts one installed source's focused-water contribution.
-    CausticsSource {
-        id: String,
-        on: Option<bool>,
-        intensity: Option<f32>,
-        color: Option<[f32; 3]>,
-    },
-    /// Adjusts one installed water volume without rebuilding its geometry.
-    CausticsWater {
-        index: usize,
-        tint: Option<[f32; 3]>,
-        speed: Option<f32>,
-        strength: Option<f32>,
-    },
-    AimItem {
-        id: String,
-    },
-    /// A native acceptance camera action; it leaves the actor's pose and AI intact.
-    AimEntity {
-        id: String,
-        #[serde(default)]
-        yaw_offset_degrees: f32,
-    },
-    /// Direct authored-actor dispatch for explicit acceptance cases such as
-    /// resetting a held group member. Normal gameplay continues to use Interact.
-    Activate {
-        id: String,
-    },
-    Mouse {
-        button: String,
-        pressed: bool,
-        #[serde(default)]
-        recapture: bool,
-    },
-    /// Resource/ownership witness without GPU readback. Its named anchor can
-    /// sequence long developer campaigns within the existing per-step bounds.
-    Checkpoint {
-        name: String,
-    },
-    /// Explicit native acceptance through the ordinary save/resume paths.
-    SaveCheckpoint {
-        name: String,
-    },
-    ResumeCheckpoint {},
-    Capture {
-        name: String,
-    },
-    Resize {
-        width: u32,
-        height: u32,
-    },
-    Quality {
-        level: String,
-    },
-    Lightmaps {
-        quality: String,
-    },
-    LowLighting {
-        enabled: bool,
-    },
-    Focus {
-        focused: bool,
-    },
-    Quit {},
+// Serde generates empty field enums to reject unknown fields on empty action objects.
+#[expect(
+    clippy::empty_enums,
+    reason = "Serde-generated field identifiers preserve strict empty action objects"
+)]
+mod wire {
+    use super::AudioAction;
+    use serde::Deserialize;
+
+    #[derive(Clone, Debug, Deserialize)]
+    #[serde(tag = "kind", rename_all = "snake_case", deny_unknown_fields)]
+    pub enum Action {
+        Health {
+            target: crate::engine::health::HealthTarget,
+            change: crate::engine::health::HealthAction,
+        },
+        HealthRules {
+            rules: crate::engine::health::HealthSettings,
+        },
+        Load {
+            level: String,
+        },
+        Escape {},
+        Audio(AudioAction),
+        ConsoleEnabled {
+            enabled: bool,
+        },
+        /// Fault injection through the real rollback/diagnostic path; no map bake.
+        Ragdoll {
+            id: String,
+            enabled: bool,
+        },
+        Key {
+            key: String,
+            pressed: bool,
+            #[serde(default)]
+            repeat: bool,
+        },
+        Text {
+            text: String,
+            #[serde(default)]
+            submit: bool,
+        },
+        Player {
+            position: [f32; 3],
+            yaw: f32,
+            pitch: f32,
+        },
+        /// Camera orientation only, for native playthroughs using ordinary movement
+        /// and interaction input without prescribing the player's position.
+        View {
+            yaw: f32,
+            pitch: f32,
+        },
+        /// Aim from the actual eye at a world point without moving any actor.
+        ViewAt {
+            position: [f32; 3],
+        },
+        /// Gives an installed actor a diagnostic goal through its normal planner
+        /// and collision-respecting mover; never changes its position.
+        NavigationGoal {
+            id: String,
+            position: [f32; 3],
+        },
+        ItemPose {
+            id: String,
+            position: [f32; 3],
+            rotation: [f32; 4],
+        },
+        ItemVelocity {
+            id: String,
+            linear: [f32; 3],
+            angular: [f32; 3],
+        },
+        Fixture {
+            id: String,
+            on: bool,
+        },
+        /// Adjusts one installed source's focused-water contribution.
+        CausticsSource {
+            id: String,
+            on: Option<bool>,
+            intensity: Option<f32>,
+            color: Option<[f32; 3]>,
+        },
+        /// Adjusts one installed water volume without rebuilding its geometry.
+        CausticsWater {
+            index: usize,
+            tint: Option<[f32; 3]>,
+            speed: Option<f32>,
+            strength: Option<f32>,
+        },
+        AimItem {
+            id: String,
+        },
+        /// A native acceptance camera action; it leaves the actor's pose and AI intact.
+        AimEntity {
+            id: String,
+            #[serde(default)]
+            yaw_offset_degrees: f32,
+        },
+        /// Direct authored-actor dispatch for explicit acceptance cases such as
+        /// resetting a held group member. Normal gameplay continues to use Interact.
+        Activate {
+            id: String,
+        },
+        Mouse {
+            button: String,
+            pressed: bool,
+            #[serde(default)]
+            recapture: bool,
+        },
+        /// Resource/ownership witness without GPU readback. Its named anchor can
+        /// sequence long developer campaigns within the existing per-step bounds.
+        Checkpoint {
+            name: String,
+        },
+        /// Explicit native acceptance through the ordinary save/resume paths.
+        SaveCheckpoint {
+            name: String,
+        },
+        ResumeCheckpoint {},
+        Capture {
+            name: String,
+        },
+        Resize {
+            width: u32,
+            height: u32,
+        },
+        Quality {
+            level: String,
+        },
+        Lightmaps {
+            quality: String,
+        },
+        LowLighting {
+            enabled: bool,
+        },
+        Focus {
+            focused: bool,
+        },
+        Quit {},
+    }
 }
+
+pub use wire::Action;
 #[derive(Clone, Debug, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Step {

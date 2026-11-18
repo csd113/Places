@@ -607,12 +607,51 @@ fn decode_named_variant<R: std::io::Read + std::io::Seek>(
             manifest.id
         ));
     }
-    assets.synchronize_dependencies(&manifest.dependencies);
     let name = quality.name();
     let variant = manifest
         .variant(name)
         .ok_or_else(|| format!("package '{}' has no '{name}' variant", manifest.id))?;
+    validate_playable_lighting(variant)
+        .map_err(|error| format!("package '{}' variant '{name}': {error}", manifest.id))?;
+    assets.synchronize_dependencies(&manifest.dependencies);
     decode_variant(reader, variant, quality, assets, Some(manifest))
+}
+
+/// Failed artifacts remain inspectable through the manifest. A player must
+/// refuse them before attaching prepared data to the next world.
+pub(crate) fn validate_playable_lighting(variant: &Variant) -> Result<(), String> {
+    let Some(failure) = variant.lightmap_failure.as_deref() else {
+        return Ok(());
+    };
+    if failure == super::NO_LIGHTMAP_CHARTS
+        && variant.lightmap_quality != LightmapQuality::Off.name()
+        && variant.entries.lightmaps.is_none()
+        && variant.entries.lightmaps_meta.is_none()
+    {
+        return Ok(());
+    }
+    Err(format!(
+        "prepared lighting failed ({failure}); re-export this map"
+    ))
+}
+
+/// Applies the player’s prepared-lighting admission to an archive cache hit.
+pub(crate) fn validate_cached_lighting<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    variant: &Variant,
+) -> Result<(), String> {
+    validate_playable_lighting(variant)?;
+    if variant.lightmap_failure.is_none() {
+        return Ok(());
+    }
+    // The only admitted marker is chartless success. Resolve both receiver
+    // records, including shared prop sections, just as world decode does.
+    let mesh_bytes = reader.read_blob(&variant.entries.mesh, MAX_BINARY_BYTES)?;
+    let mesh = read_mesh(&mesh_bytes)?;
+    drop(mesh_bytes);
+    let props_bytes = super::shared_props::read_record(reader, &variant.entries.props)?;
+    let props = read_props(&props_bytes)?;
+    validate_chartless_receivers(variant, &mesh, &props)
 }
 
 /// Reattaches PNG allocations for compiled material variants. Only semantic
@@ -789,6 +828,27 @@ fn share_prepared_props(
     Ok(())
 }
 
+fn validate_chartless_receivers(
+    variant: &Variant,
+    mesh: &LevelMesh,
+    props: &[PropMeshBatch],
+) -> Result<(), String> {
+    if variant.lightmap_failure.as_deref() == Some(super::NO_LIGHTMAP_CHARTS)
+        && (mesh
+            .ranges
+            .iter()
+            .flat_map(|range| &range.vertices)
+            .any(crate::engine::render::Vertex::is_lightmapped)
+            || props
+                .iter()
+                .flat_map(|batch| batch.vertices.iter())
+                .any(|vertex| vertex.is_lightmapped()))
+    {
+        return Err("chartless lighting has geometry that references an atlas".into());
+    }
+    Ok(())
+}
+
 fn decode_variant<R: std::io::Read + std::io::Seek>(
     reader: &mut PackageReader<R>,
     variant: &Variant,
@@ -806,6 +866,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     timer.step("props-read-reconstruct");
     let mut props = crate::engine::resources::decode(&props_bytes, read_props)?;
     timer.step("props-parse");
+    validate_chartless_receivers(variant, &mesh, &props)?;
     trace_prop_parse(&props, props_bytes.capacity());
     drop(props_bytes);
     let variant_textures = manifest.map_or_else(

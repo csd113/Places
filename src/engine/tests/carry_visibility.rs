@@ -4,7 +4,7 @@
 
 use glam::Vec3;
 
-use crate::engine::{carry_visibility::assembly_hidden, collision::WallAabb, spatial::Aabb};
+use crate::engine::{collision::WallAabb, entities::carry::assembly_hidden, spatial::Aabb};
 
 #[test]
 fn hidden_torso_cannot_retire_an_exposed_limb_or_carried_prop() {

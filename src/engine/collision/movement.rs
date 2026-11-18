@@ -4,8 +4,7 @@
 //! configuration-space rectangle has straight faces and circular corners;
 //! expanding an AABB by the radius alone would invent square invisible walls.
 
-use super::{CONTACT_EPS, DoorCollider, WallAabb};
-use crate::engine::collision_index::CollisionIndex;
+use super::{CONTACT_EPS, DoorCollider, WallAabb, index::CollisionIndex};
 use glam::Vec2;
 
 /// Distance kept before a hit to absorb f32 roundoff, in metres (20 microns).

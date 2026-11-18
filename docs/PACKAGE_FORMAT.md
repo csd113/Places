@@ -294,19 +294,17 @@ prepared world for that setting:
   package.
 * `full` carries prepared geometry and the full-quality atlas; `medium` carries
   its corresponding prepared atlas.
-* A variant whose atlas could not be filled records `lightmap_failure` and
-  ships the vertex-lit geometry instead, exactly as the runtime used to fall
-  back — the fallback is recorded at compile time, never re-derived at load.
+* An atlas planning or fill failure stops the export. Older variants with
+  a recorded failure remain inspectable, and the player refuses to load them.
+  A successful bake with no chart receivers records `no charts` and carries
+  geometry with no atlas references.
 
 `quality_profile` records the bake/plan profile (`low` for `off`, `full`
 otherwise) so a future reader can tell which bake produced the vertex colours.
 
-A decoded package whose prepared atlas the device cannot bind (more than forty
-pages, or more than four switchable groups: a combination the compiler can
-never emit) falls back to a vertex-lit rebuild of the decoded semantics. That
-is the loader's defensive recovery path, not a player-side bake of the prepared
-path; no compiler output reaches it, and the prepared solve never runs in the
-player.
+The player checks that a prepared atlas can be uploaded on the current GPU
+before staging the next world. A refused atlas leaves the resident level and
+its applied graphics settings intact.
 
 Full's profile planning cap is forty pages; lower profiles retain eight.
 Architecture uses MAXRECTS until model receivers begin. Its free-rectangle union

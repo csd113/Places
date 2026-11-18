@@ -79,7 +79,7 @@ OPTIONS:
 ///
 /// Call at process startup before creating worker threads, so asset-root
 /// selection is pinned before shared engine asset discovery begins.
-#[must_use]
+#[must_use = "use the compiler exit status to report the command outcome"]
 pub fn run() -> ExitCode {
     crate::engine::logging::diagnostics_to_stderr();
     let parsed_arguments: Result<Vec<String>, CliError> = std::env::args_os()

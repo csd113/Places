@@ -50,6 +50,14 @@ enum PipelineReadiness {
     Failed(String),
 }
 
+struct PreviewCommit {
+    mesh: std::sync::Arc<crate::engine::render::LevelMesh>,
+    floor: crate::engine::level::WalkableFloor,
+    doors: Vec<crate::engine::collision::DoorCollider>,
+    objects: Option<Vec<PickObject>>,
+    local_preview: LocalPreview,
+}
+
 pub(super) struct Viewport {
     testing: test_runtime::Testing,
     layout: super::layout::Layout,
@@ -64,7 +72,7 @@ pub(super) struct Viewport {
     play_mesh: Option<std::sync::Arc<crate::engine::render::LevelMesh>>,
     play_floor: crate::engine::level::WalkableFloor,
     play_doors: Vec<crate::engine::collision::DoorCollider>,
-    pending_objects: Option<Vec<PickObject>>,
+    pending_preview: Option<PreviewCommit>,
     upload_samples: Vec<f64>,
     volume_guides: Vec<overlay::VolumeGuide>,
     duct_guides: Vec<super::ducts::Guide>,
@@ -122,7 +130,7 @@ impl Viewport {
             play_mesh: None,
             play_floor: crate::engine::level::WalkableFloor::default(),
             play_doors: Vec::new(),
-            pending_objects: None,
+            pending_preview: None,
             upload_samples: Vec::new(),
             volume_guides: Vec::new(),
             duct_guides: Vec::new(),
@@ -179,7 +187,7 @@ impl Viewport {
             .collect();
         self.renderer.cancel_prepared_install();
         self.uploading = false;
-        self.pending_objects = None;
+        self.pending_preview = None;
         self.play_mesh = None;
         self.requested = Some(Instant::now());
 
@@ -486,6 +494,20 @@ impl Viewport {
 
     fn start_preview(&mut self, mut preview: preview::PreparedPreview) -> bool {
         let is_test = preview.test.is_some();
+        let admission_started = Instant::now();
+        if let Err(error) = self.renderer.check_prepared_atlas(&preview.build) {
+            self.reject_preview(&error);
+            return false;
+        }
+        if let Err(error) = self.renderer.admit_prepared(
+            &preview.loaded,
+            &preview.build,
+            &preview.assets,
+            &preview.geometry,
+        ) {
+            self.reject_preview(&error.to_string());
+            return false;
+        }
         self.testing.pending = preview.test.take().map(Box::new);
         self.renderer
             .set_lightmap_quality(if preview.build.lightmaps.is_some() {
@@ -493,23 +515,7 @@ impl Viewport {
             } else {
                 LightmapQuality::Off
             });
-        let admission_started = Instant::now();
-        if let Err(error) = self.renderer.admit_prepared(
-            &preview.loaded,
-            &preview.build,
-            &preview.assets,
-            &preview.geometry,
-        ) {
-            if let Some(metrics) = self.preview_metrics.as_object_mut() {
-                drop(metrics.insert(
-                    "admission_error".into(),
-                    serde_json::json!(error.to_string()),
-                ));
-            }
-            self.uploading = false;
-            return false;
-        }
-        self.local_preview = if preview
+        let local_preview = if preview
             .metrics
             .get("local_preview")
             .is_some_and(serde_json::Value::is_array)
@@ -521,27 +527,27 @@ impl Viewport {
         let admission_ms = admission_started.elapsed().as_secs_f64() * 1_000.0_f64;
         self.preview_metrics = preview.metrics;
         let setup_started = Instant::now();
-        self.play_mesh = Some(std::sync::Arc::clone(&preview.build.mesh));
-        self.play_floor = crate::engine::level::WalkableFloor::from_level(&preview.loaded.level);
-        self.play_doors = crate::engine::door::Doors::from_level(&preview.loaded.level).colliders();
-        self.pending_objects = if is_test {
-            None
-        } else {
-            Some(
-                preview
-                    .objects
-                    .into_iter()
-                    .filter_map(|mut object| {
-                        object.id = self
-                            .identity_map
-                            .iter()
-                            .find(|(filtered, _)| *filtered == object.id)?
-                            .1;
-                        Some(object)
-                    })
-                    .collect(),
-            )
-        };
+        let objects = (!is_test).then(|| {
+            preview
+                .objects
+                .into_iter()
+                .filter_map(|mut object| {
+                    object.id = self
+                        .identity_map
+                        .iter()
+                        .find(|(filtered, _)| *filtered == object.id)?
+                        .1;
+                    Some(object)
+                })
+                .collect()
+        });
+        self.pending_preview = Some(PreviewCommit {
+            mesh: std::sync::Arc::clone(&preview.build.mesh),
+            floor: crate::engine::level::WalkableFloor::from_level(&preview.loaded.level),
+            doors: crate::engine::door::Doors::from_level(&preview.loaded.level).colliders(),
+            objects,
+            local_preview,
+        });
         self.upload_samples.clear();
         self.renderer.install_prepared_precompiled(
             &preview.loaded,
@@ -562,6 +568,21 @@ impl Viewport {
         }
         self.uploading = true;
         true
+    }
+
+    fn reject_preview(&mut self, error: &str) {
+        self.renderer.abort_graphics_request();
+        self.pending_preview = None;
+        self.uploading = false;
+        self.requested = None;
+        self.testing.pending = None;
+        if self.testing.requested.take().is_some() {
+            self.testing.pose = None;
+            self.testing.failure = Some(error.to_owned());
+        }
+        if let Some(metrics) = self.preview_metrics.as_object_mut() {
+            drop(metrics.insert("admission_error".into(), serde_json::json!(error)));
+        }
     }
 
     fn poll_preview(&mut self) -> bool {
@@ -644,7 +665,13 @@ impl Viewport {
     fn advance_upload(&mut self) {
         if self.uploading {
             let upload_started = Instant::now();
-            let finished = self.renderer.advance_prepared_install();
+            let finished = match self.renderer.advance_prepared_install() {
+                Ok(committed) => committed,
+                Err(error) => {
+                    self.reject_preview(&error);
+                    return;
+                }
+            };
             let blocked_ms = upload_started.elapsed().as_secs_f64() * 1_000.0_f64;
             if self.upload_samples.len() < 4096 {
                 self.upload_samples.push(blocked_ms);
@@ -662,8 +689,14 @@ impl Viewport {
             }
             if finished {
                 self.uploading = false;
-                if let Some(objects) = self.pending_objects.take() {
-                    self.objects = objects;
+                if let Some(preview) = self.pending_preview.take() {
+                    self.play_mesh = Some(preview.mesh);
+                    self.play_floor = preview.floor;
+                    self.play_doors = preview.doors;
+                    self.local_preview = preview.local_preview;
+                    if let Some(objects) = preview.objects {
+                        self.objects = objects;
+                    }
                 }
                 if self.frame_next {
                     self.frame_next = false;

@@ -4,49 +4,44 @@
 //! remain private to the renderer backend; compiled records stay CPU-owned.
 
 pub mod ai;
-pub mod animated_door;
 pub mod assets;
 pub mod audio;
 pub mod canonical_json;
-pub mod carry_visibility;
 pub mod collision;
-pub mod collision_index;
-pub(crate) mod diagnostics;
-pub mod door;
-pub mod elevator;
+pub mod diagnostics;
 pub mod entities;
 pub mod entity;
-pub mod environment;
-pub mod feltling;
-pub mod font;
-pub mod game_mode;
 pub mod gltf;
-pub mod health;
 pub mod input;
 pub mod interact;
 pub mod level;
 pub mod lighting;
 pub mod loader;
-pub mod logging;
 pub mod materials;
+pub mod mechanisms;
 pub mod nav;
 pub mod package;
 pub mod paths;
-pub mod perf;
 pub mod physics;
-pub mod progress;
 pub mod project;
 pub mod props;
 pub mod quality;
 pub mod render;
-pub(crate) mod resources;
-pub mod runtime_work;
+pub mod rules;
+pub mod runtime;
 pub mod scene;
 pub mod spatial;
-pub(crate) mod structure;
-pub mod tall_guest;
-pub mod tools;
-pub mod weather;
+
+pub use collision::index as collision_index;
+pub use diagnostics::{logging, perf, progress};
+pub use entities::{carry as carry_visibility, feltling, tall_guest};
+pub use level::environment;
+pub(crate) use level::structure;
+pub use mechanisms::{animated_door, door, elevator};
+pub use render::{font, weather};
+pub use rules::{game_mode, health, tools};
+pub(crate) use runtime::resources;
+pub use runtime::work as runtime_work;
 
 #[cfg(test)]
 mod tests;

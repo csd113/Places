@@ -128,74 +128,107 @@ pub(super) fn build_level_geometry_mesh_with_fixture_models(
     lightmaps: Option<&mut LightmapPlan>,
     model_batches: &[super::PropMeshBatch],
 ) -> LevelMesh {
-    // Collect the merged room list once; geometry and ceiling lookups then
-    // borrow it instead of cloning the room vector repeatedly.
-    let rooms: Vec<&RoomDef> = level.room_iter().collect();
-    // The shared vertical geometry model: every floor, ceiling and wall height
-    // below comes from it, and collision and the walkable surface use the same
-    // queries, so the mesh cannot drift from what the player stands on.
-    let surfaces = LevelSurfaces::new(level);
-    let lookup = MaterialLookup::new(materials);
-    // The wall emission plan: coincident walls already resolved into single
-    // units, plus every wall's solid volume for the cross-section coverage
-    // test. Built once and shared by the wall emitter.
-    let wall_layout = wall_layout(level, &surfaces, &lookup, lightmaps.is_some());
-    // The plan is lent to the emit context as a `RefCell` so the emitters can
-    // stamp quads through `&EmitContext` without an extra `&mut` parameter on
-    // every function; `plan_cell` outlives `context` in this scope.
-    let max_span_m = lightmaps
-        .as_ref()
-        .map_or(f32::INFINITY, |plan| plan.max_chart_span_m());
-    let plan_cell: Option<RefCell<&mut LightmapPlan>> = lightmaps.map(RefCell::new);
-    let lightmap = plan_cell.as_ref().map(|cell| LightmapEmit {
-        plan: Some(cell),
-        max_span_m,
-    });
-    let contacts = super::contact::Contacts::new(level, &surfaces);
-    let context = EmitContext {
-        level,
-        contacts: &contacts,
-        trim_owner: None,
-        surfaces: &surfaces,
-        lighting,
-        materials: &lookup,
-        coverages: &wall_layout.coverages,
-        lightmap,
-    };
-    // Emitters still write whole quads into one scratch buffer; the bucket
-    // builder splits each run by spatial cell on the way into the mesh. That
-    // keeps the emitting code free of any grid awareness.
-    let mut scratch: Vec<Vertex> = Vec::new();
-    let mut buckets = SpatialBuckets::<SurfaceKey>::with_grid(spatial_cell_grid(level));
-
-    // 1. Floors (and the water surfaces that share their family), 2. ceilings,
-    //    3. walls, 4. fixtures, 5. prop fallbacks and 6. decals, in the order
-    //    they are drawn.
-    emit_floors(&context, &mut buckets, &mut scratch, &rooms);
-    super::structure::emit(&context, &mut buckets, &mut scratch);
-    // One translucent surface quad per authored water volume, in the floor
-    // family: the material's `blend` contract puts it in the sorted
-    // translucent pass, and the volume's opacity rides in the vertex alpha.
-    super::water::emit_water(&context, &mut buckets, &mut scratch);
-    emit_ceilings(&context, &mut buckets, &mut scratch, &rooms);
-    emit_walls(&context, &wall_layout.units, &mut buckets, &mut scratch);
-    // Generic architectural pieces: ramps, staircases, half walls, columns,
-    // archways, guardrails, thresholds and baseboards. They are static
-    // surfaces like the walls above, so they join the same build and the same
-    // lightmap atlas.
-    super::architecture::emit_architecture(&context, &mut buckets, &mut scratch);
-    emit_glass_panes(&context, &mut buckets, &mut scratch);
-    emit_fixtures(&context, &mut buckets, &mut scratch, model_batches);
-    emit_prop_fallbacks(
-        &context,
+    LevelMeshPreparation::new(level, materials, lightmaps.is_some()).emit(
         catalog,
         fallback_props,
-        &mut buckets,
-        &mut scratch,
-    );
-    emit_decals(&context, catalog, &mut buckets, &mut scratch);
+        lighting,
+        lightmaps,
+        model_batches,
+    )
+}
 
-    finish_indexed_mesh(buckets)
+/// Lighting-independent inputs retained while emitting one or more receiver
+/// states. Vertex-lit states may choose different merges and index buffers.
+pub(super) struct LevelMeshPreparation<'a> {
+    pub level: &'a LevelDef,
+    pub materials: &'a MaterialTable,
+    pub surfaces: LevelSurfaces<'a>,
+    lookup: MaterialLookup<'a>,
+    walls: super::WallLayout<'a>,
+    contacts: super::contact::Contacts,
+}
+
+impl<'a> LevelMeshPreparation<'a> {
+    pub fn new(level: &'a LevelDef, materials: &'a MaterialTable, lightmapped: bool) -> Self {
+        let surfaces = LevelSurfaces::new(level);
+        let lookup = MaterialLookup::new(materials);
+        let walls = wall_layout(level, &surfaces, &lookup, lightmapped);
+        let contacts = super::contact::Contacts::new(level, &surfaces);
+        Self {
+            level,
+            materials,
+            surfaces,
+            lookup,
+            walls,
+            contacts,
+        }
+    }
+
+    pub fn emit(
+        &self,
+        catalog: &crate::engine::loader::PropCatalog,
+        fallback_props: &[&PropDef],
+        lighting: &LevelLighting,
+        lightmaps: Option<&mut LightmapPlan>,
+        model_batches: &[super::PropMeshBatch],
+    ) -> LevelMesh {
+        let level = self.level;
+        // The plan is lent to the emit context as a `RefCell` so the emitters can
+        // stamp quads through `&EmitContext` without an extra `&mut` parameter on
+        // every function; `plan_cell` outlives `context` in this scope.
+        let max_span_m = lightmaps
+            .as_ref()
+            .map_or(f32::INFINITY, |plan| plan.max_chart_span_m());
+        let plan_cell: Option<RefCell<&mut LightmapPlan>> = lightmaps.map(RefCell::new);
+        let lightmap = plan_cell.as_ref().map(|cell| LightmapEmit {
+            plan: Some(cell),
+            max_span_m,
+        });
+        let context = EmitContext {
+            level,
+            contacts: &self.contacts,
+            trim_owner: None,
+            surfaces: &self.surfaces,
+            lighting,
+            materials: &self.lookup,
+            coverages: &self.walls.coverages,
+            lightmap,
+        };
+        // Emitters still write whole quads into one scratch buffer; the bucket
+        // builder splits each run by spatial cell on the way into the mesh. That
+        // keeps the emitting code free of any grid awareness.
+        let mut scratch: Vec<Vertex> = Vec::new();
+        let mut buckets = SpatialBuckets::<SurfaceKey>::with_grid(spatial_cell_grid(level));
+
+        // 1. Floors (and the water surfaces that share their family), 2. ceilings,
+        //    3. walls, 4. fixtures, 5. prop fallbacks and 6. decals, in the order
+        //    they are drawn.
+        emit_floors(&context, &mut buckets, &mut scratch, self.surfaces.rooms());
+        super::structure::emit(&context, &mut buckets, &mut scratch);
+        // One translucent surface quad per authored water volume, in the floor
+        // family: the material's `blend` contract puts it in the sorted
+        // translucent pass, and the volume's opacity rides in the vertex alpha.
+        super::water::emit_water(&context, &mut buckets, &mut scratch);
+        emit_ceilings(&context, &mut buckets, &mut scratch, self.surfaces.rooms());
+        emit_walls(&context, &self.walls.units, &mut buckets, &mut scratch);
+        // Generic architectural pieces: ramps, staircases, half walls, columns,
+        // archways, guardrails, thresholds and baseboards. They are static
+        // surfaces like the walls above, so they join the same build and the same
+        // lightmap atlas.
+        super::architecture::emit_architecture(&context, &mut buckets, &mut scratch);
+        emit_glass_panes(&context, &mut buckets, &mut scratch);
+        emit_fixtures(&context, &mut buckets, &mut scratch, model_batches);
+        emit_prop_fallbacks(
+            &context,
+            catalog,
+            fallback_props,
+            &mut buckets,
+            &mut scratch,
+        );
+        emit_decals(&context, catalog, &mut buckets, &mut scratch);
+
+        finish_indexed_mesh(buckets)
+    }
 }
 
 /// Step 1: the baked-lighting grid over every room's floor.

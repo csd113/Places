@@ -76,18 +76,9 @@ fn vs_main(vertex: WorldVertex) -> VsOut {
 }
 
 fn decal_light(in: VsOut) -> vec3<f32> {
-    let position_dy = dpdy(in.world_position);
-    let position_dx = dpdx(in.world_position);
-    var normal = in.world_normal;
-    if (dot(normal, normal) < 1.0e-10) {
-        normal = cross(position_dy, position_dx);
-    }
-    normal = normal / max(length(normal), 1.0e-6);
-    if (dot(normal, camera.position - in.world_position) < 0.0) { normal = -normal; }
-    let beam = flashlight_term(normal, in.world_position);
-    let selected = caustic_volume(in.world_position, normal);
-    let modulation = caustic_modulation(in.world_position, selected, dpdx(in.world_position.xz * 0.45), dpdy(in.world_position.xz * 0.45), beam, vec4<f32>(0.0));
-    return max(in.color.rgb + modulation * in.caustics_albedo, vec3<f32>(0.0)) + dynamic_light_term(normal, in.world_position) + beam;
+    return prepared_decal_light(
+        in.world_position, in.world_normal, in.color.rgb, in.caustics_albedo, camera.position,
+    );
 }
 
 // The IEC 61966-2-1 transfer functions, the same two `world.wgsl` carries.

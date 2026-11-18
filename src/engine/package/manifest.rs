@@ -166,7 +166,7 @@ pub struct Variant {
     pub lightmap_quality: String,
     /// Bake/plan profile this variant was prepared with: `low` or `full`.
     pub quality_profile: String,
-    /// Why the variant fell back to vertex lighting, if it did.
+    /// Chartless success marker or a recorded failure from an earlier compiler.
     #[serde(default)]
     pub lightmap_failure: Option<String>,
     /// Prepared entries.

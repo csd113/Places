@@ -761,7 +761,7 @@ fn assert_partial_water_refresh(
             .get(range.clone())
             .ok_or("upload span outside samples")?;
         let target = uploaded
-            .get_mut(range.clone())
+            .get_mut(range)
             .ok_or("upload span outside replay")?;
         target.copy_from_slice(source);
     }

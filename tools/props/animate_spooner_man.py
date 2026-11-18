@@ -27,7 +27,7 @@ checked against the actual skinned mesh; pounce includes a vertical pelvis
 arc, with no horizontal root travel.
 
 Structural rules the writer guarantees, so the engine's GLB reader
-(``src/engine/gltf.rs``) accepts the result:
+(``src/engine/gltf/``) accepts the result:
 
 * every existing ``bufferView`` keeps its byte offset and length; new views
   are appended after the recorded base length, and the BIN chunk grows;

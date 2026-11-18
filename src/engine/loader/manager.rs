@@ -6,14 +6,15 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use super::{
-    LevelEntry, LevelSourceType, LoadedLevel, PropCatalog, ResolvedFixtureSheet,
-    resolve_fixture_sheets,
-};
+use super::{LevelEntry, LevelSourceType, LoadedLevel};
 use crate::engine::level::LevelDef;
-use crate::engine::materials::{MaterialTable, PackMaterials, TextureCache, resolve_materials};
+use crate::engine::materials::fixture_sheets::{ResolvedFixtureSheet, resolve_fixture_sheets};
+use crate::engine::materials::{
+    MaterialTable, PackMaterials, RawImage, TextureCache, resolve_materials,
+};
 use crate::engine::package::archive::{cleanup_failed_write, create_temporary};
 use crate::engine::package::world::OpenedPackage;
+use crate::engine::props::catalog::PropCatalog;
 
 /// Import transport budget: the project package budget plus generous ZIP
 /// metadata and incompressible-deflate overhead. This bounds staging disk use
@@ -50,8 +51,7 @@ fn ambiguous_installed_paths(
         .collect()
 }
 
-type MenuImageCache =
-    std::collections::BTreeMap<(PathBuf, String, String), Option<Arc<super::RawImage>>>;
+type MenuImageCache = std::collections::BTreeMap<(PathBuf, String, String), Option<Arc<RawImage>>>;
 
 /// One refresh's metadata snapshot, shared with the existing loading worker.
 /// No semantic worlds, source files, thumbnail pixels or prepared records live here.
@@ -150,7 +150,7 @@ impl LevelManager {
 
     /// Bounded visible-row image cache, independent of prepared level loading.
     #[must_use]
-    pub fn menu_thumbnail(&self, index: usize) -> Option<Arc<super::RawImage>> {
+    pub fn menu_thumbnail(&self, index: usize) -> Option<Arc<RawImage>> {
         let entry = self.get_menu_entry(index)?;
         let identity = crate::engine::package::world::discovery_identity(&entry.path).ok()?;
         let key = (entry.path.clone(), entry.id.clone(), identity);
@@ -196,8 +196,7 @@ impl LevelManager {
             .unwrap_or_default();
         let version = self
             .current_metadata(&entry.path)
-            .map(|receipt| format!("\nPackage version {}", receipt.version))
-            .unwrap_or_default();
+            .map_or_default(|receipt| format!("\nPackage version {}", receipt.version));
         if description.trim().is_empty() {
             format!(
                 "{}\n\nA place to explore at your own pace.\n\nBy {}{version}",

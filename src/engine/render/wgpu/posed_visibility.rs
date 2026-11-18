@@ -50,22 +50,21 @@ pub struct PosedVisibility {
 }
 
 /// BENCH-only attribution, never selected by graphics/gameplay settings.
+#[cfg(feature = "visual-diagnostics")]
 pub(super) fn diagnostic_mode() -> &'static str {
-    #[cfg(feature = "visual-diagnostics")]
-    {
-        static MODE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
-        MODE.get_or_init(|| {
-            if std::env::var("PLACES_BENCH").as_deref() != Ok("1") {
-                return String::new();
-            }
-            std::env::var("PLACES_POSED_DIAGNOSTIC").unwrap_or_default()
-        })
-        .as_str()
-    }
-    #[cfg(not(feature = "visual-diagnostics"))]
-    {
-        ""
-    }
+    static MODE: std::sync::OnceLock<String> = std::sync::OnceLock::new();
+    MODE.get_or_init(|| {
+        if std::env::var("PLACES_BENCH").as_deref() != Ok("1") {
+            return String::new();
+        }
+        std::env::var("PLACES_POSED_DIAGNOSTIC").unwrap_or_default()
+    })
+    .as_str()
+}
+
+#[cfg(not(feature = "visual-diagnostics"))]
+pub(super) const fn diagnostic_mode() -> &'static str {
+    ""
 }
 
 pub(super) const fn query_source() -> &'static str {
@@ -164,8 +163,7 @@ impl PosedVisibility {
                 transform: character.transform().to_cols_array(),
                 direct: character
                     .spatial_lighting()
-                    .map(|lighting| lighting.direct.to_vec())
-                    .unwrap_or_default(),
+                    .map_or_default(|lighting| lighting.direct.to_vec()),
             })
             .collect();
         if self.keys == keys {

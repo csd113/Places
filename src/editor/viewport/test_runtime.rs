@@ -24,7 +24,7 @@ impl Viewport {
         self.worker.cancel();
         self.renderer.cancel_prepared_install();
         self.uploading = false;
-        self.pending_objects = None;
+        self.pending_preview = None;
         self.frame_next = false;
         self.local_preview = LocalPreview::Inactive;
         self.testing = Testing {
@@ -186,7 +186,7 @@ impl Viewport {
         self.worker.cancel();
         self.renderer.cancel_prepared_install();
         self.uploading = false;
-        self.pending_objects = None;
+        self.pending_preview = None;
         self.renderer.unload_level();
         let _cleared = self.renderer.set_flashlight(None);
         self.renderer.set_editor_ui();

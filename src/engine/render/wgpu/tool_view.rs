@@ -78,7 +78,7 @@ impl WgpuRenderer {
         );
         let environment = self.level_environment();
         view.gpu
-            .sync_with_blacklight(&self.queue, &view.scene, &environment, None, None);
+            .sync_with_blacklight(&self.queue, &view.scene, &environment, None, None, None);
         view.visible = true;
         self.tool_view = Some(view);
         Ok(())

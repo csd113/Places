@@ -23,19 +23,15 @@ pub(super) fn draw_search(
         true,
     );
     let query = value.to_ascii_lowercase();
-    let objects = app
-        .document
-        .as_ref()
-        .map(|doc| {
-            doc.objects()
-                .iter()
-                .filter(|object| {
-                    app.focus.included(doc.level(), object.id)
-                        && object.label.to_ascii_lowercase().contains(&query)
-                })
-                .collect::<Vec<_>>()
-        })
-        .unwrap_or_default();
+    let objects = app.document.as_ref().map_or_default(|doc| {
+        doc.objects()
+            .iter()
+            .filter(|object| {
+                app.focus.included(doc.level(), object.id)
+                    && object.label.to_ascii_lowercase().contains(&query)
+            })
+            .collect::<Vec<_>>()
+    });
     for (offset, object) in objects.iter().skip(app.object_scroll).take(14).enumerate() {
         let column = u16::try_from(offset / 7).unwrap_or(0);
         let row = u16::try_from(offset % 7).unwrap_or(0);

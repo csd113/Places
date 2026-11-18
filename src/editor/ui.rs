@@ -212,8 +212,8 @@ pub(super) struct Hit {
 impl Hit {
     pub const fn center(&self) -> [f32; 2] {
         [
-            self.rect[0] + self.rect[2] * 0.5,
-            self.rect[1] + self.rect[3] * 0.5,
+            self.rect[2].mul_add(0.5, self.rect[0]),
+            self.rect[3].mul_add(0.5, self.rect[1]),
         ]
     }
 

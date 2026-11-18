@@ -82,6 +82,9 @@ pub use manifest::{
 /// contract change the current player cannot interpret at all.
 pub const FORMAT_VERSION: u32 = 2;
 
+/// A successful atlas bake with no receivers requiring a chart.
+pub(crate) const NO_LIGHTMAP_CHARTS: &str = "no charts";
+
 /// Mandatory schema identity rejecting packages predating the revision reset.
 pub const PACKAGE_SCHEMA: &str = "places-map";
 

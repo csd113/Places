@@ -82,7 +82,7 @@ use crate::engine::quality::LightmapQuality;
 use crate::engine::quality::{QualityLevel, ReflectionQuality};
 use crate::engine::render::{
     GEOMETRY_REVISION, LightmapBuildOptions, fill_lightmaps_cancellable,
-    prepare_level_geometry_with_lightmaps, rebuild_vertex_lit_level,
+    prepare_compiled_level_geometry,
 };
 
 /// The compiler's product identity, for `created_by`.
@@ -1210,7 +1210,7 @@ pub fn verify_selected(
     {
         differences.push("package release metadata differs from authored source".into());
     }
-    let integrity = verify_declared_entries(package, &manifest);
+    let integrity = verify_prepared_entries(package, &manifest);
     let integrity_valid = integrity.is_ok() && warnings_absent(&differences);
     if let Err(error) = integrity {
         differences.push(format!("package integrity failed: {error}"));
@@ -1395,7 +1395,7 @@ impl CaptureContext {
             crate::engine::render::CharacterScene::new(),
             false,
         );
-        while !renderer.advance_prepared_install() {
+        while !renderer.advance_prepared_install()? {
             progress::check_cancelled()?;
             // Upload phases advance one bounded step per call.
         }
@@ -1714,35 +1714,24 @@ fn build_variant(
     // bytes; an edited model can never reuse stale boxes.
     let _preparation_assets =
         crate::engine::lighting::preparation_assets_scope(catalog.clone(), assets.clone());
-    let prepared = prepare_level_geometry_with_lightmaps(
-        level,
-        catalog,
-        assets,
-        materials,
-        options,
-        Some(cache),
-    );
+    let prepared =
+        prepare_compiled_level_geometry(level, catalog, assets, materials, options, cache)
+            .map_err(|error| format!("{} {error}", quality.name()))?;
     let mut build = prepared.build;
     let mut capture_colours = None;
-    let mut capture_empty_atlas = None;
     report_preparation(quality, &build);
-    let mut lightmap_failure = build
-        .lightmap_failure
-        .map(|failure| failure.name().to_string());
+    let mut lightmap_failure = None;
     if let Some(fill) = prepared.fill {
         match fill_lightmaps_cancellable(&fill, cancelled) {
             crate::engine::render::LightmapFillOutcome::Filled(product)
                 if product.lightmaps.pages.is_empty() =>
             {
                 // Nothing in the level wanted a chart (an empty world, or a
-                // fully vertex-lit surface set): the mesh already carries the
-                // vertex-colour path everywhere, so the variant ships without
-                // an atlas and says why.
-                capture_empty_atlas = Some(Arc::new(product.lightmaps));
+                // fully vertex-lit surface set), so this successful variant
+                // has no atlas to store.
                 build.lightmaps = None;
                 build.probes = None;
-                build.lightmap_failure = None;
-                lightmap_failure = Some("no charts".to_string());
+                lightmap_failure = Some(crate::engine::package::NO_LIGHTMAP_CHARTS.to_owned());
                 crate::engine::render::relight_probe_props(
                     &mut build.batches,
                     &build.lighting,
@@ -1794,8 +1783,6 @@ fn build_variant(
                 let atlas = std::sync::Arc::new(product.lightmaps);
                 build.lightmap_millis = atlas.stats.bake_millis;
                 build.lightmaps = Some(atlas);
-                build.lightmap_failure = None;
-                lightmap_failure = None;
                 crate::engine::render::relight_probe_props(
                     &mut build.batches,
                     &build.lighting,
@@ -1825,33 +1812,9 @@ fn build_variant(
                     );
                 }
             }
-            crate::engine::render::LightmapFillOutcome::Failed(
-                failure @ (crate::engine::lighting::lightmap::LightmapFailure::FillNonFinite
-                | crate::engine::lighting::lightmap::LightmapFailure::Worker
-                | crate::engine::lighting::lightmap::LightmapFailure::TransportEnergy),
-            ) => {
-                return Err(format!(
-                    "{} lighting bake failed physical validation: {}",
-                    quality.name(),
-                    failure.name()
-                ));
-            }
             crate::engine::render::LightmapFillOutcome::Failed(failure) => {
-                // The runtime contract falls back to the vertex-lit build with
-                // the same baked lighting when an atlas cannot be produced.
-                lightmap_failure = Some(failure.name().to_string());
-                build.mesh = Arc::new(rebuild_vertex_lit_level(
-                    level,
-                    catalog,
-                    assets,
-                    materials,
-                    &build.lighting,
-                    &mut build.batches,
-                ));
-                build.lightmaps = None;
-                build.lightmap_failure = Some(failure);
-                warnings.push(format!(
-                    "{} lightmaps fell back to vertex lighting: {}",
+                return Err(format!(
+                    "{} lighting bake failed: {}",
                     quality.name(),
                     failure.name()
                 ));
@@ -1873,7 +1836,7 @@ fn build_variant(
 
     let mesh_name = insert_blob(blobs, write_mesh(&build.mesh)?, ".mesh", "mesh");
     let static_light_off =
-        prepare_static_light_off(level, catalog, assets, materials, quality, &build, blobs)?;
+        static_light_off_records(build.static_light_off.take().as_deref(), blobs)?;
     let (props_bytes, prop_encoding) = write_props_with_stats(&build.batches)?;
     let props_name = insert_blob(blobs, props_bytes, ".props", "props");
     let lighting_name = insert_blob(
@@ -1978,70 +1941,25 @@ fn build_variant(
         }
     }
     build.probes = None;
-    if let Some(empty) = capture_empty_atlas {
-        // The old capture path installed a successfully filled empty atlas;
-        // keep that state even though the runtime package omits empty pages.
-        build.lightmaps = Some(empty);
-    }
     if let Some(atlas) = build.lightmaps.as_deref() {
         crate::engine::render::dump_lightmaps_for_level(level, atlas);
     }
     Ok((variant, stats, build))
 }
 
-/// One opt-in circuit gets exact Static colours without an additional bake.
-fn prepare_static_light_off(
-    level: &LevelDef,
-    catalog: &crate::engine::loader::PropCatalog,
-    assets: &mut crate::engine::props::PropAssets,
-    materials: &MaterialTable,
-    quality: LightmapQuality,
-    build: &crate::engine::render::LevelBuild,
+fn static_light_off_records(
+    alternate: Option<&crate::engine::render::StaticLightState>,
     blobs: &mut BlobMap,
 ) -> Result<Option<crate::engine::package::manifest::StaticLightEntries>, String> {
-    if quality != LightmapQuality::Off {
+    let Some(state) = alternate else {
         return Ok(None);
-    }
-    let fixtures: Vec<usize> = level
-        .ceiling_lights
-        .iter()
-        .enumerate()
-        .filter_map(|(index, fixture)| {
-            (fixture.static_switch == crate::engine::level::StaticSwitchMode::Prepared)
-                .then_some(index)
-        })
-        .collect();
-    if fixtures.is_empty() {
-        return Ok(None);
-    }
-    let state_started = Instant::now();
-    let mut lighting = build.lighting.clone();
-    crate::engine::logging::info(format_args!(
-        "[compiler-state] shared_visibility_bytes={} clone_ms={:.3}",
-        build.lighting.shared_visibility_bytes(),
-        state_started.elapsed().as_secs_f64() * 1_000.0_f64
-    ));
-    for fixture in &fixtures {
-        let sources = lighting.fixture_light_indices(*fixture);
-        if sources.is_empty() {
-            return Err("Static circuit fixture has no resolved light".into());
-        }
-        for source in sources {
-            let _changed = lighting.set_light_enabled(source, false);
-        }
-    }
-    let mut batches = Vec::new();
-    let mesh = rebuild_vertex_lit_level(level, catalog, assets, materials, &lighting, &mut batches);
-    crate::engine::logging::info(format_args!(
-        "[compiler-state] static_off_prepare_ms={:.3}",
-        state_started.elapsed().as_secs_f64() * 1_000.0_f64
-    ));
+    };
     Ok(Some(crate::engine::package::manifest::StaticLightEntries {
-        fixtures,
-        mesh: insert_blob(blobs, write_mesh(&mesh)?, ".mesh", "mesh"),
+        fixtures: state.fixtures.clone(),
+        mesh: insert_blob(blobs, write_mesh(&state.mesh)?, ".mesh", "mesh"),
         props: insert_blob(
             blobs,
-            write_props_with_stats(&batches)?.0,
+            write_props_with_stats(&state.batches)?.0,
             ".props",
             "props",
         ),
@@ -2839,6 +2757,7 @@ fn reuse_prepared_lighting(
         requested
             .iter()
             .any(|quality| quality.name() == variant.lightmap_quality)
+            && crate::engine::package::world::validate_cached_lighting(&mut reader, variant).is_ok()
     });
     if manifest.variants.is_empty() {
         return Err("no requested quality is available in the verified prepared stage".into());
@@ -3062,7 +2981,7 @@ fn reuse_current(
     // A fingerprint match is not enough: a package whose declared entry hashes
     // no longer match its bytes (a corrupt or half-written artifact) must be
     // rebuilt, never reused.
-    match verify_declared_entries(out, &manifest) {
+    match verify_prepared_entries(out, &manifest) {
         Ok(()) => Ok(format!(
             "{} is current for this source and asset identity",
             out.display()
@@ -3209,8 +3128,39 @@ fn dependency_differences(
 fn verify_declared_entries(path: &Path, manifest: &Manifest) -> Result<(), String> {
     let mut reader = open_package(path)?;
     crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
+    verify_entry_hashes(&mut reader, manifest)
+}
+
+fn verify_prepared_entries(path: &Path, manifest: &Manifest) -> Result<(), String> {
+    let mut reader = open_package(path)?;
+    crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
+    check_cached_lighting(&mut reader, manifest)?;
+    verify_entry_hashes(&mut reader, manifest)
+}
+
+fn check_cached_lighting<R: std::io::Read + std::io::Seek>(
+    reader: &mut crate::engine::package::PackageReader<R>,
+    manifest: &Manifest,
+) -> Result<(), String> {
+    for variant in &manifest.variants {
+        crate::engine::package::world::validate_cached_lighting(reader, variant).map_err(
+            |error| {
+                format!(
+                    "package '{}' variant '{}': {error}",
+                    manifest.id, variant.lightmap_quality
+                )
+            },
+        )?;
+    }
+    Ok(())
+}
+
+fn verify_entry_hashes<R: std::io::Read + std::io::Seek>(
+    reader: &mut crate::engine::package::PackageReader<R>,
+    manifest: &Manifest,
+) -> Result<(), String> {
     for entry in &manifest.entries {
-        drop(read_declared_entry(&mut reader, manifest, entry)?);
+        drop(read_declared_entry(reader, manifest, entry)?);
     }
     Ok(())
 }

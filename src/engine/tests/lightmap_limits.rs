@@ -55,5 +55,12 @@ fn imported_atlas_checks_physical_layers_after_exact_aliasing() -> Result<(), St
         validate_limits(Some(&maps), 8, 256).is_err(),
         "edge limits also apply to imported atlases"
     );
+    maps.pages.clear();
+    maps.switchable.clear();
+    assert!(
+        validate_limits(Some(&maps), 8192, 256).is_err(),
+        "an explicit empty atlas record must not be substituted with vertex lighting"
+    );
+    validate_limits(None, 8192, 256)?;
     Ok(())
 }

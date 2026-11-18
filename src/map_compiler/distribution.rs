@@ -150,6 +150,8 @@ fn spool_current(
 ) -> Result<project::ProjectMap, String> {
     let mut reader = super::open_package(&request.out)?;
     project::select(&mut reader, Some(id))?;
+    let manifest = super::read_manifest(&mut reader)?;
+    super::check_cached_lighting(&mut reader, &manifest)?;
     let mut records = BTreeMap::new();
     for name in reader.names().to_vec() {
         let physical =

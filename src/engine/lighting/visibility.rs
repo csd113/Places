@@ -1393,6 +1393,37 @@ impl Occluders {
         hit
     }
 
+    /// Broad phase for a floor recovery join: reject an entire influence
+    /// interval when its air prism can touch a compiled solid.
+    pub(super) fn for_each_recovery_blocker(&self, bounds: Aabb, mut visit: impl FnMut(Aabb)) {
+        let [x0, y0, z0] = bounds.min;
+        let [x1, y1, z1] = bounds.max;
+        let mut section = |solid: Aabb| {
+            // Grid buckets may also contain solids outside the prism.
+            if solid.min[0] <= x1
+                && solid.max[0] >= x0
+                && solid.min[1] < y1
+                && solid.max[1] > y0
+                && solid.min[2] < z1
+                && solid.max[2] > z0
+            {
+                visit(solid);
+            }
+        };
+        self.wall_grid
+            .for_each_in_rect(&self.walls, x0, x1, z0, z1, |wall| {
+                section(wall.world_bounds());
+            });
+        self.horizontal_grid
+            .for_each_in_rect(&self.horizontals, x0, x1, z0, z1, |solid| {
+                section(solid.world_bounds());
+            });
+        self.prop_grid
+            .for_each_in_rect(&self.props, x0, x1, z0, z1, |prop| {
+                section(prop.world_bounds());
+            });
+    }
+
     /// True when any solid geometry (wall, floor interface or ceiling body)
     /// crosses the segment.
     ///

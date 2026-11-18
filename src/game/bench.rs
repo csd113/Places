@@ -533,7 +533,7 @@ impl Bench {
         let mut quality_cycle: Vec<(u64, crate::engine::quality::QualityLevel)> =
             std::env::var(QUALITY_CYCLE_ENV)
                 .ok()
-                .map(|value| {
+                .map_or_default(|value| {
                     value
                         .split(',')
                         .filter_map(|entry| {
@@ -544,12 +544,11 @@ impl Bench {
                             ))
                         })
                         .collect()
-                })
-                .unwrap_or_default();
+                });
         quality_cycle.sort_by_key(|(frame, _)| *frame);
         let mut graphics_cycle: Vec<(u64, GraphicsChange)> = std::env::var(GRAPHICS_CYCLE_ENV)
             .ok()
-            .map(|value| {
+            .map_or_default(|value| {
                 value
                     .split(',')
                     .filter_map(|entry| {
@@ -560,12 +559,11 @@ impl Bench {
                         ))
                     })
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         graphics_cycle.sort_by_key(|(frame, _)| *frame);
         let mut window_cycle: Vec<(u64, WindowAction)> = std::env::var(WINDOW_CYCLE_ENV)
             .ok()
-            .map(|value| {
+            .map_or_default(|value| {
                 value
                     .split(',')
                     .filter_map(|entry| {
@@ -576,8 +574,7 @@ impl Bench {
                         ))
                     })
                     .collect()
-            })
-            .unwrap_or_default();
+            });
         window_cycle.sort_by_key(|(frame, _)| *frame);
         let lighting_sequence = lighting_sequence::LightingSequence::from_env(config.enabled);
         Self {

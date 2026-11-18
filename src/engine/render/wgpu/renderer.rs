@@ -49,7 +49,7 @@ use super::environment::{
     EnvironmentBindings, fallback_planar, fallback_probe, static_environment,
 };
 use super::gpu_timing::{self, GpuTimer};
-use super::lightmap::{LightmapAtlas, needs_upload_fallback};
+use super::lightmap::LightmapAtlas;
 use super::material::{WorldMaterialInputs, WorldMaterials, material_bind_group_layout};
 use super::postprocess::{EMISSIVE_FORMAT, PRESENTED_FORMAT, PostProcess, SCENE_FORMAT};
 use super::props::{PropUpload, WgpuProps};
@@ -69,7 +69,6 @@ use super::world::{
     DynamicLightsUniform, EnvironmentUniform, WgpuWorldGeometry, WorldDrawTotals, WorldPipeline,
     WorldTextures, environment_bind_group_layout, prepare_world_frame,
 };
-use crate::engine::lighting::lightmap::{LightmapFailure, LightmapMode};
 use crate::engine::loader::LoadedLevel;
 use crate::engine::logging;
 use crate::engine::quality::{
@@ -79,9 +78,7 @@ use crate::engine::render::RenderCamera;
 use crate::engine::render::common::SurfaceKind;
 use crate::engine::render::common::Vertex;
 use crate::engine::render::common::animation::{AnimationEffect, EmissionAnimation};
-use crate::engine::render::common::api::{
-    GraphicsTransition, LevelBuild, LightmapBuildOptions, build_level_geometry_timed_with_lightmaps,
-};
+use crate::engine::render::common::api::{GraphicsTransition, LevelBuild};
 use crate::engine::render::common::atmosphere::LevelFog;
 use crate::engine::render::common::character::{CharacterScene, EntityFrame};
 use crate::engine::render::common::dynamic::{
@@ -462,7 +459,6 @@ impl UploadPhase {
 
 struct UploadedLevel {
     sky: Option<WgpuSky>,
-    atlas: LightmapAtlas,
     fixture_sheets: Vec<Arc<super::texture::GpuTexture>>,
     world: WgpuWorldGeometry,
     world_textures: WorldTextures,
@@ -614,6 +610,68 @@ impl GraphicsDelta {
 struct LevelEmissionAnimations {
     materials: Vec<Option<EmissionAnimation>>,
     fixtures: Vec<Option<EmissionAnimation>>,
+    receiver_pilot: Option<(usize, EmissionAnimation)>,
+}
+
+impl LevelEmissionAnimations {
+    fn bind_receiver_pilot(
+        &mut self,
+        level: &crate::engine::level::LevelDef,
+        field: Option<&crate::engine::lighting::probes::ProbeField>,
+        lighting: &crate::engine::lighting::LevelLighting,
+    ) {
+        if std::env::var("PLACES_BENCH").as_deref() != Ok("1") {
+            return;
+        }
+        let Some(fixture_index) = std::env::var("PLACES_BENCH_RECEIVER_FIXTURE")
+            .ok()
+            .and_then(|value| value.parse::<usize>().ok())
+        else {
+            return;
+        };
+        let bound = level.ceiling_lights.get(fixture_index).and_then(|fixture| {
+            let face = crate::engine::level::fixture_face_material_index(
+                fixture_index,
+                true,
+                crate::engine::lighting::fixture_profile(&fixture.fixture).kind,
+            );
+            let curve = self.fixtures.get(usize::try_from(face).ok()?)?.as_ref()?;
+            let source = crate::engine::lighting::prepared_source::PreparedSource::bind(
+                field?,
+                lighting,
+                fixture_index,
+            )?;
+            Some((source, *curve))
+        });
+        if let Some((source, curve)) = bound {
+            self.receiver_pilot = Some((source.slot, curve));
+            logging::info(format!(
+                "[receiver-emission-pilot] fixture={fixture_index} source={} slot={} curve={curve:?}",
+                source.source_id, source.slot,
+            ));
+        } else {
+            logging::warn(format!(
+                "[receiver-emission-pilot] fixture={fixture_index} has no animated prepared direct slot"
+            ));
+        }
+    }
+}
+
+/// A visual A/B may freeze the fixture and receiver at an identical phase.
+/// The ordinary timing run leaves this override unset.
+fn receiver_pilot_animation_time(seconds: f32) -> f32 {
+    static FIXED_PHASE: std::sync::OnceLock<Option<f32>> = std::sync::OnceLock::new();
+    FIXED_PHASE
+        .get_or_init(|| {
+            if std::env::var("PLACES_BENCH").as_deref() != Ok("1") {
+                return None;
+            }
+            std::env::var("PLACES_BENCH_RECEIVER_PHASE_SECONDS")
+                .ok()
+                .and_then(|value| value.parse::<f32>().ok())
+                .filter(|phase| (0.0_f32..=120.0_f32).contains(phase))
+        })
+        .unwrap_or(seconds)
 }
 
 /// The wgpu implementation of the renderer facade.
@@ -1686,10 +1744,20 @@ impl WgpuRenderer {
         let upload_started = cpu_trace_start(self.animation_seconds);
         let environment = self.level_environment();
         if let Some(dynamic) = self.world_dynamic.as_mut() {
+            let receiver_gain = self
+                .material_animations
+                .receiver_pilot
+                .map(|(slot, curve)| {
+                    (
+                        slot,
+                        curve.factor(receiver_pilot_animation_time(self.animation_seconds)),
+                    )
+                });
             dynamic.sync_with_blacklight(
                 &self.queue,
                 &self.dynamic,
                 &environment,
+                receiver_gain,
                 self.dynamic_transport.as_deref().map(|scene| {
                     crate::engine::render::common::blacklight::BlacklightVisibility {
                         sources: &self.blacklights,
@@ -3740,6 +3808,10 @@ impl WgpuRenderer {
         true
     }
 
+    pub(crate) fn check_prepared_atlas(&self, build: &LevelBuild) -> Result<(), String> {
+        LightmapAtlas::validate_device_limits(&self.device, build.lightmaps.as_deref())
+    }
+
     /// Conservative map GPU charge, including retained old/new overlap and
     /// 128 MiB per world for dynamic, reflection, decal and staging resources.
     /// Shared allocations may be charged twice during overlap, deliberately
@@ -3980,12 +4052,12 @@ impl WgpuRenderer {
     /// Spend a short CPU slice on ready upload work before presenting again.
     /// Every unit still uses the two-submission GPU window; pending mip workers
     /// and fences yield immediately, and commit waits for all queued writes.
-    pub fn advance_prepared_install(&mut self) -> bool {
+    pub fn advance_prepared_install(&mut self) -> Result<bool, String> {
         let started = std::time::Instant::now();
         for _ in 0..32_u8 {
-            match self.advance_prepared_unit() {
-                UploadStep::Waiting => return false,
-                UploadStep::Committed => return true,
+            match self.advance_prepared_unit()? {
+                UploadStep::Waiting => return Ok(false),
+                UploadStep::Committed => return Ok(true),
                 UploadStep::Advanced => {}
             }
             if started.elapsed() >= std::time::Duration::from_millis(4)
@@ -3996,34 +4068,44 @@ impl WgpuRenderer {
                 break;
             }
         }
-        false
+        Ok(false)
     }
 
-    fn advance_prepared_unit(&mut self) -> UploadStep {
-        if self.check_device_lost() {
-            return UploadStep::Waiting;
-        }
+    fn advance_prepared_unit(&mut self) -> Result<UploadStep, String> {
+        self.check_upload_device()?;
         let Some(mut pending) = self.prepared_install.take() else {
-            return UploadStep::Waiting;
+            return Ok(UploadStep::Waiting);
         };
-        match pending.upload_window_available(&self.device) {
-            Ok(true) => {}
-            Ok(false) => {
-                self.prepared_install = Some(pending);
-                return UploadStep::Waiting;
-            }
+        let available = match pending.upload_window_available(&self.device) {
+            Ok(ready) => ready,
             Err(error) => {
-                self.mark_fatal(error);
-                return UploadStep::Waiting;
+                self.mark_fatal(error.clone());
+                return Err(error);
             }
+        };
+        // Polling outstanding submissions can deliver the device-loss callback.
+        self.check_upload_device()?;
+        if !available {
+            self.prepared_install = Some(pending);
+            return Ok(UploadStep::Waiting);
         }
         if matches!(pending.phase, UploadPhase::Commit) {
-            return if self.commit_prepared_install(pending) {
-                UploadStep::Committed
-            } else {
-                UploadStep::Waiting
-            };
+            self.commit_prepared_install(pending)?;
+            return Ok(UploadStep::Committed);
         }
+        self.upload_ready_unit(&mut pending)?;
+        self.prepared_install = Some(pending);
+        #[cfg(feature = "visual-diagnostics")]
+        self.trace_gpu_resources("install-upload");
+        Ok(UploadStep::Advanced)
+    }
+
+    fn check_upload_device(&mut self) -> Result<(), String> {
+        let _lost = self.check_device_lost();
+        self.fatal.clone().map_or(Ok(()), Err)
+    }
+
+    fn upload_ready_unit(&mut self, pending: &mut PreparedInstall) -> Result<(), String> {
         let mut uploaded = match pending.phase {
             UploadPhase::Transport => false,
             UploadPhase::Textures => {
@@ -4048,8 +4130,17 @@ impl WgpuRenderer {
         let upload_started =
             std::env::var_os("PLACES_LOAD_TRACE").map(|_| std::time::Instant::now());
         let phase = pending.phase;
+        // The pinned native wgpu implementation pops thread-local scopes
+        // immediately. Finish them before presenting or entering another
+        // upload unit, including the queue submit for the atlas writes.
+        let atlas_errors = (phase == UploadPhase::Atlas).then(|| {
+            (
+                self.device.push_error_scope(wgpu::ErrorFilter::OutOfMemory),
+                self.device.push_error_scope(wgpu::ErrorFilter::Validation),
+            )
+        });
         pending.texture_outcome = super::texture::CacheOutcome::Reused;
-        self.upload_prepared_step(&mut pending);
+        self.upload_prepared_step(pending);
         if matches!(phase, UploadPhase::Props) {
             uploaded = pending
                 .props
@@ -4083,23 +4174,28 @@ impl WgpuRenderer {
         // write, including the last slice whose builder has just been consumed.
         uploaded |=
             matches!(pending.phase, UploadPhase::Commit) || phase.completes_bank(pending.phase);
-        if let Some(error) = pending.upload_error.take() {
-            self.mark_fatal(error);
-            return UploadStep::Waiting;
-        }
         if let Some(started) = upload_started {
             logging::info(format!(
                 "[loading-upload] phase={phase:?} ms={:.3}",
                 started.elapsed().as_secs_f64() * 1_000.0_f64
             ));
         }
-        if uploaded {
+        if uploaded && pending.upload_error.is_none() {
             pending.fence_upload(&self.queue);
         }
-        self.prepared_install = Some(pending);
-        #[cfg(feature = "visual-diagnostics")]
-        self.trace_gpu_resources("install-upload");
-        UploadStep::Advanced
+        if let Some((out_of_memory, validation)) = atlas_errors {
+            let invalid = pollster::block_on(validation.pop());
+            let exhausted = pollster::block_on(out_of_memory.pop());
+            if let Some(error) = invalid.or(exhausted) {
+                return Err(format!(
+                    "Cannot upload the prepared lightmap atlas: {error}"
+                ));
+            }
+        }
+        if let Some(error) = pending.upload_error.take() {
+            return Err(error);
+        }
+        Ok(())
     }
 
     fn upload_prepared_step(&mut self, pending: &mut PreparedInstall) {
@@ -4387,7 +4483,17 @@ impl WgpuRenderer {
         }
         let copied = match (&pending.atlas, &mut pending.atlas_cursor) {
             (Some(atlas), Some(cursor)) => {
-                atlas.upload_next_page(&self.queue, pending.build.lightmaps.as_deref(), cursor)
+                match atlas.upload_next_page(
+                    &self.queue,
+                    pending.build.lightmaps.as_deref(),
+                    cursor,
+                ) {
+                    Ok(copied) => copied,
+                    Err(error) => {
+                        pending.upload_error = Some(error);
+                        return;
+                    }
+                }
             }
             _ => false,
         };
@@ -4495,7 +4601,7 @@ impl WgpuRenderer {
         inherit
     }
 
-    fn commit_prepared_install(&mut self, pending: PreparedInstall) -> bool {
+    fn commit_prepared_install(&mut self, pending: PreparedInstall) -> Result<(), String> {
         let PreparedInstall {
             loaded,
             build,
@@ -4550,9 +4656,11 @@ impl WgpuRenderer {
             Some(prepared_props),
         ) = (atlas, world, world_textures, world_materials, props)
         else {
-            self.fatal = Some("Incomplete GPU level preparation".to_string());
-            return false;
+            return Err("Incomplete GPU level preparation".into());
         };
+        if build.lightmaps.is_some() != prepared_atlas.is_resident() {
+            return Err("The prepared lightmap atlas did not become resident".into());
+        }
         let inherit_playback = self.inherit_playback(&loaded, preserve_playback, &mut characters);
         let animation_seconds = self.animation_seconds;
         self.charge_prepared_world(&loaded, &build, &assets, &prepared_world);
@@ -4564,7 +4672,6 @@ impl WgpuRenderer {
         self.lighting_quality = graphics.lighting_quality;
         let uploaded = UploadedLevel {
             sky: uploaded_sky,
-            atlas: prepared_atlas,
             fixture_sheets,
             world: prepared_world,
             world_textures: prepared_textures,
@@ -4579,10 +4686,9 @@ impl WgpuRenderer {
         let installed_build = self.install_level_prepared(
             &loaded,
             build,
-            graphics.lightmaps,
             graphics.reflections,
             inherit_playback,
-            true,
+            prepared_atlas,
             std::time::Instant::now(),
             Some((characters, uploaded)),
             precompiled_probes.then_some(probes),
@@ -4593,7 +4699,7 @@ impl WgpuRenderer {
         }
         self.runtime_item_sheets = item_sheets.unwrap_or_default();
         self.publish_prepared_graphics(installed_build, graphics);
-        true
+        Ok(())
     }
 
     #[expect(
@@ -4607,11 +4713,10 @@ impl WgpuRenderer {
     fn install_level_prepared(
         &mut self,
         loaded: &LoadedLevel,
-        mut build: Arc<LevelBuild>,
-        lightmaps_quality: LightmapQuality,
+        build: Arc<LevelBuild>,
         reflections_quality: ReflectionQuality,
         preserve_level_state: bool,
-        upload_atlas: bool,
+        atlas: LightmapAtlas,
         started: std::time::Instant,
         prepared: Option<(CharacterScene, UploadedLevel)>,
         precompiled_probes: Option<crate::engine::package::world::ProbeCaptures>,
@@ -4639,19 +4744,17 @@ impl WgpuRenderer {
         let mut uploaded_decals = None;
         let mut uploaded_static_bank = None;
         let (
-            uploaded_atlas,
             uploaded_sheets,
             uploaded_world,
             uploaded_textures,
             uploaded_materials,
             uploaded_props,
-        ) = uploaded.map_or((None, None, None, None, None, None), |uploaded_level| {
+        ) = uploaded.map_or((None, None, None, None, None), |uploaded_level| {
             uploaded_caustics = uploaded_level.caustics;
             uploaded_sky = uploaded_level.sky;
             uploaded_decals = uploaded_level.decals;
             uploaded_static_bank = uploaded_level.static_bank;
             (
-                Some(uploaded_level.atlas),
                 Some(uploaded_level.fixture_sheets),
                 Some(uploaded_level.world),
                 Some(uploaded_level.world_textures),
@@ -4669,48 +4772,8 @@ impl WgpuRenderer {
         } else if level_changed && !preuploaded {
             self.textures.begin_level();
         }
-        let options = LightmapBuildOptions::for_lightmaps(lightmaps_quality);
-        if upload_atlas {
-            let prepared_atlas = uploaded_atlas.map_or_else(
-                || LightmapAtlas::upload(&self.device, &self.queue, build.lightmaps.as_deref()),
-                Ok,
-            );
-            let mut atlas = match prepared_atlas {
-                Ok(atlas) => atlas,
-                Err(error) => {
-                    self.mark_fatal(error);
-                    return build;
-                }
-            };
-            // A plan or fill failure never reaches this branch: the neutral build
-            // has already returned a vertex-lit mesh with the same baked
-            // lighting (`build.lightmaps.is_none()`). A missing atlas therefore
-            // does not imply another bake is needed.
-            // Rebuilding again with `LightmapMode::Off` here would re-bake with
-            // `BakeConfig::HARD` and change every vertex colour. Only an upload
-            // failure rebuilds, and the wgpu upload cannot fail; the check stays
-            // as a defensive fallback so a future failure cannot
-            // draw an atlas-less lightmapped mesh.
-            if needs_upload_fallback(options.mode, build.lightmaps.is_some(), atlas.is_resident()) {
-                let mut fallback = build_level_geometry_timed_with_lightmaps(
-                    &loaded.level,
-                    &self.prop_catalog,
-                    &mut self.prop_assets,
-                    &loaded.materials,
-                    LightmapBuildOptions::for_lightmap_quality(
-                        lightmaps_quality,
-                        LightmapMode::Off,
-                    ),
-                    None,
-                );
-                fallback.lightmap_failure = Some(LightmapFailure::Upload);
-                build = Arc::new(fallback);
-                atlas = LightmapAtlas::empty(&self.device, &self.queue);
-            }
-            self.lightmaps = atlas;
-            self.lightmaps_resident = self.lightmaps.is_resident();
-        }
-        let lightmap_failure = build.lightmap_failure;
+        self.lightmaps = atlas;
+        self.lightmaps_resident = self.lightmaps.is_resident();
         let lightmap_stats = build.lightmaps.as_deref().map(|lightmaps| lightmaps.stats);
         let blacklights = crate::engine::render::common::blacklight::BlacklightSet::from_level(
             &loaded.level,
@@ -4863,10 +4926,14 @@ impl WgpuRenderer {
             } else {
                 build.lightmap_millis
             },
-            lightmap_fallback: lightmap_failure.is_some(),
         };
         self.fixture_sheets = fixture_sheets;
         self.material_animations = animations;
+        self.material_animations.bind_receiver_pilot(
+            &loaded.level,
+            build.probes.as_deref(),
+            &build.lighting,
+        );
         // Water and weather retain their shared world phase across live settings changes.
         if level_changed {
             self.animation_seconds = 0.0;
@@ -5549,6 +5616,7 @@ impl WgpuRenderer {
     ) -> LevelEmissionAnimations {
         let mut animations = LevelEmissionAnimations {
             materials: vec![None; materials.entries().len()],
+            receiver_pilot: None,
             fixtures: vec![
                 None;
                 usize::try_from(crate::engine::level::FIXTURE_SWITCHABLE_MATERIAL_BASE)
@@ -5757,16 +5825,9 @@ impl WgpuRenderer {
         self.visual_diagnostic
     }
 
-    /// Constant false in ordinary builds, so normal frame paths pay no branch.
+    #[cfg(feature = "visual-diagnostics")]
     const fn visual_diagnostic_active(&self) -> bool {
-        #[cfg(feature = "visual-diagnostics")]
-        {
-            !self.visual_diagnostic.is_final()
-        }
-        #[cfg(not(feature = "visual-diagnostics"))]
-        {
-            false
-        }
+        !self.visual_diagnostic.is_final()
     }
 
     /// Records the requested quality level.
@@ -5996,11 +6057,12 @@ impl WgpuRenderer {
             .with_occlusion(self.world.as_ref(), self.culling);
         // Animated emissions are level data; advancing them is a handful of
         // uniform writes, and a still material writes nothing.
+        let emission_seconds = receiver_pilot_animation_time(self.animation_seconds);
         if let Some(materials) = self.world_materials.as_mut() {
-            materials.update_animations(&self.queue, self.animation_seconds);
+            materials.update_animations(&self.queue, emission_seconds);
         }
         if let Some(props) = self.world_props.as_mut() {
-            props.update_animations(&self.queue, self.animation_seconds);
+            props.update_animations(&self.queue, emission_seconds);
         }
         // The planar target follows the render size; a recreate invalidates the
         // environment binding that references it.
@@ -6327,19 +6389,19 @@ impl WgpuRenderer {
     }
 
     fn presentation_settings(&self) -> PostSettings {
+        #[cfg(feature = "visual-diagnostics")]
         if self.visual_diagnostic_active() {
-            PostSettings::DIAGNOSTIC
-        } else {
-            let mut settings = PostSettings::from_level(self.installed_level.as_ref())
-                .with_bloom(self.bloom_requested);
-            settings.visual_style = self.visual_style;
-            settings.time = if self.visual_style > 0.0 {
-                self.visual_time % 600.0
-            } else {
-                0.0
-            };
-            settings
+            return PostSettings::DIAGNOSTIC;
         }
+        let mut settings = PostSettings::from_level(self.installed_level.as_ref())
+            .with_bloom(self.bloom_requested);
+        settings.visual_style = self.visual_style;
+        settings.time = if self.visual_style > 0.0 {
+            self.visual_time % 600.0
+        } else {
+            0.0
+        };
+        settings
     }
 
     /// Encodes one complete frame into `target`: the offscreen scene pass with
@@ -6534,6 +6596,14 @@ impl WgpuRenderer {
         )
     }
 
+    fn scene_sky(&self) -> Option<(&WgpuSky, &SkyPipeline)> {
+        #[cfg(feature = "visual-diagnostics")]
+        if self.visual_diagnostic_active() {
+            return None;
+        }
+        self.sky.as_ref().zip(self.sky_pipeline.as_ref())
+    }
+
     /// Encodes the world body (static classes, props, dynamics, decals) with
     /// the scene-format pipeline into an open pass.
     fn encode_scene_body<'a>(
@@ -6553,11 +6623,14 @@ impl WgpuRenderer {
         ) else {
             return (totals, 0);
         };
+        #[cfg(feature = "visual-diagnostics")]
+        let diagnostic_active = self.visual_diagnostic_active();
+        #[cfg(not(feature = "visual-diagnostics"))]
+        let diagnostic_active = false;
         // The night sky paints the cleared background first; the world body
         // draws over it with depth testing, so a solid ceiling always hides it.
         if phase != 2
-            && !self.visual_diagnostic_active()
-            && let (Some(sky), Some(sky_pipeline)) = (self.sky.as_ref(), self.sky_pipeline.as_ref())
+            && let Some((sky, sky_pipeline)) = self.scene_sky()
         {
             sky_pipeline.encode_scene(pass, sky, self.filtering);
             additional_draws = additional_draws.saturating_add(1);
@@ -6598,13 +6671,13 @@ impl WgpuRenderer {
             }
         }
         if phase == 1 {
-            if !self.visual_diagnostic_active() {
+            if !diagnostic_active {
                 self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
             }
             return (totals, totals.draw_calls.saturating_add(additional_draws));
         }
         if phase == 0 {
-            if !self.visual_diagnostic_active() {
+            if !diagnostic_active {
                 self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
             }
             let transparent = pipeline.encode_transparency(pass, inputs, false);
@@ -6633,6 +6706,7 @@ impl WgpuRenderer {
         pipeline: Option<&'a EffectsPipeline>,
         totals: &mut WorldDrawTotals,
     ) {
+        #[cfg(feature = "visual-diagnostics")]
         if self.visual_diagnostic_active() {
             return;
         }
@@ -6755,12 +6829,13 @@ impl WgpuRenderer {
                 self.environment.as_ref(),
             )
         {
+            #[cfg(feature = "visual-diagnostics")]
+            let diagnostic_active = self.visual_diagnostic_active();
+            #[cfg(not(feature = "visual-diagnostics"))]
+            let diagnostic_active = false;
             // The sky background, drawn before the world exactly like the
             // offscreen scene body.
-            if !self.visual_diagnostic_active()
-                && let (Some(sky), Some(sky_pipeline)) =
-                    (self.sky.as_ref(), self.sky_pipeline.as_ref())
-            {
+            if let Some((sky, sky_pipeline)) = self.scene_sky() {
                 sky_pipeline.encode_surface(&mut pass, sky, self.filtering);
                 additional_draws = additional_draws.saturating_add(1);
             }
@@ -6791,7 +6866,7 @@ impl WgpuRenderer {
                         frame,
                     ));
             }
-            if !self.visual_diagnostic_active() {
+            if !diagnostic_active {
                 self.encode_decals(&mut pass, self.decal_pipeline.as_ref(), frame, &mut totals);
             }
             let transparent = pipeline.encode_transparency(&mut pass, inputs, false);
@@ -7423,21 +7498,12 @@ impl WgpuRenderer {
 
     /// Records one frame's world submission into the neutral counters.
     fn record_render_stats(&mut self, totals: WorldDrawTotals, frame: &super::world::WorldFrame) {
-        let world = self
-            .world
-            .as_ref()
-            .map(WgpuWorldGeometry::stats)
-            .unwrap_or_default();
-        let props = self
-            .world_props
-            .as_ref()
-            .map(WgpuProps::stats)
-            .unwrap_or_default();
+        let world = self.world.as_ref().map_or_default(WgpuWorldGeometry::stats);
+        let props = self.world_props.as_ref().map_or_default(WgpuProps::stats);
         let dynamic = self
             .world_dynamic
             .as_ref()
-            .map(WgpuDynamic::stats)
-            .unwrap_or_default();
+            .map_or_default(WgpuDynamic::stats);
         let geometry = crate::engine::render::common::stats::SceneVisibility {
             world: self.world.as_ref().map_or_else(Default::default, |scene| {
                 scene.geometry_visibility(frame, self.culling)
@@ -7469,13 +7535,11 @@ impl WgpuRenderer {
         let characters = self
             .world_characters
             .as_ref()
-            .map(WgpuCharacters::stats)
-            .unwrap_or_default();
+            .map_or_default(WgpuCharacters::stats);
         let decals = self
             .decals
             .as_ref()
-            .map(super::decals::WgpuDecals::stats)
-            .unwrap_or_default();
+            .map_or_default(super::decals::WgpuDecals::stats);
         self.render_stats = RenderStats {
             geometry,
             total_vertices: visibility.eligible_vertices,
@@ -8147,11 +8211,42 @@ impl WgpuRenderer {
         if let Some(characters) = self.world_characters.as_mut() {
             characters.encode_blend_poses(&mut encoder);
         }
-        #[cfg(feature = "visual-diagnostics")]
-        let capture_totals = self.encode_frame_into(&mut encoder, view, frame, None);
-        #[cfg(not(feature = "visual-diagnostics"))]
-        let _ = self.encode_frame_into(&mut encoder, view, frame, None);
+        let timing = std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+            && std::env::var("PLACES_BENCH_TIMED_CAPTURE").as_deref() == Ok("1");
+        if timing {
+            self.gpu_timer.begin_frame(&self.queue);
+        }
+        let timer = timing.then_some(&self.gpu_timer);
+        let capture_totals = self.encode_frame_into(&mut encoder, view, frame, timer);
         let _submission = self.queue.submit([encoder.finish()]);
+        if timing {
+            self.gpu_timer.finish_frame_submitted(&self.queue);
+            let mut completed = true;
+            // The first poll retires the original submission. Collecting then
+            // submits the timestamp resolve; the second poll completes that
+            // map. Match the existing production timer's Metal ordering.
+            for _ in 0_u8..2_u8 {
+                if self
+                    .device
+                    .poll(wgpu::PollType::Wait {
+                        submission_index: None,
+                        timeout: Some(std::time::Duration::from_secs(5)),
+                    })
+                    .is_err()
+                {
+                    completed = false;
+                    break;
+                }
+                self.gpu_timer.collect_ready(&self.device, &self.queue);
+            }
+            crate::engine::logging::info(format_args!(
+                "PILOT_CAPTURE_TIMING completed={completed} drawable={}x{} draws={} status={:?}",
+                self.drawable_size.width,
+                self.drawable_size.height,
+                capture_totals.draw_calls,
+                self.gpu_timer.status(),
+            ));
+        }
         #[cfg(feature = "visual-diagnostics")]
         self.trace_visual_diagnostic("capture", Some(&capture_totals));
     }
@@ -8292,6 +8387,12 @@ impl WgpuRenderer {
                 self.recover(SurfaceStatus::Timeout, reconfigured)
             }
             wgpu::CurrentSurfaceTexture::Occluded => {
+                if std::env::var("PLACES_BENCH").as_deref() == Ok("1") {
+                    logging::warn_once(
+                        "pilot-surface-occluded",
+                        "[pilot-surface] raw acquire status is Occluded",
+                    );
+                }
                 self.recover(SurfaceStatus::Occluded, reconfigured)
             }
             wgpu::CurrentSurfaceTexture::Outdated => {
@@ -9177,13 +9278,18 @@ impl WgpuRenderer {
 /// Smaller host/device blocks reduce retained idle capacity without reducing
 /// texture, lighting, geometry or animation data. Only developer cohorts may
 /// select the former performance-oriented policy as a comparison control.
+#[cfg(feature = "visual-diagnostics")]
 fn device_memory_hints() -> wgpu::MemoryHints {
-    #[cfg(feature = "visual-diagnostics")]
     if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
         && std::env::var("PLACES_BENCH_MEMORY_POLICY").as_deref() == Ok("performance")
     {
         return wgpu::MemoryHints::Performance;
     }
+    wgpu::MemoryHints::MemoryUsage
+}
+
+#[cfg(not(feature = "visual-diagnostics"))]
+const fn device_memory_hints() -> wgpu::MemoryHints {
     wgpu::MemoryHints::MemoryUsage
 }
 
@@ -9225,11 +9331,7 @@ fn allocation_report_for_event(
 }
 
 fn keep_idle_texture_cache() -> bool {
-    #[cfg(feature = "visual-diagnostics")]
-    if std::env::var("PLACES_BENCH").as_deref() == Ok("1")
+    cfg!(feature = "visual-diagnostics")
+        && std::env::var("PLACES_BENCH").as_deref() == Ok("1")
         && std::env::var("PLACES_BENCH_KEEP_IDLE_TEXTURES").as_deref() == Ok("1")
-    {
-        return true;
-    }
-    false
 }

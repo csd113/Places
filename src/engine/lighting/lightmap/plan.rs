@@ -168,8 +168,7 @@ impl LevelLightmaps {
 /// The charts and pages accumulated while one level's geometry is emitted.
 ///
 /// A plan is only valid while [`Self::failed`] is false. A failure is sticky and
-/// named: the caller must not bake or upload the plan, and rebuilds the level
-/// with [`LightmapMode::Off`] instead.
+/// named. The caller discards the candidate and reports that error.
 #[derive(Debug)]
 pub struct LightmapPlan {
     config: LightmapConfig,
@@ -467,7 +466,7 @@ impl LightmapPlan {
     /// that loses its atlas is never silent.
     ///
     /// The named reason is printed once per process per failure kind: the whole
-    /// level then rebuilds with the historical vertex-lit mesh. `charts placed`
+    /// candidate is rejected. `charts placed`
     /// and `pages used of max_pages` make a genuine budget shortfall
     /// distinguishable from a layout bug.
     fn fail(&mut self, failure: LightmapFailure) {
@@ -476,7 +475,7 @@ impl LightmapPlan {
                 format!("lightmap-plan-failure:{}", failure.name()),
                 format!(
                     "[lightmaps] atlas plan failed ({}): {} chart(s) placed on {} of {} page(s); \
-                     rebuilding the level with vertex lighting",
+                     rejecting this lighting preparation",
                     failure.name(),
                     self.charts.len(),
                     self.allocator.page_count(),

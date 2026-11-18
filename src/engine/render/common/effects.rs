@@ -814,7 +814,7 @@ const fn fade(life: f32, fade_fraction: f32) -> f32 {
 // bounded f32 polynomial
 const fn smooth01(value: f32) -> f32 {
     let t = value.clamp(0.0, 1.0);
-    t * t * (3.0 - 2.0 * t)
+    t * t * 2.0f32.mul_add(-t, 3.0)
 }
 
 /// The camera-facing `(right, up)` basis of a billboard at `particle`.

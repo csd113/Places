@@ -56,8 +56,7 @@ impl Field {
             Self::LevelTitle => doc
                 .manifest()
                 .level(Some(doc.level_id()))
-                .map(|record| record.display_name.clone())
-                .unwrap_or_default(),
+                .map_or_default(|record| record.display_name.clone()),
             Self::Author => doc.manifest().author.clone(),
             Self::Version => doc.manifest().package_version.to_string(),
             Self::Description => doc.manifest().description.clone(),

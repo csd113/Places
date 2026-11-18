@@ -609,8 +609,7 @@ impl TransportSolve {
         let second_planes = next
             .probes
             .as_mut()
-            .map(|field| std::mem::take(&mut field.switchable_indirect))
-            .unwrap_or_default();
+            .map_or_default(|field| std::mem::take(&mut field.switchable_indirect));
         append_switchable_probe_field(&mut self.probes, first_light, next.probes)?;
         if let Some(field) = self.probes.as_mut() {
             field.switchable_indirect.extend(second_planes);

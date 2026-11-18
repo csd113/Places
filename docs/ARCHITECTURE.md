@@ -105,8 +105,10 @@ backend module that names it.
 
 | Path | Role | Layer |
 |---|---|---|
-| `src/engine/render.rs` | Module root and public facade surface; no GPU API | preparation |
+| `src/engine/render/mod.rs` | Module root and public facade surface; no GPU API | preparation |
 | `src/engine/render/facade.rs` | `Renderer`: owns the wgpu renderer and exposes the engine's operations | facade |
+| `src/engine/render/font.rs` | Shared bitmap font atlas access and UI glyph coordinates | preparation |
+| `src/engine/render/weather.rs` | Authored weather definitions, validation and playback state | preparation |
 | `src/engine/render/common/mod.rs` | Emitters and level-build helpers (`tiled_uv`, wall/floor emitters, decal quads, `MaterialLookup`) | preparation |
 | `src/engine/render/common/api.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
 | `src/engine/render/common/mesh.rs` | `Vertex`, `LevelMesh`, chunk packing, unit quantisation | preparation (CPU layout) |
@@ -145,12 +147,17 @@ where the bytes live:
 
 | Path | Purpose |
 |---|---|
-| `src/engine/assets.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
-| `src/engine/level.rs` | The authored level schema (format 3): geometry rules, the walkable floor, water volumes, ladders, doors, effects, trigger volumes, timers, sequences, spawns, components/events and the typed action/condition vocabulary |
+| `src/engine/assets/mod.rs` | The catalog: logical ids, classes, themes, resource paths, size policy |
+| `src/engine/level/mod.rs` | The authored level schema: geometry rules, the walkable floor, water volumes, ladders, doors, effects, trigger volumes, timers, sequences, spawns, components/events and the typed action/condition vocabulary |
+| `src/engine/level/environment.rs`, `structure.rs` | Authored display presentation and atmosphere, and structural clearance checks shared by the editor and compiler |
 | `src/engine/entities/` | The component-oriented entity runtime: generational identity (`id.rs`), typed component tables (`components.rs`), the bounded event queue and condition evaluation (`events.rs`), simulation-time timers (`timers.rs`), data-driven sequences (`sequences.rs`), spawn templates/points/groups (`spawn.rs`) and the world that owns doors, aiming, routes, lights, volumes, events, sequences and spawns (`mod.rs`) |
-| `src/engine/loader.rs` | Level discovery, validation (every component, binding, action, condition, sequence, timer, spawn and navigation actor record), material resolution |
+| `src/engine/diagnostics/` | Session journal, process logging, performance measurements and neutral progress reporting |
+| `src/engine/loader/` | Level discovery, validation, loaded-level assembly and transactional installation |
+| `src/engine/props/` | Placeable catalog view, model asset cache and resource admission |
+| `src/engine/gltf/` | GLB document and accessor admission, mesh and material assembly, bind-pose skinning and animation clip decoding |
 | `src/engine/nav/` | Navigation: shared movement rules and the runtime mesh (`query.rs`: nearest/path/segment queries over the baked grid, door portals, region statistics). `mod.rs` owns the agent profile and the live door-state trait |
 | `src/engine/ai/` | The shared AI framework: typed `AiDef` behaviors, `AiWorld` (state machine, staggered sight from real collision and hearing from gameplay stimuli, navigation-assisted flee/pursue/catch) and the locomotion/animation bridge (`movement.rs`, `perception.rs`) |
+| `src/engine/runtime/` | Cooperative load cancellation, process and GPU resource admission, shared CPU preparation budget and bounded runtime executor |
 | `src/game/app/loading.rs` | One bounded preparation worker: the level's assets and its compiled variant are read concurrently, with request cancellation and an immutable decoded-variant cache |
 | `src/engine/package/` | The compiled map format: manifest, bounded ZIP access, binary records, KTX2 payloads, the player-side package loader |
 | `src/map_compiler/mod.rs` | The offline compiler: source validation, static preparation, probe capture, atomic package publication (`places-compile` only) |
@@ -158,12 +165,13 @@ where the bytes live:
 | `src/map_compiler/application.rs`, `gui.rs` | Command-line coordination and the retained native Map Compiler GUI |
 | `src/map_compiler/storage.rs` | Exact prop factoring and compressed archive sizing; selection preserves the existing record stream |
 | `src/engine/lighting/` | The vertex-lit CPU bake (partition areas, baselines, fixture pools, box visibility) plus the prepared path: `transport.rs` (BVH, direct sampling, ray-traced bounces), `probes.rs` (the moving-object field), `lightmap/` (planning, HDR pages, content key); the Map Compiler invokes offline solves, runtime uses decoded lighting/query data |
-| `src/engine/materials/` | PNG decode, session texture cache, material and decal resolution |
+| `src/engine/materials/` | PNG decode, session texture cache, surface, fixture-face and decal material resolution |
 | `src/engine/spatial.rs` | The spatial cell grid the batching and frustum culling share |
-| `src/engine/collision_index.rs` | The uniform X/Z grid over the level's solid boxes, shared by movement, support, headroom, entity routes, interaction targeting, label occlusion and route validation (allocation-free queries, exact linear fallback) |
+| `src/engine/collision/` | Shared collision shapes and queries, continuous movement sweeps and the uniform X/Z index over level solids used by movement, support, headroom, entity routes, targeting, label occlusion and route validation |
 | `src/map_compiler/geometry_check.rs` | The read-only map geometry checker CLI (`--check-geometry`) and repair planner |
+| `src/engine/rules/` | Shared map-owned game mode presets, health state and tool settings |
 | `src/game/`, `src/game/mod.rs` | Player state, movement, stance, ladders, swimming and the world tick; the entity runtime owns the map's objects, events, sequences and spawns |
-| `src/engine/door.rs` | Door runtimes: the closed/opening/open/closing phase machine, the `locked` state, current angle and collider pose, the id→index map, and per-level reset/advance |
+| `src/engine/mechanisms/` | Runtime state and collision poses for hinged doors (`door.rs`), clip-driven doors (`animated_door.rs`) and elevators (`elevator.rs`) |
 | `src/engine/interact.rs` | Interaction targeting (ray/reach/occlusion), the aiming table derived from `interactable` components, door aim bounds; game-owned labels consume these targeting queries |
 | `src/game/world_labels.rs`, `perf_overlay.rs` | World prompts and cached performance HUD drawing over shared engine data |
 | `src/game/ui.rs` | The menu, level select and settings screens |
@@ -194,7 +202,7 @@ These ownership rules guide production code review. The former Rust source-scan
 tests were removed in 0.11.0:
 
 1. **Only `render::wgpu` and the facade name the wgpu API.** `wgpu::` may
-   appear in `src/engine/render/wgpu/**`, `src/engine/render/facade.rs`, `src/engine/render.rs`; nowhere else.
+   appear in `src/engine/render/wgpu/**`, `src/engine/render/facade.rs`, `src/engine/render/mod.rs`; nowhere else.
 2. **The engine bootstrap makes no platform GPU calls.** the game application builds a plain
    window and hands it to the facade; it never calls a GL or Metal window API
    itself.
@@ -281,7 +289,7 @@ lives in `src/engine/entities/`:
   one lives is refused with a diagnostic, despawn (lifetime, action or reset)
   releases the group, and a spawn becomes visible on the frame it is requested
   because the frame loop drains the spawn commands before it draws.
-- **Doors** (`src/engine/door.rs`) keep the phase machine, the obstruction policy and
+- **Doors** (`src/engine/mechanisms/door.rs`) keep the phase machine, the obstruction policy and
   the collider derived from the live angle; a door's `locked` state is on the
   runtime, `open`/`close`/`toggle`/`lock`/`unlock` drive it, and
   `EntityWorld::door_blockers()` publishes the id, passability and collider.
@@ -634,7 +642,7 @@ parallel path. This avoids multiplying chart pools across concurrently running t
 
 ## Runtime CPU execution
 
-`runtime_work` owns one persistent native Rayon pool. Automatic worker count is
+`engine::runtime::work` owns one persistent native Rayon pool. Automatic worker count is
 at most four and leaves one available logical CPU outside its budget; explicit
 `PLACES_RUNTIME_WORKERS=1..8` diagnostics remain bounded by that hardware budget.
 One-core hosts and wasm32 use the same work inline. Pool creation failure logs

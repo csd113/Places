@@ -13,7 +13,7 @@ segments no longer than 0.15 m. Vertical motion uses 1/120 s integration with
 9.8 m/s² gravity and a roughly 1 m jump apex. The body is a 0.30 m radius,
 1.8 m standing / 0.9 m crouched cylinder; eyes ease between 1.6 and 0.8 m above
 the feet. Grounded stairs follow a pitch line; airborne landings use real
-treads. Floors, ramps, regions and water membership come from `src/engine/level.rs`;
+treads. Floors, ramps, regions and water membership come from `src/engine/level/mod.rs`;
 static boxes and oriented live door leaves resolve in `src/engine/collision.rs`.
 
 The initial reproduced defects were: the walking query refused the
@@ -222,7 +222,7 @@ are deliberate negative-test fixtures.
 - Recompiled collision packages: `assets/levels/places_demo.placesmap`,
   `assets/levels/model_zoo.placesmap`, `assets/levels/lantern_hollow.placesmap`.
 - Movement/collision/compiler: `src/game/mod.rs`, `src/engine/collision.rs`,
-  `src/engine/level.rs`, `src/map_compiler/mod.rs`.
+  `src/engine/level/mod.rs`, `src/map_compiler/mod.rs`.
 - Rust regressions/discovery: `src/game/tests.rs`,
   `src/game/tests/movement_diagnostics.rs`, `src/engine/loader/tests.rs`.
 - Validation/capture: `tools/assets/validate.py`, `tests/test_package.py`,

@@ -905,7 +905,6 @@ fn prepare_world(
             timings: crate::engine::render::BuildTimings::default(),
             lightmaps: variant.lightmaps,
             probes: variant.irradiance,
-            lightmap_failure: None,
             lightmap_millis: 0.0,
         });
         let records = Arc::new(PreparedRecords {

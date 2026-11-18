@@ -1,8 +1,8 @@
 //! Tiny malformed-input regressions; no shipped assets, map baking or GPU.
 
-use super::{
-    CHUNK_BIN, CHUNK_JSON, GLB_MAGIC, MAX_PROP_VERTICES, parse_container, validate_primitive_counts,
-};
+use super::mesh::validate_primitive_counts;
+use super::parse::{CHUNK_BIN, CHUNK_JSON, GLB_MAGIC, parse_container};
+use crate::engine::level::MAX_PROP_VERTICES;
 
 fn glb(chunks: &[(u32, &[u8])]) -> Result<Vec<u8>, String> {
     let mut bytes = GLB_MAGIC.to_le_bytes().to_vec();
