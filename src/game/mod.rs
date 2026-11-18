@@ -961,7 +961,7 @@ impl Game {
     /// The fixed camera/player has no locomotion or gameplay input.
     pub(crate) fn update_menu_world(&mut self) {
         self.update_doors(self.sim_delta_seconds());
-        self.finish_pending_local_elevator_departure();
+        self.finish_pending_local_elevator_departure(true);
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -1297,6 +1297,7 @@ impl Game {
 
         if self.noclip_enabled() {
             self.update_noclip(&frame_input, settings, motion);
+            self.finish_pending_local_elevator_departure(false);
             return;
         }
 
@@ -1318,12 +1319,13 @@ impl Game {
         );
         self.apply_movement_constraint(constrain(self));
         if self.recover_out_of_map() {
+            self.finish_pending_local_elevator_departure(false);
             return;
         }
         self.update_world(trigger_origin);
         // Finish the local handoff after the source movement sweep. The cargo
         // transaction checks destination clearance before committing passengers.
-        self.finish_pending_local_elevator_departure();
+        self.finish_pending_local_elevator_departure(true);
         if self.movement_debug {
             crate::engine::logging::warn(format_args!(
                 "[movement] frame_end feet={:?} velocity_y={} grounded={} ceiling_contact={}",
@@ -2013,22 +2015,39 @@ impl Game {
         self.world.update_elevators(&ctx);
     }
 
-    fn transfer_local_elevator(&mut self, departure: &crate::engine::elevator::Departure) {
+    fn transfer_local_elevator(
+        &mut self,
+        departure: &crate::engine::elevator::Departure,
+        rider_can_transfer: bool,
+    ) {
+        let Some(source) = self
+            .world
+            .elevators()
+            .iter()
+            .find(|elevator| elevator.matches_local_departure(departure))
+        else {
+            return;
+        };
+        let rider_feet = Vec3::new(self.player_position.x, self.feet_y, self.player_position.z);
+        let margin = if departure.landing.is_some() {
+            0.0
+        } else {
+            0.25
+        };
+        if !rider_can_transfer || !source.contains(rider_feet, margin) {
+            self.world
+                .finish_local_elevator_departure(&departure.source, None);
+            return;
+        }
         let pose = self
             .world
             .elevators()
             .iter()
-            .find(|e| e.def.id == departure.source)
-            .zip(
-                self.world
-                    .elevators()
-                    .iter()
-                    .find(|e| e.def.id == departure.arrival),
-            )
-            .filter(|(source, target)| {
+            .find(|e| e.def.id == departure.arrival)
+            .filter(|target| {
                 target.settled() || (departure.landing.is_some() && source.def.id == target.def.id)
             })
-            .and_then(|(source, target)| {
+            .and_then(|target| {
                 let target_y = match departure.landing {
                     Some(index) => {
                         target
@@ -2040,11 +2059,7 @@ impl Game {
                     }
                     None => target.y,
                 };
-                let local = source.def.local(Vec3::new(
-                    self.player_position.x,
-                    self.feet_y,
-                    self.player_position.z,
-                ));
+                let local = source.def.local(rider_feet);
                 Some((
                     target
                         .def

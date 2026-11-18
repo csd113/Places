@@ -426,6 +426,48 @@ fn linked_ports_preserve_view_and_isolate_groups_at_any_height() -> Result<(), S
     Ok(())
 }
 #[test]
+// Covers the noclip-only frame exit with the existing CPU cabin fixture.
+fn linked_port_noclip_departure_retires_before_walking_resumes() -> Result<(), String> {
+    let def = ports()?;
+    let mut game = port_game(&def);
+    interact(&mut game, "@elevator:a:call:0")?;
+    settle(&mut game, 100);
+    game.set_benchmark_player_position(Vec3::new(0.0, EYE_HEIGHT, 1.2), 0.0, 0.0);
+    interact(&mut game, "@elevator:a:floor:1")?;
+    let _enabled = game.set_noclip(true)?;
+    settle(&mut game, 360);
+    let source_phase = named_lift(&game, "a")?.phase;
+
+    let mut input = InputState::default();
+    input.apply_move_script(
+        &[ScriptedHold {
+            control: Control::StrafeLeft,
+            first_seconds: 0.0,
+            last_seconds: 1.0,
+        }],
+        0.5,
+    );
+    for _ in 0..32_u8 {
+        tick(&mut game, 1.0 / 60.0, &mut input);
+    }
+    assert!(
+        game.player_position.x < -1.0,
+        "rider must leave the source cabin"
+    );
+    let _disabled = game.set_noclip(false)?;
+    let walking_start = game.player_position;
+    settle(&mut game, 1);
+    assert!(game.player_position.distance(walking_start) < 0.1);
+    assert!(game.take_local_elevator_trip().is_none());
+    assert_eq!(
+        source_phase,
+        Phase::Open,
+        "refused departure reopens the source"
+    );
+    Ok(())
+}
+
+#[test]
 fn local_departure_reopens_when_an_advanced_arrival_is_busy() -> Result<(), String> {
     let mut level = ports()?;
     level.elevators.truncate(2);

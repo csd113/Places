@@ -406,6 +406,28 @@ impl Elevator {
             && local.z < DEPTH - 0.1 - margin
             && (local.y - self.y).abs() < 0.25
     }
+
+    /// Checks that a queued local move still names this cabin's sealed trip.
+    #[must_use]
+    pub fn matches_local_departure(&self, departure: &Departure) -> bool {
+        if !self.departure_sent || departure.level.is_some() || departure.source != self.def.id {
+            return false;
+        }
+        match self.phase {
+            Phase::Moving => {
+                departure.landing == Some(self.target) && departure.arrival == self.def.id
+            }
+            Phase::Loading => {
+                departure.landing.is_none()
+                    && self.def.stops.get(self.target).is_some_and(|stop| {
+                        stop.level.is_none()
+                            && stop.arrival_elevator.as_deref().unwrap_or(&self.def.id)
+                                == departure.arrival
+                    })
+            }
+            Phase::Closed | Phase::Opening | Phase::Open | Phase::Closing => false,
+        }
+    }
     pub fn request(&mut self, stop: usize, cabin: bool, feet: Option<Vec3>) -> bool {
         if matches!(
             self.phase,

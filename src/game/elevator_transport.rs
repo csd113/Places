@@ -29,9 +29,9 @@ pub(super) struct LocalTrip {
 }
 
 impl Game {
-    pub(super) fn finish_pending_local_elevator_departure(&mut self) {
+    pub(super) fn finish_pending_local_elevator_departure(&mut self, rider_can_transfer: bool) {
         if let Some(departure) = self.world.take_local_elevator_departure() {
-            self.transfer_local_elevator(&departure);
+            self.transfer_local_elevator(&departure, rider_can_transfer);
         }
     }
 
