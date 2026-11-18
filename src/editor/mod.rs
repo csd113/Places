@@ -541,17 +541,16 @@ fn create_app(
     tools: ToolPaths,
     capture_dir: Option<PathBuf>,
     performance_test: bool,
+    startup_audio: &mut audio_preview::StartupAudio,
     pump: &mut impl FnMut() -> Result<(), String>,
 ) -> Result<App, String> {
-    let asset_root = paths::assets()?;
-    let startup_audio = audio_preview::StartupAudio::start(asset_root);
     let viewport = Viewport::new(window, performance_test, pump)?;
     let (dialog_sender, dialog_receiver) = mpsc::channel();
     let capture = capture_dir.map(Capture::new).transpose()?;
     let catalog = assets::AssetCatalog::load_default();
     let browser = browser::Browser::new(&catalog);
     pump()?;
-    let sound_cues = crate::engine::audio::AudioCatalog::load(asset_root)?
+    let sound_cues = crate::engine::audio::AudioCatalog::load(startup_audio.asset_root())?
         .cue_ids()
         .filter(|cue| *cue != "ambience_hvac")
         .map(str::to_string)
@@ -641,6 +640,49 @@ fn retire_app(mut app: App, events: &mut sdl3::EventPump, trace: &mut performanc
     trace.stage("shutdown_complete");
 }
 
+fn create_pumped_app(
+    window: &sdl3::video::Window,
+    sdl: &sdl3::Sdl,
+    tools: ToolPaths,
+    capture_dir: Option<PathBuf>,
+    performance_test: bool,
+    events: &mut sdl3::EventPump,
+    trace: &mut performance::FrameTrace,
+) -> Result<Option<App>, String> {
+    let mut startup_audio = audio_preview::StartupAudio::start(paths::assets()?);
+    let mut cancelled = false;
+    let created = create_app(
+        window,
+        sdl,
+        tools,
+        capture_dir,
+        performance_test,
+        &mut startup_audio,
+        &mut || {
+            if trace.bootstrap_pump(events) {
+                Ok(())
+            } else {
+                cancelled = true;
+                Err("Editor startup cancelled".into())
+            }
+        },
+    );
+    match created {
+        Ok(app) => Ok(Some(app)),
+        Err(error) => {
+            startup_audio.cancel_and_retire(|| {
+                let _closing_events = trace.bootstrap_pump(events);
+            });
+            if cancelled {
+                trace.stage("shutdown_complete");
+                Ok(None)
+            } else {
+                Err(error)
+            }
+        }
+    }
+}
+
 fn application(options: Options) -> Result<(), String> {
     let mut trace = performance::FrameTrace::new(options.performance_test);
     let mut startup = crate::engine::perf::loading::StageTimer::new("editor-bootstrap");
@@ -666,29 +708,17 @@ fn application(options: Options) -> Result<(), String> {
     if !trace.bootstrap_pump(&mut events) {
         return Ok(());
     }
-    let mut cancelled = false;
-    let created = create_app(
+    let Some(mut app) = create_pumped_app(
         &window,
         &sdl,
         tools,
         options.capture_dir,
         options.performance_test,
-        &mut || {
-            if trace.bootstrap_pump(&mut events) {
-                Ok(())
-            } else {
-                cancelled = true;
-                Err("Editor startup cancelled".into())
-            }
-        },
-    );
-    let mut app = match created {
-        Ok(app) => app,
-        Err(_) if cancelled => {
-            trace.stage("shutdown_complete");
-            return Ok(());
-        }
-        Err(error) => return Err(error),
+        &mut events,
+        &mut trace,
+    )?
+    else {
+        return Ok(());
     };
     startup.step("app-renderer-audio");
     trace.stage("editor_app_ready");

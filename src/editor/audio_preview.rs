@@ -24,6 +24,11 @@ impl StartupAudio {
             .spawn(move || {
                 AudioSystem::prepare(asset_root, || worker_cancelled.load(Ordering::Relaxed))
             })
+            .inspect_err(|error| {
+                crate::engine::logging::warn(format_args!(
+                    "Could not start editor audio preparation thread: {error}"
+                ));
+            })
             .ok();
         Self {
             asset_root,
@@ -32,8 +37,12 @@ impl StartupAudio {
         }
     }
 
+    pub(super) const fn asset_root(&self) -> &'static Path {
+        self.asset_root
+    }
+
     pub(super) fn finish(
-        mut self,
+        &mut self,
         sdl: &sdl3::Sdl,
         pump: &mut impl FnMut() -> Result<(), String>,
     ) -> Result<AudioSystem, String> {
@@ -43,6 +52,7 @@ impl StartupAudio {
                 thread::sleep(Duration::from_millis(2));
             }
         }
+        pump()?;
         let prepared = self.worker.take().map_or_else(
             || AudioSystem::prepare(self.asset_root, || false),
             |worker| {
@@ -52,6 +62,17 @@ impl StartupAudio {
             },
         );
         Ok(AudioSystem::from_prepared(prepared, sdl))
+    }
+
+    pub(super) fn cancel_and_retire(&mut self, mut pump: impl FnMut()) {
+        if let Some(worker) = self.worker.take() {
+            self.cancelled.store(true, Ordering::Relaxed);
+            while !worker.is_finished() {
+                pump();
+                thread::sleep(Duration::from_millis(2));
+            }
+            let _retired = worker.join();
+        }
     }
 }
 
