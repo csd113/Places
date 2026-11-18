@@ -961,6 +961,7 @@ impl Game {
     /// The fixed camera/player has no locomotion or gameplay input.
     pub(crate) fn update_menu_world(&mut self) {
         self.update_doors(self.sim_delta_seconds());
+        self.finish_pending_local_elevator_departure();
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -1320,6 +1321,9 @@ impl Game {
             return;
         }
         self.update_world(trigger_origin);
+        // Finish the local handoff after the source movement sweep. The cargo
+        // transaction checks destination clearance before committing passengers.
+        self.finish_pending_local_elevator_departure();
         if self.movement_debug {
             crate::engine::logging::warn(format_args!(
                 "[movement] frame_end feet={:?} velocity_y={} grounded={} ceiling_contact={}",
@@ -2007,9 +2011,6 @@ impl Game {
         };
         let _ = self.world.update_doors(&ctx);
         self.world.update_elevators(&ctx);
-        if let Some(departure) = self.world.take_local_elevator_departure() {
-            self.transfer_local_elevator(&departure);
-        }
     }
 
     fn transfer_local_elevator(&mut self, departure: &crate::engine::elevator::Departure) {

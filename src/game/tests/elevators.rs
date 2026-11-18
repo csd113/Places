@@ -366,7 +366,21 @@ fn linked_ports_preserve_view_and_isolate_groups_at_any_height() -> Result<(), S
     settle(&mut game, 100);
     game.set_benchmark_player_position(Vec3::new(0.0, EYE_HEIGHT, 1.2), 0.35, -0.1);
     interact(&mut game, "@elevator:a:floor:1")?;
-    settle(&mut game, 360);
+    // The live item sweep would stop a rider crossing the cabin gap as if
+    // walking. This uses the existing tick budget to exercise that boundary.
+    for _ in 0..360_usize {
+        let previous = game.player_position;
+        game.set_benchmark_simulation_delta(1.0 / 60.0);
+        game.update_player_movement_constrained(
+            &mut InputState::default(),
+            &Settings::default(),
+            |candidate| {
+                let eye = candidate.player_position;
+                assert!(eye.distance(previous) < 1.0, "sweep must stay at the source cabin");
+                eye
+            },
+        );
+    }
     assert!(
         (game.player_position.x - 9.2).abs() < 0.002 && game.feet_y().abs() < 0.002,
         "same-plane transfer uses the linked cabin pose"

@@ -29,6 +29,12 @@ pub(super) struct LocalTrip {
 }
 
 impl Game {
+    pub(super) fn finish_pending_local_elevator_departure(&mut self) {
+        if let Some(departure) = self.world.take_local_elevator_departure() {
+            self.transfer_local_elevator(&departure);
+        }
+    }
+
     pub(super) const fn take_local_elevator_trip(&mut self) -> Option<LocalTrip> {
         self.local_elevator_trip.take()
     }
