@@ -16,11 +16,10 @@
 //!    only when a model exceeds [`PROP_OCCLUSION_MAX_CELLS_PER_AXIS`]). The
 //!    grid origin is the model's own bounds minimum, so the result is a pure
 //!    function of the asset and the cell.
-//! 2. Every triangle marks the columns its X/Z projection covers. A triangle
-//!    that projects to a line — the vertical panel of a guardrail, the flat
-//!    quad of a rug — marks the columns the *segment* crosses, so thin
-//!    geometry still occludes. Each covered column records the union of the
-//!    Y spans of the triangles over it.
+//! 2. Triangles with nonzero 3D area mark the columns their X/Z projections
+//!    cover. A vertical guardrail panel projects to a line and marks the
+//!    columns the segment crosses. Each covered column records the union of
+//!    the Y spans of the triangles over it.
 //! 3. Adjacent columns with equal spans merge along X into runs, and equal
 //!    runs merge along Z into boxes: a closed crate becomes one box, a chair a
 //!    handful (seat, legs, back), a slatted desk a top slab plus legs.
@@ -156,7 +155,7 @@ fn grind_model(model: &PropModel, cell_m: f32) -> Vec<LocalBox> {
     };
 
     // One occupied Y span per column, `None` where the mesh does not cover
-    // the column. Filled by grinding every triangle's X/Z projection.
+    // the column. Filled by grinding the X/Z projections of valid triangles.
     let mut spans: Vec<Option<(f32, f32)>> = vec![None; cell_count];
     for chunk in model.indices.as_chunks::<3>().0 {
         let &[i0, i1, i2] = chunk;
@@ -174,6 +173,9 @@ fn grind_model(model: &PropModel, cell_m: f32) -> Vec<LocalBox> {
             .chain(c.pos.iter())
             .all(|value| value.is_finite())
         {
+            continue;
+        }
+        if !triangle_has_area(a.pos, b.pos, c.pos) {
             continue;
         }
         let y_lo = a.pos[1].min(b.pos[1]).min(c.pos[1]);
@@ -222,6 +224,57 @@ fn grind_model(model: &PropModel, cell_m: f32) -> Vec<LocalBox> {
     }
 
     merge_runs(&spans, cells_x, cells_z, min, max, cell)
+}
+
+/// A finite 3D triangle has area if any component of its cross product is nonzero.
+fn triangle_has_area(a: [f32; 3], b: [f32; 3], c: [f32; 3]) -> bool {
+    let [ax, ay, az] = a.map(f64::from);
+    let [bx, by, bz] = b.map(f64::from);
+    let [cx, cy, cz] = c.map(f64::from);
+    projection_has_area([ax, az], [bx, bz], [cx, cz])
+        || projection_has_area([ax, ay], [bx, by], [cx, cy])
+        || projection_has_area([ay, az], [by, bz], [cy, cz])
+}
+
+/// Tests one signed cross-product component for exact zero on widened f32 coordinates.
+fn projection_has_area([ax, ay]: [f64; 2], [bx, by]: [f64; 2], [cx, cy]: [f64; 2]) -> bool {
+    let left = (bx - ax) * (cy - ay);
+    let right = (by - ay) * (cx - ax);
+    let magnitude = left.abs().max(right.abs());
+    if magnitude == 0.0_f64 {
+        // Products of nonzero f32 coordinate differences cannot underflow in f64.
+        return false;
+    }
+    // Each edge product has two subtractions and a multiplication. Beyond
+    // this rounding bound, the determinant is conclusively nonzero.
+    if (left - right).abs() > 4.0_f64 * f64::EPSILON * magnitude {
+        return true;
+    }
+
+    // Subtracting nearby vertices from a distant one can lose a thin
+    // triangle's area. The six original coordinate products are exact in
+    // f64. Sum them as an expansion, retaining each addition's roundoff.
+    let mut terms = [
+        ax * by,
+        -(ay * bx),
+        bx * cy,
+        -(by * cx),
+        cx * ay,
+        -(cy * ax),
+    ];
+    for count in 1..terms.len() {
+        let (parts, remaining) = terms.split_at_mut(count);
+        let Some(term) = remaining.first_mut() else {
+            break;
+        };
+        for part in parts {
+            let sum = *term + *part;
+            let recovered = sum - *term;
+            *part = (*term - (sum - recovered)) + (*part - recovered);
+            *term = sum;
+        }
+    }
+    terms.into_iter().any(|term| term != 0.0_f64)
 }
 
 /// Cell size used for one model's occupancy grid, in metres.
@@ -323,8 +376,8 @@ fn cell_span(low: f32, high: f32, origin: f32, cell: f32, cells: usize) -> (usiz
 
 /// True when the triangle's X/Z projection touches the cell square.
 ///
-/// A triangle with a degenerate projection is a line, and is tested as such so
-/// a vertical panel or a flat quad still marks the columns it crosses.
+/// A near-zero X/Z projection uses segment overlap so a vertical panel still
+/// marks the columns it crosses.
 fn triangle_overlaps_cell(corners: [[f32; 2]; 3], x0: f32, x1: f32, z0: f32, z1: f32) -> bool {
     let min_x = corners[0][0].min(corners[1][0]).min(corners[2][0]);
     let max_x = corners[0][0].max(corners[1][0]).max(corners[2][0]);
