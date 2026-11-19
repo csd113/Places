@@ -33,9 +33,17 @@
 
 use std::ops::{Deref, DerefMut, Range};
 use std::path::Path;
+use std::sync::atomic::AtomicBool;
 use std::sync::{Arc, OnceLock};
 
-use super::{Chart, LightmapConfig, LightmapFailure, LightmapPatch, LightmapTexel};
+use super::{
+    Chart, LightmapConfig, LightmapFailure, LightmapPatch, LightmapTexel, SwitchableLightmaps,
+    check_fill_cancelled,
+};
+use crate::engine::lighting::transport::TransportSolution;
+
+/// Cap uninterrupted page initialization and texel validation at 512 KiB.
+const ATLAS_TEXELS_PER_CHECK: usize = 16_384;
 
 /// One square atlas page of linear HDR texels, row-major from the top-left.
 #[derive(Clone, Debug, PartialEq)]
@@ -268,11 +276,24 @@ impl LightmapPage {
     /// Returns [`LightmapFailure::InvalidConfig`] when the edge is zero or the
     /// texel count cannot be addressed.
     pub fn empty(edge: u32) -> Result<Self, LightmapFailure> {
+        Self::empty_cancellable(edge, None)
+    }
+
+    fn empty_cancellable(edge: u32, cancel: Option<&AtomicBool>) -> Result<Self, LightmapFailure> {
         let texels = texel_count_for_edge(edge)?;
+        check_fill_cancelled(cancel)?;
+        let mut pixels = Vec::with_capacity(texels);
+        for start in (0..texels).step_by(ATLAS_TEXELS_PER_CHECK) {
+            check_fill_cancelled(cancel)?;
+            pixels.resize(
+                start.saturating_add(ATLAS_TEXELS_PER_CHECK).min(texels),
+                LightmapTexel::ZERO,
+            );
+        }
         Ok(Self {
             width: edge,
             height: edge,
-            texels: vec![LightmapTexel::ZERO; texels].into(),
+            texels: pixels.into(),
         })
     }
 
@@ -811,6 +832,16 @@ impl LightmapAtlas {
         page_count: usize,
         charts: &[(LightmapPatch, Chart)],
     ) -> Result<(), LightmapFailure> {
+        Self::validate_layout_cancellable(config, page_count, charts, None)
+    }
+
+    pub(crate) fn validate_layout_cancellable(
+        config: &LightmapConfig,
+        page_count: usize,
+        charts: &[(LightmapPatch, Chart)],
+        cancel: Option<&AtomicBool>,
+    ) -> Result<(), LightmapFailure> {
+        check_fill_cancelled(cancel)?;
         let _validated_page_buffer_len_status = validated_page_buffer_len(config, page_count)?;
         let page = LightmapPage {
             width: config.page_edge,
@@ -818,6 +849,7 @@ impl LightmapAtlas {
             texels: Vec::new().into(),
         };
         for (_, chart) in charts {
+            check_fill_cancelled(cancel)?;
             if usize::from(chart.page) >= page_count
                 || chart_texel_count(chart).is_none()
                 || !chart_fits_page(chart, &page)
@@ -847,15 +879,70 @@ impl LightmapAtlas {
         charts: &[(LightmapPatch, Chart)],
         texels: &[Vec<LightmapTexel>],
     ) -> Result<Self, LightmapFailure> {
+        Self::assemble_pages(
+            config,
+            page_count,
+            charts,
+            texels.iter().map(Vec::as_slice),
+            None,
+        )
+    }
+
+    pub(crate) fn assemble_solution(
+        config: &LightmapConfig,
+        page_count: usize,
+        charts: &[(LightmapPatch, Chart)],
+        solution: &TransportSolution,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<(Self, Vec<SwitchableLightmaps>), LightmapFailure> {
+        let base = Self::assemble_pages(
+            config,
+            page_count,
+            charts,
+            solution.charts.iter().map(|chart| chart.texels.as_slice()),
+            cancel,
+        )?;
+        if !solution.switchable.is_empty() {
+            crate::engine::progress::stage("assembling switchable lightmap atlases");
+        }
+        check_fill_cancelled(cancel)?;
+        let mut switchable = Vec::with_capacity(solution.switchable.len());
+        for (light_index, solved_charts) in &solution.switchable {
+            let pages = Self::assemble_pages(
+                config,
+                page_count,
+                charts,
+                solved_charts.iter().map(|chart| chart.texels.as_slice()),
+                cancel,
+            )?
+            .into_pages();
+            switchable.push(SwitchableLightmaps {
+                light_index: *light_index,
+                pages,
+            });
+        }
+        check_fill_cancelled(cancel)?;
+        Ok((base, switchable))
+    }
+
+    fn assemble_pages<'a>(
+        config: &LightmapConfig,
+        page_count: usize,
+        charts: &[(LightmapPatch, Chart)],
+        texels: impl ExactSizeIterator<Item = &'a [LightmapTexel]>,
+        cancel: Option<&AtomicBool>,
+    ) -> Result<Self, LightmapFailure> {
+        check_fill_cancelled(cancel)?;
         if charts.len() != texels.len() {
             return Err(LightmapFailure::FillSize);
         }
         let _validated_page_buffer_len_status = validated_page_buffer_len(config, page_count)?;
         let mut pages: Vec<LightmapPage> = Vec::with_capacity(page_count);
         for _ in 0..page_count {
-            pages.push(LightmapPage::empty(config.page_edge)?);
+            pages.push(LightmapPage::empty_cancellable(config.page_edge, cancel)?);
         }
         for ((patch, chart), chart_texels) in charts.iter().zip(texels) {
+            check_fill_cancelled(cancel)?;
             let Some(page) = pages.get_mut(usize::from(chart.page)) else {
                 return Err(LightmapFailure::Layout);
             };
@@ -868,11 +955,14 @@ impl LightmapAtlas {
             if chart_texels.len() != expected {
                 return Err(LightmapFailure::FillSize);
             }
-            if !chart_texels.iter().all(|texel| texel.is_finite()) {
-                return Err(LightmapFailure::FillNonFinite);
+            for chunk in chart_texels.chunks(ATLAS_TEXELS_PER_CHECK) {
+                check_fill_cancelled(cancel)?;
+                if !chunk.iter().all(|texel| texel.is_finite()) {
+                    return Err(LightmapFailure::FillNonFinite);
+                }
             }
-            write_chart(page, chart, chart_texels)?;
-            dilate(page, chart, config.padding_for(patch.kind));
+            write_chart(page, chart, chart_texels, cancel)?;
+            dilate(page, chart, config.padding_for(patch.kind), cancel)?;
         }
         Ok(Self { pages })
     }
@@ -962,8 +1052,10 @@ fn write_chart(
     page: &mut LightmapPage,
     chart: &Chart,
     texels: &[LightmapTexel],
+    cancel: Option<&AtomicBool>,
 ) -> Result<(), LightmapFailure> {
     for row in 0..chart.height {
+        check_fill_cancelled(cancel)?;
         let y = chart.y.checked_add(row).ok_or(LightmapFailure::Layout)?;
         for column in 0..chart.width {
             let x = chart.x.checked_add(column).ok_or(LightmapFailure::Layout)?;
@@ -991,9 +1083,14 @@ fn write_chart(
 /// rectangle still resolves the chart's edge colour. Gutter rectangles never
 /// overlap another chart's data or gutter, which is what the `padding`-wide
 /// outer rectangle reserved at allocation time guarantees.
-fn dilate(page: &mut LightmapPage, chart: &Chart, padding: u32) {
+fn dilate(
+    page: &mut LightmapPage,
+    chart: &Chart,
+    padding: u32,
+    cancel: Option<&AtomicBool>,
+) -> Result<(), LightmapFailure> {
     if padding == 0 || chart.width == 0 || chart.height == 0 {
-        return;
+        return Ok(());
     }
     let right = chart.x.saturating_add(chart.width).saturating_sub(1);
     let bottom = chart.y.saturating_add(chart.height).saturating_sub(1);
@@ -1002,6 +1099,7 @@ fn dilate(page: &mut LightmapPage, chart: &Chart, padding: u32) {
     let x_end = chart.x.saturating_add(chart.width).saturating_add(padding);
     let y_end = chart.y.saturating_add(chart.height).saturating_add(padding);
     for y in y_start..y_end {
+        check_fill_cancelled(cancel)?;
         for x in x_start..x_end {
             let inside = x >= chart.x && x <= right && y >= chart.y && y <= bottom;
             if inside {
@@ -1014,6 +1112,7 @@ fn dilate(page: &mut LightmapPage, chart: &Chart, padding: u32) {
             }
         }
     }
+    Ok(())
 }
 
 /// Byte offset of texel `(x, y)` in a page's row-major buffer.

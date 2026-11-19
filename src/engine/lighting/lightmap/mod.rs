@@ -33,6 +33,8 @@
 //! tests.rs   unit tests for the whole tree
 //! ```
 
+use std::sync::atomic::{AtomicBool, Ordering};
+
 mod atlas;
 mod cache;
 mod plan;
@@ -240,6 +242,15 @@ impl LightmapFailure {
             Self::TransportScene => "transport scene",
         }
     }
+}
+
+pub(crate) fn check_fill_cancelled(cancel: Option<&AtomicBool>) -> Result<(), LightmapFailure> {
+    if cancel.is_some_and(|flag| flag.load(Ordering::Relaxed)) {
+        // Transport uses this same error when interrupted. The fill entry point
+        // recognizes a set flag and returns its separate Cancelled outcome.
+        return Err(LightmapFailure::Worker);
+    }
+    Ok(())
 }
 
 /// Largest shipped atlas page budget the world program can sample at once.

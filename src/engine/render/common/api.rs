@@ -19,7 +19,7 @@ use super::{
 use crate::engine::lighting::BakeConfig;
 use crate::engine::lighting::lightmap::{
     Chart, LevelLightmaps, LightmapAtlas, LightmapCache, LightmapConfig, LightmapFailure,
-    LightmapMode, LightmapPatch, LightmapPlan, LightmapStats, LightmapTexel, SwitchableLightmaps,
+    LightmapMode, LightmapPatch, LightmapPlan, LightmapStats, check_fill_cancelled,
     content_key_with_extra, write_page_png,
 };
 use crate::engine::lighting::probes::ProbeField;
@@ -774,7 +774,8 @@ pub enum LightmapFillOutcome {
 }
 
 /// Fills one request on the worker, with cancellation polled by the
-/// solver, reported as [`LightmapFillOutcome::Cancelled`] when the flag was set.
+/// solver and atlas assembly, reported as [`LightmapFillOutcome::Cancelled`]
+/// when the flag is set.
 pub fn fill_lightmaps_cancellable(
     request: &LightmapFillRequest,
     cancel: &AtomicBool,
@@ -860,7 +861,12 @@ fn bake_request_with_workers(
     ));
     // Every chart is validated before the solver walks it: an out-of-page or
     // absurdly large rectangle is a named failure, never a huge allocation.
-    LightmapAtlas::validate_layout(&request.config, request.page_count, &request.charts)?;
+    LightmapAtlas::validate_layout_cancellable(
+        &request.config,
+        request.page_count,
+        &request.charts,
+        cancel,
+    )?;
     let solve = request.transport.solve_with_probes(
         &request.charts,
         options,
@@ -882,38 +888,26 @@ fn bake_request_with_workers(
     ));
     let atlas_started = std::time::Instant::now();
     crate::engine::progress::stage("assembling lightmap atlases");
-    let base: Vec<Vec<LightmapTexel>> = solution
-        .charts
-        .iter()
-        .map(|chart| chart.texels.clone())
-        .collect();
-    let atlas =
-        LightmapAtlas::assemble(&request.config, request.page_count, &request.charts, &base)?;
-    let mut switchable = Vec::with_capacity(solution.switchable.len());
-    for (light_index, charts) in &solution.switchable {
-        let texels: Vec<Vec<LightmapTexel>> =
-            charts.iter().map(|chart| chart.texels.clone()).collect();
-        let pages = LightmapAtlas::assemble(
-            &request.config,
-            request.page_count,
-            &request.charts,
-            &texels,
-        )?
-        .into_pages();
-        switchable.push(SwitchableLightmaps {
-            light_index: *light_index,
-            pages,
-        });
-    }
+    let (atlas, switchable) = LightmapAtlas::assemble_solution(
+        &request.config,
+        request.page_count,
+        &request.charts,
+        &solution,
+        cancel,
+    )?;
     crate::engine::logging::info(format_args!(
         "[lightmap-timing] atlas_assembly_ms={:.3}",
         elapsed_millis(atlas_started)
     ));
     let mut texels = 0usize;
-    for (_, chart) in &request.charts {
+    check_fill_cancelled(cancel)?;
+    let mut charts = Vec::with_capacity(request.charts.len());
+    for &(patch, chart) in &request.charts {
+        check_fill_cancelled(cancel)?;
         let width = usize::try_from(chart.width).unwrap_or(0);
         let height = usize::try_from(chart.height).unwrap_or(0);
         texels = texels.saturating_add(width.saturating_mul(height));
+        charts.push((patch, chart));
     }
     let edge = usize::try_from(request.config.page_edge).unwrap_or(0);
     let stats = LightmapStats {
@@ -927,7 +921,7 @@ fn bake_request_with_workers(
     Ok(LightmapFillProduct {
         lightmaps: LevelLightmaps {
             pages: atlas.into_pages(),
-            charts: request.charts.clone(),
+            charts,
             stats,
             cache_key: request.content_key.clone(),
             padding: request.config.padding,
