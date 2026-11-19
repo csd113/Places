@@ -13,10 +13,9 @@ import json
 import math
 from pathlib import Path
 import re
-import zipfile
 import sys as _package_sys
 _package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
-from package_zip import PackageZip
+from package_zip import PackageZip, hash_stream
 
 
 MAX_ATLAS_RECORD_BYTES = 640 * 1024 ** 2 + 64 * 1024
@@ -45,7 +44,8 @@ def validate_archive_bounds(archive):
             or archive.getinfo("manifest.json").file_size > 2 * 1024 ** 2
             or len({item.filename for item in entries}) != len(entries)):
         raise ValueError("Package exceeds reader safety bounds or has duplicate entries")
-    manifest = json.loads(archive.read("manifest.json"))
+    manifest_bytes = archive.read("manifest.json")
+    manifest = json.loads(manifest_bytes)
     members = {item["name"]: item for item in manifest["entries"]}
     if len(members) != len(manifest["entries"]) or set(archive.namelist()) != set(members) | {"manifest.json"}:
         raise ValueError("Archive entries do not match the declared manifest")
@@ -72,7 +72,7 @@ def validate_archive_bounds(archive):
             raise ValueError("Declared package entry size differs: " + name)
         if size > limit:
             raise ValueError(f"Package entry '{name}' exceeds its {limit}-byte record safety bound")
-    return manifest, members
+    return manifest, members, hashlib.sha256(manifest_bytes).hexdigest()
 
 
 def warning_budgets(metrics, limits):
@@ -85,10 +85,11 @@ def warning_budgets(metrics, limits):
 
 def inspect(package, log, variant="full"):
     with PackageZip(package) as archive:
-        manifest, members = validate_archive_bounds(archive)
+        manifest, members, expected_identity = validate_archive_bounds(archive)
         for name, entry in members.items():
-            data = archive.read(name)
-            if len(data) != entry["bytes"] or hashlib.sha256(data).hexdigest() != entry["sha256"]:
+            with archive.open(name) as stream:
+                size, digest = hash_stream(stream)
+            if size != entry["bytes"] or digest != entry["sha256"]:
                 raise ValueError("Unverified package entry: " + name)
         active = next(item for item in manifest["variants"] if item["lightmap_quality"] == variant)
         roles = {}
@@ -98,6 +99,8 @@ def inspect(package, log, variant="full"):
             totals["compressed_bytes"] += archive.getinfo(name).compress_size
         atlas = active["entries"].get("lightmaps_meta")
         metadata = json.loads(archive.read(atlas)) if atlas else None
+        with archive.raw_stream() as stream:
+            package_bytes, package_sha256 = hash_stream(stream)
     text = log.read_text()
     summaries = re.findall(r"^BENCH_SUMMARY (.*)$", text, re.MULTILINE)
     if not summaries:
@@ -114,8 +117,6 @@ def inspect(package, log, variant="full"):
     if native["level"] != manifest["id"] or (capture and capture["level"] != manifest["id"]):
         raise ValueError("Native level differs from the inspected package")
     package_ids = re.findall(r"package identity level=\S+ variant=(\S+) sha256=(\w+)", text)
-    with PackageZip(package) as archive:
-        expected_identity = hashlib.sha256(archive.read("manifest.json")).hexdigest()
     if not package_ids or package_ids[-1] != (variant, expected_identity):
         raise ValueError("Native package identity or quality does not match")
     if submission:
@@ -137,7 +138,7 @@ def inspect(package, log, variant="full"):
             metrics.update(submitted_indices=native["visible_indices"],
                            submitted_triangles=native["visible_indices"] // 3)
         counter_source = "nonzero surface telemetry; timing/FPS is outside this audit"
-    metrics["package_bytes"] = package.stat().st_size
+    metrics["package_bytes"] = package_bytes
     matches = re.findall(r"textures: .*?\((\d+) bytes resident", text)
     if matches:
         metrics["world_texture_resident_bytes"] = int(matches[-1])
@@ -149,7 +150,7 @@ def inspect(package, log, variant="full"):
         metrics.update(lightmap_pages=metadata["page_count"], lightmap_charts=len(metadata["charts"]),
                        lightmap_resident_bytes=metadata["page_count"] * metadata["page_edge"] ** 2
                        * 16 * (1 + len(metadata["switchable_lights"])))
-    return dict(package=str(package.resolve()), package_sha256=hashlib.sha256(package.read_bytes()).hexdigest(),
+    return dict(package=str(package.resolve()), package_sha256=package_sha256,
                 native_log=str(log.resolve()), variant=variant, metrics=metrics, stored_roles=roles,
                 counter_source=counter_source, capture_resident=capture.get("resident") if capture else None,
                 scope="Base scene submission; sky/emission/post/UI excluded from draws. Allocations are separate inventories, not total GPU memory. Transparency fragment overdraw is not measured.")

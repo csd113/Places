@@ -1,10 +1,12 @@
 """Tiny routing/lifetime checks; real hostile codec coverage lives in Rust.
 
-These two sub-KiB fixtures uniquely protect Python's method93 bypass on all
-Python versions, original accounting metadata, one-copy reuse and cleanup on
-failure. The decoder subprocess is mocked; no maps, baking or native resources
-are required. Runtime is proportional to a few hundred local bytes.
+The sub-KiB method-93 fixtures protect original accounting metadata, one-copy
+reuse and temporary ownership on error. The comparison witness is just over
+one streaming block to catch errors at the boundary. These tests need no map,
+bake or native process.
 """
+import hashlib
+import json
 import os
 from pathlib import Path
 import struct
@@ -15,6 +17,7 @@ from unittest import mock
 import zipfile
 
 from tools.levels.package_zip import PackageZip
+from tools.bench.compare_packages import BLOCK_BYTES, compare
 
 
 class PackageZipTests(unittest.TestCase):
@@ -80,3 +83,30 @@ class PackageZipTests(unittest.TestCase):
                         with self.assertRaises(zipfile.BadZipFile):
                             archive.read("blobs/data")
                     self.assertFalse(outputs[0].parent.exists(), "failure cannot retain a task-owned temp")
+
+    def test_alternate_zip_encoding_and_late_record_mismatch(self):
+        payload = b"x" * (BLOCK_BYTES + 7)
+        manifest = json.dumps(dict(entries=[dict(name="record", role="fixture")]))
+        with tempfile.TemporaryDirectory() as temporary:
+            left = Path(temporary) / "stored.zip"
+            right = Path(temporary) / "deflated.zip"
+
+            def write(path, mode, record):
+                with zipfile.ZipFile(path, "w", compression=mode) as archive:
+                    archive.writestr("manifest.json", manifest)
+                    archive.writestr("record", record)
+
+            write(left, zipfile.ZIP_STORED, payload)
+            write(right, zipfile.ZIP_DEFLATED, payload)
+            report = compare(left, right)
+            self.assertFalse(report["archive_byte_equal"])
+            self.assertTrue(report["quality_equal"])
+            self.assertEqual(report["roles"]["fixture"], dict(bytes=len(payload), records=1, equal=1))
+
+            changed = payload[:-1] + b"y"
+            write(right, zipfile.ZIP_DEFLATED, changed)
+            report = compare(left, right)
+            self.assertFalse(report["quality_equal"])
+            self.assertEqual(report["differing_records"], [dict(
+                name="record", role="fixture", before_sha256=hashlib.sha256(payload).hexdigest(),
+                after_sha256=hashlib.sha256(changed).hexdigest())])

@@ -9,6 +9,8 @@ before their archive. No Python Zstandard decoder is used, even on Python 3.14.
 """
 from __future__ import annotations
 
+from contextlib import contextmanager
+import hashlib
 import os
 from pathlib import Path
 import subprocess
@@ -16,17 +18,63 @@ import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parents[2]
+BLOCK_BYTES = 256 * 1024
+
+
+def hash_stream(stream):
+    """Return the byte count and SHA-256 of the bytes read to EOF."""
+    digest = hashlib.sha256()
+    size = 0
+    while chunk := stream.read(BLOCK_BYTES):
+        size += len(chunk)
+        digest.update(chunk)
+    return size, digest.hexdigest()
+
+
+def archive_identity(stat):
+    return stat.st_dev, stat.st_ino, stat.st_size, stat.st_mtime_ns, stat.st_ctime_ns
 
 
 class PackageZip(zipfile.ZipFile):
     """Preserve original ZIP metadata and bound all method-93 decompression."""
 
-    def __init__(self, *args, **kwargs):
+    def __init__(self, file, mode="r", *args, **kwargs):
         self._decoded = None
         self._scratch = None
-        super().__init__(*args, **kwargs)
+        self._source = None
+        self._identity = None
+        if mode == "r" and isinstance(file, (str, os.PathLike)):
+            # Capture identity on the handle before ZipFile reads its directory.
+            self._source = Path(file).open("rb", buffering=0)
+            file = self._source
+        try:
+            if self._source is not None:
+                self._identity = archive_identity(os.fstat(self._source.fileno()))
+            super().__init__(file, mode, *args, **kwargs)
+            self._check_source()
+        except BaseException:
+            self.close()
+            raise
+
+    def _check_source(self):
+        if self._source is not None and archive_identity(os.fstat(self._source.fileno())) != self._identity:
+            raise zipfile.BadZipFile("package changed since opening the archive")
+
+    @contextmanager
+    def raw_stream(self):
+        """Read the original ZIP bytes from the same handle as the ZIP metadata."""
+        with self._lock:
+            self._check_source()
+            position = self.fp.tell()
+            self.fp.seek(0)
+            try:
+                yield self.fp
+                self._check_source()
+            finally:
+                self.fp.seek(position)
 
     def _bounded_view(self):
+        self._check_source()
         if self._decoded is not None:
             return self._decoded
         if not self.filename or not Path(self.filename).is_file():
@@ -39,8 +87,14 @@ class PackageZip(zipfile.ZipFile):
         decoded = None
         try:
             output = Path(scratch.name) / "bounded-deflate.zip"
-            result = subprocess.run([str(reader), str(Path(self.filename).resolve()), str(output), "1"],
+            source = Path(self.filename).resolve()
+            if self._source is not None and archive_identity(source.stat()) != self._identity:
+                raise zipfile.BadZipFile("package path changed since opening the archive")
+            result = subprocess.run([str(reader), str(source), str(output), "1"],
                                     capture_output=True, text=True, check=False)
+            self._check_source()
+            if self._source is not None and archive_identity(source.stat()) != self._identity:
+                raise zipfile.BadZipFile("package path changed since opening the archive")
             if result.returncode:
                 raise zipfile.BadZipFile("bounded Rust package read failed: " + result.stderr.strip())
             decoded = zipfile.ZipFile(output)
@@ -71,8 +125,12 @@ class PackageZip(zipfile.ZipFile):
         self._decoded = None
         self._scratch = None
         try:
-            super().close()
+            if getattr(self, "fp", None) is not None:
+                super().close()
         finally:
+            if self._source is not None:
+                self._source.close()
+                self._source = None
             if decoded is not None:
                 decoded.close()
             if scratch is not None:

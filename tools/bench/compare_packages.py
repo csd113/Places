@@ -13,34 +13,60 @@ import argparse
 import hashlib
 import json
 from pathlib import Path
-import zipfile
 import sys as _package_sys
 _package_sys.path.insert(0, str(Path(__file__).resolve().parents[1] / 'levels'))
-from package_zip import PackageZip
+from package_zip import BLOCK_BYTES, PackageZip, hash_stream
 
+
+
+def archive_equal(before, after):
+    with before.raw_stream() as left, after.raw_stream() as right:
+        while True:
+            a, b = left.read(BLOCK_BYTES), right.read(BLOCK_BYTES)
+            if a != b:
+                return False
+            if not a:
+                return True
+
+
+def compare_record(left, right, name):
+    before_hash, after_hash = hashlib.sha256(), hashlib.sha256()
+    size, equal = 0, True
+    with left.open(name) as before, right.open(name) as after:
+        while True:
+            a, b = before.read(BLOCK_BYTES), after.read(BLOCK_BYTES)
+            if not a and not b:
+                break
+            size += len(a)
+            equal &= a == b
+            # Drain both streams even after a mismatch, for their hashes and CRCs.
+            before_hash.update(a)
+            after_hash.update(b)
+    return size, equal, before_hash.hexdigest(), after_hash.hexdigest()
 
 
 def compare(before: Path, after: Path, allow_stage_key=False, asset_root=None):
     with PackageZip(before) as left, PackageZip(after) as right:
         left_names, right_names = set(left.namelist()), set(right.namelist())
         result = dict(before=str(before), after=str(after),
-                      archive_byte_equal=before.read_bytes() == after.read_bytes(),
+                      archive_byte_equal=archive_equal(left, right),
                       missing=sorted(left_names - right_names),
                       added=sorted(right_names - left_names), differing_records=[],
                       stage_key_change=None, input_key_changes=None, roles={})
-        manifest = json.loads(left.read("manifest.json"))
+        manifest_bytes = left.read("manifest.json")
+        manifest = json.loads(manifest_bytes)
         roles = {entry["name"]: entry["role"] for entry in manifest["entries"]}
         for name in sorted(left_names & right_names):
-            before_bytes, after_bytes = left.read(name), right.read(name)
+            size, equal, before_hash, after_hash = compare_record(left, right, name)
             role = roles.get(name, "manifest")
             summary = result["roles"].setdefault(role, dict(records=0, bytes=0, equal=0))
             summary["records"] += 1
-            summary["bytes"] += len(before_bytes)
-            if before_bytes == after_bytes:
+            summary["bytes"] += size
+            if equal:
                 summary["equal"] += 1
                 continue
             if name == "manifest.json" and (allow_stage_key or asset_root):
-                original, updated = json.loads(before_bytes), json.loads(after_bytes)
+                original, updated = json.loads(manifest_bytes), json.loads(right.read(name))
                 old_key, new_key = original.pop("lighting_fingerprint", None), updated.pop("lighting_fingerprint", None)
                 if asset_root:
                     keys = dict(lighting_fingerprint=dict(before=old_key, after=new_key),
@@ -56,8 +82,9 @@ def compare(before: Path, after: Path, allow_stage_key=False, asset_root=None):
                         if dependency["kind"] != "texture" or not path.is_relative_to(root) or not path.is_file():
                             valid = False
                             break
-                        data = path.read_bytes()
-                        valid &= len(data) == dependency["bytes"] and hashlib.sha256(data).hexdigest() == dependency["sha256"]
+                        with path.open("rb") as stream:
+                            size, digest = hash_stream(stream)
+                        valid &= size == dependency["bytes"] and digest == dependency["sha256"]
                     if original == updated and valid:
                         result["input_key_changes"] = dict(keys=keys, verified_added_dependencies=added)
                         continue
@@ -65,8 +92,7 @@ def compare(before: Path, after: Path, allow_stage_key=False, asset_root=None):
                     result["stage_key_change"] = dict(before=old_key, after=new_key)
                     continue
             result["differing_records"].append(dict(
-                name=name, role=role, before_sha256=hashlib.sha256(before_bytes).hexdigest(),
-                after_sha256=hashlib.sha256(after_bytes).hexdigest()))
+                name=name, role=role, before_sha256=before_hash, after_sha256=after_hash))
         result["quality_equal"] = not any(result[key] for key in ("missing", "added", "differing_records"))
         return result
 
