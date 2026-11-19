@@ -584,6 +584,14 @@ fn thickened(low: f32, high: f32) -> (f32, f32) {
     (mid - half, mid + half)
 }
 
+/// Static prop boxes in emission order, with attached-light owner ranges
+/// indexed by level prop index.
+#[derive(Default)]
+pub(super) struct LevelPropOccluders {
+    pub boxes: Vec<OrientedBox>,
+    pub light_owner_ranges: Vec<(u32, u32)>,
+}
+
 /// Per-`(path, cell)` model occluder cache plus the prop catalog it resolves
 /// through.
 ///
@@ -622,54 +630,51 @@ impl PropOcclusionCache {
         level: &LevelDef,
         surfaces: &LevelSurfaces<'_>,
         cell_m: f32,
-    ) -> Vec<OrientedBox> {
-        let mut out: Vec<OrientedBox> = Vec::new();
-        if level.props.is_empty() {
-            return out;
-        }
+    ) -> LevelPropOccluders {
+        let mut result = LevelPropOccluders {
+            boxes: Vec::new(),
+            light_owner_ranges: vec![(0, 0); level.props.len()],
+        };
         let grid_cell_m = sanitized_cell(cell_m);
         let claimed =
             crate::engine::render::claimed_character_models(level, &self.catalog, &mut self.assets);
         let mut seen_models: Vec<String> = Vec::new();
         let mut busy_vertices = 0usize;
-        for prop in &level.props {
-            if out.len() >= MAX_PROP_OCCLUSION_BOXES_PER_LEVEL {
-                break;
-            }
+        let mut append_prop = |prop: &PropDef, boxes: &mut Vec<OrientedBox>| {
             if !prop_is_static(prop) {
-                continue;
+                return;
             }
             // Decorative alpha-cutout scenery (grass, leaf canopies) opts out:
             // the bake derives coarse solid boxes from triangles, which would
             // turn thousands of blade cards into solid shadow volumes.
             if !prop.occludes {
-                continue;
+                return;
             }
             let entry = self.catalog.get(&prop.model);
             let Some(model_path) = entry.model else {
                 // The draw path has no model to draw: the catalogue
                 // placeholder box is the visible geometry, and it occludes.
-                push_placeholder_occluder(prop, entry.size, surfaces, &mut out);
-                continue;
+                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
+                return;
             };
             if busy_vertices >= MAX_LEVEL_PROP_VERTICES {
                 // The vertex budget is spent: the draw path replaces every
                 // further instance with its placeholder box.
-                push_placeholder_occluder(prop, entry.size, surfaces, &mut out);
-                continue;
+                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
+                return;
             }
             let known = seen_models.iter().any(|path| path == &model_path);
             if !known && seen_models.len() >= MAX_LEVEL_PROP_MODELS {
                 // The model budget is spent: same placeholder fallback.
-                push_placeholder_occluder(prop, entry.size, surfaces, &mut out);
-                continue;
+                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
+                return;
             }
             let model = self.model_occlusion(&model_path, grid_cell_m);
             if !model.loaded {
                 // The asset failed to load; the renderer draws (and therefore
                 // the bake occludes) the catalogue placeholder box.
-                push_placeholder_occluder(prop, entry.size, surfaces, &mut out);
-                continue;
+                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
+                return;
             }
             let casts_static_lighting = !claimed.contains(&model_path);
             if !known {
@@ -677,17 +682,35 @@ impl PropOcclusionCache {
             }
             busy_vertices = busy_vertices.saturating_add(model.vertex_count);
             if !casts_static_lighting {
-                continue;
+                return;
             }
             if model.boxes.is_empty() {
                 // A real model that resolves with no usable triangle: the draw
                 // path draws it and it occludes nothing.
-                continue;
+                return;
             }
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
-            push_instance_occluders(&model.boxes, prop, base_y, &mut out);
+            push_instance_occluders(&model.boxes, prop, base_y, boxes);
+        };
+
+        for (prop_index, prop) in level.props.iter().enumerate() {
+            let start = result.boxes.len();
+            if start >= MAX_PROP_OCCLUSION_BOXES_PER_LEVEL {
+                break;
+            }
+            append_prop(prop, &mut result.boxes);
+            // Character claim depends on the full level. Record indices from
+            // actual emission, including placeholder and partial-cap output.
+            if !prop.lights.is_empty()
+                && let Some(range) = result.light_owner_ranges.get_mut(prop_index)
+            {
+                *range = (
+                    u32::try_from(start).unwrap_or(u32::MAX),
+                    u32::try_from(result.boxes.len()).unwrap_or(u32::MAX),
+                );
+            }
         }
-        out
+        result
     }
 
     /// The derived occlusion of one model path at one grid cell, loaded and
@@ -829,33 +852,15 @@ impl Drop for PreparationAssetsScope {
     }
 }
 
-/// World-space occluders for every static prop of one level at the historical
-/// grid cell.
-///
-/// This is the entry point the historical [`LevelLighting::bake`] uses. A
-/// level with no props does no loading at all; a level whose props cannot be
-/// resolved contributes the placeholder occluders the draw path draws.
-///
-/// [`LevelLighting::bake`]: super::LevelLighting::bake
-#[must_use]
-pub(super) fn level_occluders(level: &LevelDef, surfaces: &LevelSurfaces<'_>) -> Vec<OrientedBox> {
-    level_occluders_with_cell(level, surfaces, PROP_OCCLUSION_CELL_M)
-}
-
-/// [`level_occluders`] with an explicit prop-occlusion grid cell, in metres.
-///
-/// This is the entry point the level-configured bake
-/// (`LevelLighting::bake_with`) uses; the cache is keyed by
-/// `(model path, cell)`, so a quality-level switch can never serve another
-/// level's boxes.
+/// World-space occluders and attached-light owner ranges for one level.
 #[must_use]
 pub(super) fn level_occluders_with_cell(
     level: &LevelDef,
     surfaces: &LevelSurfaces<'_>,
     cell_m: f32,
-) -> Vec<OrientedBox> {
+) -> LevelPropOccluders {
     if level.props.is_empty() {
-        return Vec::new();
+        return LevelPropOccluders::default();
     }
     PROP_OCCLUSIONS.with(|cache| {
         cache

@@ -1194,9 +1194,8 @@ pub(super) struct Occluders {
     /// Derived once from the serialized geometry for live probe segment queries.
     horizontal_grid: SegmentGrid,
     prop_grid: SegmentGrid,
-    /// `(start, end)` into [`Self::props`] of every level prop's own occluder
-    /// boxes, by prop index. Empty when the level places no props with attached
-    /// lights, which is when the ranges are never asked for.
+    /// `(start, end)` into [`Self::props`] for each prop with attached lights,
+    /// indexed by level prop index. An empty range exempts no boxes.
     prop_ranges: Vec<(u32, u32)>,
 }
 
@@ -1210,11 +1209,8 @@ impl Occluders {
 
     /// [`Self::build`] with an explicit prop-occlusion grid cell, in metres.
     ///
-    /// The cell is a quality knob: a finer grid derives more, smaller boxes
-    /// from a prop model, so its contact shadow and the pool it blocks are
-    /// grounded more precisely. The historical 0.15 m cell is the
-    /// `BakeConfig::HARD` value and must keep producing exactly the boxes it
-    /// always did, so it takes the historical entry point verbatim.
+    /// Finer cells derive smaller boxes from a prop model, so the bake can
+    /// ground its contact shadow and the light it blocks more precisely.
     #[must_use]
     pub(super) fn build_with(level: &LevelDef, cell_m: f32) -> Self {
         let surfaces = LevelSurfaces::new(level);
@@ -1233,15 +1229,10 @@ impl Occluders {
         }
         let mut horizontals: Vec<Horizontal> = Vec::new();
         append_room_horizontals(&mut horizontals, &surfaces);
-        // The historical cell takes the historical derivation entry point, so a
-        // HARD bake is bit-for-bit unchanged and `level_occluders` keeps a
-        // production caller.
-        let mut props = if cell_m.to_bits() == super::tuning::PROP_OCCLUSION_CELL_M.to_bits() {
-            super::occlusion::level_occluders(level, &surfaces)
-        } else {
-            super::occlusion::level_occluders_with_cell(level, &surfaces, cell_m)
-        };
-        let prop_ranges = prop_occluder_ranges(level, &surfaces, cell_m, props.len());
+        let super::occlusion::LevelPropOccluders {
+            boxes: mut props,
+            light_owner_ranges: prop_ranges,
+        } = super::occlusion::level_occluders_with_cell(level, &surfaces, cell_m);
         // Void wall boxes marked `occludes` block baked light exactly like
         // solid props: they join the prop occluder list (segment tests only),
         // appended after every prop so the ranges above stay valid. A wall
@@ -1555,54 +1546,6 @@ fn append_void_wall_occluders(level: &LevelDef, out: &mut Vec<OrientedBox>) {
             out.push(oriented);
         }
     }
-}
-
-/// Box ranges in [`Occluders::props`] per level prop index, for the
-/// attached-light self-exemption.
-///
-/// The occluder derivation returns one flat list in level prop order and does
-/// not tag boxes with their owning instance. The bake needs that grouping to
-/// keep a prop-attached light from being occluded by its own body, so the
-/// deterministic derivation is re-run on progressively truncated prop lists —
-/// walking owners from the last to the first, so a single clone of the level
-/// only ever shrinks. This is exact by construction: each call is the same
-/// classifier that produced the full list, evaluated on a prefix of the same
-/// props, so the counts cannot drift from the real boxes. A level with no
-/// attached lights pays nothing.
-fn prop_occluder_ranges(
-    level: &LevelDef,
-    surfaces: &LevelSurfaces<'_>,
-    cell_m: f32,
-    box_count: usize,
-) -> Vec<(u32, u32)> {
-    let mut ranges = vec![(0u32, 0u32); level.props.len()];
-    let owners: Vec<usize> = level
-        .props
-        .iter()
-        .enumerate()
-        .filter_map(|(index, prop)| (!prop.lights.is_empty()).then_some(index))
-        .collect();
-    if owners.is_empty() {
-        return ranges;
-    }
-    let mut prefix = level.clone();
-    for owner in owners.into_iter().rev() {
-        prefix.props.truncate(owner.saturating_add(1));
-        let after = super::occlusion::level_occluders_with_cell(&prefix, surfaces, cell_m)
-            .len()
-            .min(box_count);
-        prefix.props.truncate(owner);
-        let before = super::occlusion::level_occluders_with_cell(&prefix, surfaces, cell_m)
-            .len()
-            .min(box_count);
-        if let Some(slot) = ranges.get_mut(owner) {
-            *slot = (
-                u32::try_from(before.min(after)).unwrap_or(u32::MAX),
-                u32::try_from(after.max(before)).unwrap_or(u32::MAX),
-            );
-        }
-    }
-    ranges
 }
 
 /// FNV-1a step over raw bytes.
