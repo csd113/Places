@@ -94,7 +94,7 @@ impl App {
             }
             return true;
         }
-        if self.popup.is_some() || self.viewport.is_preparing() {
+        if self.popup.is_some() || !self.viewport.editing_scene_ready() {
             return false;
         }
         if let Event::MouseButtonDown {
@@ -274,7 +274,7 @@ impl App {
                             room.depth
                         );
                     }
-                    self.viewport.rebuild(&level);
+                    self.viewport.rebuild_draft(&level);
                 }
                 Err(error) => self.status = format!("Drag cannot fit: {error}; Esc cancels."),
             }

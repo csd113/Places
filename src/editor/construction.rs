@@ -280,7 +280,7 @@ impl App {
                     .and_then(|()| doc.validate_candidate(&raw));
                 match checked {
                     Ok(level) => {
-                        self.viewport.rebuild(&level);
+                        self.viewport.rebuild_draft(&level);
                         if let Some(p) = &mut self.placement {
                             p.candidate = Some((raw, id));
                         }
@@ -369,7 +369,7 @@ impl App {
             return true;
         }
         if self.popup.is_none()
-            && !self.viewport.is_preparing()
+            && self.viewport.editing_scene_ready()
             && let Event::MouseButtonDown {
                 mouse_btn: MouseButton::Left,
                 x,
@@ -622,7 +622,7 @@ impl App {
             });
         match result {
             Ok((raw, level)) => {
-                self.viewport.rebuild(&level);
+                self.viewport.rebuild_draft(&level);
                 if let Some(d) = &mut self.wall_drag {
                     d.candidate = Some(raw);
                 }

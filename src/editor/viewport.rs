@@ -18,6 +18,7 @@ use camera::Camera;
 use picking::PickObject;
 pub(super) use picking::WallPicking;
 use preview::PreviewWorker;
+pub(super) use test_runtime::TestReturn;
 
 use super::document::ObjectId;
 use crate::engine::level::LevelDef;
@@ -43,6 +44,12 @@ enum LocalPreview {
 enum PreviewMode {
     Inspect,
     Authored,
+}
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum EditorPreview {
+    Document,
+    Draft,
 }
 
 enum PipelineReadiness {
@@ -93,6 +100,7 @@ pub(super) struct Viewport {
     preview_mode: PreviewMode,
     local_preview: LocalPreview,
     uploading: bool,
+    editor_preview: EditorPreview,
     frame_next: bool,
     last_frame: Instant,
     requested: Option<Instant>,
@@ -151,6 +159,7 @@ impl Viewport {
             preview_mode: PreviewMode::Inspect,
             local_preview: LocalPreview::Inactive,
             uploading: false,
+            editor_preview: EditorPreview::Document,
             frame_next: true,
             last_frame: Instant::now(),
             requested: None,
@@ -178,6 +187,15 @@ impl Viewport {
         self.focus = focus;
     }
     pub fn rebuild(&mut self, level: &LevelDef) {
+        self.request_editor_preview(level, EditorPreview::Document);
+    }
+
+    pub fn rebuild_draft(&mut self, level: &LevelDef) {
+        self.request_editor_preview(level, EditorPreview::Draft);
+    }
+
+    fn request_editor_preview(&mut self, level: &LevelDef, kind: EditorPreview) {
+        self.editor_preview = kind;
         if self.local_preview != LocalPreview::Inactive {
             self.local_preview = LocalPreview::Invalidated;
         }
@@ -331,6 +349,13 @@ impl Viewport {
             || self.worker.is_preparing()
     }
 
+    pub(super) fn editing_scene_ready(&self) -> bool {
+        self.play_mesh.is_some()
+            && !self.runtime_active()
+            && !self.runtime_preparing()
+            && self.status().is_none()
+    }
+
     pub fn capture(&mut self, path: &std::path::Path) -> Result<(), String> {
         use std::io::Write;
         let image = self.renderer.capture_default_framebuffer()?;
@@ -354,7 +379,7 @@ impl Viewport {
     }
 
     pub fn frame_all(&mut self) {
-        if self.worker.is_preparing() {
+        if !self.editing_scene_ready() {
             self.frame_next = true;
             return;
         }
@@ -396,7 +421,7 @@ impl Viewport {
     }
 
     pub fn play_floor(&self, point: [f32; 2]) -> Result<Vec3, String> {
-        if self.is_preparing() {
+        if !self.editing_scene_ready() {
             return Err("Play here: wait for the current scene preview".into());
         }
         let ray = self.ray(point).ok_or("Play here: no scene ray")?;
@@ -415,7 +440,7 @@ impl Viewport {
     }
 
     pub fn wall_picking(&self) -> Option<WallPicking> {
-        if self.is_preparing() {
+        if self.editor_preview == EditorPreview::Draft || !self.editing_scene_ready() {
             return None;
         }
         Some(WallPicking {
@@ -426,7 +451,7 @@ impl Viewport {
     }
 
     pub fn pick(&self, point: [f32; 2]) -> Option<ObjectId> {
-        if self.is_preparing() {
+        if !self.editing_scene_ready() {
             return None;
         }
         let (origin, direction) = self.camera.ray(point, self.size)?;
@@ -588,7 +613,7 @@ impl Viewport {
         self.uploading = false;
         self.requested = None;
         self.testing.pending = None;
-        if self.testing.requested.take().is_some() {
+        if self.runtime_preparing() {
             self.testing.pose = None;
             self.testing.failure = Some(error.to_owned());
         }
@@ -702,17 +727,21 @@ impl Viewport {
             if finished {
                 self.uploading = false;
                 if let Some(preview) = self.pending_preview.take() {
-                    self.play_mesh = Some(preview.mesh);
-                    self.play_floor = preview.floor;
-                    self.play_doors = preview.doors.into();
-                    self.local_preview = preview.local_preview;
                     if let Some(objects) = preview.objects {
+                        self.play_mesh = Some(preview.mesh);
+                        self.play_floor = preview.floor;
+                        self.play_doors = preview.doors.into();
+                        self.local_preview = preview.local_preview;
                         self.objects = objects.into();
+                        if self.frame_next {
+                            self.frame_next = false;
+                            self.frame_all();
+                        }
+                    } else {
+                        // The staged test actually replaced the resident editor scene.
+                        self.play_mesh = None;
+                        self.local_preview = LocalPreview::Inactive;
                     }
-                }
-                if self.frame_next {
-                    self.frame_next = false;
-                    self.frame_all();
                 }
                 self.upload_samples.sort_by(f64::total_cmp);
                 if let Some(metrics) = self.preview_metrics.as_object_mut() {

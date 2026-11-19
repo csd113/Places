@@ -986,7 +986,7 @@ impl App {
             if matches!(draft.tool, Tool::Sky | Tool::Weather | Tool::Sun) {
                 self.viewport.set_environment_preview(true);
             }
-            self.viewport.rebuild(&level);
+            self.viewport.rebuild_draft(&level);
             if draft.tool == Tool::Route {
                 let record = draft.record()?;
                 let path = route_preview(

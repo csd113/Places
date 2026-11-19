@@ -55,7 +55,7 @@ pub(super) struct PreviewWorker {
     pending: Option<Pending>,
     pub progress: Arc<Progress>,
     budget: Option<Arc<crate::engine::resources::DecodeBudget>>,
-    busy: bool,
+    active: Option<u64>,
     error: Option<String>,
 }
 
@@ -139,7 +139,7 @@ impl PreviewWorker {
             pending: None,
             progress: Arc::new(Progress::default()),
             budget: None,
-            busy: false,
+            active: None,
             error: None,
         })
     }
@@ -194,8 +194,9 @@ impl PreviewWorker {
         if accept {
             match self.response.try_recv() {
                 Ok(response) => {
-                    self.busy = false;
+                    self.active = None;
                     if response.generation == self.generation {
+                        self.budget = None;
                         match response.result {
                             Ok(mut preview) => {
                                 self.accepted_responses = self.accepted_responses.saturating_add(1);
@@ -220,7 +221,7 @@ impl PreviewWorker {
                     }
                 }
                 Err(mpsc::TryRecvError::Disconnected) => {
-                    self.busy = false;
+                    self.active = None;
                     self.pending = None;
                     self.error = Some("Scene preview worker stopped".to_string());
                 }
@@ -233,7 +234,7 @@ impl PreviewWorker {
 
     /// Start the existing bounded CPU request before entering driver work.
     pub fn dispatch_pending(&mut self) {
-        if !self.busy
+        if self.active.is_none()
             && let Some(pending) = self.pending.take()
         {
             if self
@@ -257,7 +258,7 @@ impl PreviewWorker {
                 }))
                 .is_ok()
             {
-                self.busy = true;
+                self.active = Some(self.generation);
             } else {
                 self.error = Some("Scene preview worker stopped".to_string());
             }
@@ -265,11 +266,12 @@ impl PreviewWorker {
     }
 
     pub(super) fn resource_snapshot(&self) -> serde_json::Value {
-        serde_json::json!({"generation":self.generation,"active":self.busy,"pending":self.pending.is_some(),"accepted_responses":self.accepted_responses,"stale_responses":self.stale_responses,"policy":"one active worker plus one supersedable pending request; obsolete generations rejected"})
+        serde_json::json!({"generation":self.generation,"active":self.active.is_some(),"active_generation":self.active,"pending":self.pending.is_some(),"accepted_responses":self.accepted_responses,"stale_responses":self.stale_responses,"policy":"one active worker plus one supersedable pending request; obsolete generations rejected"})
     }
 
     pub fn cancel(&mut self) {
         self.pending = None;
+        self.error = None;
         if let Some(budget) = self.budget.take() {
             self.generation = self.generation.wrapping_add(1);
             budget
@@ -279,7 +281,7 @@ impl PreviewWorker {
     }
 
     pub const fn is_preparing(&self) -> bool {
-        self.busy || self.pending.is_some()
+        self.active.is_some() || self.pending.is_some()
     }
 
     pub fn error(&self) -> Option<&str> {

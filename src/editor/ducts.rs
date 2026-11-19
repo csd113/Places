@@ -363,7 +363,7 @@ impl App {
         }
         let (preview, bounds) = scene_preview(document, draft, command)?;
         draft.preview = true;
-        self.viewport.rebuild(&preview);
+        self.viewport.rebuild_draft(&preview);
         self.viewport.frame_bounds(bounds);
         self.status = "Duct preview only. Apply commits; Cancel restores source. Same-scale rectangular ends align at flange faces.".into();
         Ok(true)

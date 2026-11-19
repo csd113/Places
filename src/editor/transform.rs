@@ -112,7 +112,7 @@ impl App {
                     self.changed();
                     self.status = "Complete transform applied as one undo step.".into();
                 } else {
-                    self.viewport.rebuild(&preview);
+                    self.viewport.rebuild_draft(&preview);
                     if let Some(Popup::Transform(preview_draft)) = &mut self.popup {
                         preview_draft.preview = true;
                         preview_draft.active = None;

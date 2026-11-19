@@ -319,7 +319,7 @@ impl App {
                 } else {
                     let typed = LevelDef::from_json(&proposed.to_string())
                         .map_err(|error| error.to_string())?;
-                    self.viewport.rebuild(&typed);
+                    self.viewport.rebuild_draft(&typed);
                     w.candidate = Some(proposed);
                     w.message="PREVIEW: cuts a shaft through both rooms; lower ceiling opens here. Landings remain level; source unchanged. Apply or Cancel.".into();
                 }

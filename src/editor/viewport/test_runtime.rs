@@ -1,10 +1,16 @@
 //! Transient runtime ownership beside the existing renderer and preparation worker.
 use std::time::Instant;
 
-use super::{LocalPreview, Viewport};
+use super::{EditorPreview, LocalPreview, Viewport};
 use crate::editor::{test_prepare::PreparedTest, test_session::Session};
 use crate::engine::{audio::AudioSystem, level::LevelDef};
 use crate::game::play_spawn::Pose;
+
+pub(in crate::editor) enum TestReturn {
+    NotRunning,
+    KeptEditorScene,
+    RestoreEditorScene,
+}
 
 #[derive(Default)]
 pub(super) struct Testing {
@@ -14,6 +20,7 @@ pub(super) struct Testing {
     pub(super) session: Option<Box<Session>>,
     pub(super) failure: Option<String>,
     pub(super) metrics: serde_json::Value,
+    editor_metrics: Option<serde_json::Value>,
     progress: String,
     trace: Option<String>,
 }
@@ -25,9 +32,16 @@ impl Viewport {
         self.renderer.cancel_prepared_install();
         self.uploading = false;
         self.pending_preview = None;
-        self.frame_next = false;
-        self.local_preview = LocalPreview::Inactive;
+        self.requested = None;
+        if self.editor_preview == EditorPreview::Draft {
+            self.play_mesh = None;
+        }
+        let editor_metrics = self
+            .play_mesh
+            .as_ref()
+            .map(|_| self.preview_metrics.clone());
         self.testing = Testing {
+            editor_metrics,
             requested: Some(Instant::now()),
             progress: "Preparing private gameplay snapshot / no lighting bake".into(),
             pose,
@@ -167,9 +181,9 @@ impl Viewport {
         }
     }
 
-    pub fn stop_test(&mut self, audio: &mut AudioSystem) -> bool {
+    pub fn stop_test(&mut self, audio: &mut AudioSystem) -> TestReturn {
         if !self.runtime_active() && !self.runtime_preparing() {
-            return false;
+            return TestReturn::NotRunning;
         }
         let started = Instant::now();
         let snapshot = self.testing.session.take().map(|mut session| {
@@ -184,15 +198,25 @@ impl Viewport {
         self.testing.pose = None;
         self.testing.failure = None;
         self.worker.cancel();
-        self.renderer.cancel_prepared_install();
+        self.renderer.abort_graphics_request();
         self.uploading = false;
         self.pending_preview = None;
-        self.renderer.unload_level();
-        let _cleared = self.renderer.set_flashlight(None);
-        self.renderer.set_editor_ui();
+        let outcome = if self.play_mesh.is_some() {
+            if let Some(metrics) = self.testing.editor_metrics.take() {
+                self.preview_metrics = metrics;
+            }
+            TestReturn::KeptEditorScene
+        } else {
+            self.renderer.unload_level();
+            let _cleared = self.renderer.set_flashlight(None);
+            self.renderer.set_editor_ui();
+            self.local_preview = LocalPreview::Inactive;
+            self.testing.editor_metrics = None;
+            TestReturn::RestoreEditorScene
+        };
         self.cancel_navigation();
         let startup = self.testing.metrics.get("startup_ms").cloned();
         self.testing.metrics = serde_json::json!({"startup_ms":startup,"stop_handler_ms":started.elapsed().as_secs_f64()*1_000.0_f64,"last_session":snapshot});
-        true
+        outcome
     }
 }

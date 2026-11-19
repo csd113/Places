@@ -171,7 +171,7 @@ impl App {
             serde_json::from_value(candidate.clone()).map_err(|e| e.to_string())?;
         crate::engine::loader::validate_level(&level)?;
         self.safety_preview = Some((expected, candidate, explanation));
-        self.viewport.rebuild(&level);
+        self.viewport.rebuild_draft(&level);
         self.popup = Some(Popup::Safety {
             index,
             preview: true,

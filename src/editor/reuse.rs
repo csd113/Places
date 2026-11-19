@@ -443,7 +443,7 @@ impl App {
         draft.summary = summary;
         draft.operation = Some(op);
         draft.preview = true;
-        self.viewport.rebuild(&level);
+        self.viewport.rebuild_draft(&level);
         if matches!(op, Command::Stamp | Command::Update) {
             self.viewport.frame_next_preview();
             self.viewport.frame_all();

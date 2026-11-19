@@ -92,7 +92,7 @@ impl App {
                     }
                 }
                 self.viewport.set_environment_preview(true);
-                self.viewport.rebuild(&level);
+                self.viewport.rebuild_draft(&level);
                 self.popup = None;
                 self.status = "Editor circuit state only. Play runs native power and flicker with prepared illumination.".into();
             }

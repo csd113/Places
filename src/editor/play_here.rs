@@ -172,14 +172,17 @@ impl App {
         self.viewport.runtime_status()
     }
     pub(super) fn stop_runtime(&mut self) {
-        if self.viewport.stop_test(&mut self.preview_audio) {
-            if let Some(document) = &self.document {
-                self.viewport.rebuild(document.level());
+        match self.viewport.stop_test(&mut self.preview_audio) {
+            super::viewport::TestReturn::NotRunning => return,
+            super::viewport::TestReturn::KeptEditorScene => {}
+            super::viewport::TestReturn::RestoreEditorScene => {
+                if let Some(document) = &self.document {
+                    self.viewport.rebuild(document.level());
+                }
             }
-            self.ui_focus = None;
-            self.status =
-                "Returned to editing. Test changes discarded; unsaved edits retained.".into();
         }
+        self.ui_focus = None;
+        self.status = "Returned to editing. Test changes discarded; unsaved edits retained.".into();
     }
     pub(super) fn poll_runtime(&mut self) {
         if let Some(error) = self.viewport.take_runtime_failure().or_else(|| {
