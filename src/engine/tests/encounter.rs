@@ -305,6 +305,182 @@ fn blocked_combat_pursues_and_a_door_closing_during_the_swing_blocks_contact() -
     Ok(())
 }
 
+fn arm_contact(actor: &mut Actor, target: &str, interval: f32) {
+    actor.cooldown = interval * 0.75;
+    actor.swing = Some(Swing {
+        interval,
+        pending: true,
+        target: HealthTarget::Entity { id: target.into() },
+    });
+}
+
+fn damage_actor(world: &mut EntityWorld, id: &str, hp: u16) -> Result<(), String> {
+    world
+        .dispatch_health(
+            &HealthTarget::Entity { id: id.into() },
+            HealthAction::Damage { hp },
+        )
+        .map_err(|error| error.to_string())
+}
+
+fn same_tick_duel(companion_damage: u16) -> Result<EntityWorld, String> {
+    let mut world = EntityWorld::from_level(&level()?);
+    let mut encounter = world.encounter.take().ok_or("encounter missing")?;
+    let mut robot = world.spawn_combat_actor("robot", "companion", false, None)?;
+    let mut zombie = world.spawn_combat_actor("right", "zombie", false, None)?;
+    arm_contact(
+        &mut robot,
+        "zombie",
+        world.tool_settings.swings_per_second.recip(),
+    );
+    arm_contact(&mut zombie, "companion", 1.0);
+    damage_actor(&mut world, "companion", companion_damage)?;
+    drop(world.take_health_events());
+    encounter.robots.push(robot);
+    encounter.zombies.push(zombie);
+    world.encounter = Some(encounter);
+    step(&mut world, 0.1, Vec3::splat(20.0));
+    Ok(world)
+}
+
+#[test]
+fn same_tick_lethal_contact_prevents_the_companions_pending_swing() -> Result<(), String> {
+    let mut world = same_tick_duel(3)?;
+    assert!(
+        world
+            .entity_health("companion")
+            .is_some_and(crate::engine::health::HealthState::is_dead),
+        "the zombie must land the lethal hit first"
+    );
+    assert_eq!(
+        world
+            .entity_health("zombie")
+            .ok_or("zombie missing")?
+            .current_hp(),
+        4,
+        "the companion killed earlier in this tick cannot land its pending swing"
+    );
+
+    for _ in 0_u8..2 {
+        step(&mut world, 0.1, Vec3::splat(20.0));
+    }
+    let commands = world.take_commands();
+    assert_eq!(commands.iter().filter(|command| matches!(command, super::super::WorldCommand::Ragdoll { target, enabled: true, velocity: _ } if target == "companion")).count(), 1, "companion death requests one ragdoll handoff");
+    Ok(())
+}
+
+#[test]
+fn same_tick_nonlethal_contact_preserves_both_swings_in_order() -> Result<(), String> {
+    let mut world = same_tick_duel(2)?;
+    let contacts: Vec<_> = world
+        .take_health_events()
+        .into_iter()
+        .map(|event| (event.target, event.change.current_hp))
+        .collect();
+    assert_eq!(
+        contacts,
+        [
+            (
+                HealthTarget::Entity {
+                    id: "companion".into()
+                },
+                1
+            ),
+            (
+                HealthTarget::Entity {
+                    id: "zombie".into()
+                },
+                2
+            ),
+        ],
+        "a surviving companion still lands its contact after the zombie"
+    );
+    Ok(())
+}
+
+#[test]
+fn same_tick_later_zombie_excludes_the_companion_killed_by_the_first() -> Result<(), String> {
+    let mut world = EntityWorld::from_level(&level()?);
+    let mut encounter = world.encounter.take().ok_or("encounter missing")?;
+    encounter
+        .robots
+        .push(world.spawn_combat_actor("robot", "companion", false, None)?);
+    for (point, id) in [("left", "zombie_left"), ("right", "zombie_right")] {
+        let mut zombie = world.spawn_combat_actor(point, id, false, None)?;
+        arm_contact(&mut zombie, "companion", 1.0);
+        encounter.zombies.push(zombie);
+    }
+    damage_actor(&mut world, "companion", 3)?;
+    drop(world.take_health_events());
+    world.encounter = Some(encounter);
+    step(&mut world, 0.1, Vec3::splat(20.0));
+
+    let contacts = world.take_health_events();
+    assert!(
+        matches!(contacts.as_slice(), [event] if matches!(&event.target, HealthTarget::Entity { id } if id == "companion") && event.change.became_dead()),
+        "one lethal contact reaches the shared companion"
+    );
+    let after_contact = world.encounter.as_ref().ok_or("encounter missing")?;
+    assert_eq!(
+        after_contact
+            .zombies
+            .first()
+            .and_then(|zombie| zombie.target_robot.as_deref()),
+        Some("companion"),
+        "the first zombie chose the still-living companion"
+    );
+    assert_eq!(
+        after_contact
+            .zombies
+            .get(1)
+            .ok_or("second zombie missing")?
+            .target_robot,
+        None,
+        "the later zombie must fall back to the player"
+    );
+    Ok(())
+}
+
+#[test]
+fn same_tick_later_companion_excludes_the_zombie_killed_by_the_first() -> Result<(), String> {
+    let mut world = EntityWorld::from_level(&level()?);
+    let mut encounter = world.encounter.take().ok_or("encounter missing")?;
+    for (id, offset) in [("robot_first", None), ("robot_later", Some(Vec3::Z * 0.25))] {
+        let mut robot = world.spawn_combat_actor("robot", id, false, offset)?;
+        arm_contact(
+            &mut robot,
+            "zombie_right",
+            world.tool_settings.swings_per_second.recip(),
+        );
+        encounter.robots.push(robot);
+    }
+    for (point, id) in [("left", "zombie_left"), ("right", "zombie_right")] {
+        encounter
+            .zombies
+            .push(world.spawn_combat_actor(point, id, false, None)?);
+    }
+    damage_actor(&mut world, "zombie_right", 2)?;
+    drop(world.take_health_events());
+    world.encounter = Some(encounter);
+    step(&mut world, 0.1, Vec3::splat(20.0));
+
+    let contacts = world.take_health_events();
+    assert!(
+        matches!(contacts.as_slice(), [event] if matches!(&event.target, HealthTarget::Entity { id } if id == "zombie_right") && event.change.became_dead()),
+        "one lethal contact reaches the shared zombie and the old swing does not transfer"
+    );
+    let after_contact = world.encounter.as_ref().ok_or("encounter missing")?;
+    assert_eq!(
+        after_contact
+            .robots
+            .get(1)
+            .and_then(|robot| robot.target_enemy.as_deref()),
+        Some("zombie_left"),
+        "the later companion must select the other living zombie"
+    );
+    Ok(())
+}
+
 // Five companions must retain individual target identity and release every
 // owned actor/tool slot. This extends the tiny CPU fixture; no assets or baking.
 #[test]

@@ -376,15 +376,16 @@ impl EntityWorld {
             .get(self.handle_of(id)?)
             .map(|t| t.position)
     }
+    fn combat_has_hp(&self, id: &str) -> bool {
+        self.entity_health(id)
+            .is_some_and(|health| !health.is_dead())
+    }
     fn combat_alive(&mut self, actor: &mut Actor, delta: f32) -> bool {
         actor.cooldown = (actor.cooldown - delta).max(0.0);
         if actor.dead {
             return false;
         }
-        if self
-            .entity_health(&actor.id)
-            .is_none_or(crate::engine::health::HealthState::is_dead)
-        {
+        if !self.combat_has_hp(&actor.id) {
             actor.dead = true;
             let _requested = self.request_ragdoll(&actor.id, true, [0.0; 3]);
             return false;
@@ -411,8 +412,10 @@ impl EntityWorld {
             let Some(position) = self.combat_position(&zombie.id) else {
                 continue;
             };
+            // Positions can be reused, but earlier contacts change health immediately.
             let nearest_robot = robot_positions
                 .iter()
+                .filter(|(id, _)| self.combat_has_hp(id))
                 .min_by(|(_, a), (_, b)| {
                     position
                         .distance_squared(*a)
@@ -445,7 +448,8 @@ impl EntityWorld {
             );
         }
         for robot in &mut encounter.robots {
-            if !robot.dead {
+            // Zombie contacts may have killed this companion after its cooldown update.
+            if !robot.dead && self.combat_has_hp(&robot.id) {
                 self.advance_companion(robot, &encounter.zombies, ctx);
             }
         }
@@ -456,7 +460,7 @@ impl EntityWorld {
         };
         let target = zombies
             .iter()
-            .filter(|z| !z.dead)
+            .filter(|z| !z.dead && self.combat_has_hp(&z.id))
             .filter_map(|z| self.combat_position(&z.id).map(|p| (z, p)))
             .min_by(|(a, pa), (b, pb)| {
                 let pursues_robot =
