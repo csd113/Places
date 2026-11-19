@@ -513,38 +513,38 @@ impl EntityWorld {
         intent: &AttackIntent,
         ctx: &WorldContext<'_>,
     ) {
-        let close = position.distance(intent.goal) <= intent.reach;
-        let destination = if close || actor.swing.is_some() {
-            position
+        if actor.cooldown <= 0.0 {
+            actor.swing = None;
+        }
+        let distance = position.distance(intent.goal);
+        let in_reach = distance <= intent.reach;
+        let can_engage = actor.swing.is_none()
+            && in_reach
+            && self.combat_sight_clear(ctx, position, intent.goal);
+        let pursuing = !can_engage && actor.swing.is_none();
+        let destination = if pursuing { intent.goal } else { position };
+        // A nearby target behind a barrier still needs ordinary pursuit speed.
+        let speed = if in_reach && pursuing {
+            intent.speed
         } else {
-            intent.goal
+            // Brake into reach instead of sliding at full speed into a swing.
+            intent
+                .speed
+                .min(((distance - intent.reach).max(0.0) * 16.0).sqrt().max(0.35))
         };
         let _goal = self.ai.set_navigation_goal_with_speed(
             &actor.id,
             destination,
-            // Brake into reach instead of sliding at full speed into a swing.
-            Some(
-                intent
-                    .speed
-                    .min(
-                        ((position.distance(intent.goal) - intent.reach).max(0.0) * 16.0)
-                            .sqrt()
-                            .max(0.35),
-                    )
-                    .clamp(0.05, 8.0),
-            ),
+            Some(speed.clamp(0.05, 8.0)),
         );
         self.ai.set_combat_facing(&actor.id, intent.goal);
-        if actor.cooldown <= 0.0 {
-            actor.swing = None;
-            if close {
-                actor.cooldown = intent.interval;
-                actor.swing = Some(Swing {
-                    interval: intent.interval,
-                    pending: true,
-                    target: intent.target.clone(),
-                });
-            }
+        if can_engage && actor.cooldown <= 0.0 {
+            actor.cooldown = intent.interval;
+            actor.swing = Some(Swing {
+                interval: intent.interval,
+                pending: true,
+                target: intent.target.clone(),
+            });
         }
         let Some(swing) = actor.swing.as_mut() else {
             return;
@@ -554,22 +554,23 @@ impl EntityWorld {
         }
         swing.pending = false;
         // A single contact per swing, rechecked against the original target at contact time.
-        if !close || swing.target != intent.target {
-            return;
+        if in_reach
+            && swing.target == intent.target
+            && self.combat_sight_clear(ctx, position, intent.goal)
+        {
+            let _hit = self.dispatch_health(&intent.target, HealthAction::Damage { hp: intent.hp });
         }
-        let from = Vec3::new(position.x, position.y + 1.0, position.z);
-        let to = Vec3::new(intent.goal.x, intent.goal.y + 1.0, intent.goal.z);
-        if crate::engine::ai::perception::sight_clear_with_solids(
+    }
+    fn combat_sight_clear(&self, ctx: &WorldContext<'_>, position: Vec3, goal: Vec3) -> bool {
+        crate::engine::ai::perception::sight_clear_with_solids(
             ctx.index,
             ctx.walls,
             self.door_colliders(),
             &self.navigation_obstacles,
-            from,
-            to,
+            Vec3::new(position.x, position.y + 1.0, position.z),
+            Vec3::new(goal.x, goal.y + 1.0, goal.z),
             false,
-        ) {
-            let _hit = self.dispatch_health(&intent.target, HealthAction::Damage { hp: intent.hp });
-        }
+        )
     }
     pub(super) fn encounter_pose(&self, id: &str, speed_mps: f32) -> Option<PoseCue> {
         let e = self.encounter.as_ref()?;

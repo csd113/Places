@@ -2,7 +2,11 @@
 //! complete bounded ownership cleanup, and priority/single-contact melee. Tiny
 //! in-memory level (two zones); no assets, renderer, map baking or wall-clock waits.
 use super::*;
-use crate::engine::{collision_index::CollisionIndex, level::WalkableFloor};
+use crate::engine::{
+    collision::{DoorCollider, WallAabb},
+    collision_index::CollisionIndex,
+    level::WalkableFloor,
+};
 use serde_json::json;
 
 fn level() -> Result<LevelDef, String> {
@@ -35,7 +39,10 @@ fn signal(world: &mut EntityWorld, key: &str) -> Result<(), String> {
     Ok(())
 }
 fn step(world: &mut EntityWorld, seconds: f32, player: Vec3) {
-    let index = CollisionIndex::empty();
+    step_with_walls(world, seconds, player, &[]);
+}
+fn step_with_walls(world: &mut EntityWorld, seconds: f32, player: Vec3, walls: &[WallAabb]) {
+    let index = CollisionIndex::build(walls);
     let floor = WalkableFloor::default();
     let _tick = world.tick(&WorldContext {
         delta_seconds: seconds,
@@ -46,7 +53,7 @@ fn step(world: &mut EntityWorld, seconds: f32, player: Vec3) {
         body_height: 1.8,
         body_half: 0.3,
         form_model: None,
-        walls: &[],
+        walls,
         index: &index,
         floor: &floor,
         nav: None,
@@ -192,6 +199,97 @@ fn companion_prioritizes_its_pursuer_and_swings_hit_only_once() -> Result<(), St
     );
     let commands = world.take_commands();
     assert_eq!(commands.iter().filter(|c| matches!(c, super::super::WorldCommand::Ragdoll { target, enabled: true, velocity: _ } if target == "left_zombie")).count(), 1, "death requests exactly one physical handoff");
+    Ok(())
+}
+
+// Covers attack admission and contact on different ticks, beyond the existing
+// single-hit test. Reuses two CPU-only actors and one box or door collider.
+#[test]
+fn blocked_combat_pursues_and_a_door_closing_during_the_swing_blocks_contact() -> Result<(), String>
+{
+    let mut world = EntityWorld::from_level(&level()?);
+    let mut encounter = world.encounter.take().ok_or("encounter missing")?;
+    encounter
+        .robots
+        .push(world.spawn_combat_actor("robot", "encounter:robot", false, None)?);
+    encounter
+        .zombies
+        .push(world.spawn_combat_actor("right", "right_zombie", false, None)?);
+    world.encounter = Some(encounter);
+    let player = Vec3::new(-3.0, 0.0, 0.0);
+    let wall = [WallAabb::new(0.35, -1.0, 0.1, 2.0)];
+    step_with_walls(&mut world, 0.01, player, &wall);
+    let behind_wall = world.encounter.as_ref().ok_or("encounter missing")?;
+    assert!(
+        behind_wall
+            .robots
+            .iter()
+            .chain(&behind_wall.zombies)
+            .all(|actor| actor.swing.is_none())
+    );
+    for (actor, target) in [
+        ("encounter:robot", "right_zombie"),
+        ("right_zombie", "encounter:robot"),
+    ] {
+        let agent = world
+            .ai
+            .agents()
+            .iter()
+            .find(|agent| agent.instance_id == actor)
+            .ok_or("missing combat agent")?;
+        assert_eq!(
+            agent.navigation_goal,
+            world.combat_position(target),
+            "{actor} must still pursue an in-range target behind a wall"
+        );
+    }
+
+    // The same installed leaf opens clear of the combat line, then rotates
+    // closed between admission and the first contact of either swing.
+    let hinge = [0.4, 0.0, -1.0];
+    world.door_colliders = vec![DoorCollider::from_pose(hinge, [1.0, 0.0], 2.0, 0.05, 2.2)];
+    step(&mut world, 0.01, player);
+    let admitted = world.encounter.as_ref().ok_or("encounter missing")?;
+    assert!(
+        admitted
+            .robots
+            .iter()
+            .chain(&admitted.zombies)
+            .all(|actor| actor.swing.as_ref().is_some_and(|swing| swing.pending))
+    );
+    let closed_leaf = DoorCollider::from_pose(hinge, [0.0, 1.0], 2.0, 0.05, 2.2);
+    world.door_colliders = vec![closed_leaf];
+    step(&mut world, 0.35, player);
+    let after_contact = world.encounter.as_ref().ok_or("encounter missing")?;
+    assert!(
+        after_contact
+            .robots
+            .iter()
+            .chain(&after_contact.zombies)
+            .all(|actor| actor.swing.as_ref().is_some_and(|swing| !swing.pending))
+    );
+    for id in ["encounter:robot", "right_zombie"] {
+        assert_eq!(
+            world
+                .entity_health(id)
+                .ok_or("missing actor health")?
+                .current_hp(),
+            4,
+            "closed leaf must block {id}'s incoming contact"
+        );
+    }
+    // Publish the closed pose again after the world refreshes its collider list.
+    world.door_colliders = vec![closed_leaf];
+    step(&mut world, 1.0, player);
+    let recovered = world.encounter.as_ref().ok_or("encounter missing")?;
+    assert!(
+        recovered
+            .robots
+            .iter()
+            .chain(&recovered.zombies)
+            .all(|actor| actor.swing.is_none()),
+        "recovery must release the hold without starting another swing at the closed leaf"
+    );
     Ok(())
 }
 
