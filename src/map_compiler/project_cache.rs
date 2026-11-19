@@ -1,11 +1,13 @@
-//! Recover a previous project's ordinary map view into owned build staging.
-//! This is only a cache seed: the compiler still checks exact source, asset,
-//! tool, variant and prepared-stage signatures and every declared record.
+//! Stage current Final Build siblings or seed a rebuild from a previous export.
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::engine::package::{archive, hash, project};
+#[cfg(unix)]
+mod sibling;
+#[cfg(unix)]
+pub(super) use sibling::stage_current_sibling;
 
 pub(super) fn seed(previous: &Path, level: &str, staged: &Path) -> Result<(), String> {
     if !previous.exists() {
@@ -18,9 +20,9 @@ pub(super) fn seed(previous: &Path, level: &str, staged: &Path) -> Result<(), St
     }
     project::select(&mut reader, Some(level))?;
     let manifest = super::read_manifest(&mut reader)?;
-    let temporary = archive::create_temporary_directory(staged)?;
+    let staging = archive::OwnedStaging::reserve(staged)?;
     let result = (|| {
-        let mut spool = super::project_spool::ProjectSpool::new(&temporary)?;
+        let mut spool = super::project_spool::ProjectSpool::new_owned(&staging)?;
         let mut records = BTreeMap::new();
         for entry in &manifest.entries {
             super::progress::check_cancelled()?;
@@ -63,20 +65,20 @@ pub(super) fn seed(previous: &Path, level: &str, staged: &Path) -> Result<(), St
             staged,
             entries,
             super::progress::check_cancelled,
-            || Ok(()),
+            || staging.check(),
             6,
         )
     })();
-    match (result, std::fs::remove_dir_all(&temporary)) {
+    match (result, staging.cleanup()) {
         (Ok(()), Ok(())) => Ok(()),
         (Err(error), Ok(())) => Err(error),
         (Ok(()), Err(error)) => Err(format!(
             "Cache seeded; cleanup {}: {error}",
-            temporary.display()
+            staging.display()
         )),
         (Err(error), Err(cleanup)) => Err(format!(
             "{error}; seed cleanup {}: {cleanup}",
-            temporary.display()
+            staging.display()
         )),
     }
 }

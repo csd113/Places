@@ -46,51 +46,60 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     publication_guard.check()?;
     if !request.force && request.out.exists() && project_is_current(request, &folder, &sources)? {
         publication_guard.check()?;
-        let mut report = operation_report(request);
-        report.rebuilt = false;
-        report.reuse_reason =
-            "Complete project sources, level dependencies and all records verified".into();
-        report.bytes = fs::metadata(&request.out).map_err(|e| e.to_string())?.len();
-        report.millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
-        return Ok(report);
+        return current_project_report(request, started);
     }
-    let temporary = archive::create_temporary_directory(&request.out)?;
+    let staging = archive::OwnedStaging::reserve(&request.out)?;
     let result = (|| {
-        let staged_source = stage_sources(&temporary, &sources)?;
-        let mut blobs = ProjectSpool::new(&temporary)?;
-        let mut index = project::ProjectPackage {
-            places_version: crate::engine::package::release::PLACES_VERSION.into(),
-            schema: "places-project-package".into(),
-            package_format: project::PROJECT_FORMAT_VERSION,
-            project: folder.manifest().clone(),
-            levels: Vec::new(),
-            sources: BTreeMap::new(),
-        };
-        for (path, bytes) in &sources {
-            let name = blobs.add_bytes(bytes)?;
-            let _old = index.sources.insert(path.clone(), name);
-        }
+        let staged_source = stage_sources(&staging, &sources)?;
+        let mut blobs = ProjectSpool::new_owned(&staging)?;
+        let mut index = stage_project_index(&folder, &sources, &mut blobs)?;
         let mut last_report = None;
         let mut warnings = Vec::new();
         let mut cache_decisions = Vec::new();
         for level in &folder.manifest().levels {
             progress::check_cancelled()?;
+            staging.check()?;
             if !request.force && member_current(request, &staged_source, &level.id) {
+                staging.check()?;
                 index
                     .levels
                     .push(spool_current(request, &level.id, &mut blobs)?);
-                cache_decisions.push(super::CacheDecision {
-                    stage: format!("{}/package", level.id),
-                    status: "hit".into(),
-                    reasons: vec![
-                        "Verified current member compressed records reused; no seed/recompression or bake"
-                            .into(),
-                    ],
-                });
+                cache_decisions.push(package_cache_hit(
+                    &level.id,
+                    "Verified current member compressed records reused; no seed/recompression or bake",
+                ));
                 last_report = Some(operation_report(request));
                 continue;
             }
-            let selected_output = temporary.join(format!("{}.placesmap", level.id));
+            #[cfg(unix)]
+            if !request.force
+                && let Some(mut sibling) = super::project_cache::stage_current_sibling(
+                    request,
+                    &folder,
+                    level,
+                    &staged_source,
+                    &staging,
+                )?
+            {
+                staging.check()?;
+                index
+                    .levels
+                    .push(spool_records(&mut sibling.reader, &level.id, &mut blobs)?);
+                warnings.extend(sibling.warnings);
+                cache_decisions.push(package_cache_hit(
+                    &level.id,
+                    "Verified current Final Build sibling reused",
+                ));
+                let mut report = operation_report(request);
+                report.variants = request
+                    .variants
+                    .iter()
+                    .map(|quality| quality.name().into())
+                    .collect();
+                last_report = Some(report);
+                continue;
+            }
+            let selected_output = staging.path()?.join(format!("{}.placesmap", level.id));
             let built = build_staged(request, &staged_source, &selected_output, &level.id)?;
             warnings.extend(built.warnings.iter().cloned());
             cache_decisions.extend(built.cache_decisions.iter().cloned().map(|mut decision| {
@@ -98,9 +107,10 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
                 decision
             }));
             last_report = Some(built);
+            staging.check()?;
             index
                 .levels
-                .push(spool_map(request, &selected_output, &level.id, &mut blobs)?);
+                .push(spool_map(request, &staging, &level.id, &mut blobs)?);
         }
         let publication = progress::BuildScope::start(&request.source, Some("project export"));
         progress::stage("checking source snapshot and publishing project");
@@ -111,33 +121,79 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             request,
             &index,
             blobs,
-            &temporary,
+            staging.path()?,
             report,
-            || publication_guard.check(),
+            || {
+                staging.check()?;
+                publication_guard.check()
+            },
             started,
         );
         publication.finish(&outcome);
         outcome
     })();
-    finish_staging(result, &temporary)
+    finish_staging(result, &staging)
+}
+
+fn current_project_report(
+    request: &BuildRequest,
+    started: std::time::Instant,
+) -> Result<BuildReport, String> {
+    let mut report = operation_report(request);
+    report.rebuilt = false;
+    report.reuse_reason =
+        "Complete project sources, level dependencies and all records verified".into();
+    report.bytes = fs::metadata(&request.out)
+        .map_err(|error| error.to_string())?
+        .len();
+    report.millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
+    Ok(report)
+}
+
+fn stage_project_index(
+    folder: &ProjectFolder,
+    sources: &BTreeMap<crate::engine::project::ProjectPath, Vec<u8>>,
+    blobs: &mut ProjectSpool,
+) -> Result<project::ProjectPackage, String> {
+    let mut index = project::ProjectPackage {
+        places_version: crate::engine::package::release::PLACES_VERSION.into(),
+        schema: "places-project-package".into(),
+        package_format: project::PROJECT_FORMAT_VERSION,
+        project: folder.manifest().clone(),
+        levels: Vec::new(),
+        sources: BTreeMap::new(),
+    };
+    for (path, bytes) in sources {
+        let name = blobs.add_bytes(bytes)?;
+        let _old = index.sources.insert(path.clone(), name);
+    }
+    Ok(index)
+}
+
+fn package_cache_hit(id: &str, reason: &str) -> super::CacheDecision {
+    super::CacheDecision {
+        stage: format!("{id}/package"),
+        status: "hit".into(),
+        reasons: vec![reason.into()],
+    }
 }
 
 fn finish_staging(
     result: Result<BuildReport, String>,
-    temporary: &std::path::Path,
+    staging: &archive::OwnedStaging,
 ) -> Result<BuildReport, String> {
-    let cleanup = fs::remove_dir_all(temporary);
+    let cleanup = staging.cleanup();
     match (result, cleanup) {
         (Ok(mut report), Err(error)) => {
             report.warnings.push(format!(
                 "Export published; staging cleanup {}: {error}",
-                temporary.display()
+                staging.display()
             ));
             Ok(report)
         }
         (Err(error), Err(cleanup_error)) => Err(format!(
             "{error}; staging cleanup {}: {cleanup_error}",
-            temporary.display()
+            staging.display()
         )),
         (outcome, Ok(())) => outcome,
     }
@@ -152,10 +208,17 @@ fn spool_current(
     project::select(&mut reader, Some(id))?;
     let manifest = super::read_manifest(&mut reader)?;
     super::check_cached_lighting(&mut reader, &manifest)?;
+    spool_records(&mut reader, id, blobs)
+}
+
+fn spool_records(
+    reader: &mut PackageReader<File>,
+    id: &str,
+    blobs: &mut ProjectSpool,
+) -> Result<project::ProjectMap, String> {
     let mut records = BTreeMap::new();
     for name in reader.names().to_vec() {
-        let physical =
-            blobs.add_compressed_entry(&mut reader, &name, &progress::check_cancelled)?;
+        let physical = blobs.add_compressed_entry(reader, &name, &progress::check_cancelled)?;
         drop(records.insert(name, physical));
     }
     Ok(project::ProjectMap {
@@ -210,7 +273,7 @@ fn project_is_current(
 
 fn spool_map(
     request: &BuildRequest,
-    path: &std::path::Path,
+    staging: &archive::OwnedStaging,
     id: &str,
     spool: &mut ProjectSpool,
 ) -> Result<project::ProjectMap, String> {
@@ -219,26 +282,21 @@ fn spool_map(
         progress::stage(format!(
             "streaming {id} prepared records to owned disk staging"
         ));
-        let mut reader = PackageReader::new(File::open(path).map_err(|e| e.to_string())?)
-            .map_err(|e| e.to_string())?;
-        let mut records = BTreeMap::new();
-        for name in reader.names().to_vec() {
-            progress::check_cancelled()?;
-            let blob =
-                spool.add_compressed_entry(&mut reader, &name, &progress::check_cancelled)?;
-            let _old = records.insert(name, blob);
+        let name = format!("{id}.placesmap");
+        let mut reader = PackageReader::new(staging.take_member(std::ffi::OsStr::new(&name))?)
+            .map_err(|error| error.to_string())?;
+        let member = spool_records(&mut reader, id, spool)?;
+        #[cfg(not(unix))]
+        {
+            drop(reader);
+            fs::remove_file(staging.path()?.join(name)).map_err(|error| error.to_string())?;
         }
-        drop(reader);
-        fs::remove_file(path).map_err(|e| e.to_string())?;
         progress::stage(format!(
             "spooled {id}: {} unique records, {} record bytes",
             spool.len(),
             spool.total()
         ));
-        Ok(project::ProjectMap {
-            id: id.into(),
-            records,
-        })
+        Ok(member)
     })();
     scope.finish(
         &result
@@ -323,25 +381,27 @@ pub(super) fn package_entries(
 }
 
 fn stage_sources(
-    temporary: &std::path::Path,
+    staging: &archive::OwnedStaging,
     sources: &BTreeMap<crate::engine::project::ProjectPath, Vec<u8>>,
 ) -> Result<std::path::PathBuf, String> {
     use std::io::Write as _;
-    let root = temporary.join("source");
-    fs::create_dir(&root).map_err(|e| e.to_string())?;
+    let root = std::path::Path::new("source");
+    #[cfg(unix)]
+    staging.create_directories(root)?;
+    #[cfg(not(unix))]
+    fs::create_dir(staging.path()?.join(root)).map_err(|error| error.to_string())?;
     for (path, bytes) in sources {
         progress::check_cancelled()?;
-        let destination = root.join(path.as_str());
-        fs::create_dir_all(destination.parent().ok_or("Staged source has no parent")?)
-            .map_err(|e| e.to_string())?;
+        let relative = root.join(path.as_str());
+        staging.create_directories(relative.parent().ok_or("Staged source has no parent")?)?;
         let mut file = fs::OpenOptions::new()
             .create_new(true)
             .write(true)
-            .open(destination)
-            .map_err(|e| e.to_string())?;
-        file.write_all(bytes).map_err(|e| e.to_string())?;
+            .open(staging.path()?.join(relative))
+            .map_err(|error| error.to_string())?;
+        file.write_all(bytes).map_err(|error| error.to_string())?;
     }
-    Ok(root)
+    Ok(staging.path()?.join(root))
 }
 
 fn publish(

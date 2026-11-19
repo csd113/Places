@@ -263,16 +263,7 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     // CLI import and menu discovery need the same admission as worker loads.
     let _scope = crate::engine::resources::admission_scope();
     let manifest = read_manifest(&mut reader)?;
-    let semantics = read_named_entry(
-        &mut reader,
-        &manifest,
-        "semantics.json",
-        MAX_SEMANTICS_BYTES,
-    )?;
-    let text = std::str::from_utf8(&semantics)
-        .map_err(|error| format!("semantics.json is not UTF-8: {error}"))?;
-    let level = super::semantics::parse(text)
-        .map_err(|error| format!("package semantics are not valid: {error}"))?;
+    let level = read_semantic_level(&mut reader, &manifest)?;
     validate_semantics(&reader, &manifest, &level)?;
     check_catalog_build_input(&mut reader, &manifest, &level, root)?;
     check_dependencies(&manifest, root)?;
@@ -283,18 +274,38 @@ fn open_reader_with_asset_root<R: std::io::Read + std::io::Seek>(
     })
 }
 
-/// Shared compiler/player semantic admission, including package-only ownership
-/// and capability contracts that ordinary editable level validation cannot know.
+/// Reads the bounded, typed semantics used for native package admission.
+pub(crate) fn read_semantic_level<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    manifest: &Manifest,
+) -> Result<LevelDef, String> {
+    let semantics = read_named_entry(reader, manifest, "semantics.json", MAX_SEMANTICS_BYTES)?;
+    let text = std::str::from_utf8(&semantics)
+        .map_err(|error| format!("semantics.json is not UTF-8: {error}"))?;
+    super::semantics::parse(text)
+        .map_err(|error| format!("package semantics are not valid: {error}"))
+}
+
 pub(crate) fn validate_semantics<R: std::io::Read + std::io::Seek>(
     reader: &PackageReader<R>,
     manifest: &Manifest,
     level: &LevelDef,
 ) -> Result<(), String> {
+    validate_semantics_for_project(manifest, level, |id| reader.permits_project_level(id))
+}
+
+/// Shared compiler/player semantic admission, including package-only ownership
+/// and capability contracts that ordinary editable level validation cannot know.
+pub(crate) fn validate_semantics_for_project(
+    manifest: &Manifest,
+    level: &LevelDef,
+    permits_project_level: impl Fn(&str) -> bool,
+) -> Result<(), String> {
     if manifest.id != level.id {
         return Err("Package manifest and semantic level IDs disagree".into());
     }
     for destination in &level.transitions {
-        if !reader.permits_project_level(destination)
+        if !permits_project_level(destination)
             || !manifest
                 .required_capabilities
                 .iter()
@@ -970,7 +981,7 @@ fn decode_variant<R: std::io::Read + std::io::Seek>(
     })
 }
 
-fn validate_probe_references(
+pub(crate) fn validate_probe_references(
     field: &crate::engine::lighting::probes::ProbeField,
     rooms: usize,
     lights: usize,
@@ -1007,10 +1018,7 @@ fn read_probes<R: std::io::Read + std::io::Seek>(
 ) -> Result<ProbeCaptures, String> {
     let mut captures = ProbeCaptures::default();
     for payload in &variant.entries.probes {
-        let positions_bytes = read_entry_checked(reader, &payload.positions, MAX_MATERIALS_BYTES)?;
-        let positions: ProbePositions = serde_json::from_slice(&positions_bytes)
-            .map_err(|error| format!("probe positions record is not valid JSON: {error}"))?;
-        validate_positions_record(&positions, payload)?;
+        let positions = read_probe_positions(reader, payload)?;
         let mut chains = Vec::with_capacity(payload.cubemaps.len());
         for cubemap in &payload.cubemaps {
             let cube_bytes = reader.read_blob(cubemap, MAX_ENTRY_BYTES)?;
@@ -1031,6 +1039,17 @@ fn read_probes<R: std::io::Read + std::io::Seek>(
         }
     }
     Ok(captures)
+}
+
+pub(crate) fn read_probe_positions<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    payload: &ProbePayload,
+) -> Result<ProbePositions, String> {
+    let positions_bytes = read_entry_checked(reader, &payload.positions, MAX_MATERIALS_BYTES)?;
+    let positions = serde_json::from_slice(&positions_bytes)
+        .map_err(|error| format!("probe positions record is not valid JSON: {error}"))?;
+    validate_positions_record(&positions, payload)?;
+    Ok(positions)
 }
 
 /// Validates one positions record against the manifest payload it belongs to.

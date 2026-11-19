@@ -833,3 +833,93 @@ fn metadata_receipt_replacement_and_cancelled_discovery() -> Result<(), String> 
     );
     Ok(())
 }
+
+// The anonymous cache snapshot must retain its bytes after a source rewrite
+// and only remove a name it created exclusively. Two tiny files, no ZIP or GPU.
+#[cfg(unix)]
+#[test]
+fn ordinary_snapshot_retains_opened_bytes_and_preserves_occupied_stage() -> Result<(), String> {
+    use std::io::Read as _;
+    let fixture = fixture()?;
+    let root = fs::canonicalize(&fixture.root).map_err(|error| error.to_string())?;
+    let source = root.join("source.placesmap");
+    let staging = archive::OwnedStaging::reserve(&root.join("out.placesmap"))?;
+    fs::write(&source, b"original").map_err(|error| error.to_string())?;
+    let occupied = staging.path()?.join("ordinary-snapshot");
+    fs::write(&occupied, b"unrelated").map_err(|error| error.to_string())?;
+    assert!(archive::snapshot_ordinary_file(&source, staging.directory(), &|| Ok(())).is_err());
+    assert_eq!(
+        fs::read(&occupied).map_err(|error| error.to_string())?,
+        b"unrelated"
+    );
+    fs::remove_file(&occupied).map_err(|error| error.to_string())?;
+
+    let mut snapshot = archive::snapshot_ordinary_file(&source, staging.directory(), &|| Ok(()))?;
+    fs::write(&source, b"updated").map_err(|error| error.to_string())?;
+    let mut bytes = Vec::new();
+    let _length = snapshot
+        .read_to_end(&mut bytes)
+        .map_err(|error| error.to_string())?;
+    assert_eq!(bytes, b"original");
+    assert!(
+        fs::read_dir(staging.path()?)
+            .map_err(|error| error.to_string())?
+            .next()
+            .is_none()
+    );
+    Ok(())
+}
+
+// Two ordinary temporary directories protect writer ownership on cleanup.
+// A separately created directory at the retired name must keep its contents.
+#[cfg(unix)]
+#[test]
+fn owned_staging_refuses_cleanup_when_the_reserved_directory_moved() -> Result<(), String> {
+    let fixture = fixture()?;
+    let root = fs::canonicalize(&fixture.root).map_err(|error| error.to_string())?;
+    let staging = archive::OwnedStaging::reserve(&root.join("export.placesmap"))?;
+    let reserved = staging.path()?.to_path_buf();
+    fs::write(reserved.join("compiler-record"), b"compiled").map_err(|error| error.to_string())?;
+    let retired = root.join("retired");
+    fs::rename(&reserved, &retired).map_err(|error| error.to_string())?;
+    fs::create_dir(&reserved).map_err(|error| error.to_string())?;
+    fs::write(reserved.join("notes"), b"unrelated").map_err(|error| error.to_string())?;
+
+    assert!(staging.path().is_err());
+    let refusal = staging.cleanup().err().ok_or("Unowned stage was cleaned")?;
+    assert!(refusal.contains("retained artifacts"));
+    assert_eq!(
+        fs::read(reserved.join("notes")).map_err(|error| error.to_string())?,
+        b"unrelated"
+    );
+    assert_eq!(
+        fs::read(retired.join("compiler-record")).map_err(|error| error.to_string())?,
+        b"compiled"
+    );
+    Ok(())
+}
+
+// An ordinary directory placed inside the stage without a creation record
+// must survive cleanup even though it has the same filesystem user.
+#[cfg(unix)]
+#[test]
+fn owned_staging_does_not_descend_into_an_unrecorded_directory() -> Result<(), String> {
+    let fixture = fixture()?;
+    let root = fs::canonicalize(&fixture.root).map_err(|error| error.to_string())?;
+    let staging = archive::OwnedStaging::reserve(&root.join("export.placesmap"))?;
+    staging.create_directories(std::path::Path::new("records"))?;
+    let foreign = staging.path()?.join("unrecorded");
+    fs::create_dir(&foreign).map_err(|error| error.to_string())?;
+    fs::write(foreign.join("notes"), b"retain").map_err(|error| error.to_string())?;
+
+    let refusal = staging
+        .cleanup()
+        .err()
+        .ok_or("Unrecorded directory was cleaned")?;
+    assert!(refusal.contains("Unrecorded staged subdirectory"));
+    assert_eq!(
+        fs::read(foreign.join("notes")).map_err(|error| error.to_string())?,
+        b"retain"
+    );
+    Ok(())
+}

@@ -7,8 +7,14 @@ use sha2::{Digest as _, Sha256};
 
 mod bounded_zstd;
 mod compressed;
+#[cfg(unix)]
+mod ordinary_snapshot;
+#[cfg(unix)]
+pub(crate) use ordinary_snapshot::snapshot_ordinary_file;
 mod read_trace;
+mod staging;
 pub(crate) use compressed::CompressedRecord;
+pub(crate) use staging::OwnedStaging;
 
 use super::{MAX_ENTRIES, MAX_PROJECT_TOTAL_BYTES, MAX_TOTAL_BYTES, OpenError, hash, project};
 
@@ -1022,9 +1028,18 @@ pub(crate) fn create_temporary(path: &Path) -> Result<(PathBuf, std::fs::File), 
 
 /// Exclusively reserve an owned staging directory without a file/remove/mkdir gap.
 pub(crate) fn create_temporary_directory(path: &Path) -> Result<PathBuf, String> {
+    #[cfg(not(unix))]
+    let builder = std::fs::DirBuilder::new();
+    #[cfg(unix)]
+    let builder = {
+        use std::os::unix::fs::DirBuilderExt as _;
+        let mut private = std::fs::DirBuilder::new();
+        let _mode = private.mode(0o700);
+        private
+    };
     for attempt in 0_u8..16 {
         let temporary = temporary_path(path, attempt);
-        match std::fs::create_dir(&temporary) {
+        match builder.create(&temporary) {
             Ok(()) => return Ok(temporary),
             Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => {}
             Err(error) => return Err(format!("could not create {}: {error}", temporary.display())),

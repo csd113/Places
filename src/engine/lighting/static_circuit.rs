@@ -15,14 +15,7 @@ impl LevelLighting {
         &self,
         level: &LevelDef,
     ) -> Result<Option<StaticCircuitLighting>, String> {
-        let fixtures: Vec<_> = level
-            .ceiling_lights
-            .iter()
-            .enumerate()
-            .filter_map(|(index, fixture)| {
-                (fixture.static_switch == StaticSwitchMode::Prepared).then_some(index)
-            })
-            .collect();
+        let fixtures = Self::prepared_static_fixtures(level);
         if fixtures.is_empty() {
             return Ok(None);
         }
@@ -40,5 +33,16 @@ impl LevelLighting {
             fixtures,
             unpowered,
         }))
+    }
+
+    pub(crate) fn prepared_static_fixtures(level: &LevelDef) -> Vec<usize> {
+        level
+            .ceiling_lights
+            .iter()
+            .enumerate()
+            .filter_map(|(index, fixture)| {
+                (fixture.static_switch == StaticSwitchMode::Prepared).then_some(index)
+            })
+            .collect()
     }
 }

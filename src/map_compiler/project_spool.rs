@@ -19,11 +19,27 @@ impl ProjectSpool {
     pub(super) fn new(temporary: &Path) -> Result<Self, String> {
         let root = temporary.join("records");
         fs::create_dir(&root).map_err(|error| error.to_string())?;
-        Ok(Self {
+        Ok(Self::at_root(root))
+    }
+
+    pub(super) fn new_owned(staging: &archive::OwnedStaging) -> Result<Self, String> {
+        #[cfg(unix)]
+        {
+            staging.create_directories(Path::new("records"))?;
+            Ok(Self::at_root(staging.path()?.join("records")))
+        }
+        #[cfg(not(unix))]
+        {
+            Self::new(staging.path()?)
+        }
+    }
+
+    const fn at_root(root: PathBuf) -> Self {
+        Self {
             root,
             records: BTreeMap::new(),
             total: 0,
-        })
+        }
     }
 
     pub(super) fn add_bytes(&mut self, bytes: &[u8]) -> Result<String, String> {

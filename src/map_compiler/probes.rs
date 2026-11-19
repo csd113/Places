@@ -29,6 +29,30 @@ pub(super) fn label(
     }
 }
 
+pub(super) fn append_coverage_warnings(
+    field: &ProbeField,
+    room_count: usize,
+    quality: &str,
+    warnings: &mut Vec<String>,
+) {
+    let mut covered = vec![false; room_count];
+    for probe in &field.probes {
+        if let Ok(room) = usize::try_from(probe.room)
+            && let Some(room_coverage) = covered.get_mut(room)
+        {
+            *room_coverage = true;
+        }
+    }
+    for (room, is_covered) in covered.iter().enumerate() {
+        if !is_covered {
+            warnings.push(format!(
+                "{quality} room {room} has no valid irradiance probe at {:.3} m spacing",
+                field.cell_m
+            ));
+        }
+    }
+}
+
 #[derive(serde::Serialize)]
 struct Placement {
     id: usize,

@@ -326,22 +326,9 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     publication.check()?;
     let source_bytes = snapshot.identity;
     let mut level = snapshot.level;
-    if level.requires_full_lighting && !request.variants.contains(&LightmapQuality::Full) {
-        return Err("This map requires Full lighting; include full in --variants".into());
-    }
     let catalog_path = request.asset_root.join("catalog.json");
     let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
-    crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
-    crate::engine::project::validate_level_assets(&level, catalog.assets())?;
-    if let Some(issue) = crate::engine::structure::clearances(&level).first() {
-        return Err(format!(
-            "Structural clearance: room {} ceiling and room {} floor leave {:.3} m; need at least {:.2} m. Review in editor Safety; move no room automatically.",
-            issue.lower,
-            issue.upper,
-            issue.gap,
-            crate::engine::level::MIN_STRUCTURE_M
-        ));
-    }
+    admit_build_level(&mut level, &request.variants, &catalog)?;
     let source_hash = sha256_hex(&source_bytes);
     let mut assets = crate::engine::props::PropAssets::with_root(request.asset_root.clone());
 
@@ -350,16 +337,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     record_phase(&mut phases, "load_validate_prepare_dependencies", started);
     let tool_started = Instant::now();
     progress::stage("hashing compiler identity");
-    let build_inputs = BuildInputs {
-        revision: 2,
-        catalog_inputs: Some(catalog_inputs(&level, &catalog_path)?),
-        compiler_code_sha256: Some(env!("PLACES_COMPILER_CODE_SHA256").into()),
-        source_sha256: source_hash.clone(),
-        catalog_sha256: catalog_hash.clone(),
-        tool_sha256: compiler_tool_sha256()?.to_string(),
-        capture_probes: request.capture_probes,
-        compact: request.compact,
-    };
+    let build_inputs = build_inputs(&level, &catalog_path, &source_hash, &catalog_hash, request)?;
     record_phase(&mut phases, "compiler_tool_identity", tool_started);
     let phase_started = Instant::now();
     let fingerprint = fingerprint_with_build_inputs(
@@ -452,9 +430,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         navigation_cache::prepare(request, &level, &mut warnings, &mut cache_decisions)?;
     // Optional cache diagnostics must not make an otherwise valid large map
     // exceed the compiler-metadata record limit. Such maps can still bake.
-    if u64::try_from(navigation_inputs.len()).unwrap_or(u64::MAX)
-        <= crate::engine::package::MAX_MANIFEST_BYTES
-    {
+    if navigation_cache::fits_provenance_record(navigation_inputs.len()) {
         drop(blobs.insert(
             navigation_cache::ENTRY.into(),
             (navigation_inputs, "compiler-inputs".into()),
@@ -982,6 +958,47 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         variant_stats,
         phases,
         cache_decisions,
+    })
+}
+
+fn admit_build_level(
+    level: &mut LevelDef,
+    variants: &[LightmapQuality],
+    catalog: &crate::engine::loader::PropCatalog,
+) -> Result<(), String> {
+    if level.requires_full_lighting && !variants.contains(&LightmapQuality::Full) {
+        return Err("This map requires Full lighting; include full in --variants".into());
+    }
+    prepare_level(level, catalog.assets(), None);
+    crate::engine::project::validate_level_assets(level, catalog.assets())?;
+    if let Some(issue) = crate::engine::structure::clearances(level).first() {
+        return Err(format!(
+            "Structural clearance: room {} ceiling and room {} floor leave {:.3} m; need at least {:.2} m. Review in editor Safety; move no room automatically.",
+            issue.lower,
+            issue.upper,
+            issue.gap,
+            crate::engine::level::MIN_STRUCTURE_M
+        ));
+    }
+    Ok(())
+}
+
+fn build_inputs(
+    level: &LevelDef,
+    catalog_path: &Path,
+    source_hash: &str,
+    catalog_hash: &str,
+    request: &BuildRequest,
+) -> Result<BuildInputs, String> {
+    Ok(BuildInputs {
+        revision: 2,
+        catalog_inputs: Some(catalog_inputs(level, catalog_path)?),
+        compiler_code_sha256: Some(env!("PLACES_COMPILER_CODE_SHA256").into()),
+        source_sha256: source_hash.into(),
+        catalog_sha256: catalog_hash.into(),
+        tool_sha256: compiler_tool_sha256()?.into(),
+        capture_probes: request.capture_probes,
+        compact: request.compact,
     })
 }
 
@@ -1613,10 +1630,19 @@ fn validate_variant<R: std::io::Read + std::io::Seek>(
     }
     if let Some(irradiance) = &variant.entries.irradiance {
         let bytes = reader.read_blob(irradiance, crate::engine::package::MAX_ENTRY_BYTES)?;
-        let _ = crate::engine::lighting::probes::ProbeField::read(&bytes)?;
+        let field = crate::engine::lighting::probes::ProbeField::read(&bytes)?;
+        crate::engine::package::world::validate_probe_references(
+            &field,
+            lighting.rooms().len(),
+            lighting.lights().len(),
+        )?;
     }
     for probe in &variant.entries.probes {
+        drop(crate::engine::package::world::read_probe_positions(
+            reader, probe,
+        )?);
         for cubemap in &probe.cubemaps {
+            progress::check_cancelled()?;
             let cube_bytes = reader.read_blob(cubemap, crate::engine::package::MAX_ENTRY_BYTES)?;
             let image = crate::engine::package::world::read_probe_image(&cube_bytes)?;
             if image.faces != 6
@@ -1751,23 +1777,12 @@ fn build_variant(
                         &compiled_collision.walls,
                         quality.name(),
                     );
-                    let mut covered = vec![false; build.lighting.rooms().len()];
-                    for probe in &field.probes {
-                        if let Ok(room) = usize::try_from(probe.room)
-                            && let Some(room_coverage) = covered.get_mut(room)
-                        {
-                            *room_coverage = true;
-                        }
-                    }
-                    for (room, is_covered) in covered.iter().enumerate() {
-                        if !is_covered {
-                            warnings.push(format!(
-                                "{} room {room} has no valid irradiance probe at {:.3} m spacing",
-                                quality.name(),
-                                field.cell_m
-                            ));
-                        }
-                    }
+                    probes::append_coverage_warnings(
+                        &field,
+                        build.lighting.rooms().len(),
+                        quality.name(),
+                        warnings,
+                    );
                     if let Err(error) = crate::engine::lighting::transport::probe_audit::dump_labels(
                         &field,
                         quality.name(),
@@ -3004,6 +3019,15 @@ fn preparation_inputs_match(previous: &BuildInputs, current: &BuildInputs) -> bo
 }
 
 fn read_build_inputs(out: &Path, manifest: &Manifest) -> Result<BuildInputs, String> {
+    let mut reader = open_package(out)?;
+    crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
+    read_build_inputs_from(&mut reader, manifest)
+}
+
+fn read_build_inputs_from<R: std::io::Read + std::io::Seek>(
+    reader: &mut crate::engine::package::PackageReader<R>,
+    manifest: &Manifest,
+) -> Result<BuildInputs, String> {
     let entry = manifest
         .entries
         .iter()
@@ -3017,9 +3041,7 @@ fn read_build_inputs(out: &Path, manifest: &Manifest) -> Result<BuildInputs, Str
     if entry.bytes > crate::engine::package::MAX_MANIFEST_BYTES {
         return Err("compiler input provenance exceeds the manifest byte limit".to_string());
     }
-    let mut reader = open_package(out)?;
-    crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
-    let bytes = read_declared_entry(&mut reader, manifest, entry)?;
+    let bytes = read_declared_entry(reader, manifest, entry)?;
     let inputs: BuildInputs = serde_json::from_slice(&bytes)
         .map_err(|error| format!("compiler input provenance is invalid: {error}"))?;
     if !matches!(inputs.revision, 1 | 2) {

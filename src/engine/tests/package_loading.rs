@@ -558,3 +558,31 @@ fn cinematic_semantics_require_capability_without_rebaking_camera_edits() -> Res
     );
     Ok(())
 }
+
+// One in-memory level distinguishes a standalone reader from a destination
+// project and verifies both independent capability requirements without baking.
+#[test]
+fn project_transition_admission_requires_membership_and_checkpoint_capability() -> Result<(), String>
+{
+    let mut manifest = minimal_manifest()?;
+    let mut level = crate::engine::level::LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,"id":"package_snapshot","name":"Fixture","spawn":{"x":1,"z":1},"rooms":[{"width":4,"depth":4}],"transitions":["other"],"saving":true}"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let declared = |id: &str| id == "other";
+    assert!(world::validate_semantics_for_project(&manifest, &level, declared).is_err());
+    manifest
+        .required_capabilities
+        .push("project-transitions-v1".into());
+    assert!(world::validate_semantics_for_project(&manifest, &level, |_| false).is_err());
+    let missing = world::validate_semantics_for_project(&manifest, &level, declared)
+        .err()
+        .ok_or("Checkpoint semantics admitted without capability")?;
+    assert!(missing.contains("gameplay-checkpoints-v1"));
+    manifest
+        .required_capabilities
+        .push("gameplay-checkpoints-v1".into());
+    world::validate_semantics_for_project(&manifest, &level, declared)?;
+    level.transitions.clear();
+    world::validate_semantics_for_project(&manifest, &level, |_| false)
+}

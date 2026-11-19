@@ -1062,6 +1062,7 @@ dependencies = [
  "rapier3d",
  "rayon",
  "rtrb",
+ "rustix",
  "sdl3",
  "serde",
  "serde_json",

@@ -92,7 +92,7 @@ pub enum DependencyKind {
 }
 
 /// One content dependency of a package.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub struct PackageDependency {
     /// What kind of resource this is.
     pub kind: DependencyKind,

@@ -3,6 +3,11 @@
 //! can enter a package; legacy packages simply take the normal bake path.
 use super::{BuildRequest, navigation::NavBakeReport};
 use crate::engine::level::LevelDef;
+use crate::engine::package::{
+    PackageReader,
+    manifest::Manifest,
+    navigation::{self, NavGrid},
+};
 use serde::{Deserialize, Serialize};
 
 pub(super) const ENTRY: &str = "navigation-inputs.json";
@@ -65,6 +70,102 @@ pub(super) fn fingerprint(level: &LevelDef) -> Result<String, String> {
     Ok(crate::engine::package::hash::sha256_hex(&bytes))
 }
 
+pub(super) fn fits_provenance_record(bytes: usize) -> bool {
+    u64::try_from(bytes).is_ok_and(|length| length <= crate::engine::package::MAX_MANIFEST_BYTES)
+}
+
+fn read_current<R: std::io::Read + std::io::Seek>(
+    reader: &mut PackageReader<R>,
+    manifest: &Manifest,
+    fingerprint: &str,
+) -> Result<(Vec<u8>, Cached), String> {
+    let entry = manifest.entry(ENTRY).ok_or(
+        "Navigation input identity unavailable (oversized diagnostics are omitted by builds)",
+    )?;
+    if entry.bytes > crate::engine::package::MAX_MANIFEST_BYTES || entry.role != "compiler-inputs" {
+        return Err("Invalid navigation input identity record".into());
+    }
+    let bytes = super::read_declared_entry(reader, manifest, entry)?;
+    let cached: Cached = serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
+    if cached.fingerprint != fingerprint {
+        return Err("Navigation inputs changed".into());
+    }
+    let first = manifest.variants.first().ok_or("No navigation variant")?;
+    if manifest
+        .variants
+        .iter()
+        .any(|variant| variant.entries.navigation != first.entries.navigation)
+    {
+        return Err("Quality variants disagree on the common navigation bake".into());
+    }
+    let grid_bytes = reader.read_blob(
+        &first.entries.navigation,
+        crate::engine::package::MAX_NAVIGATION_BYTES,
+    )?;
+    let grid = navigation::read_navigation(&grid_bytes)?;
+    validate_report(&cached.report, &grid)?;
+    Ok((grid_bytes, cached))
+}
+
+/// Compares every persisted diagnostic count to the decoded grid. The worker
+/// count is local to the original bake and is deliberately absent on disk.
+pub(super) fn validate_report(report: &NavBakeReport, grid: &NavGrid) -> Result<(), String> {
+    if report.cell_m.to_bits() != grid.cell_m.to_bits()
+        || report.cells_x != grid.cells_x
+        || report.cells_z != grid.cells_z
+        || report.surface_cells != grid.cell_count()
+        || report.portals != grid.portals.len()
+        || report.walkable_cells.len() != grid.classes.len()
+        || report.regions.len() != grid.classes.len()
+    {
+        return Err(
+            "Navigation report disagrees with the decoded grid dimensions, portals or classes"
+                .into(),
+        );
+    }
+    // The decoder checks each walkable bit against its region label. Count
+    // only real nodes, excluding mask-byte padding.
+    for (class, labels) in grid.region.iter().enumerate() {
+        let mut regions = std::collections::BTreeSet::new();
+        let mut walkable = 0_usize;
+        for chunk in labels.chunks(4096) {
+            super::progress::check_cancelled()?;
+            for label in chunk
+                .iter()
+                .copied()
+                .filter(|label| *label != navigation::NO_REGION)
+            {
+                walkable = walkable.saturating_add(1);
+                let _inserted = regions.insert(label);
+            }
+        }
+        if report.walkable_cells.get(class).copied() != Some(walkable)
+            || report
+                .regions
+                .get(class)
+                .and_then(|count| usize::try_from(*count).ok())
+                != Some(regions.len())
+        {
+            return Err(format!(
+                "Navigation report disagrees with the decoded walkable or region count for class {class}"
+            ));
+        }
+    }
+    Ok(())
+}
+
+/// Requires current typed provenance. A legal omission takes the ordinary
+/// build path, which can recompute the diagnostics and omit the record again.
+#[cfg(unix)]
+pub(super) fn sibling_warnings<R: std::io::Read + std::io::Seek>(
+    reader: &mut crate::engine::package::PackageReader<R>,
+    manifest: &crate::engine::package::manifest::Manifest,
+    level: &LevelDef,
+) -> Result<Vec<String>, String> {
+    let (_, cached) = read_current(reader, manifest, &fingerprint(level)?)?;
+    Ok(cached.warnings)
+}
+
 pub(super) fn prepare(
     request: &BuildRequest,
     level: &LevelDef,
@@ -80,28 +181,9 @@ pub(super) fn prepare(
                 let mut reader = super::open_package(&path)?;
                 crate::engine::package::project::select(&mut reader, Some(&level.id))?;
                 let manifest = super::read_manifest(&mut reader)?;
-                let entry = manifest
-                    .entries
-                    .iter()
-                    .find(|entry| entry.name == ENTRY)
-                    .ok_or("No navigation input identity")?;
-                let cached: Cached = serde_json::from_slice(&super::read_declared_entry(
-                    &mut reader,
-                    &manifest,
-                    entry,
-                )?)
-                .map_err(|e| e.to_string())?;
-                if cached.fingerprint != fingerprint {
-                    return Err("Navigation inputs changed".into());
-                }
+                let current = read_current(&mut reader, &manifest, &fingerprint)?;
                 super::verify_declared_entries(&path, &manifest)?;
-                let variant = manifest.variants.first().ok_or("No navigation variant")?;
-                let bytes = reader.read_blob(
-                    &variant.entries.navigation,
-                    crate::engine::package::MAX_NAVIGATION_BYTES,
-                )?;
-                drop(crate::engine::package::navigation::read_navigation(&bytes)?);
-                Ok::<_, String>((bytes, cached))
+                Ok::<_, String>(current)
             })();
             if let Ok((bytes, cached)) = result {
                 warnings.extend(cached.warnings.iter().cloned());
