@@ -376,7 +376,10 @@ fn linked_ports_preserve_view_and_isolate_groups_at_any_height() -> Result<(), S
             &Settings::default(),
             |candidate| {
                 let eye = candidate.player_position;
-                assert!(eye.distance(previous) < 1.0, "sweep must stay at the source cabin");
+                assert!(
+                    eye.distance(previous) < 1.0,
+                    "sweep must stay at the source cabin"
+                );
                 eye
             },
         );
