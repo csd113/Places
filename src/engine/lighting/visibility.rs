@@ -834,13 +834,7 @@ impl PointGrid {
         if !cell_m.is_finite() || cell_m <= 0.0 {
             return Some(Self::default());
         }
-        let spec = GridSpec {
-            min_x,
-            min_z,
-            cell_m,
-            cells_x: grid_axis_cells(span_x, cell_m),
-            cells_z: grid_axis_cells(span_z, cell_m),
-        };
+        let spec = GridSpec::for_span(min_x, min_z, span_x, span_z, cell_m)?;
         let (cells_x, cells_z) = (spec.cells_x, spec.cells_z);
         let cell_count = usize::try_from(cells_x)
             .ok()?
@@ -934,21 +928,10 @@ impl PointGrid {
         }
         let (rect_min_x, rect_max_x) = ordered_pair(x0, x1);
         let (rect_min_z, rect_max_z) = ordered_pair(z0, z1);
-        // The cell counts are bounded to `1..=MAX_GRID_CELLS_PER_AXIS`, so the
-        // conversion is exact.
-        #[expect(
-            clippy::as_conversions,
-            clippy::cast_precision_loss,
-            reason = "The cell counts are bounded to `1..=MAX_GRID_CELLS_PER_AXIS`, so the conversion is exact."
-        )]
-        let (grid_width, grid_depth) = (
-            self.cell_m * self.cells_x as f32,
-            self.cell_m * self.cells_z as f32,
-        );
         if rect_max_x < self.min_x
             || rect_max_z < self.min_z
-            || rect_min_x > self.min_x + grid_width
-            || rect_min_z > self.min_z + grid_depth
+            || rect_min_x > grid_axis_end(self.min_x, self.cell_m, self.cells_x)
+            || rect_min_z > grid_axis_end(self.min_z, self.cell_m, self.cells_z)
         {
             return;
         }
@@ -1112,6 +1095,16 @@ fn grid_axis_cells(extent: f32, cell_m: f32) -> u32 {
         .clamp(1, MAX_GRID_CELLS_PER_AXIS)
 }
 
+#[expect(
+    clippy::as_conversions,
+    clippy::cast_precision_loss,
+    reason = "Both the builder and decoder bound cell counts to MAX_GRID_CELLS_PER_AXIS"
+)]
+const fn grid_axis_end(min: f32, cell_m: f32, cells: u32) -> f32 {
+    let extent = cell_m * cells as f32;
+    min + extent
+}
+
 /// Geometry of one uniform grid: origin, cell size and cell counts.
 #[derive(Clone, Copy, Debug)]
 struct GridSpec {
@@ -1123,6 +1116,20 @@ struct GridSpec {
 }
 
 impl GridSpec {
+    fn for_span(min_x: f32, min_z: f32, span_x: f32, span_z: f32, cell_m: f32) -> Option<Self> {
+        let cells_x = grid_axis_cells(span_x, cell_m);
+        let cells_z = grid_axis_cells(span_z, cell_m);
+        (grid_axis_end(min_x, cell_m, cells_x).is_finite()
+            && grid_axis_end(min_z, cell_m, cells_z).is_finite())
+        .then_some(Self {
+            min_x,
+            min_z,
+            cell_m,
+            cells_x,
+            cells_z,
+        })
+    }
+
     fn index(self, column: u32, row: u32) -> Option<usize> {
         usize::try_from(row.checked_mul(self.cells_x)?.checked_add(column)?).ok()
     }
@@ -2727,7 +2734,7 @@ impl Visibility {
                 cos,
             });
         }
-        let wall_grid = read_point_grid(reader)?;
+        let wall_grid = read_wall_grid(reader, wall_count)?;
         let prop_ranges = read_u32_pairs(reader, "prop ranges")?;
         if let Some(end) = prop_ranges.iter().map(|(_, end)| end).max()
             && u64::from(*end) > u64::try_from(props.len()).unwrap_or(u64::MAX)
@@ -2852,37 +2859,68 @@ fn write_point_grid(writer: &mut Writer, grid: &PointGrid) -> Result<(), String>
     Ok(())
 }
 
-fn read_point_grid(reader: &mut Reader<'_>) -> Result<PointGrid, String> {
-    let base = usize::try_from(reader.u32()?)
-        .map_err(|error| format!("grid base is too large: {error}"))?;
+fn read_wall_grid(reader: &mut Reader<'_>, wall_count: usize) -> Result<PointGrid, String> {
+    if reader.u32()? != 0 {
+        return Err("wall grid base must be zero".to_string());
+    }
     let min_x = read_finite(reader, "grid min x")?;
     let min_z = read_finite(reader, "grid min z")?;
     let cells_x = reader.u32()?;
     let cells_z = reader.u32()?;
     let cell_m = read_finite(reader, "grid cell")?;
-    if cell_m < 0.0 {
-        return Err("grid cell is negative".to_string());
+    if (cells_x == 0) != (cells_z == 0)
+        || cells_x > MAX_GRID_CELLS_PER_AXIS
+        || cells_z > MAX_GRID_CELLS_PER_AXIS
+    {
+        return Err("wall grid dimensions are invalid".to_string());
     }
-    let ranges = read_u32_pairs(reader, "grid ranges")?;
+    if cells_x == 0 {
+        if min_x != 0.0 || min_z != 0.0 || cell_m != 0.0 {
+            return Err("empty wall grid has nonzero geometry".to_string());
+        }
+    } else if cell_m <= 0.0
+        || !grid_axis_end(min_x, cell_m, cells_x).is_finite()
+        || !grid_axis_end(min_z, cell_m, cells_z).is_finite()
+    {
+        return Err("wall grid cell size or bounds are invalid".to_string());
+    }
+
+    let cell_count = u64::from(cells_x).saturating_mul(u64::from(cells_z));
+    let range_count = reader.count(cell_count, "wall grid ranges")?;
+    if u64::try_from(range_count).unwrap_or(u64::MAX) != cell_count {
+        return Err("wall grid must have one range per cell".to_string());
+    }
+    reader.require_items(range_count, 8, "wall grid ranges")?;
+    let mut ranges = Vec::with_capacity(range_count);
+    let mut next_item = 0;
+    for _ in 0..range_count {
+        let start = reader.u32()?;
+        let end = reader.u32()?;
+        if start != next_item || start > end {
+            return Err("wall grid ranges must partition its item list".to_string());
+        }
+        next_item = end;
+        ranges.push((start, end));
+    }
     let item_count = reader.count(
         u64::try_from(crate::engine::package::MAX_COLLISION_BOXES).unwrap_or(u64::MAX),
-        "grid items",
+        "wall grid items",
     )?;
+    if u64::try_from(item_count).unwrap_or(u64::MAX) != u64::from(next_item) {
+        return Err("wall grid ranges must cover its item list".to_string());
+    }
+    reader.require_items(item_count, 4, "wall grid items")?;
     let mut items = Vec::with_capacity(item_count.min(16384));
+    let wall_limit = u64::try_from(wall_count).unwrap_or(u64::MAX);
     for _ in 0..item_count {
-        items.push(reader.u32()?);
-    }
-    let cell_count = u64::from(cells_x).saturating_mul(u64::from(cells_z));
-    if u64::try_from(ranges.len()).unwrap_or(u64::MAX) > cell_count.saturating_add(1) {
-        return Err("grid has more ranges than cells".to_string());
-    }
-    if let Some(end) = ranges.iter().map(|(_, end)| end).max()
-        && u64::from(*end) > u64::try_from(items.len()).unwrap_or(u64::MAX)
-    {
-        return Err("grid range reaches past its item list".to_string());
+        let item = reader.u32()?;
+        if u64::from(item) >= wall_limit {
+            return Err("wall grid item references a missing wall".to_string());
+        }
+        items.push(item);
     }
     Ok(PointGrid {
-        base,
+        base: 0,
         min_x,
         min_z,
         cells_x,
