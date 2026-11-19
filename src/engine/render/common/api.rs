@@ -9,8 +9,7 @@ use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
 
 use super::geometry::{LevelMeshPreparation, build_level_geometry_mesh_with_fixture_models};
 use super::props::{
-    PropMeshBatch, resolve_prop_fallbacks, resolve_prop_instances,
-    resolve_prop_instances_lightmapped,
+    PropDraws, PropLightingMode, PropMeshBatch, build_prop_batches, plan_prop_draws,
 };
 use super::{
     LevelDef, LevelLighting, LevelMesh, LevelSurfaces, MaterialTable, PropDef,
@@ -453,15 +452,20 @@ pub fn build_level_geometry_timed(
     assets: &mut crate::engine::props::PropAssets,
     materials: &MaterialTable,
 ) -> (LevelMesh, Vec<PropMeshBatch>, LevelLighting, BuildTimings) {
-    let started = std::time::Instant::now();
-    let lighting = LevelLighting::bake(level);
-    let lighting_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
-
-    let surfaces = LevelSurfaces::new(level);
+    let (lighting, draws, lighting_millis, admission_millis) =
+        bake_for_draws(level, catalog, assets, materials, BakeConfig::HARD, false);
     let props_started = std::time::Instant::now();
-    let (batches, fallbacks) =
-        resolve_prop_instances(level, catalog, assets, &lighting, &surfaces, materials);
-    let props_millis = props_started.elapsed().as_secs_f64() * 1_000.0_f64;
+    let batches = build_prop_batches(
+        level,
+        catalog,
+        assets,
+        &lighting,
+        materials,
+        &draws,
+        (PropLightingMode::Vertex, None),
+    );
+    let fallbacks = draws.fallbacks(level);
+    let props_millis = admission_millis + elapsed_millis(props_started);
 
     let surfaces_started = std::time::Instant::now();
     let mesh = build_level_geometry_mesh_with_fixture_models(
@@ -547,9 +551,8 @@ fn authoring_preview_parts(
     optimize: bool,
     reuse: super::preview_cache::PreviewReuse<'_>,
 ) -> (LevelBuild, bool, super::preview_cache::PreviewDependencies) {
-    let started = std::time::Instant::now();
-    let lighting = LevelLighting::bake(level);
-    let lighting_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
+    let (lighting, draws, lighting_millis, admission_millis) =
+        bake_for_draws(level, catalog, assets, materials, BakeConfig::HARD, false);
     let mut lighting_record = crate::engine::package::binary::Writer::new();
     let record_valid = lighting
         .write_preview_identity(&mut lighting_record)
@@ -564,28 +567,28 @@ fn authoring_preview_parts(
             .filter(|_| neutral || equivalent_lighting)
             .map(|(build, old)| (old.batches.as_slice(), build.batches.as_slice())),
     );
-    let surfaces = LevelSurfaces::new(level);
     let props_started = std::time::Instant::now();
     let (mut batches, fallbacks) = reuse.inspect.map_or_else(
         || {
-            if optimize {
-                super::props::resolve_prop_instances_cached(
-                    level,
-                    catalog,
-                    assets,
-                    &lighting,
-                    &surfaces,
-                    materials,
-                    (neutral, &mut prop_reuse),
-                )
+            let options = if optimize {
+                let mode = if neutral {
+                    PropLightingMode::Preview
+                } else {
+                    PropLightingMode::Vertex
+                };
+                (mode, Some(&mut prop_reuse))
             } else {
-                resolve_prop_instances(level, catalog, assets, &lighting, &surfaces, materials)
-            }
+                (PropLightingMode::Vertex, None)
+            };
+            let batches = build_prop_batches(
+                level, catalog, assets, &lighting, materials, &draws, options,
+            );
+            (batches, draws.fallbacks(level))
         },
         |previous| (previous.to_vec(), Vec::new()),
     );
     let complete_props = fallbacks.is_empty();
-    let props_millis = props_started.elapsed().as_secs_f64() * 1_000.0_f64;
+    let props_millis = admission_millis + elapsed_millis(props_started);
     let surfaces_started = std::time::Instant::now();
     let reusable_mesh = reuse.previous.filter(|(build, _)| {
         equivalent_lighting
@@ -945,16 +948,22 @@ fn prepare_level_geometry_scoped(
     cache: Option<&mut LightmapCache>,
     preview_scope: Option<[f32; 4]>,
 ) -> Result<PreparedLightmapBuild, LightmapFailure> {
-    let started = std::time::Instant::now();
-    let lighting = LevelLighting::bake_with(level, options.bake);
-    let lighting_millis = elapsed_millis(started);
+    let (lighting, draws, lighting_millis, admission_millis) =
+        bake_for_draws(level, catalog, assets, materials, options.bake, true);
     options = options.with_prepared_page_budget(level, &lighting);
 
-    let surfaces = LevelSurfaces::new(level);
     let props_started = std::time::Instant::now();
-    let (mut batches, fallbacks) =
-        resolve_prop_fallbacks(level, catalog, assets, &lighting, &surfaces, materials);
-    let mut props_millis = elapsed_millis(props_started);
+    let mut batches = build_prop_batches(
+        level,
+        catalog,
+        assets,
+        &lighting,
+        materials,
+        &draws,
+        (PropLightingMode::Deferred, None),
+    );
+    let fallbacks = draws.fallbacks(level);
+    let mut props_millis = admission_millis + elapsed_millis(props_started);
 
     let mut plan = preview_scope.map_or_else(
         || LightmapPlan::new(options.config),
@@ -972,8 +981,14 @@ fn prepare_level_geometry_scoped(
     );
     let surfaces_millis = elapsed_millis(surfaces_started);
     let receivers_started = std::time::Instant::now();
-    let (receivers, _) = resolve_prop_instances_lightmapped(
-        level, catalog, assets, &lighting, &surfaces, materials, &mut plan,
+    let receivers = build_prop_batches(
+        level,
+        catalog,
+        assets,
+        &lighting,
+        materials,
+        &draws,
+        (PropLightingMode::Lightmap(&mut plan), None),
     );
     if !plan.failed() {
         batches = receivers;
@@ -1259,21 +1274,43 @@ pub fn build_level_geometry_with_catalog_and_materials(
     build_level_geometry_mesh(level, catalog, &fallbacks, &lighting, materials)
 }
 
+fn bake_for_draws(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    assets: &mut crate::engine::props::PropAssets,
+    materials: &MaterialTable,
+    config: BakeConfig,
+    lightmapped: bool,
+) -> (LevelLighting, PropDraws, f64, f64) {
+    let started = std::time::Instant::now();
+    let surfaces = LevelSurfaces::new(level);
+    let draws = plan_prop_draws(level, catalog, assets, &surfaces, materials, lightmapped);
+    let admission_millis = elapsed_millis(started);
+    let lighting_started = std::time::Instant::now();
+    let lighting = LevelLighting::bake_with_prop_draws(level, config, Some(&draws));
+    (
+        lighting,
+        draws,
+        elapsed_millis(lighting_started),
+        admission_millis,
+    )
+}
+
 fn prepare_static_level<'a>(
     level: &'a LevelDef,
     catalog: &crate::engine::loader::PropCatalog,
     assets: &mut crate::engine::props::PropAssets,
     materials: &'a MaterialTable,
-) -> (LevelBuild, LevelMeshPreparation<'a>) {
-    let started = std::time::Instant::now();
-    let lighting = LevelLighting::bake(level);
-    let lighting_millis = elapsed_millis(started);
+) -> (LevelBuild, LevelMeshPreparation<'a>, PropDraws) {
+    let (lighting, draws, lighting_millis, admission_millis) =
+        bake_for_draws(level, catalog, assets, materials, BakeConfig::HARD, false);
 
     let geometry_started = std::time::Instant::now();
     let preparation = LevelMeshPreparation::new(level, materials, false);
     let geometry_millis = elapsed_millis(geometry_started);
     let (mesh, batches, mut timings) =
-        prepare_static_receivers(&preparation, catalog, assets, &lighting);
+        prepare_static_receivers(&preparation, catalog, assets, &lighting, &draws);
+    timings.props_millis += admission_millis;
     timings.lighting_millis = lighting_millis;
     timings.surfaces_millis += geometry_millis;
     let build = LevelBuild {
@@ -1286,7 +1323,7 @@ fn prepare_static_level<'a>(
         probes: None,
         lightmap_millis: 0.0,
     };
-    (build, preparation)
+    (build, preparation, draws)
 }
 
 fn prepare_static_receivers(
@@ -1294,16 +1331,19 @@ fn prepare_static_receivers(
     catalog: &crate::engine::loader::PropCatalog,
     assets: &mut crate::engine::props::PropAssets,
     lighting: &LevelLighting,
+    draws: &PropDraws,
 ) -> (LevelMesh, Vec<PropMeshBatch>, BuildTimings) {
     let props_started = std::time::Instant::now();
-    let (batches, fallbacks) = resolve_prop_instances(
+    let batches = build_prop_batches(
         preparation.level,
         catalog,
         assets,
         lighting,
-        &preparation.surfaces,
         preparation.materials,
+        draws,
+        (PropLightingMode::Vertex, None),
     );
+    let fallbacks = draws.fallbacks(preparation.level);
     let props_millis = elapsed_millis(props_started);
     let surfaces_started = std::time::Instant::now();
     let mesh = preparation.emit(catalog, &fallbacks, lighting, None, &batches);
@@ -1337,11 +1377,11 @@ pub fn prepare_compiled_level_geometry(
         )
         .map_err(|failure| format!("lighting preparation failed: {}", failure.name()));
     }
-    let (mut build, preparation) = prepare_static_level(level, catalog, assets, materials);
+    let (mut build, preparation, draws) = prepare_static_level(level, catalog, assets, materials);
     let state_started = std::time::Instant::now();
     if let Some(circuit) = build.lighting.prepare_static_circuit(level)? {
         let (mesh, batches, _) =
-            prepare_static_receivers(&preparation, catalog, assets, &circuit.unpowered);
+            prepare_static_receivers(&preparation, catalog, assets, &circuit.unpowered, &draws);
         build.static_light_off = Some(Arc::new(StaticLightState {
             fixtures: circuit.fixtures,
             mesh,

@@ -1831,10 +1831,19 @@ impl LevelLighting {
     /// [`BakeConfig::HARD`] reproduces every value [`Self::bake`] produces.
     #[must_use]
     pub fn bake_with(level: &LevelDef, config: BakeConfig) -> Self {
+        Self::bake_with_prop_draws(level, config, None)
+    }
+
+    /// Bakes visibility for the renderer's admitted geometry when available.
+    pub(crate) fn bake_with_prop_draws(
+        level: &LevelDef,
+        config: BakeConfig,
+        prop_draws: Option<&crate::engine::render::PropDraws>,
+    ) -> Self {
         // The occluder set is built first: the baseline field's partition
         // connectivity asks it whether a wall separates two cells, and the
         // doorway blends then add their own query sites to it.
-        let occluders = Occluders::build_with(level, config.prop_occlusion_cell_m);
+        let occluders = Occluders::build_with(level, config.prop_occlusion_cell_m, prop_draws);
 
         let (mut rooms, default_height_m, default_ceiling_y) = baked_rooms(level);
 

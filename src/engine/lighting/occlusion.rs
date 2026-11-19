@@ -40,7 +40,7 @@
 //!
 //! Only static props participate. Every entry of a level's `props` array is
 //! static; dynamic objects are a separate renderer-side scene and never level
-//! props ([`prop_is_static`]).
+//! props.
 //!
 //! Loading
 //! -------
@@ -72,7 +72,7 @@
 
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 
 use super::tuning::{
     MAX_PROP_OCCLUSION_BOXES_PER_LEVEL, MAX_PROP_OCCLUSION_BOXES_PER_MODEL, PROP_OCCLUSION_CELL_M,
@@ -81,9 +81,9 @@ use super::tuning::{
 };
 use super::visibility::OrientedBox;
 use crate::engine::gltf::PropModel;
-use crate::engine::level::{
-    LevelDef, LevelSurfaces, MAX_LEVEL_PROP_MODELS, MAX_LEVEL_PROP_VERTICES, PropDef,
-};
+use crate::engine::level::{LevelDef, LevelSurfaces, PropDef};
+use crate::engine::props::LoadedPropAsset;
+use crate::engine::render::{PropDraw, PropDraws, plan_prop_draws};
 
 /// One opaque box in model-local space.
 #[derive(Clone, Copy, Debug, PartialEq)]
@@ -92,30 +92,11 @@ pub(super) struct LocalBox {
     pub max: [f32; 3],
 }
 
-/// Derived occlusion geometry of one prop model.
-#[derive(Clone, Debug, Default, PartialEq)]
-pub(super) struct ModelOcclusion {
-    /// Model-local boxes, in deterministic grid scan order.
-    pub boxes: Vec<LocalBox>,
-    /// Vertex count of the asset, mirroring the renderer's level vertex budget.
-    pub vertex_count: usize,
-    /// True when the asset resolved and parsed, so the renderer draws the real
-    /// model. False when the draw path falls back to the catalogue placeholder
-    /// box, which the occluder builder then contributes instead.
-    pub loaded: bool,
-}
-
-/// True when a placed prop may contribute immutable lighting geometry.
-///
-/// A floating prop is
-/// drawn by the dynamic scene at the water surface, and the dynamic path is
-/// documented invisible to the baker, so baking it at its dry authored
-/// position would make the bake disagree with what is drawn.
-/// Fully claimed characters are subsequently excluded using the resolved
-/// character claim plan; model/vertex budgets retain their original charge.
-#[must_use]
-pub(super) const fn prop_is_static(prop: &PropDef) -> bool {
-    !prop.shadow_only && prop.float.is_none() && !prop.is_physics_movable()
+/// Derived geometry follows the exact admitted asset without extending its lifetime.
+#[derive(Default)]
+struct ModelOcclusion {
+    asset: Weak<LoadedPropAsset>,
+    boxes: Vec<LocalBox>,
 }
 
 /// Occlusion boxes for one model, derived from its real triangles, at an
@@ -630,75 +611,33 @@ impl PropOcclusionCache {
         level: &LevelDef,
         surfaces: &LevelSurfaces<'_>,
         cell_m: f32,
+        draws: &PropDraws,
     ) -> LevelPropOccluders {
         let mut result = LevelPropOccluders {
             boxes: Vec::new(),
             light_owner_ranges: vec![(0, 0); level.props.len()],
         };
         let grid_cell_m = sanitized_cell(cell_m);
-        let claimed =
-            crate::engine::render::claimed_character_models(level, &self.catalog, &mut self.assets);
-        let mut seen_models: Vec<String> = Vec::new();
-        let mut busy_vertices = 0usize;
-        let mut append_prop = |prop: &PropDef, boxes: &mut Vec<OrientedBox>| {
-            if !prop_is_static(prop) {
-                return;
-            }
-            // Decorative alpha-cutout scenery (grass, leaf canopies) opts out:
-            // the bake derives coarse solid boxes from triangles, which would
-            // turn thousands of blade cards into solid shadow volumes.
-            if !prop.occludes {
-                return;
-            }
-            let entry = self.catalog.get(&prop.model);
-            let Some(model_path) = entry.model else {
-                // The draw path has no model to draw: the catalogue
-                // placeholder box is the visible geometry, and it occludes.
-                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
-                return;
-            };
-            if busy_vertices >= MAX_LEVEL_PROP_VERTICES {
-                // The vertex budget is spent: the draw path replaces every
-                // further instance with its placeholder box.
-                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
-                return;
-            }
-            let known = seen_models.iter().any(|path| path == &model_path);
-            if !known && seen_models.len() >= MAX_LEVEL_PROP_MODELS {
-                // The model budget is spent: same placeholder fallback.
-                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
-                return;
-            }
-            let model = self.model_occlusion(&model_path, grid_cell_m);
-            if !model.loaded {
-                // The asset failed to load; the renderer draws (and therefore
-                // the bake occludes) the catalogue placeholder box.
-                push_placeholder_occluder(prop, entry.size, surfaces, boxes);
-                return;
-            }
-            let casts_static_lighting = !claimed.contains(&model_path);
-            if !known {
-                seen_models.push(model_path);
-            }
-            busy_vertices = busy_vertices.saturating_add(model.vertex_count);
-            if !casts_static_lighting {
-                return;
-            }
-            if model.boxes.is_empty() {
-                // A real model that resolves with no usable triangle: the draw
-                // path draws it and it occludes nothing.
-                return;
-            }
-            let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
-            push_instance_occluders(&model.boxes, prop, base_y, boxes);
-        };
-
-        for (prop_index, prop) in level.props.iter().enumerate() {
+        for (prop_index, (prop, draw)) in level.props.iter().zip(&draws.placements).enumerate() {
             let start = result.boxes.len();
             if start >= MAX_PROP_OCCLUSION_BOXES_PER_LEVEL {
                 break;
             }
-            append_prop(prop, &mut result.boxes);
+            // Alpha-cutout scenery can opt out of coarse solid boxes while
+            // still drawing and consuming its normal share of the mesh budget.
+            if prop.occludes {
+                match draw {
+                    PropDraw::Placeholder(size) => {
+                        push_placeholder_occluder(prop, *size, surfaces, &mut result.boxes);
+                    }
+                    PropDraw::Mesh(mesh) if mesh.casts_static_lighting => {
+                        let model = self.model_occlusion(&mesh.shadow_asset, grid_cell_m);
+                        let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
+                        push_instance_occluders(&model.boxes, prop, base_y, &mut result.boxes);
+                    }
+                    PropDraw::Hidden | PropDraw::Mesh(_) => {}
+                }
+            }
             // Character claim depends on the full level. Record indices from
             // actual emission, including placeholder and partial-cap output.
             if !prop.lights.is_empty()
@@ -715,29 +654,27 @@ impl PropOcclusionCache {
 
     /// The derived occlusion of one model path at one grid cell, loaded and
     /// cached on demand.
-    fn model_occlusion(&mut self, model_path: &str, cell_m: f32) -> Arc<ModelOcclusion> {
-        let key = (model_path.to_string(), cell_key(cell_m));
-        if let Some(cached) = self.models.get(&key) {
+    fn model_occlusion(
+        &mut self,
+        asset: &Arc<LoadedPropAsset>,
+        cell_m: f32,
+    ) -> Arc<ModelOcclusion> {
+        let key = (asset.model_path.clone(), cell_key(cell_m));
+        let source = Arc::downgrade(asset);
+        if let Some(cached) = self.models.get(&key)
+            && Weak::ptr_eq(&cached.asset, &source)
+        {
             return Arc::clone(cached);
         }
-        let occlusion = match self.assets.resolve(model_path) {
-            Ok(asset) => ModelOcclusion {
-                boxes: occlusion_boxes_with_cell(&asset.model, cell_m),
-                vertex_count: asset.model.vertices.len(),
-                loaded: true,
-            },
-            Err(message) => {
-                self.assets.report_failure(model_path, &message);
-                ModelOcclusion::default()
-            }
-        };
-        let shared_occlusion = Arc::new(occlusion);
-        // Cancellation can interrupt model decoding or box rasterization. A
-        // placeholder/partial result must never become a reusable derived owner.
+        let occlusion = Arc::new(ModelOcclusion {
+            asset: source,
+            boxes: occlusion_boxes_with_cell(&asset.model, cell_m),
+        });
+        // A cancelled derivation must never become a reusable owner.
         if crate::engine::progress::check_cancelled().is_ok() {
-            drop(self.models.insert(key, Arc::clone(&shared_occlusion)));
+            drop(self.models.insert(key, Arc::clone(&occlusion)));
         }
-        shared_occlusion
+        occlusion
     }
 }
 
@@ -858,14 +795,24 @@ pub(super) fn level_occluders_with_cell(
     level: &LevelDef,
     surfaces: &LevelSurfaces<'_>,
     cell_m: f32,
+    prop_draws: Option<&PropDraws>,
 ) -> LevelPropOccluders {
     if level.props.is_empty() {
         return LevelPropOccluders::default();
     }
-    PROP_OCCLUSIONS.with(|cache| {
-        cache
-            .borrow_mut()
-            .level_occluders_with_cell(level, surfaces, cell_m)
+    PROP_OCCLUSIONS.with(|owner| {
+        let mut cache = owner.borrow_mut();
+        if let Some(draws) = prop_draws {
+            return cache.level_occluders_with_cell(level, surfaces, cell_m, draws);
+        }
+        let PropOcclusionCache {
+            catalog,
+            assets,
+            models: _,
+        } = &mut *cache;
+        let materials = crate::engine::render::logical_materials(level);
+        let draws = plan_prop_draws(level, catalog, assets, surfaces, &materials, false);
+        cache.level_occluders_with_cell(level, surfaces, cell_m, &draws)
     })
 }
 

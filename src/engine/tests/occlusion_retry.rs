@@ -94,13 +94,16 @@ fn cancelled_cold_occlusion_can_retry_real_geometry() -> Result<(), String> {
     };
     {
         let _scope = enter(Some(DecodeBudget::new(Arc::new(AtomicBool::new(true)))));
-        let interrupted = cache.model_occlusion("tiny.glb", 0.15_f32);
-        assert!(!interrupted.loaded, "cancelled cold input must not be read");
+        assert!(
+            cache.assets.resolve("tiny.glb").is_err(),
+            "cancelled cold input must not be read"
+        );
     }
-    let retried = cache.model_occlusion("tiny.glb", 0.15_f32);
+    let retried = cache.assets.resolve("tiny.glb")?;
+    let occlusion = cache.model_occlusion(&retried, 0.15_f32);
     assert!(
-        retried.loaded && !retried.boxes.is_empty() && retried.vertex_count == 3,
-        "retry must derive actual model occlusion rather than inherit the cancelled placeholder: {retried:?}"
+        !occlusion.boxes.is_empty(),
+        "retry must derive actual model occlusion rather than inherit the cancelled placeholder"
     );
     Ok(())
 }

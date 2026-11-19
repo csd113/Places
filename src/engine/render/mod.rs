@@ -23,12 +23,11 @@
 
 mod common;
 pub(crate) use common::canonical_props::share_canonical_props;
-pub(crate) use common::character::claimed_character_models;
 #[cfg(test)]
 pub(crate) use common::elevators::{Part as ElevatorPart, parts as elevator_parts};
 pub use common::prop_vertices::PropVertices;
 pub(crate) use common::props::override_material_textures as override_prop_textures;
-pub(crate) use common::props::relight_probe_props;
+pub(crate) use common::props::{PropDraw, PropDraws, plan_prop_draws, relight_probe_props};
 pub(crate) use common::subtract_rectangles;
 mod facade;
 pub mod font;

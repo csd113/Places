@@ -1204,7 +1204,7 @@ impl Occluders {
     /// occluders of a level.
     #[must_use]
     pub(super) fn build(level: &LevelDef) -> Self {
-        Self::build_with(level, super::tuning::PROP_OCCLUSION_CELL_M)
+        Self::build_with(level, super::tuning::PROP_OCCLUSION_CELL_M, None)
     }
 
     /// [`Self::build`] with an explicit prop-occlusion grid cell, in metres.
@@ -1212,7 +1212,11 @@ impl Occluders {
     /// Finer cells derive smaller boxes from a prop model, so the bake can
     /// ground its contact shadow and the light it blocks more precisely.
     #[must_use]
-    pub(super) fn build_with(level: &LevelDef, cell_m: f32) -> Self {
+    pub(super) fn build_with(
+        level: &LevelDef,
+        cell_m: f32,
+        prop_draws: Option<&crate::engine::render::PropDraws>,
+    ) -> Self {
         let surfaces = LevelSurfaces::new(level);
         let mut walls: Vec<Blocker> = Vec::new();
         for wall in &level.walls {
@@ -1232,7 +1236,7 @@ impl Occluders {
         let super::occlusion::LevelPropOccluders {
             boxes: mut props,
             light_owner_ranges: prop_ranges,
-        } = super::occlusion::level_occluders_with_cell(level, &surfaces, cell_m);
+        } = super::occlusion::level_occluders_with_cell(level, &surfaces, cell_m, prop_draws);
         // Void wall boxes marked `occludes` block baked light exactly like
         // solid props: they join the prop occluder list (segment tests only),
         // appended after every prop so the ranges above stay valid. A wall
