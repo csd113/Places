@@ -1371,7 +1371,7 @@ pub fn prepare_local_lightmap_geometry(
     options: LightmapBuildOptions,
     bounds: [f32; 4],
 ) -> Result<PreparedLightmapBuild, LightmapFailure> {
-    prepare_level_geometry_scoped(
+    let mut prepared = prepare_level_geometry_scoped(
         level,
         catalog,
         assets,
@@ -1379,5 +1379,9 @@ pub fn prepare_local_lightmap_geometry(
         options,
         None,
         Some(bounds),
-    )
+    )?;
+    // Transport already owns the source albedo. Light the uncharted draw
+    // vertices with the ordinary fallback used when no probe field is present.
+    super::props::relight_probe_props(&mut prepared.build.batches, &prepared.build.lighting, None);
+    Ok(prepared)
 }

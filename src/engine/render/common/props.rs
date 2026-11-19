@@ -385,6 +385,8 @@ impl BatchBuilder {
                 let Ok(base) = u16::try_from(self.vertices.len()) else {
                     continue;
                 };
+                let [first, ..] = vertices;
+                self.pending_probe_lighting |= first.lightmap_page == super::LIGHTMAP_NONE;
                 self.vertices.extend(vertices);
                 primitive
                     .indices
@@ -643,8 +645,7 @@ fn lightmap_prop_triangles(
         let Some(triangle) = triangles.get_mut(index) else {
             continue;
         };
-        if already_stamped || shared || plan.stamp_prop_triangle(triangle, density) || plan.failed()
-        {
+        if already_stamped || shared || plan.prepare_prop_triangle(triangle, density) {
             retained.push(*triangle);
         }
     }

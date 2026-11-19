@@ -363,9 +363,11 @@ impl LightmapPlan {
         true
     }
 
-    /// Stamps one real model triangle. The three vertices are chart-local,
-    /// preserving independent UVs and authored normals at every hard edge.
-    pub fn stamp_prop_triangle(&mut self, vertices: &mut [Vertex; 3], density: f32) -> bool {
+    /// Prepares a valid model triangle for drawing and transport. Charted
+    /// vertices retain independent UVs and authored normals at every hard
+    /// edge. A preview triangle outside the receiver scope keeps its original
+    /// vertices and needs no atlas space.
+    pub fn prepare_prop_triangle(&mut self, vertices: &mut [Vertex; 3], density: f32) -> bool {
         let [a, b, c] = vertices.map(|vertex| vertex.pos);
         let Some(patch) = LightmapPatch::from_quad(PatchKind::Prop, [a, b, c, c], None) else {
             self.slivers_skipped = self.slivers_skipped.saturating_add(1);
@@ -376,7 +378,7 @@ impl LightmapPlan {
             return false;
         };
         if !self.includes_preview_patch(&patch) {
-            return false;
+            return true;
         }
         let Some(chart) = self.allocator.allocate_at_density(&patch, surface_density) else {
             self.fail(LightmapFailure::PageOverflow);
