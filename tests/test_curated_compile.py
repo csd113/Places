@@ -158,12 +158,12 @@ class CuratedCompileTests(unittest.TestCase):
                         self.assertEqual(COMPILE.main(), 0)
                 commands = [call.args[0] for call in run.call_args_list]
                 self.assertEqual([command[1] for command in commands],
-                                 ['export-project', 'verify', 'verify', 'validate'])
+                                 ['export-project', 'verify-project', 'validate'])
                 self.assertIn(str(source), commands[0])
                 self.assertNotIn('--variants', commands[0])
-                self.assertEqual([command[command.index('--level')+1] for command in commands[1:3]],
-                                 ['hub', 'winter'])
-                self.assertTrue(all('--require-current' in command for command in commands[1:3]))
+                self.assertIn(str(source), commands[1])
+                self.assertNotIn('--level', commands[1])
+                self.assertIn('--require-current', commands[1])
 
     def test_full_fallback_cannot_pass_curated_export(self):
         for failure in (None, 'page overflow'):

@@ -79,6 +79,20 @@ impl<R: Read + Seek> PackageReader<R> {
     /// # Errors
     /// Returns an error when the input is malformed, out of bounds or unsupported.
     pub fn new(input: R) -> Result<Self, OpenError> {
+        Self::open(input, false).map(|(reader, _)| reader)
+    }
+
+    /// Retains the validated index when the caller will verify the complete project.
+    pub(crate) fn new_indexed(
+        input: R,
+    ) -> Result<(Self, Option<project::ProjectPackage>), OpenError> {
+        Self::open(input, true)
+    }
+
+    fn open(
+        input: R,
+        inspect_project: bool,
+    ) -> Result<(Self, Option<project::ProjectPackage>), OpenError> {
         let read_trace = std::env::var_os("PLACES_LOAD_TRACE")
             .map(|_| std::sync::Arc::new(read_trace::Counters::default()));
         let mut reader = read_trace::Reader::new(input, read_trace.clone());
@@ -102,12 +116,15 @@ impl<R: Read + Seek> PackageReader<R> {
             view: None,
             project_ids: None,
         };
-        if directory.requires_project_validation {
-            let _validated = project::read_index_metadata(&mut opened)
-                .map_err(OpenError::NotArchive)?
-                .ok_or_else(|| OpenError::NotArchive("Missing project index".into()))?;
+        let project = if inspect_project || directory.requires_project_validation {
+            project::read_index_metadata(&mut opened).map_err(OpenError::NotArchive)?
+        } else {
+            None
+        };
+        if directory.requires_project_validation && project.is_none() {
+            return Err(OpenError::NotArchive("Missing project index".into()));
         }
-        Ok(opened)
+        Ok((opened, project))
     }
 
     /// Number of entries.
@@ -274,13 +291,19 @@ impl<R: Read + Seek> PackageReader<R> {
             .as_ref()
             .and_then(|view| view.get(name))
             .map_or(name, String::as_str);
-        let (declared, entry) = bounded_zstd::open(&mut self.archive, actual, limit)?;
-        let copied = copy_bounded(entry, writer, declared, limit, check)
-            .map_err(|error| format!("package entry '{name}': {error}"))?;
-        if hash::sha256_from_blob_name(actual).is_some_and(|expected| expected != copied.1) {
-            return Err(format!("project record hash mismatch: {actual}"));
-        }
-        Ok(copied)
+        copy_record(&mut self.archive, name, actual, limit, writer, check)
+    }
+
+    pub(crate) fn verify_physical_record(&mut self, name: &str, limit: u64) -> Result<(), String> {
+        copy_record(
+            &mut self.archive,
+            name,
+            name,
+            limit,
+            &mut std::io::sink(),
+            &crate::engine::resources::checkpoint,
+        )
+        .map(|_| ())
     }
 
     /// Reads and integrity-checks one content-addressed blob.
@@ -303,6 +326,23 @@ impl<R: Read + Seek> PackageReader<R> {
         }
         Ok(bytes)
     }
+}
+
+fn copy_record<R: Read + Seek>(
+    archive: &mut zip::ZipArchive<R>,
+    name: &str,
+    actual: &str,
+    limit: u64,
+    writer: &mut impl Write,
+    check: &impl Fn() -> Result<(), String>,
+) -> Result<(u64, String), String> {
+    let (declared, entry) = bounded_zstd::open(archive, actual, limit)?;
+    let copied = copy_bounded(entry, writer, declared, limit, check)
+        .map_err(|error| format!("package entry '{name}': {error}"))?;
+    if hash::sha256_from_blob_name(actual).is_some_and(|expected| expected != copied.1) {
+        return Err(format!("project record hash mismatch: {actual}"));
+    }
+    Ok(copied)
 }
 
 /// Validates the archive's raw central directory before the ZIP crate sees it.

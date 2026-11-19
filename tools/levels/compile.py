@@ -40,15 +40,15 @@ def main() -> int:
         output.mkdir(parents=True, exist_ok=True)
     for identity, source in rows:
         package = output / (identity + '.placesmap')
+        is_project = bool(project_manifest(source))
         if not args.check:
-            operation = 'export-project' if project_manifest(source) else 'build'
+            operation = 'export-project' if is_project else 'build'
             subprocess.run([compiler, operation, str(source), '--out', str(package),
                             '--asset-root', str(ROOT / 'assets'), '--workers', str(args.workers)],
                            cwd=ROOT, check=True)
-        for level_id, _ in source_levels(source):
-            selected = ['--level', level_id] if project_manifest(source) else []
-            subprocess.run([compiler, 'verify', str(source), *selected, '--package', str(package),
-                            '--asset-root', str(ROOT / 'assets'), '--require-current'], cwd=ROOT, check=True)
+        operation = 'verify-project' if is_project else 'verify'
+        subprocess.run([compiler, operation, str(source), '--package', str(package),
+                        '--asset-root', str(ROOT / 'assets'), '--require-current'], cwd=ROOT, check=True)
         subprocess.run([compiler, 'validate', str(package)], cwd=ROOT, check=True)
         with PackageZip(package) as archive:
             views = level_views(archive)

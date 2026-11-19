@@ -49,13 +49,15 @@ USAGE:
                        [--variants static,full] [--json]
   places-compile verify <source.json|project> [--level <id>] --package <package> [--asset-root <dir>] [--json]
                        [--require-current]
+  places-compile verify-project <project> --package <package> [--asset-root <dir>] [--json]
+                       [--require-current]
   places-compile --help | --version
 
 OPTIONS:
   --level <id>        Select a declared project level (default: entry_level).
   --asset-root <dir>  Asset root holding catalog.json (default: PLACES_ASSET_ROOT
                       or the discovered assets directory).
-  --require-current   verify only: exit 1 when the package is not current for the
+  --require-current   verify/verify-project: exit 1 when the package is not current for the
                       source (the gate that keeps shipped packages from going
                       stale unnoticed).
   --workers N         Shared CPU budget for this run; 1 forces the serial path.
@@ -749,42 +751,77 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             }
             Ok(())
         }
-        "verify" => {
+        "verify" | "verify-project" => {
             let source = positional
                 .first()
-                .ok_or_else(|| CliError::Usage("verify needs a source path".to_string()))?;
+                .ok_or_else(|| CliError::Usage(format!("{command} needs a source path")))?;
             let package = option_value(&option_args, "--package")
-                .ok_or_else(|| CliError::Usage("verify needs --package <package>".to_string()))?;
+                .ok_or_else(|| CliError::Usage(format!("{command} needs --package <package>")))?;
             let asset_root = compiler::resolve_asset_root(options.asset_root.as_deref())?;
-            crate::engine::paths::configure_assets(&asset_root)?;
-            let report = compiler::verify_selected(
-                &PathBuf::from(source.as_str()),
-                options.level.as_deref(),
-                &PathBuf::from(&package),
-                &asset_root,
-            )?;
-            if options.json {
-                print_json(&report)?;
-            } else if report.current {
-                println!("current {}", report.package);
-            } else {
-                println!("stale {}", report.package);
-                for difference in &report.differences {
-                    println!("  {difference}");
+            let source_path = std::path::Path::new(source.as_str());
+            let package_path = std::path::Path::new(&package);
+            if command == "verify-project" {
+                let reports = compiler::verify_project(source_path, package_path, &asset_root)?;
+                if options.json {
+                    print_json(&reports)?;
+                } else {
+                    for report in &reports {
+                        print_verify_report(report, true);
+                    }
                 }
-            }
-            if options.require_current && !report.current {
-                return Err(CliError::Failure(format!(
-                    "{} is stale for {}: {}",
-                    report.package,
-                    report.source,
-                    report.differences.join("; ")
-                )));
+                for report in &reports {
+                    require_current(report, options.require_current, true)?;
+                }
+            } else {
+                let report = compiler::verify_selected(
+                    source_path,
+                    options.level.as_deref(),
+                    package_path,
+                    &asset_root,
+                )?;
+                if options.json {
+                    print_json(&report)?;
+                } else {
+                    print_verify_report(&report, false);
+                }
+                require_current(&report, options.require_current, false)?;
             }
             Ok(())
         }
         other => Err(CliError::Usage(format!("unknown command '{other}'"))),
     }
+}
+
+fn print_verify_report(report: &compiler::VerifyReport, show_member: bool) {
+    let status = if report.current { "current" } else { "stale" };
+    if show_member {
+        println!("{status} {} ({})", report.package, report.id);
+    } else {
+        println!("{status} {}", report.package);
+    }
+    for difference in &report.differences {
+        println!("  {difference}");
+    }
+}
+
+fn require_current(
+    report: &compiler::VerifyReport,
+    required: bool,
+    show_member: bool,
+) -> Result<(), CliError> {
+    if required && !report.current {
+        let source = if show_member {
+            format!("{} ({})", report.source, report.id)
+        } else {
+            report.source.clone()
+        };
+        return Err(CliError::Failure(format!(
+            "{} is stale for {source}: {}",
+            report.package,
+            report.differences.join("; ")
+        )));
+    }
+    Ok(())
 }
 
 fn option_value(args: &[String], name: &str) -> Option<String> {

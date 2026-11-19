@@ -50,9 +50,11 @@ mod publication;
 pub mod source;
 mod storage;
 pub mod trim;
+mod verification;
 
 pub use application::run;
 pub use source::prepare_level;
+pub use verification::{verify, verify_project, verify_selected};
 
 use storage::factor_prepared_props;
 
@@ -1155,144 +1157,6 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
     crate::engine::package::world::inspect(path)
 }
 
-/// Recomputes the build fingerprint of `source` and compares it with a package.
-///
-/// # Errors
-///
-/// Returns an error when the source cannot be read or validated, or the package
-/// cannot be opened.
-pub fn verify(source: &Path, package: &Path, asset_root: &Path) -> Result<VerifyReport, String> {
-    verify_selected(source, None, package, asset_root)
-}
-
-/// Verifies an explicitly selected project level, or a standalone source.
-///
-/// # Errors
-/// Returns source/project, asset or package validation errors.
-pub fn verify_selected(
-    source: &Path,
-    selected: Option<&str>,
-    package: &Path,
-    asset_root: &Path,
-) -> Result<VerifyReport, String> {
-    crate::engine::paths::configure_assets(asset_root)?;
-    let snapshot = project::read_source(source, selected)?;
-    let source_bytes = snapshot.identity;
-    let mut level = snapshot.level;
-    let manifest = crate::engine::package::world::inspect_level(package, &level.id)?;
-    let catalog_path = asset_root.join("catalog.json");
-    let mut warnings = Vec::new();
-    let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
-    crate::map_compiler::prepare_level(&mut level, catalog.assets(), None);
-    crate::engine::project::validate_level_assets(&level, catalog.assets())?;
-    let dependencies = collect_dependencies(&level, &catalog, asset_root, &mut warnings)?;
-    let variants: Vec<LightmapQuality> = manifest
-        .variants
-        .iter()
-        .filter_map(|variant| match variant.lightmap_quality.as_str() {
-            "off" => Some(LightmapQuality::Off),
-            "medium" => Some(LightmapQuality::Medium),
-            "full" => Some(LightmapQuality::Full),
-            _ => None,
-        })
-        .collect();
-    let build_inputs = BuildInputs {
-        revision: 2,
-        catalog_inputs: Some(catalog_inputs(&level, &catalog_path)?),
-        compiler_code_sha256: Some(env!("PLACES_COMPILER_CODE_SHA256").into()),
-        source_sha256: sha256_hex(&source_bytes),
-        catalog_sha256: catalog_hash,
-        tool_sha256: compiler_tool_sha256()?.to_string(),
-        capture_probes: true,
-        compact: false,
-    };
-    let current_fingerprint = fingerprint_with_build_inputs(
-        &fingerprint(&sha256_hex(&source_bytes), &variants, &dependencies),
-        &build_inputs,
-    );
-    let mut differences = warnings
-        .into_iter()
-        .filter(|warning| warning.starts_with("dependency "))
-        .collect::<Vec<_>>();
-    differences.extend(package_input_differences(
-        package,
-        &manifest,
-        &build_inputs,
-        &dependencies,
-        &variants,
-        &current_fingerprint,
-    ));
-    if manifest.package_id != snapshot.package_id
-        || manifest.package_version != snapshot.package_version
-    {
-        differences.push("package release metadata differs from authored source".into());
-    }
-    let integrity = verify_prepared_entries(package, &manifest);
-    let integrity_valid = integrity.is_ok() && warnings_absent(&differences);
-    if let Err(error) = integrity {
-        differences.push(format!("package integrity failed: {error}"));
-    }
-    let prepared = lighting_stage_fingerprint(
-        &level,
-        &variants,
-        &dependencies,
-        &build_inputs,
-        &catalog,
-        &catalog_path,
-        asset_root,
-    )?;
-    let prepared_reusable = integrity_valid
-        && manifest.lighting_fingerprint.as_deref() == Some(&prepared)
-        && read_build_inputs(package, &manifest)
-            .is_ok_and(|previous| preparation_inputs_match(&previous, &build_inputs));
-    let current = differences.is_empty();
-    let status = if !integrity_valid {
-        "invalid"
-    } else if current {
-        "current"
-    } else if prepared_reusable {
-        "refresh"
-    } else {
-        "bake"
-    }
-    .into();
-    Ok(VerifyReport {
-        id: level.id,
-        source: source.display().to_string(),
-        package: package.display().to_string(),
-        package_fingerprint: manifest.compiler_fingerprint,
-        current_fingerprint,
-        current,
-        differences,
-        integrity_valid,
-        bake_required: !prepared_reusable,
-        status,
-    })
-}
-
-fn warnings_absent(differences: &[String]) -> bool {
-    !differences
-        .iter()
-        .any(|reason| reason.starts_with("dependency '") && reason.contains("could not be read"))
-}
-
-/// Read-only complete-project validity for the editor/build planner. Never bakes.
-/// # Errors
-/// Returns unsafe project, source, or package errors.
-pub fn verify_project(
-    source: &Path,
-    package: &Path,
-    asset_root: &Path,
-) -> Result<Vec<VerifyReport>, String> {
-    let folder = crate::engine::project::ProjectFolder::open(source)?;
-    folder
-        .manifest()
-        .levels
-        .iter()
-        .map(|level| verify_selected(source, Some(&level.id), package, asset_root))
-        .collect()
-}
-
 /// The output path a source compiles to by default: the sibling `.placesmap`.
 #[must_use]
 pub fn package_path_for(source: &Path) -> PathBuf {
@@ -1559,7 +1423,11 @@ fn read_declared_entry<R: std::io::Read + std::io::Seek>(
     entry: &PackageEntry,
 ) -> Result<Vec<u8>, String> {
     let bytes = reader.read_entry(&entry.name, manifest.entry_read_limit(entry))?;
-    let actual = sha256_hex(&bytes);
+    check_declared_hash(entry, &sha256_hex(&bytes))?;
+    Ok(bytes)
+}
+
+fn check_declared_hash(entry: &PackageEntry, actual: &str) -> Result<(), String> {
     if actual != entry.sha256 {
         return Err(format!(
             "package entry '{}' has hash {actual}, manifest says {}",
@@ -1576,7 +1444,7 @@ fn read_declared_entry<R: std::io::Read + std::io::Seek>(
             ));
         }
     }
-    Ok(bytes)
+    Ok(())
 }
 
 fn validate_variant<R: std::io::Read + std::io::Seek>(
@@ -2985,12 +2853,19 @@ fn reuse_current(
             "package release metadata differs from authored source".into(),
         ]);
     }
-    let differences =
-        package_input_differences(out, &manifest, inputs, dependencies, variants, fingerprint);
+    let previous = read_build_inputs(out, &manifest);
+    let differences = package_input_differences(
+        previous.as_ref(),
+        &manifest,
+        inputs,
+        dependencies,
+        variants,
+        fingerprint,
+    );
     if !differences.is_empty() {
         return Err(differences);
     }
-    if inputs.compact && !read_build_inputs(out, &manifest).is_ok_and(|previous| previous.compact) {
+    if inputs.compact && !previous.is_ok_and(|provenance| provenance.compact) {
         return Err(vec!["compact delivery encoding requested".into()]);
     }
     // A fingerprint match is not enough: a package whose declared entry hashes
@@ -3051,7 +2926,7 @@ fn read_build_inputs_from<R: std::io::Read + std::io::Seek>(
 }
 
 fn package_input_differences(
-    out: &Path,
+    provenance: Result<&BuildInputs, &String>,
     manifest: &Manifest,
     inputs: &BuildInputs,
     dependencies: &[PackageDependency],
@@ -3059,7 +2934,7 @@ fn package_input_differences(
     fingerprint: &str,
 ) -> Vec<String> {
     let mut differences = Vec::new();
-    match read_build_inputs(out, manifest) {
+    match provenance {
         Ok(previous) => {
             for (changed, reason) in [
                 (
@@ -3088,7 +2963,7 @@ fn package_input_differences(
                 }
             }
         }
-        Err(error) => differences.push(error),
+        Err(error) => differences.push(error.clone()),
     }
     differences.extend(dependency_differences(&manifest.dependencies, dependencies));
     let current_variants: Vec<_> = variants.iter().map(|quality| quality.name()).collect();

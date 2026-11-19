@@ -70,8 +70,9 @@ class ReleaseLevelsTests(unittest.TestCase):
                 self.assertEqual(set(archive.namelist()), {'Maps/collection.placesmap', 'Maps/story.placesmap', 'LEVELS.json', 'README.txt'})
                 for package in maps.iterdir():
                     self.assertEqual(archive.read('Maps/' + package.name), package.read_bytes())
-            verified = [call.args[0][call.args[0].index('--level') + 1] for call in native.call_args_list if '--level' in call.args[0]]
-            self.assertEqual(verified, ['hub', 'home', 'chapter'])
+            verified = [call.args[0] for call in native.call_args_list if call.args[0][1] == 'verify-project']
+            self.assertEqual([Path(command[2]).name for command in verified], ['collection', 'story'])
+            self.assertTrue(all('--require-current' in command and '--level' not in command for command in verified))
 
     def test_different_project_release_is_refused_before_output(self):
         # One tiny mocked package guards against normalizing away an explicit

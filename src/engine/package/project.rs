@@ -233,16 +233,16 @@ pub(crate) fn select<R: Read + Seek>(
     id: Option<&str>,
 ) -> Result<(), String> {
     if let Some(index) = read_index(reader)? {
-        select_index(reader, &index, id)?;
+        let _member = select_index(reader, &index, id)?;
     }
     Ok(())
 }
 
-pub(crate) fn select_index<R: Read + Seek>(
+pub(crate) fn select_index<'a, R: Read + Seek>(
     reader: &mut PackageReader<R>,
-    index: &ProjectPackage,
+    index: &'a ProjectPackage,
     id: Option<&str>,
-) -> Result<(), String> {
+) -> Result<&'a ProjectMap, String> {
     let selected = id.unwrap_or(&index.project.entry_level);
     let level = index
         .levels
@@ -258,7 +258,7 @@ pub(crate) fn select_index<R: Read + Seek>(
             .map(|record| record.id.clone())
             .collect(),
     );
-    Ok(())
+    Ok(level)
 }
 
 /// Cheap discovery reads metadata only; it never loads other levels' semantics or geometry.

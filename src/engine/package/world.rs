@@ -165,7 +165,7 @@ pub(crate) fn discover(
         PackageReader::new(super::archive::open_file(path)?).map_err(|error| error.to_string())?;
     let project = super::project::read_index(&mut reader)?;
     if let Some(index) = &project {
-        super::project::select_index(&mut reader, index, None)?;
+        let _member = super::project::select_index(&mut reader, index, None)?;
     }
     let opened = open_reader(reader)?;
     let identity = metadata_identity(&opened.manifest, project.as_ref())?;
@@ -179,7 +179,7 @@ pub(crate) fn discovery_identity(path: &Path) -> Result<String, String> {
         PackageReader::new(super::archive::open_file(path)?).map_err(|error| error.to_string())?;
     let project = super::project::read_index(&mut reader)?;
     if let Some(index) = &project {
-        super::project::select_index(&mut reader, index, None)?;
+        let _member = super::project::select_index(&mut reader, index, None)?;
     }
     metadata_identity(&read_manifest(&mut reader)?, project.as_ref())
 }
@@ -524,7 +524,7 @@ pub fn inspect_level(path: &Path, id: &str) -> Result<Manifest, String> {
     Ok(manifest)
 }
 
-fn read_manifest<R: std::io::Read + std::io::Seek>(
+pub(crate) fn read_manifest<R: std::io::Read + std::io::Seek>(
     reader: &mut PackageReader<R>,
 ) -> Result<Manifest, String> {
     super::project::select(reader, None)?;

@@ -19,27 +19,7 @@ pub(super) struct SourceSnapshot {
 pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<SourceSnapshot, String> {
     if is_project(input) {
         let project = ProjectFolder::open(input)?;
-        let (_, bytes, mut level) = project.read_level(selected)?;
-        project.attach_scripts(&mut level)?;
-        crate::engine::scripting::check_level(&level)?;
-        let mut identity = serde_json::to_vec(&(
-            "project-member-v2",
-            &project.manifest().id,
-            project.manifest().package_version,
-        ))
-        .map_err(|error| error.to_string())?;
-        // JSON cannot contain a literal NUL, making the boundary unambiguous.
-        identity.push(0);
-        identity.extend(bytes);
-        identity.push(0);
-        identity
-            .extend(serde_json::to_vec(&level.script_sources).map_err(|error| error.to_string())?);
-        Ok(SourceSnapshot {
-            package_id: project.manifest().id.clone(),
-            package_version: project.manifest().package_version,
-            level,
-            identity,
-        })
+        read_member(&project, selected)
     } else {
         if selected.is_some() {
             return Err("--level requires a project folder or places.project.json".into());
@@ -60,6 +40,32 @@ pub(super) fn read_source(input: &Path, selected: Option<&str>) -> Result<Source
             identity: bytes,
         })
     }
+}
+
+pub(super) fn read_member(
+    project: &ProjectFolder,
+    selected: Option<&str>,
+) -> Result<SourceSnapshot, String> {
+    let (_, bytes, mut level) = project.read_level(selected)?;
+    project.attach_scripts(&mut level)?;
+    crate::engine::scripting::check_level(&level)?;
+    let mut identity = serde_json::to_vec(&(
+        "project-member-v2",
+        &project.manifest().id,
+        project.manifest().package_version,
+    ))
+    .map_err(|error| error.to_string())?;
+    // JSON cannot contain a literal NUL, making the boundary unambiguous.
+    identity.push(0);
+    identity.extend(bytes);
+    identity.push(0);
+    identity.extend(serde_json::to_vec(&level.script_sources).map_err(|error| error.to_string())?);
+    Ok(SourceSnapshot {
+        package_id: project.manifest().id.clone(),
+        package_version: project.manifest().package_version,
+        level,
+        identity,
+    })
 }
 
 pub(super) fn is_project(input: &Path) -> bool {

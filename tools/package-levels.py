@@ -7,21 +7,24 @@ their platform distributions. Every map retains its editable project recovery.
 from __future__ import annotations
 
 import argparse
-import hashlib
 import json
 import os
 from pathlib import Path
 import subprocess
+import sys
 import tempfile
 import zipfile
 
 ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(ROOT / 'tools/levels'))
+from package_zip import hash_stream
+
 NATIVE_FLAGS = (subprocess.CREATE_NO_WINDOW | subprocess.BELOW_NORMAL_PRIORITY_CLASS) if os.name == 'nt' else 0
 
 
 def digest(path: Path) -> str:
     with path.open('rb') as stream:
-        return hashlib.file_digest(stream, 'sha256').hexdigest()
+        return hash_stream(stream)[1]
 
 
 def collect(source: Path, compiler: Path, assets: Path) -> dict:
@@ -74,9 +77,9 @@ def collect(source: Path, compiler: Path, assets: Path) -> dict:
             if identity in members:
                 raise ValueError(f'Duplicate release level ID: {identity}')
             members.add(identity)
-            subprocess.run([str(compiler), 'verify', str(project), '--level', identity, '--package', str(package),
-                            '--asset-root', str(assets), '--require-current', '--json'],
-                           check=True, text=True, capture_output=True, creationflags=NATIVE_FLAGS)
+        subprocess.run([str(compiler), 'verify-project', str(project), '--package', str(package),
+                        '--asset-root', str(assets), '--require-current', '--json'],
+                       check=True, text=True, capture_output=True, creationflags=NATIVE_FLAGS)
         records[name] = dict(bytes=package.stat().st_size, sha256=digest(package),
                              project=maintained['id'], members=variants)
     return dict(version=inventory['version'], scope='One cross-platform levels-only ZIP; no apps or shared runtime assets.',
