@@ -1,6 +1,6 @@
 //! Wall edits preserve world-space attachments and commit as one transaction.
 use super::{Document, ObjectId, Transform, objects, persistence};
-use crate::engine::level::{LevelDef, LevelSurfaces, WallAxis, WallDef};
+use crate::engine::level::{LevelDef, LevelSurfaces, WallAxis, WallDef, WallOpeningDef};
 use serde_json::{Value, json};
 
 pub fn endpoints(wall: &WallDef) -> [[f32; 3]; 2] {
@@ -49,6 +49,12 @@ fn conflict(level: &LevelDef, wall: &WallDef, skip: Option<usize>) -> Result<(),
     }
     Ok(())
 }
+#[derive(Clone, Copy)]
+pub(in crate::editor) enum DoorwayTarget {
+    WallFace(f32),
+    Aperture { index: usize, offset: f32 },
+}
+
 impl Document {
     pub(crate) fn wall_segment_candidate(
         &self,
@@ -124,10 +130,10 @@ impl Document {
         self.validated_preview(edit_raw(self.raw(), self.level(), index, pose)?)
     }
 
-    pub(crate) fn doorway_candidate(
+    pub(in crate::editor) fn doorway_candidate(
         &self,
         index: usize,
-        at: f32,
+        target: DoorwayTarget,
         door: bool,
     ) -> Result<(Value, ObjectId), String> {
         let wall = self
@@ -136,20 +142,34 @@ impl Document {
             .get(index)
             .ok_or("Click a wall to place a doorway")?;
         let mut raw = self.raw().clone();
-        let height = wall.height.unwrap_or_else(|| {
-            LevelSurfaces::new(self.level()).clear_ceiling_height_along(wall, at)
-        });
+        let at = match target {
+            DoorwayTarget::WallFace(offset) | DoorwayTarget::Aperture { offset, index: _ } => {
+                offset
+            }
+        };
+        let contains_offset =
+            |opening: &WallOpeningDef| (opening.offset..=opening.end()).contains(&at);
         if wall
             .openings
             .iter()
-            .any(|o| at >= o.offset && at <= o.end() && o.glass.is_some())
+            .any(|opening| contains_offset(opening) && opening.glass.is_some())
         {
             return Err("This opening contains glazing. Remove or reconfigure its pane before fitting a door.".into());
         }
-        let existing = wall
-            .openings
-            .iter()
-            .find(|o| at >= o.offset && at <= o.end() && o.reaches_floor() && o.is_door());
+        let can_fit = |opening: &WallOpeningDef| opening.reaches_floor() && opening.is_door();
+        let existing = match target {
+            DoorwayTarget::WallFace(_) => wall
+                .openings
+                .iter()
+                .find(|opening| contains_offset(opening) && can_fit(opening)),
+            DoorwayTarget::Aperture {
+                index: aperture_index,
+                offset: _,
+            } => wall
+                .openings
+                .get(aperture_index)
+                .filter(|opening| contains_offset(opening) && can_fit(opening)),
+        };
         if existing.is_some() && !door {
             return Err(
                 "This wall already has a doorway here. Choose Add Door to fit a functional leaf."
@@ -159,6 +179,18 @@ impl Document {
         let opening = if let Some(o) = existing {
             (o.offset, o.width, o.height)
         } else {
+            if matches!(
+                target,
+                DoorwayTarget::Aperture {
+                    index: _,
+                    offset: _
+                }
+            ) {
+                return Err("Choose a floor-level door or passage, or a clear wall face".into());
+            }
+            let height = wall.height.unwrap_or_else(|| {
+                LevelSurfaces::new(self.level()).clear_ceiling_height_along(wall, at)
+            });
             if wall.length() < 1.2 || height < 2.25 {
                 return Err("A doorway needs a wall at least 1.20m long and 2.25m high".into());
             }

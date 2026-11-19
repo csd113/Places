@@ -6,7 +6,7 @@ mod picking;
 pub(super) mod preview;
 mod test_runtime;
 
-use std::time::Instant;
+use std::{sync::Arc, time::Instant};
 
 use glam::Vec3;
 use sdl3::event::Event;
@@ -16,6 +16,7 @@ use sdl3::video::Window;
 
 use camera::Camera;
 use picking::PickObject;
+pub(super) use picking::WallPicking;
 use preview::PreviewWorker;
 
 use super::document::ObjectId;
@@ -68,10 +69,10 @@ pub(super) struct Viewport {
     pipelines: PipelineReadiness,
     worker: PreviewWorker,
     camera: Camera,
-    objects: Vec<PickObject>,
+    objects: Arc<[PickObject]>,
     play_mesh: Option<std::sync::Arc<crate::engine::render::LevelMesh>>,
     play_floor: crate::engine::level::WalkableFloor,
-    play_doors: Vec<crate::engine::collision::DoorCollider>,
+    play_doors: Arc<[crate::engine::collision::DoorCollider]>,
     pending_preview: Option<PreviewCommit>,
     upload_samples: Vec<f64>,
     volume_guides: Vec<overlay::VolumeGuide>,
@@ -126,10 +127,10 @@ impl Viewport {
             pipelines: PipelineReadiness::Preparing,
             worker: PreviewWorker::new()?,
             camera: Camera::default(),
-            objects: Vec::new(),
+            objects: Arc::default(),
             play_mesh: None,
             play_floor: crate::engine::level::WalkableFloor::default(),
-            play_doors: Vec::new(),
+            play_doors: Arc::default(),
             pending_preview: None,
             upload_samples: Vec::new(),
             volume_guides: Vec::new(),
@@ -300,7 +301,7 @@ impl Viewport {
         self.camera.target.to_array()
     }
 
-    pub const fn object_count(&self) -> usize {
+    pub fn object_count(&self) -> usize {
         self.objects.len()
     }
 
@@ -410,6 +411,17 @@ impl Viewport {
         )
         .ok_or_else(|| {
             "Play here: click a visible floor; walls, doors and props block the pick".into()
+        })
+    }
+
+    pub fn wall_picking(&self) -> Option<WallPicking> {
+        if self.is_preparing() {
+            return None;
+        }
+        Some(WallPicking {
+            mesh: Arc::clone(self.play_mesh.as_ref()?),
+            objects: Arc::clone(&self.objects),
+            doors: Arc::clone(&self.play_doors),
         })
     }
 
@@ -692,10 +704,10 @@ impl Viewport {
                 if let Some(preview) = self.pending_preview.take() {
                     self.play_mesh = Some(preview.mesh);
                     self.play_floor = preview.floor;
-                    self.play_doors = preview.doors;
+                    self.play_doors = preview.doors.into();
                     self.local_preview = preview.local_preview;
                     if let Some(objects) = preview.objects {
-                        self.objects = objects;
+                        self.objects = objects.into();
                     }
                 }
                 if self.frame_next {

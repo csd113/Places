@@ -2,7 +2,7 @@
 //! preserve attachments on both endpoints, and survive save/reopen. One six-metre
 //! temporary project; no assets, renderer or bake. Focus identity coverage guards
 //! selection of the wrong source record after hiding a layer or isolating a room.
-use super::super::document::{Document, ObjectId};
+use super::super::document::{Document, ObjectId, wall_edit::DoorwayTarget};
 use serde_json::json;
 
 fn apply(doc: &mut Document, raw: serde_json::Value) -> Result<(), String> {
@@ -29,7 +29,7 @@ fn workflow(doc: &mut Document, root: &std::path::Path) -> Result<(), String> {
         "placement preview cannot enter source or history"
     );
     apply(doc, wall_source)?;
-    let (door_source, _) = doc.doorway_candidate(0, 2.0, true)?;
+    let (door_source, _) = doc.doorway_candidate(0, DoorwayTarget::WallFace(2.0), true)?;
     apply(doc, door_source)?;
     let mut trim_source = doc.raw().clone();
     let trim_wall = trim_source

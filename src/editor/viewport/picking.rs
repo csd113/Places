@@ -14,6 +14,9 @@ use terrain::terrain_objects;
 #[path = "play_picking.rs"]
 mod play_picking;
 pub(super) use play_picking::play_floor_hit;
+#[path = "wall_picking.rs"]
+mod wall_picking;
+pub(in crate::editor) use wall_picking::WallPicking;
 
 #[cfg(test)]
 #[path = "../tests/terrain_picking.rs"]

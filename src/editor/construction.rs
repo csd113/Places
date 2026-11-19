@@ -1,11 +1,11 @@
 //! Direct viewport tools: previews are private; each click commits one edit.
 use super::{
     App,
-    document::{ObjectId, ObjectKind, Transform},
+    document::{ObjectId, ObjectKind, Transform, wall_edit::DoorwayTarget},
     ui::{self, Action, Hit},
 };
 use crate::engine::{
-    level::{LevelSurfaces, WallAxis},
+    level::LevelSurfaces,
     render::{DrawableSize, Vertex},
 };
 use glam::Vec3;
@@ -45,11 +45,42 @@ pub(super) struct Placement {
     start: Option<[f32; 3]>,
     candidate: Option<(serde_json::Value, ObjectId)>,
     pub chain: bool,
+    wall_picking: Option<super::viewport::WallPicking>,
     end: Option<[f32; 3]>,
 }
 impl Placement {
     pub(super) fn checkpoint(&self) -> serde_json::Value {
         serde_json::json!({"tool":format!("{:?}",self.tool),"start":self.start,"end":self.end,"candidate":self.candidate.is_some(),"chain":self.chain})
+    }
+
+    fn wall_candidate(
+        &mut self,
+        doc: &super::Document,
+        viewport: &super::viewport::Viewport,
+        point: [f32; 2],
+        step: Option<f32>,
+    ) -> Result<(serde_json::Value, ObjectId), String> {
+        // Keep hover and release on the authoritative scene even after the
+        // candidate has added a cutout or installed its own door leaf.
+        if self.wall_picking.is_none() {
+            self.wall_picking = viewport.wall_picking();
+        }
+        let picking = self
+            .wall_picking
+            .as_ref()
+            .ok_or("Wait for the current scene preview")?;
+        let ray = viewport.ray(point).ok_or("Point at a visible wall")?;
+        let (index, target) = picking.target(doc.level(), ray)?;
+        let snapped = match target {
+            DoorwayTarget::WallFace(offset) => DoorwayTarget::WallFace(
+                step.map_or(offset, |increment| (offset / increment).round() * increment),
+            ),
+            DoorwayTarget::Aperture {
+                index: _,
+                offset: _,
+            } => target,
+        };
+        doc.doorway_candidate(index, snapped, self.tool == Tool::Door)
     }
 }
 pub(super) struct WallDrag {
@@ -94,6 +125,7 @@ impl App {
             start: None,
             candidate: None,
             chain: false,
+            wall_picking: None,
             end: None,
         });
         self.status = tool.hint().into();
@@ -114,7 +146,7 @@ impl App {
         if self
             .placement
             .as_ref()
-            .is_some_and(|p| p.tool == Tool::WallSign)
+            .is_some_and(|p| matches!(p.tool, Tool::Door | Tool::Doorway | Tool::WallSign))
         {
             return Some(self.viewport.target());
         }
@@ -175,9 +207,10 @@ impl App {
         let Some(at) = self.placement_position(point) else {
             return;
         };
-        let Some((tool, start_point)) = self.placement.as_ref().map(|p| (p.tool, p.start)) else {
+        let Some(placement) = self.placement.as_mut() else {
             return;
         };
+        let (tool, start_point) = (placement.tool, placement.start);
         let Some(doc) = &self.document else {
             return;
         };
@@ -202,9 +235,7 @@ impl App {
                         end[0] = start[0];
                     }
                 }
-                if let Some(p) = &mut self.placement {
-                    p.end = Some(end);
-                }
+                placement.end = Some(end);
                 if tool == Tool::Tunnel {
                     tunnel_candidate(doc, start, end)
                 } else {
@@ -222,20 +253,15 @@ impl App {
                 } else {
                     end[0] = start[0];
                 }
-                if let Some(p) = &mut self.placement {
-                    p.end = Some(end);
-                }
+                placement.end = Some(end);
                 doc.wall_segment_candidate(start, end)
             }
-            Tool::Doorway | Tool::Door => {
-                let wall = self.wall_at(point, at);
-                wall.ok_or_else(|| "Point at a wall or its opening".to_string())
-                    .and_then(|i| {
-                        let w = doc.level().walls.get(i).ok_or("Missing wall")?;
-                        let offset = self.door_offset(point, w)?;
-                        doc.doorway_candidate(i, offset, tool == Tool::Door)
-                    })
-            }
+            Tool::Doorway | Tool::Door => placement.wall_candidate(
+                doc,
+                &self.viewport,
+                point,
+                self.view.snap.then_some(self.step),
+            ),
             Tool::Light => light_candidate(doc, at),
             Tool::WallSign => self.sign_placement(point),
         };
@@ -273,73 +299,17 @@ impl App {
             Err(e) => self.placement_error(&e),
         }
     }
-    fn door_offset(
-        &self,
-        point: [f32; 2],
-        w: &crate::engine::level::WallDef,
-    ) -> Result<f32, String> {
-        let (origin, direction) = self.viewport.ray(point).ok_or("Point at the wall face")?;
-        let (distance, along) = if w.axis() == WallAxis::X {
-            (
-                (f32::mul_add(w.depth, 0.5, w.z) - origin.z) / direction.z,
-                0_usize,
-            )
-        } else {
-            (
-                (f32::mul_add(w.width, 0.5, w.x) - origin.x) / direction.x,
-                2_usize,
-            )
-        };
-        if !distance.is_finite() || !(0.0..=500.0).contains(&distance) {
-            return Err("Orbit to face the wall before placing a door".into());
-        }
-        let offset = if along == 0 {
-            direction.x.mul_add(distance, origin.x) - w.x
-        } else {
-            direction.z.mul_add(distance, origin.z) - w.z
-        };
-        Ok(if self.view.snap {
-            (offset / self.step).round() * self.step
-        } else {
-            offset
-        })
-    }
     fn placement_error(&mut self, error: &str) {
-        if let Some(p) = &mut self.placement {
-            p.candidate = None;
-        }
         // Remove the last valid ghost when the next point is invalid.
-        if let Some(doc) = &self.document {
+        if self
+            .placement
+            .as_mut()
+            .is_some_and(|p| p.candidate.take().is_some())
+            && let Some(doc) = &self.document
+        {
             self.viewport.rebuild(doc.level());
         }
         self.status = format!("{error}. Esc cancels.");
-    }
-    fn wall_at(&self, point: [f32; 2], at: [f32; 3]) -> Option<usize> {
-        if let Some(ObjectId::Wall(i)) = self.viewport.pick(point) {
-            return Some(i);
-        }
-        self.document
-            .as_ref()?
-            .level()
-            .walls
-            .iter()
-            .enumerate()
-            .filter(|(i, _)| self.focus.visible(ObjectId::Wall(*i)))
-            .filter_map(|(i, w)| {
-                let cross = if w.axis() == WallAxis::X {
-                    (at[2] - f32::mul_add(w.depth, 0.5, w.z)).abs()
-                } else {
-                    (at[0] - f32::mul_add(w.width, 0.5, w.x)).abs()
-                };
-                let offset = if w.axis() == WallAxis::X {
-                    at[0] - w.x
-                } else {
-                    at[2] - w.z
-                };
-                (cross < 0.4 && offset >= 0.0 && offset <= w.length()).then_some((i, cross))
-            })
-            .min_by(|a, b| a.1.total_cmp(&b.1))
-            .map(|(i, _)| i)
     }
     #[expect(
         clippy::wildcard_enum_match_arm,
