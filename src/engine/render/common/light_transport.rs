@@ -309,7 +309,7 @@ impl EntityDirectLight {
         let emitter = TransportEmitter::from_baked(light, None);
         let [x, y, z] = emitter.position;
         let [red, green, blue] = emitter.color;
-        let (half_x, half_z) = light.source.half_extents();
+        let (half_x, half_z) = light.half_extents();
         let offsets = emitter.shape.samples(2);
         let count = u16::try_from(offsets.len()).unwrap_or(1).max(1);
         let mut taps = [[0.0; 4]; 4];

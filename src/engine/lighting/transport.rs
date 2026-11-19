@@ -217,7 +217,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 9;
+pub const SOLVER_REVISION: u64 = 10;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -612,32 +612,22 @@ impl TransportEmitter {
         switchable: Option<usize>,
     ) -> Self {
         let source = light.source;
-        let (half_w, half_d) = source.half_extents();
         let shape = match source.shape {
             LightShape::Point => EmitterShape::Point,
             LightShape::Rect {
                 half_width: _,
                 half_depth: _,
-            } => EmitterShape::Rect {
-                u: [half_w, 0.0, 0.0],
-                v: [0.0, 0.0, half_d],
-            },
-            LightShape::Line { length: _ } => {
-                // The tube's local X axis after the same yaw rule the fixture
-                // geometry uses: a turned fixture swaps its extents, which for a
-                // tube means the axis runs along Z.
-                let turned = crate::engine::lighting::fixture_is_turned(source.rotation_degrees);
-                let direction = if turned {
-                    [0.0, 0.0, 1.0]
-                } else {
-                    [1.0, 0.0, 0.0]
-                };
-                let half_length = if turned { half_d } else { half_w };
-                EmitterShape::Line {
-                    direction,
-                    half_length,
+            } => {
+                let (u, v) = light.footprint().half_axes();
+                EmitterShape::Rect {
+                    u: [u.x, 0.0, u.y],
+                    v: [v.x, 0.0, v.y],
                 }
             }
+            LightShape::Line { length } => EmitterShape::Line {
+                direction: light.emitter_yaw.line_direction(),
+                half_length: length * 0.5,
+            },
         };
         Self {
             position: source.position,

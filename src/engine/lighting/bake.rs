@@ -23,7 +23,10 @@
 
 use super::color::LightColor;
 use super::light::{LightFalloff, LightShape, LightSource};
-use super::math::{ceiling_height_factor, effective_power, room_baseline, smooth_falloff};
+use super::math::{
+    EmitterFootprint, EmitterYaw, ceiling_height_factor, effective_power, room_baseline,
+    smooth_falloff,
+};
 use super::tuning::{
     AMBIENT_LEVEL, CLEAR_SAMPLE_MAX_STEPS, CLEAR_SAMPLE_STEP_M, FILL_MAX, FILL_RANGE_MULTIPLIER,
     FILL_STRENGTH, FIXTURE_DROP_M, LOCAL_LIGHT_MAX, LOCAL_LIGHT_STRENGTH, MAX_BRIGHTNESS,
@@ -108,6 +111,7 @@ pub struct BakedLight {
     /// exempts it from the occlusion boxes derived from its own prop's model;
     /// the light still sees every other solid, including other props.
     pub owner_prop: Option<usize>,
+    pub(super) emitter_yaw: EmitterYaw,
 }
 
 impl BakedLight {
@@ -143,14 +147,24 @@ impl BakedLight {
 
     /// Half-extent of the emitting surface along world X, after rotation.
     #[must_use]
-    pub const fn half_w(&self) -> f32 {
-        self.source.half_extents().0
+    pub fn half_w(&self) -> f32 {
+        self.half_extents().0
     }
 
     /// Half-extent of the emitting surface along world Z, after rotation.
     #[must_use]
-    pub const fn half_d(&self) -> f32 {
-        self.source.half_extents().1
+    pub fn half_d(&self) -> f32 {
+        self.half_extents().1
+    }
+
+    /// Half-extents of the world X/Z bounding box of the emitter.
+    #[must_use]
+    pub fn half_extents(&self) -> (f32, f32) {
+        self.footprint().world_half_extents()
+    }
+
+    pub(super) const fn footprint(&self) -> EmitterFootprint {
+        self.emitter_yaw.footprint(self.source.shape.half_extents())
     }
 
     /// Distance at which this light's contribution reaches zero, in metres.
@@ -632,7 +646,7 @@ impl LightIndex {
             let Ok(zone_index) = u32::try_from(index) else {
                 continue;
             };
-            let (half_w, half_d) = light.source.half_extents();
+            let (half_w, half_d) = light.half_extents();
             let reach = fill_range_for(light.source.range);
             // Expand for the rounding of subtraction in pool_term_for. This
             // only admits extra candidates; the original test still decides.
@@ -712,6 +726,8 @@ pub struct LevelLighting {
     /// [`BakeConfig`]. Stored as the plain byte so the empty [`Default`] bake
     /// stays derivable; `0` and `1` are hard shadows.
     sampling_taps: u8,
+    /// Retain the original source geometry when reading a pre-yaw bake.
+    legacy_attached_yaw: bool,
 }
 
 /// Everything the bake needs beyond the level definition.
@@ -1076,6 +1092,7 @@ fn baked_lights(
             room,
             directional: matches!(light.mount, LightMount::Ceiling),
             owner_prop: None,
+            emitter_yaw: EmitterYaw::fixture(light.rotation_degrees),
         };
         if light.baked_source_count() == 2 {
             // The luminous strips are separated by an opaque spine. Two thin
@@ -1146,6 +1163,7 @@ fn baked_attached_lights(
                 .to_array();
             let rotation = prop.rotation_degrees + light.rotation_degrees;
             let mut source = light.to_source(position, rotation, prop.scale).sanitized();
+            let emitter_yaw = EmitterYaw::attached(source.rotation_degrees);
             if let Some(control) = prop.light_control() {
                 source.enabled &= control.enabled;
             }
@@ -1162,6 +1180,7 @@ fn baked_attached_lights(
                     room: None,
                     directional: false,
                     owner_prop: Some(prop_index),
+                    emitter_yaw,
                 });
                 continue;
             };
@@ -1188,6 +1207,7 @@ fn baked_attached_lights(
                 room: Some(room),
                 directional: false,
                 owner_prop: Some(prop_index),
+                emitter_yaw,
             });
         }
     }
@@ -1874,7 +1894,7 @@ impl LevelLighting {
         let mut sites: Vec<QuerySite> =
             Vec::with_capacity(lights.len().saturating_add(blend_sites.len()));
         for light in &lights {
-            let (half_w, half_d) = light.source.half_extents();
+            let (half_w, half_d) = light.half_extents();
             // The admission test measures from the emitter rectangle, so the
             // site has to cover the rectangle's far corner too; `for_emitter`
             // adds `hypot(half_w, half_d)` and uses the pool's full reach
@@ -1912,6 +1932,7 @@ impl LevelLighting {
             fixture_lights,
             default_ceiling_y,
             sampling_taps: config.sampling.taps_per_axis,
+            legacy_attached_yaw: false,
         }
     }
 
@@ -2293,7 +2314,7 @@ impl LevelLighting {
         let Ok(site) = u32::try_from(light_index) else {
             return false;
         };
-        let (half_w, half_d) = light.source.half_extents();
+        let (half_w, half_d) = light.half_extents();
         let [x, y, z] = light.source.position;
         let source = crate::engine::spatial::Aabb {
             min: [x - half_w, y, z - half_d],
@@ -3055,7 +3076,7 @@ impl LevelLighting {
         if !include_inactive && !light.is_active() {
             return None;
         }
-        let (half_w, half_d) = light.source.half_extents();
+        let footprint = light.footprint();
         let range = light.source.range;
         let fill_range = fill_range_for(range);
         let reach_squared = fill_range * fill_range;
@@ -3069,9 +3090,8 @@ impl LevelLighting {
         }
         // Horizontal distance to the rotated emitter footprint. Both terms
         // are inside this reach, so the cheap rejection is lossless.
-        let dx = ((x - light.x()).abs() - half_w).max(0.0);
-        let dz = ((z - light.z()).abs() - half_d).max(0.0);
-        let horizontal_squared = dz.mul_add(dz, dx * dx);
+        let horizontal_squared =
+            footprint.distance_squared(glam::Vec2::new(x - light.x(), z - light.z()));
         if !horizontal_squared.is_finite() || horizontal_squared >= reach_squared {
             return None;
         }
@@ -3123,8 +3143,7 @@ impl LevelLighting {
         let visible = self.visibility.visible_fraction(
             index,
             [light.x(), light.y(), light.z()],
-            half_w,
-            half_d,
+            footprint,
             [x, y, z],
             ShadowSampling {
                 taps_per_axis: self.sampling_taps,
@@ -3204,7 +3223,7 @@ impl LevelLighting {
     /// a light on another storey is admitted here and then refused by the
     /// floor/ceiling slabs during the actual visibility test.
     fn light_reaches_room(light: &BakedLight, room: &RoomLighting) -> bool {
-        let (half_w, half_d) = light.source.half_extents();
+        let (half_w, half_d) = light.half_extents();
         let panel_span_x = (light.x() - half_w, light.x() + half_w);
         let panel_span_z = (light.z() - half_d, light.z() + half_d);
         let room_span_x = (room.x0 - ROOM_EDGE_EPS_M, room.x1 + ROOM_EDGE_EPS_M);
@@ -3296,7 +3315,11 @@ impl LevelLighting {
 
     fn write_record(&self, writer: &mut Writer, preview_identity: bool) -> Result<(), String> {
         writer.bytes(&COMPILED_MAGIC);
-        writer.u16(COMPILED_VERSION);
+        writer.u16(if self.legacy_attached_yaw {
+            LEGACY_COMPILED_VERSION
+        } else {
+            COMPILED_VERSION
+        });
         write_rooms(writer, &self.rooms)?;
         write_lights(writer, &self.lights)?;
         writer.u8(u8::try_from(self.global_lights.len())
@@ -3326,13 +3349,14 @@ impl LevelLighting {
             return Err("lighting record has the wrong magic".to_string());
         }
         let version = reader.u16()?;
-        if version != COMPILED_VERSION {
+        if !matches!(version, LEGACY_COMPILED_VERSION | COMPILED_VERSION) {
             return Err(format!(
-                "lighting record version {version} is not supported (this build reads {COMPILED_VERSION})"
+                "lighting record version {version} is not supported (this build reads {LEGACY_COMPILED_VERSION}–{COMPILED_VERSION})"
             ));
         }
+        let legacy_attached_yaw = version == LEGACY_COMPILED_VERSION;
         let rooms = read_rooms(reader)?;
-        let lights = read_lights(reader, rooms.len())?;
+        let lights = read_lights(reader, rooms.len(), legacy_attached_yaw)?;
         let count = usize::from(reader.u8()?);
         if count > crate::engine::level::MAX_GLOBAL_ILLUMINATORS {
             return Err("too many compiled directional illuminators".to_string());
@@ -3380,6 +3404,7 @@ impl LevelLighting {
             fixture_lights,
             default_ceiling_y,
             sampling_taps,
+            legacy_attached_yaw,
         })
     }
 }
@@ -3387,8 +3412,10 @@ impl LevelLighting {
 /// Magic identifying a compiled lighting record.
 const COMPILED_MAGIC: [u8; 4] = *b"PLT1";
 
-/// Version of the compiled lighting record layout.
-pub(super) const COMPILED_VERSION: u16 = 1;
+/// Version 2 gives attached emitters their continuous yaw. Version 1 bakes
+/// retain their original yaw interpretation for runtime sampling.
+pub(super) const COMPILED_VERSION: u16 = 2;
+const LEGACY_COMPILED_VERSION: u16 = 1;
 
 /// Largest room count a compiled record may declare.
 const MAX_COMPILED_ROOMS: u64 = 100_000;
@@ -3573,7 +3600,11 @@ fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String
     Ok(())
 }
 
-fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLight>, String> {
+fn read_lights(
+    reader: &mut Reader<'_>,
+    room_count: usize,
+    legacy_attached_yaw: bool,
+) -> Result<Vec<BakedLight>, String> {
     let count = reader.count(MAX_COMPILED_LIGHTS, "light count")?;
     let mut lights = Vec::with_capacity(count.min(16384));
     for _ in 0..count {
@@ -3613,6 +3644,11 @@ fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLi
         }
         let directional = reader.bool()?;
         let owner_prop = read_optional_u32(reader)?;
+        let emitter_yaw = if legacy_attached_yaw || owner_prop.is_none() {
+            EmitterYaw::fixture(rotation_degrees)
+        } else {
+            EmitterYaw::attached(rotation_degrees)
+        };
         lights.push(BakedLight {
             source: LightSource {
                 shape,
@@ -3629,6 +3665,7 @@ fn read_lights(reader: &mut Reader<'_>, room_count: usize) -> Result<Vec<BakedLi
             room: room.map(|room_id| usize::try_from(room_id).unwrap_or(usize::MAX)),
             directional,
             owner_prop: owner_prop.map(|owner| usize::try_from(owner).unwrap_or(usize::MAX)),
+            emitter_yaw,
         });
     }
     Ok(lights)

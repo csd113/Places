@@ -115,12 +115,10 @@ impl LightShape {
         }
     }
 
-    /// Half-extents in world X/Z after the light's yaw is applied.
+    /// Half-extents in world X/Z under the stock fixture mounting rule.
     ///
-    /// The bake's historical rule: rotations within a whole degree of an odd
-    /// multiple of 90 degrees swap the two axes, and every other angle keeps
-    /// them. Fractional rotations therefore behave identically in the bake and
-    /// in the drawn fixture, which is what the audit tests pin.
+    /// Stock fixtures keep their default axes when the authored angle rounds
+    /// to a multiple of 180 degrees and swap them otherwise.
     #[must_use]
     pub const fn half_extents_rotated(self, rotation_degrees: f32) -> (f32, f32) {
         let (half_width, half_depth) = self.half_extents();
@@ -394,11 +392,5 @@ impl LightSource {
     #[must_use]
     pub const fn z(&self) -> f32 {
         self.position[2]
-    }
-
-    /// Half-extents of the emitting surface in world X/Z, after rotation.
-    #[must_use]
-    pub const fn half_extents(&self) -> (f32, f32) {
-        self.shape.half_extents_rotated(self.rotation_degrees)
     }
 }

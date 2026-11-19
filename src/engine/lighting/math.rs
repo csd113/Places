@@ -73,6 +73,133 @@ pub const fn fixture_is_turned(rotation_degrees: f32) -> bool {
     whole_degrees.rem_euclid(180) != 0
 }
 
+/// Horizontal axes shared by the Static footprint and the Full emitter.
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum EmitterYaw {
+    AlongX,
+    AlongZ,
+    Angled(glam::Mat2),
+}
+
+impl EmitterYaw {
+    pub(super) const fn fixture(degrees: f32) -> Self {
+        if fixture_is_turned(degrees) {
+            Self::AlongZ
+        } else {
+            Self::AlongX
+        }
+    }
+
+    pub(super) fn attached(degrees: f32) -> Self {
+        // Both finite shapes are symmetric through 180 degrees. Keep the
+        // original world-axis tap order at exact right angles.
+        match degrees % 180.0 {
+            0.0 => Self::AlongX,
+            90.0 | -90.0 => Self::AlongZ,
+            // Positive yaw about world Y rotates local +X towards world -Z.
+            yaw => Self::Angled(glam::Mat2::from_angle(-yaw.to_radians())),
+        }
+    }
+
+    pub(super) fn line_direction(self) -> [f32; 3] {
+        match self {
+            Self::AlongX => [1.0, 0.0, 0.0],
+            Self::AlongZ => [0.0, 0.0, 1.0],
+            Self::Angled(basis) => [basis.x_axis.x, 0.0, basis.x_axis.y],
+        }
+    }
+
+    pub(super) const fn footprint(self, (half_width, half_depth): (f32, f32)) -> EmitterFootprint {
+        let (half_extents, basis) = match self {
+            Self::AlongX => (glam::Vec2::new(half_width, half_depth), None),
+            Self::AlongZ => (glam::Vec2::new(half_depth, half_width), None),
+            Self::Angled(basis) => (glam::Vec2::new(half_width, half_depth), Some(basis)),
+        };
+        EmitterFootprint {
+            half_extents,
+            basis,
+        }
+    }
+}
+
+/// Static treats a line as a thin rectangle. Its nearest point and shadow taps
+/// lie in the actual emitter plane, while spatial indices use the enclosing AABB.
+#[derive(Clone, Copy)]
+pub(super) struct EmitterFootprint {
+    half_extents: glam::Vec2,
+    basis: Option<glam::Mat2>,
+}
+
+impl EmitterFootprint {
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "The unit axes scale finite float extents."
+    )]
+    pub(super) fn half_axes(self) -> (glam::Vec2, glam::Vec2) {
+        let basis = self.basis.unwrap_or(glam::Mat2::IDENTITY);
+        (
+            basis.x_axis * self.half_extents.x,
+            basis.y_axis * self.half_extents.y,
+        )
+    }
+
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Summing the bounded float projections encloses both half-axes."
+    )]
+    pub(super) fn world_half_extents(self) -> (f32, f32) {
+        if self.basis.is_none() {
+            return (self.half_extents.x, self.half_extents.y);
+        }
+        let (u, v) = self.half_axes();
+        let bounds = u.abs() + v.abs();
+        (bounds.x, bounds.y)
+    }
+
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Float vector projection and subtraction compute the distance to the footprint."
+    )]
+    pub(super) fn distance_squared(self, delta: glam::Vec2) -> f32 {
+        let local = self.basis.map_or(delta, |basis| basis.transpose() * delta);
+        let gap = (local.abs() - self.half_extents).max(glam::Vec2::ZERO);
+        gap.y.mul_add(gap.y, gap.x * gap.x)
+    }
+
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Float vector projection and clamping compute the nearest point."
+    )]
+    pub(super) fn closest_point(self, [x, y, z]: [f32; 3], point: [f32; 3]) -> [f32; 3] {
+        let extents = self.half_extents.max(glam::Vec2::ZERO);
+        let centre = glam::Vec2::new(x, z);
+        let point_xz = glam::Vec2::new(point[0], point[2]);
+        let nearest = self.basis.map_or_else(
+            || point_xz.clamp(centre - extents, centre + extents),
+            |basis| {
+                let local = basis.transpose() * (point_xz - centre);
+                centre + basis * local.clamp(-extents, extents)
+            },
+        );
+        [nearest.x, y, nearest.y]
+    }
+
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "Float vector projection places bounded quadrature taps in the emitter plane."
+    )]
+    pub(super) fn tap(self, [x, y, z]: [f32; 3], offset: [f32; 2]) -> [f32; 3] {
+        let extents = self.half_extents.max(glam::Vec2::ZERO);
+        let tap_offset = glam::Vec2::from_array(offset);
+        let centre = glam::Vec2::new(x, z);
+        let origin = self.basis.map_or_else(
+            || tap_offset.mul_add(extents, centre),
+            |basis| centre + basis * (tap_offset * extents),
+        );
+        [origin.x, y, origin.y]
+    }
+}
+
 /// Half-extents of a fixture's outer body in world X/Z after rotation.
 ///
 /// The default 1.2 x 0.6 m body runs along X, and a turned fixture swaps its

@@ -26,7 +26,7 @@ impl BlacklightSet {
                 let index = lighting.fixture_light_index(fixture_index)?;
                 let light = lighting.lights().get(index)?;
                 let [x, y, z] = light.source.position;
-                let (half_x, half_z) = light.source.half_extents();
+                let (half_x, half_z) = light.half_extents();
                 let mut source = EntityDirectLight::ZERO;
                 source.position_range = [x, y, z, light.source.range];
                 source.color_strength = [0.0, 0.0, 0.0, fixture.ultraviolet];

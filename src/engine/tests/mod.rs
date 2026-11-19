@@ -1,5 +1,6 @@
 mod animated_door;
 mod archive_budget;
+mod attached_light_yaw;
 mod authored_physics_removal;
 mod automatic_reset;
 mod caustics_metadata;

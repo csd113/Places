@@ -1166,15 +1166,6 @@ fn ordered_pair(a: f32, b: f32) -> (f32, f32) {
     if a <= b { (a, b) } else { (b, a) }
 }
 
-/// Emitter half extents must be finite and nonnegative before sampling taps.
-const fn finite_half_extent(value: f32) -> f32 {
-    if value.is_finite() {
-        value.max(0.0)
-    } else {
-        0.0
-    }
-}
-
 /// The level's solid geometry, prepared for segment and point queries.
 ///
 /// Walls and horizontal solids are kept in separate lists so the "is this point
@@ -2253,12 +2244,11 @@ impl Visibility {
     /// colour, intensity and falloff are unchanged, and only the visibility
     /// gate becomes a fade instead of a switch.
     #[must_use]
-    pub fn visible_fraction(
+    pub(super) fn visible_fraction(
         &self,
         site: u32,
         centre: [f32; 3],
-        half_w: f32,
-        half_d: f32,
+        footprint: super::math::EmitterFootprint,
         point: [f32; 3],
         sampling: ShadowSampling,
     ) -> f32 {
@@ -2271,42 +2261,15 @@ impl Visibility {
             // must not answer "unlit" with a NaN, so it answers zero.
             return 0.0;
         }
-        let emitter_half_width = if half_w.is_finite() {
-            half_w.max(0.0)
-        } else {
-            0.0
-        };
-        let emitter_half_depth = if half_d.is_finite() {
-            half_d.max(0.0)
-        } else {
-            0.0
-        };
         if sampling.is_hard() {
-            let from = [
-                point[0].clamp(
-                    centre[0] - emitter_half_width,
-                    centre[0] + emitter_half_width,
-                ),
-                centre[1],
-                point[2].clamp(
-                    centre[2] - emitter_half_depth,
-                    centre[2] + emitter_half_depth,
-                ),
-            ];
+            let from = footprint.closest_point(centre, point);
             return if self.occludes(site, from, point) {
                 0.0
             } else {
                 1.0
             };
         }
-        self.visible_fraction_soft(
-            site,
-            centre,
-            emitter_half_width,
-            emitter_half_depth,
-            point,
-            sampling,
-        )
+        self.visible_fraction_soft(site, centre, footprint, point, sampling)
     }
 
     /// The soft half of [`Self::visible_fraction`], over the pool in **one**
@@ -2322,23 +2285,13 @@ impl Visibility {
         &self,
         site: u32,
         centre: [f32; 3],
-        half_w: f32,
-        half_d: f32,
+        footprint: super::math::EmitterFootprint,
         point: [f32; 3],
         sampling: ShadowSampling,
     ) -> f32 {
-        if !centre.into_iter().chain(point).all(f32::is_finite) {
-            return 0.0;
-        }
-        let half_width = finite_half_extent(half_w);
-        let half_depth = finite_half_extent(half_d);
-        if sampling.is_hard() {
-            return self.visible_fraction(site, centre, half_width, half_depth, point, sampling);
-        }
         let Some(&(start, end)) = self.ranges.get(usize::try_from(site).unwrap_or(usize::MAX))
         else {
-            return self
-                .unregistered_site_visibility(site, centre, half_width, half_depth, sampling);
+            return self.unregistered_site_visibility(site, centre, footprint, sampling);
         };
         let Some(&(site_x, site_z)) = self.sites.get(usize::try_from(site).unwrap_or(usize::MAX))
         else {
@@ -2360,11 +2313,7 @@ impl Visibility {
         let (mut x_span_min, mut x_span_max) = (point[0], point[0]);
         let (mut z_span_min, mut z_span_max) = (point[2], point[2]);
         for tap in table {
-            let origin = [
-                tap.offset[0].mul_add(half_width, centre[0]),
-                centre[1],
-                tap.offset[1].mul_add(half_depth, centre[2]),
-            ];
+            let origin = footprint.tap(centre, tap.offset);
             if self.tap_is_buried(site, origin) {
                 continue;
             }
@@ -2436,17 +2385,12 @@ impl Visibility {
         &self,
         site: u32,
         centre: [f32; 3],
-        half_w: f32,
-        half_d: f32,
+        footprint: super::math::EmitterFootprint,
         sampling: ShadowSampling,
     ) -> f32 {
         let mut exposed = 0.0_f32;
         for tap in tap_table(sampling) {
-            let from = [
-                tap.offset[0].mul_add(half_w, centre[0]),
-                centre[1],
-                tap.offset[1].mul_add(half_d, centre[2]),
-            ];
+            let from = footprint.tap(centre, tap.offset);
             if !self.tap_is_buried(site, from) {
                 exposed += tap.weight;
             }
