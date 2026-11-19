@@ -20,6 +20,7 @@ mod package_loading;
 mod paths;
 mod physics_clock;
 mod player_item_contact;
+mod posed_actor_reset;
 mod project_contract;
 mod prop_interactions;
 mod prop_rotation;

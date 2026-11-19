@@ -696,6 +696,8 @@ impl Fade {
 pub struct Glow {
     /// False suppresses this attached light without changing model emission.
     pub enabled: bool,
+    /// Starting value held separately from actions and checkpoint restores.
+    pub(super) authored_enabled: bool,
     /// Linear colour, each channel in `0..=1`.
     pub color: [f32; 3],
     /// Intensity in `0..=8`.

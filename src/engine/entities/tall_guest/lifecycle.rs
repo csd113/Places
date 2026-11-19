@@ -2,6 +2,7 @@
 use super::{Guest, Intent};
 use crate::engine::collision::{DoorCollider, WallAabb};
 use crate::engine::entities::WorldContext;
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 #[derive(Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
@@ -14,6 +15,45 @@ pub(super) enum Life {
 }
 
 impl Guest {
+    pub(in crate::engine::entities) fn reset_to_spawn(&mut self) {
+        let next_epoch = super::audio_fence::allocate_epoch();
+        let sequence = self.state.audio_sequence;
+        let generation = self.state.voice_generation;
+        self.state.clone_from(&self.authored_state);
+        // A new epoch rejects delayed delivery from the previous run. If
+        // allocation is exhausted, keep the existing fence monotonic.
+        if let Ok(epoch) = next_epoch {
+            self.audio_epoch = epoch;
+        } else {
+            self.state.audio_sequence = sequence;
+            self.state.voice_generation = generation;
+        }
+        self.capture = None;
+        self.capture_failure = None;
+        self.path.clear();
+        self.path_cursor = 1;
+        self.next_plan = 0.0;
+        self.refuge_route = super::RefugeRoute::Unresolved;
+        self.recovery = super::recovery::Mode::Forward;
+        self.next_forward_probe = 0.0;
+        self.next_activation_check = 0.0;
+        self.next_clear_log = 0.0;
+        self.retreat_poses.clear();
+        self.sounds.clear();
+        self.diagnostics.clear();
+        self.passage_plan = None;
+        self.next_passage_check = 0.0;
+        self.support_heights = [self.state.position.y; 3];
+        self.swing_heights = self.support_heights;
+        self.support_normals = [Vec3::Y; 3];
+        self.passage_credit = 0.0;
+        self.attack_request = false;
+        self.candidate_events.clear();
+        self.posing_candidate = false;
+        self.sample();
+        self.fill_vertices();
+    }
+
     #[must_use]
     pub fn enabled(&self) -> bool {
         self.state.life == Life::Active

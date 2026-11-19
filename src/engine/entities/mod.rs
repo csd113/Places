@@ -44,6 +44,7 @@ mod health;
 pub mod id;
 mod light_power;
 pub mod passengers;
+mod posed_actor_reset;
 mod ragdoll;
 mod sequence_runtime;
 pub mod sequences;
@@ -794,6 +795,7 @@ impl EntityWorld {
 
         let surfaces = LevelSurfaces::new(level);
         self.resolve_props(level, &surfaces);
+        self.sync_posed_actor_transforms();
         self.resolve_doors(level);
         self.resolve_fixtures(level);
         self.resolve_volumes(level);
@@ -848,11 +850,9 @@ impl EntityWorld {
     /// world: the `reset_to_start` contract.
     pub fn reset_runtime(&mut self) {
         self.reset_health();
-        for guest in &mut self.guests {
-            guest.cancel_capture();
-        }
         self.discard_scene_commands();
         self.clear_encounter();
+        self.reset_posed_actors();
         self.queue_ragdoll_resets();
         self.scripts.reload();
         self.script_event = None;
@@ -937,6 +937,7 @@ impl EntityWorld {
         self.sync_transformed_interactables();
         self.sync_routed_interactables();
         self.rebuild_interactables_from_tables();
+        self.sync_feltling_interactables();
         self.rebuild_entity_frames();
     }
 
@@ -1744,6 +1745,7 @@ impl EntityWorld {
                             handle,
                             Glow {
                                 enabled: glow_def.enabled,
+                                authored_enabled: glow_def.enabled,
                                 color: glow_def.color,
                                 intensity: glow_def.intensity,
                                 range: glow_def.range,

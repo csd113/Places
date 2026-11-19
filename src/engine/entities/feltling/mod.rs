@@ -107,6 +107,7 @@ pub struct Record {
 
 pub struct Feltling {
     pub state: Record,
+    authored_state: Record,
     pub(crate) asset: std::sync::Arc<crate::engine::props::LoadedPropAsset>,
     bind_pose: Vec<crate::engine::entity::JointPose>,
     settle_from: Vec<crate::engine::entity::JointPose>,
@@ -181,6 +182,28 @@ pub fn load(level: &LevelDef) -> Result<Vec<Feltling>, String> {
             .bytes()
             .fold(0_u16, |sum, value| sum.wrapping_add(u16::from(value)));
         let bind_pose = bind_pose(&asset.model)?;
+        let state = Record {
+            id,
+            position,
+            yaw: prop.rotation_degrees.to_radians(),
+            policy: Policy {
+                recovery: definition.guide_recovery.unwrap_or_default(),
+                ..Policy::new(definition.mode)
+            },
+            route: 0,
+            waypoint: 0,
+            enabled: true,
+            enable_pending: false,
+            clip: "Waving_Both_Arms".into(),
+            progress: 0.0,
+            blend_from: animator.joint_pose(),
+            blend: BLEND_SECONDS,
+            next_voice: f32::from(seed % 17) * 0.19,
+            gesture: None,
+            gesture_time: 0.0,
+            pose_restart: false,
+            terrain_offsets: [0.0; 2],
+        };
         result.push(Feltling {
             asset: std::sync::Arc::clone(&asset),
             bind_pose,
@@ -189,28 +212,8 @@ pub fn load(level: &LevelDef) -> Result<Vec<Feltling>, String> {
             attachment: None,
             reserved_by: None,
             release_pose: None,
-            state: Record {
-                id,
-                position,
-                yaw: prop.rotation_degrees.to_radians(),
-                policy: Policy {
-                    recovery: definition.guide_recovery.unwrap_or_default(),
-                    ..Policy::new(definition.mode)
-                },
-                route: 0,
-                waypoint: 0,
-                enabled: true,
-                enable_pending: false,
-                clip: "Waving_Both_Arms".into(),
-                progress: 0.0,
-                blend_from: animator.joint_pose(),
-                blend: BLEND_SECONDS,
-                next_voice: f32::from(seed % 17) * 0.19,
-                gesture: None,
-                gesture_time: 0.0,
-                pose_restart: false,
-                terrain_offsets: [0.0; 2],
-            },
+            authored_state: state.clone(),
+            state,
             definition,
             sole_shapes: terrain::sole_shapes(&asset.model, &animator)?,
             base_pose: animator.joint_pose(),
@@ -328,6 +331,18 @@ fn validate_placement(
 }
 
 impl Feltling {
+    pub(super) fn reset_to_spawn(&mut self) {
+        self.state.clone_from(&self.authored_state);
+        self.attachment = None;
+        self.reserved_by = None;
+        self.release_pose = None;
+        self.settle_from.clear();
+        self.settle_seconds = 0.0;
+        self.speed = 0.0;
+        self.blocked_by = None;
+        self.rebuild_continuation_pose();
+    }
+
     #[must_use]
     pub const fn enabled(&self) -> bool {
         self.state.enabled
@@ -527,15 +542,20 @@ impl Feltling {
         {
             return Err("Invalid Feltling checkpoint continuation".into());
         }
-        self.state = record.clone();
+        self.state.clone_from(record);
+        self.rebuild_continuation_pose();
+        Ok(())
+    }
+
+    fn rebuild_continuation_pose(&mut self) {
         self.path.clear();
+        self.path_cursor = 0;
         self.next_plan = 0.0;
         self.voice = None;
         self.status_changed = true;
         self.animation_event = None;
         self.sample_pose();
         self.apply_terrain();
-        Ok(())
     }
 
     #[must_use]

@@ -13,7 +13,6 @@ const ENTRY_BLEND_SECONDS: f32 = 0.3;
 #[derive(Clone, Copy, PartialEq, Eq)]
 enum Direction {
     Forward,
-    CancelRequested,
     Reverse,
 }
 
@@ -73,12 +72,6 @@ enum Outcome {
 }
 
 impl Guest {
-    pub(crate) const fn cancel_capture(&mut self) {
-        if let Some(action) = &mut self.capture {
-            action.direction = Direction::CancelRequested;
-        }
-    }
-
     #[must_use]
     pub const fn has_prey_capability(&self) -> bool {
         !self.definition.prey_targets.is_empty()
@@ -274,7 +267,7 @@ impl Guest {
             }
             self.begin_capture_rollback(action, "missing or disabled exact prey generation");
         }
-        if !self.enabled() || action.direction == Direction::CancelRequested {
+        if !self.enabled() {
             self.begin_capture_rollback(action, "controller disabled or interrupted");
         }
         if action.direction != Direction::Reverse
