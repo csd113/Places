@@ -256,12 +256,24 @@ pub struct Elevator {
 }
 
 #[derive(Clone, Debug)]
-pub struct Departure {
-    pub level: Option<String>,
+pub enum Departure {
+    Local(LocalDeparture),
+    Level(LevelDeparture),
+}
+
+#[derive(Clone, Debug)]
+pub struct LocalDeparture {
     pub arrival: String,
     pub source: String,
     /// Another fixed landing in the same authored elevator, if present.
     pub landing: Option<usize>,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct LevelDeparture {
+    pub level: String,
+    pub arrival: String,
+    pub source: String,
 }
 
 /// Persistent cabin coordinates have no world-local handles or render data.
@@ -409,8 +421,8 @@ impl Elevator {
 
     /// Checks that a queued local move still names this cabin's sealed trip.
     #[must_use]
-    pub fn matches_local_departure(&self, departure: &Departure) -> bool {
-        if !self.departure_sent || departure.level.is_some() || departure.source != self.def.id {
+    pub fn matches_local_departure(&self, departure: &LocalDeparture) -> bool {
+        if !self.departure_sent || departure.source != self.def.id {
             return false;
         }
         match self.phase {
@@ -736,14 +748,23 @@ impl Elevator {
             return None;
         }
         self.departure_sent = true;
-        Some(Departure {
-            level: stop.level.clone(),
-            source: self.def.id.clone(),
-            landing: None,
-            arrival: stop
-                .arrival_elevator
-                .clone()
-                .unwrap_or_else(|| self.def.id.clone()),
+        let source = self.def.id.clone();
+        let arrival = stop
+            .arrival_elevator
+            .clone()
+            .unwrap_or_else(|| source.clone());
+        Some(if let Some(level) = &stop.level {
+            Departure::Level(LevelDeparture {
+                level: level.clone(),
+                arrival,
+                source,
+            })
+        } else {
+            Departure::Local(LocalDeparture {
+                arrival,
+                source,
+                landing: None,
+            })
         })
     }
     /// Fixed-cabin ride presentation and swept leaf closure; no car translation.
@@ -807,12 +828,11 @@ impl Elevator {
                 if self.travel_elapsed >= RIDE_SECONDS && !self.departure_sent {
                     if self.contains(feet, 0.0) {
                         self.departure_sent = true;
-                        result.departure = Some(Departure {
-                            level: None,
+                        result.departure = Some(Departure::Local(LocalDeparture {
                             arrival: self.def.id.clone(),
                             source: self.def.id.clone(),
                             landing: Some(self.target),
-                        });
+                        }));
                     } else if CabinFrame::from_elevator(self).contains_bounds(feet, feet) {
                         // An airborne rider is still inside the source cabin.
                         // Preserve it and reopen, matching linked-trip admission;

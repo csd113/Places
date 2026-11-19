@@ -5,7 +5,7 @@
 
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::entities::events::EventKind;
-use crate::engine::entities::{EntityWorld, WorldCommand, WorldContext};
+use crate::engine::entities::{EntityWorld, LevelTransition, WorldCommand, WorldContext};
 use crate::engine::level::{ActionDef, LevelDef, WalkableFloor};
 use crate::engine::project::ProjectPath;
 use crate::engine::scripting::{ScriptSource, check_level};
@@ -80,7 +80,7 @@ fn script_transitions_are_declared_atomic_and_cleared_by_reset() -> Result<(), S
     let _first = invoke(&mut world)?;
     assert!(
         world.take_commands().iter().any(
-            |command| matches!(command, WorldCommand::ChangeLevel { level: destination } if destination == "second")
+            |command| matches!(command, WorldCommand::ChangeLevel(LevelTransition::Script(destination)) if destination == "second")
         ),
         "script request uses the shared world-command queue"
     );
@@ -90,7 +90,7 @@ fn script_transitions_are_declared_atomic_and_cleared_by_reset() -> Result<(), S
         !world
             .take_commands()
             .iter()
-            .any(|command| matches!(command, WorldCommand::ChangeLevel { level: _ })),
+            .any(|command| matches!(command, WorldCommand::ChangeLevel(_))),
         "reset cancels pending navigation and re-arms the map"
     );
     level.script_sources.first_mut().ok_or("Missing source")?.source = "return {entered=function(api) api.change_level('second'); api.change_level('outside') end}".into();
@@ -101,7 +101,7 @@ fn script_transitions_are_declared_atomic_and_cleared_by_reset() -> Result<(), S
         !invalid
             .take_commands()
             .iter()
-            .any(|command| matches!(command, WorldCommand::ChangeLevel { level: _ })),
+            .any(|command| matches!(command, WorldCommand::ChangeLevel(_))),
         "an undeclared destination atomically discards earlier staged transition requests"
     );
     Ok(())

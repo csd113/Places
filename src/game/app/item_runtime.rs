@@ -680,13 +680,14 @@ impl FrameLoop<'_> {
     }
     pub(super) fn apply_live_scene_commands(&mut self) {
         self.finish_local_elevator_cargo();
-        self.apply_world_commands();
+        let transition_accepted = self.apply_world_commands(false);
         self.apply_bench_lighting_actions();
         self.update_physical_items();
         self.update_mannequin_pins();
         self.update_item_triggers(false);
         self.reconcile_gameplay_reset();
-        self.apply_world_commands();
+        // An accepted or reused ChangeLevel blocks later ChangeLevel commands this frame.
+        let _transition_accepted = self.apply_world_commands(transition_accepted);
     }
 
     fn physical_player_context(&self) -> PlayerContext {

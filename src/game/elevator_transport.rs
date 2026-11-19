@@ -1,6 +1,6 @@
 //! A lift transition retains the rider in cabin space until private admission.
 use super::{Game, Stance, TWO_PI};
-use crate::engine::elevator::Departure;
+use crate::engine::{elevator::LevelDeparture, entities::LevelTransition};
 use glam::{Vec2, Vec3};
 
 pub(super) struct Arrival {
@@ -50,7 +50,22 @@ impl Game {
             .rollback_elevator_arrival(&trip.source, &trip.target_id, trip.target.as_ref());
         self.reseed_trigger_inside();
     }
-    pub(super) fn elevator_departure_pose(&self, departure: &Departure) -> Result<Arrival, String> {
+    pub(super) fn transition_elevator_arrival(
+        &self,
+        transition: &LevelTransition,
+    ) -> Result<Option<Arrival>, String> {
+        match transition {
+            LevelTransition::Script(_) => Ok(None),
+            LevelTransition::Elevator(departure) => {
+                self.elevator_departure_pose(departure).map(Some)
+            }
+        }
+    }
+
+    pub(super) fn elevator_departure_pose(
+        &self,
+        departure: &LevelDeparture,
+    ) -> Result<Arrival, String> {
         let source = self
             .world
             .elevators()

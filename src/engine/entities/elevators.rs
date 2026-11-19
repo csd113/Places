@@ -1,22 +1,22 @@
 //! Lift ownership at the ordinary interaction/collision boundary.
 use super::{
-    DispatchReport, EntityWorld, WorldCommand, WorldContext, door_pose_hits_box,
+    DispatchReport, EntityWorld, LevelTransition, WorldCommand, WorldContext, door_pose_hits_box,
     door_pose_hits_player,
 };
-use crate::engine::elevator::{Departure, Elevator, Phase};
+use crate::engine::elevator::{Departure, Elevator, LocalDeparture, Phase};
 use glam::Vec3;
 
 impl EntityWorld {
     pub(super) fn resolve_elevators(&mut self, level: &crate::engine::level::LevelDef) {
         self.elevators = level.elevators.iter().map(Elevator::new).collect();
-        self.elevator_departure = None;
+        self.local_elevator_departure = None;
         self.elevator_sounds.clear();
     }
     pub(super) fn reset_elevators(&mut self) {
         for elevator in &mut self.elevators {
             *elevator = Elevator::new(&elevator.def);
         }
-        self.elevator_departure = None;
+        self.local_elevator_departure = None;
         self.elevator_sounds.clear();
     }
 
@@ -24,19 +24,8 @@ impl EntityWorld {
     pub fn elevators(&self) -> &[Elevator] {
         &self.elevators
     }
-    pub const fn take_elevator_departure(&mut self) -> Option<Departure> {
-        self.elevator_departure.take()
-    }
-    pub fn take_local_elevator_departure(&mut self) -> Option<crate::engine::elevator::Departure> {
-        if self
-            .elevator_departure
-            .as_ref()
-            .is_some_and(|departure| departure.level.is_none())
-        {
-            self.elevator_departure.take()
-        } else {
-            None
-        }
+    pub const fn take_local_elevator_departure(&mut self) -> Option<LocalDeparture> {
+        self.local_elevator_departure.take()
     }
     pub fn finish_local_elevator_departure(&mut self, source: &str, arrival: Option<&str>) {
         self.finish_local_elevator_departure_at(source, arrival, None);
@@ -96,7 +85,13 @@ impl EntityWorld {
                 elevator.reopen();
             }
         }
-        self.elevator_departure = None;
+        self.local_elevator_departure = None;
+        self.commands.retain(|command| {
+            !matches!(
+                command,
+                WorldCommand::ChangeLevel(LevelTransition::Elevator(_))
+            )
+        });
         self.rebuild_door_colliders();
     }
     /// # Errors
@@ -219,13 +214,20 @@ impl EntityWorld {
                 self.elevator_sounds
                     .push((elevator.def.point(0.0, source_y + 1.2, 0.3), sound));
             }
-            if let Some(departure) = step.departure {
-                if let Some(level) = &departure.level {
-                    self.commands.push(WorldCommand::ChangeLevel {
-                        level: level.clone(),
-                    });
+            match step.departure {
+                Some(Departure::Local(departure)) => {
+                    self.local_elevator_departure = Some(departure);
                 }
-                self.elevator_departure = Some(departure);
+                Some(Departure::Level(departure)) => {
+                    if !Self::queue_level_transition(
+                        &mut self.commands,
+                        LevelTransition::Elevator(departure),
+                    ) {
+                        elevator.reopen();
+                        changed = true;
+                    }
+                }
+                None => {}
             }
         }
         if changed {

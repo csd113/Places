@@ -2049,7 +2049,7 @@ impl Game {
 
     fn transfer_local_elevator(
         &mut self,
-        departure: &crate::engine::elevator::Departure,
+        departure: &crate::engine::elevator::LocalDeparture,
         rider_can_transfer: bool,
     ) {
         let Some(source) = self

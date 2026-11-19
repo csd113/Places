@@ -19,6 +19,7 @@ mod tools;
 mod video;
 
 use crate::engine::diagnostics::journal as diagnostics;
+use crate::engine::entities::LevelTransition;
 use crate::engine::{level, loader, logging, perf, quality, render};
 use crate::game::perf_overlay::PerfOverlay;
 use crate::game::{self, bench, console, display, input, settings, ui, world_labels};
@@ -1410,6 +1411,31 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn start_world_transition(&mut self, transition: &LevelTransition) -> bool {
+        let level = transition.level();
+        let Some(index) = self.current_level.as_ref().and_then(|loaded| {
+            self.level_manager
+                .entries()
+                .iter()
+                .position(|entry| entry.path == loaded.entry.path && entry.id == level)
+        }) else {
+            self.game.entities_mut().recover_elevators();
+            logging::warn(format!(
+                "Transition destination '{level}' is unavailable in this package"
+            ));
+            return false;
+        };
+        match self.game.transition_elevator_arrival(transition) {
+            Ok(arrival) => self.elevator_arrival = arrival,
+            Err(problem) => {
+                self.game.entities_mut().recover_elevators();
+                self.elevator_notice(&problem);
+                return false;
+            }
+        }
+        self.load_level_at(index)
+    }
+
     /// Applies the entity runtime's render and audio commands.
     ///
     /// The world never names a GPU object: it emits typed commands keyed by a
@@ -1420,7 +1446,7 @@ impl FrameLoop<'_> {
         clippy::too_many_lines,
         reason = "one command dispatcher, one arm per command"
     )] // one command dispatcher, one arm per command
-    fn apply_world_commands(&mut self) {
+    fn apply_world_commands(&mut self, mut transition_accepted: bool) -> bool {
         // Departed projects may still own dirty progress even in a script-free
         // visit. CampaignSave bounds retries and keeps repeated failures quiet.
         if let Some(problem) = self.campaign.flush() {
@@ -1469,38 +1495,11 @@ impl FrameLoop<'_> {
                         self.trace_world("run_finished");
                     }
                 }
-                crate::engine::entities::WorldCommand::ChangeLevel { level } => {
-                    if let Some(path) = self
-                        .current_level
-                        .as_ref()
-                        .map(|loaded| loaded.entry.path.clone())
-                        && let Some(index) = self
-                            .level_manager
-                            .entries()
-                            .iter()
-                            .position(|entry| entry.path == path && entry.id == level)
-                    {
-                        self.elevator_arrival =
-                            match self.game.entities_mut().take_elevator_departure() {
-                                Some(departure) => {
-                                    match self.game.elevator_departure_pose(&departure) {
-                                        Ok(arrival) => Some(arrival),
-                                        Err(problem) => {
-                                            self.game.entities_mut().recover_elevators();
-                                            self.elevator_notice(&problem);
-                                            continue;
-                                        }
-                                    }
-                                }
-                                None => None,
-                            };
-                        self.load_level_at(index);
+                crate::engine::entities::WorldCommand::ChangeLevel(transition) => {
+                    if !transition_accepted && self.start_world_transition(&transition) {
+                        transition_accepted = true;
                         break;
                     }
-                    self.game.entities_mut().recover_elevators();
-                    crate::engine::logging::warn(format!(
-                        "Transition destination '{level}' is unavailable in this package"
-                    ));
                 }
                 crate::engine::entities::WorldCommand::AiPutdown { token, contact } => {
                     self.release_ai_item(token, Vec3::from_array(contact));
@@ -1704,6 +1703,7 @@ impl FrameLoop<'_> {
             }
         }
         self.subtitles.guidance_requested = None;
+        transition_accepted
     }
 
     /// Stops the frame loop when the active backend hit a fatal GPU error.
@@ -2676,7 +2676,7 @@ impl FrameLoop<'_> {
             .iter()
             .position(|entry| entry.id == level)
         {
-            self.load_level_at(index);
+            let _accepted = self.load_level_at(index);
         } else {
             self.fatal_error = Some(format!("Script requested unknown level {level}"));
             self.game.stop();
@@ -3024,7 +3024,7 @@ impl FrameLoop<'_> {
         {
             self.subtitles.guidance_requested = Some(());
             self.game.request_hint();
-            self.apply_world_commands();
+            let _transition_accepted = self.apply_world_commands(false);
             return true;
         }
         let cinematic = self.cinematic_controls_blocked();
@@ -3531,15 +3531,21 @@ impl FrameLoop<'_> {
         }
     }
 
-    /// Queues a level without blocking event dispatch.
-    fn load_level_at(&mut self, index: usize) {
+    /// Queues or reuses a level load without blocking event dispatch.
+    fn load_level_at(&mut self, index: usize) -> bool {
         self.checkpoints.resume = None;
-        if let Some(entry) = self.level_manager.get_entry(index).cloned() {
-            self.request_load(loading::Source::entry(entry), LoadIntent::Play);
-        }
+        let Some(entry) = self.level_manager.get_entry(index).cloned() else {
+            return false;
+        };
+        self.try_request_load(loading::Source::entry(entry), LoadIntent::Play)
     }
 
     fn request_load(&mut self, source: loading::Source, intent: LoadIntent) {
+        let _accepted = self.try_request_load(source, intent);
+    }
+
+    /// Returns whether the loader accepted the request or reused a preparation.
+    fn try_request_load(&mut self, source: loading::Source, intent: LoadIntent) -> bool {
         self.checkpoints.request = None;
         self.checkpoints.pending = None;
         self.checkpoints.last_requested = None;
@@ -3561,7 +3567,7 @@ impl FrameLoop<'_> {
         // work. A superseded request for different content still replaces it.
         if self.checkpoints.resume.is_none() && self.reuse_outstanding_preparation(&source, intent)
         {
-            return;
+            return true;
         }
         let level_id = source.level_id().to_string();
         let (entry, identity) = match &source {
@@ -3582,7 +3588,7 @@ impl FrameLoop<'_> {
                 self.elevator_arrival = None;
                 self.game.entities_mut().recover_elevators();
                 self.elevator_notice(&problem);
-                return;
+                return false;
             }
         };
         let request = loading::Request {
@@ -3633,20 +3639,24 @@ impl FrameLoop<'_> {
                     self.fatal_error = Some(error);
                     self.game.stop();
                 }
+                true
             }
             Err(error) => {
-                self.renderer.end_transition();
-                self.elevator_arrival = None;
-                self.game.entities_mut().recover_elevators();
-                self.ui_state.set_status(error, true);
-                // A request that cannot even be queued must not leave the
-                // startup screen gated with nothing being prepared: reveal the
-                // recovery screen instead of waiting forever.
-                if self.startup != StartupPhase::Ready {
-                    self.startup = StartupPhase::Ready;
-                    self.game.set_app_state(self.load_return_state);
-                }
+                self.recover_from_load_submission_failure(error);
+                false
             }
+        }
+    }
+
+    fn recover_from_load_submission_failure(&mut self, error: String) {
+        self.renderer.end_transition();
+        self.elevator_arrival = None;
+        self.game.entities_mut().recover_elevators();
+        self.ui_state.set_status(error, true);
+        // Reveal the recovery screen when startup has no request to wait for.
+        if self.startup != StartupPhase::Ready {
+            self.startup = StartupPhase::Ready;
+            self.game.set_app_state(self.load_return_state);
         }
     }
 

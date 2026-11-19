@@ -5,7 +5,7 @@
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::entities::components::StateValue;
 use crate::engine::entities::timers::Timers;
-use crate::engine::entities::{EntityWorld, WorldCommand, WorldContext};
+use crate::engine::entities::{EntityWorld, LevelTransition, WorldCommand, WorldContext};
 use crate::engine::level::WalkableFloor;
 use crate::engine::level::{ActionDef, ConditionDef, LevelDef};
 use crate::engine::project::ProjectPath;
@@ -122,7 +122,7 @@ fn beam_nonfinal_exits_remain_retryable_and_final_exit_requires_its_seal() -> Re
         }
         for _ in 0_u8..3 {
             let commands = call(&mut world, &path, "exit", "exit")?;
-            assert_eq!(commands.iter().filter(|command| matches!(command, WorldCommand::ChangeLevel { level: destination } if destination == next)).count(), usize::from(!next.is_empty()), "each live nonfinal visit can retry its destination");
+            assert_eq!(commands.iter().filter(|command| matches!(command, WorldCommand::ChangeLevel(LevelTransition::Script(destination)) if destination == next)).count(), usize::from(!next.is_empty()), "each live nonfinal visit can retry its destination");
             assert!(
                 !commands.iter().any(|command| matches!(
                     command,
@@ -160,13 +160,13 @@ fn beam_nonfinal_exits_remain_retryable_and_final_exit_requires_its_seal() -> Re
         assert!(
             !blocked
                 .iter()
-                .any(|command| matches!(command, WorldCommand::ChangeLevel { level: _ })),
+                .any(|command| matches!(command, WorldCommand::ChangeLevel(_))),
             "missing items still block travel"
         );
         let hint = call(&mut world, &path, "hint", "exit")?;
         assert!(!hint.is_empty(), "guidance remains available");
         let back = call(&mut world, &path, "back", "exit")?;
-        assert_eq!(back.iter().filter(|command| matches!(command, WorldCommand::ChangeLevel { level: destination } if destination == previous)).count(), usize::from(!previous.is_empty()), "authored back remains available");
+        assert_eq!(back.iter().filter(|command| matches!(command, WorldCommand::ChangeLevel(LevelTransition::Script(destination)) if destination == previous)).count(), usize::from(!previous.is_empty()), "authored back remains available");
         let _returned = call(
             &mut world,
             &path,
@@ -174,7 +174,7 @@ fn beam_nonfinal_exits_remain_retryable_and_final_exit_requires_its_seal() -> Re
             receivers.first().ok_or("missing receiver")?,
         )?;
         let retry = call(&mut world, &path, "exit", "exit")?;
-        assert_eq!(retry.iter().filter(|command| matches!(command, WorldCommand::ChangeLevel { level: destination } if destination == next)).count(), usize::from(!next.is_empty()), "recredit permits direct retry without reset");
+        assert_eq!(retry.iter().filter(|command| matches!(command, WorldCommand::ChangeLevel(LevelTransition::Script(destination)) if destination == next)).count(), usize::from(!next.is_empty()), "recredit permits direct retry without reset");
     }
     Ok(())
 }

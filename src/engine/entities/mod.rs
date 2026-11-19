@@ -140,6 +140,23 @@ pub struct LightResponseObservation<'a> {
     pub active: bool,
 }
 
+/// A same-package destination together with how the player should arrive.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum LevelTransition {
+    Script(String),
+    Elevator(crate::engine::elevator::LevelDeparture),
+}
+
+impl LevelTransition {
+    #[must_use]
+    pub fn level(&self) -> &str {
+        match self {
+            Self::Script(level) => level,
+            Self::Elevator(departure) => &departure.level,
+        }
+    }
+}
+
 /// One renderer/audio command produced by the world.
 #[derive(Clone, Debug, PartialEq)]
 pub enum WorldCommand {
@@ -167,9 +184,7 @@ pub enum WorldCommand {
         detail: String,
     },
     /// Request a same-package destination; the player owns asynchronous loading.
-    ChangeLevel {
-        level: String,
-    },
+    ChangeLevel(LevelTransition),
     /// Presentation-only impact; never changes collision, lights or gameplay.
     Blood {
         emission: crate::engine::render::BloodEmission,
@@ -467,7 +482,7 @@ pub struct EntityWorld {
     interactables: Interactables,
     doors: Doors,
     elevators: Vec<crate::engine::elevator::Elevator>,
-    elevator_departure: Option<crate::engine::elevator::Departure>,
+    local_elevator_departure: Option<crate::engine::elevator::LocalDeparture>,
     elevator_sounds: Vec<(Vec3, &'static str)>,
     animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
     pub(super) guests: Vec<crate::engine::tall_guest::Guest>,
@@ -616,7 +631,7 @@ impl EntityWorld {
             interactables: Interactables::new(),
             doors: Doors::default(),
             elevators: Vec::new(),
-            elevator_departure: None,
+            local_elevator_departure: None,
             elevator_sounds: Vec::new(),
             door_colliders: Vec::new(),
             guest_collider_start: 0,
@@ -1003,7 +1018,7 @@ impl EntityWorld {
                     | WorldCommand::RetireHidden { target: _ }
                     | WorldCommand::SaveCheckpoint { name: _ }
                     | WorldCommand::ResumeCheckpoint
-                    | WorldCommand::ChangeLevel { level: _ }
+                    | WorldCommand::ChangeLevel(_)
                     | WorldCommand::EndRun {
                         won: _,
                         title: _,
@@ -2296,12 +2311,27 @@ impl EntityWorld {
         self.spawn_failures = self.spawn_failures.saturating_add(1);
     }
 
-    /// Drains the render/audio commands produced since the last call.
     #[must_use]
     pub fn permits_transition(&self, level: &str) -> bool {
         self.transition_targets.contains(level)
     }
 
+    // The first queued transition owns this command batch, in dispatch order.
+    fn queue_level_transition(
+        commands: &mut Vec<WorldCommand>,
+        transition: LevelTransition,
+    ) -> bool {
+        if commands
+            .iter()
+            .any(|command| matches!(command, WorldCommand::ChangeLevel(_)))
+        {
+            return false;
+        }
+        commands.push(WorldCommand::ChangeLevel(transition));
+        true
+    }
+
+    /// Drains the render/audio commands produced since the last call.
     pub fn take_commands(&mut self) -> Vec<WorldCommand> {
         std::mem::take(&mut self.commands)
     }
@@ -2726,14 +2756,11 @@ impl EntityWorld {
             ActionDef::ResumeCheckpoint => self.commands.push(WorldCommand::ResumeCheckpoint),
             ActionDef::ChangeLevel { level } => {
                 if self.permits_transition(level)
-                    && !self
-                        .commands
-                        .iter()
-                        .any(|command| matches!(command, WorldCommand::ChangeLevel { level: _ }))
+                    && Self::queue_level_transition(
+                        &mut self.commands,
+                        LevelTransition::Script(level.clone()),
+                    )
                 {
-                    self.commands.push(WorldCommand::ChangeLevel {
-                        level: level.clone(),
-                    });
                     report.actions_run = report.actions_run.saturating_add(1);
                 }
             }

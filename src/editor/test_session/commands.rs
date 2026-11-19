@@ -205,7 +205,7 @@ impl Session {
                 });
             }
             WorldCommand::StopSound { entity } => audio.stop_source(SourceId(entity)),
-            WorldCommand::ChangeLevel { level } => return Err(format!("Quick test reached transition to '{level}'. Cross-level travel requires a final project package.")),
+            WorldCommand::ChangeLevel(transition) => return Err(format!("Quick test reached transition to '{}'. Cross-level travel requires a final project package.", transition.level())),
             WorldCommand::SaveCheckpoint { name } => return Err(format!("Quick test requested checkpoint '{name}'. Persistent checkpoints require final package testing.")),
             WorldCommand::ResumeCheckpoint => return Err("Resuming saved checkpoints requires final package testing.".into()),
             WorldCommand::PlayerForm { model: _, scale: _ } => return Err("Player forms require final package testing.".into()),

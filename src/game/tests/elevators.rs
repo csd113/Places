@@ -1,8 +1,9 @@
 //! Seven tiny CPU fixtures protect real lift travel, door safety and save boundaries.
 //! No GPU, model I/O or lighting bake; each replay advances at most 1,500 ticks.
 use super::super::{AppState, CollisionWorld, EYE_HEIGHT, Game, Settings};
-use crate::engine::elevator::{Elevator, Phase};
-use crate::engine::level::LevelDef;
+use crate::engine::elevator::{Elevator, LevelDeparture, Phase};
+use crate::engine::entities::{LevelTransition, WorldCommand};
+use crate::engine::level::{ActionDef, LevelDef};
 use crate::game::input::{Control, InputState, ScriptedHold};
 use glam::Vec3;
 
@@ -10,14 +11,16 @@ fn level() -> Result<LevelDef, String> {
     LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"lift_test","name":"Lift test","saving":true,"spawn":{"x":0,"z":-1},"transitions":["annex"],"rooms":[{"x":-3,"z":-4,"width":6,"depth":4,"height":2.8},{"x":-3,"z":-4,"width":6,"depth":4,"height":2.8,"floor_y":3.5}],"elevators":[{"id":"lift","x":0,"z":0,"stops":[{"label":"G","y":0},{"label":"1","y":3.5},{"label":"Annex","y":0,"level":"annex","arrival_elevator":"arrival"}]}]}"#).map_err(|e|e.to_string())
 }
 fn game() -> Result<Game, String> {
-    let def = level()?;
+    Ok(game_from_level(&level()?))
+}
+fn game_from_level(def: &LevelDef) -> Game {
     let mut game = Game::new(
         Vec3::new(0.0, EYE_HEIGHT, -1.0),
         std::f32::consts::PI,
-        CollisionWorld::from_level(&def),
+        CollisionWorld::from_level(def),
     );
     game.set_app_state(AppState::Playing);
-    Ok(game)
+    game
 }
 fn tick(game: &mut Game, seconds: f32, input: &mut InputState) {
     game.set_benchmark_simulation_delta(seconds);
@@ -43,6 +46,162 @@ fn lift(game: &Game) -> Result<&Elevator, String> {
         .elevators()
         .first()
         .ok_or_else(|| "Missing lift".into())
+}
+
+const DEPARTURE_FRAME_DELTA: f32 = 0.1;
+
+fn before_cross_level_departure(def: &LevelDef) -> Result<Game, String> {
+    let mut game = game_from_level(def);
+    interact(&mut game, "@elevator:lift:call:0")?;
+    settle(&mut game, 100);
+    let eye = Vec3::new(0.0, EYE_HEIGHT, 1.2);
+    game.set_benchmark_player_position(eye, 0.0, 0.0);
+    interact(&mut game, "@elevator:lift:floor:2")?;
+    for _ in 0..100_u16 {
+        settle(&mut game, 1);
+        if lift(&game)?.phase == Phase::Loading {
+            break;
+        }
+    }
+    if lift(&game)?.phase != Phase::Loading {
+        return Err("Lift did not finish closing".into());
+    }
+    let mut elapsed = 0.0;
+    for _ in 0..100_u16 {
+        if elapsed + DEPARTURE_FRAME_DELTA >= crate::engine::elevator::RIDE_SECONDS {
+            return Ok(game);
+        }
+        tick(&mut game, DEPARTURE_FRAME_DELTA, &mut InputState::default());
+        elapsed += DEPARTURE_FRAME_DELTA;
+    }
+    Err("Lift did not reach the departure frame".into())
+}
+
+fn script_transition(game: &mut Game, level: &str) -> usize {
+    game.dispatch_actions(
+        &[ActionDef::ChangeLevel {
+            level: level.into(),
+        }],
+        None,
+    )
+    .actions_run
+}
+
+fn one_transition(game: &mut Game) -> Result<LevelTransition, String> {
+    let mut transitions = game
+        .entities_mut()
+        .take_commands()
+        .into_iter()
+        .filter_map(|command| {
+            if let WorldCommand::ChangeLevel(transition) = command {
+                Some(transition)
+            } else {
+                None
+            }
+        });
+    let transition = transitions.next().ok_or("No level transition")?;
+    assert!(
+        transitions.next().is_none(),
+        "command batch must have just one level transition"
+    );
+    Ok(transition)
+}
+
+#[test]
+fn same_frame_script_transition_does_not_claim_lift_departure() -> Result<(), String> {
+    let mut def = level()?;
+    def.transitions.push("alternate".into());
+    for destination in ["annex", "alternate"] {
+        let mut game = before_cross_level_departure(&def)?;
+        assert_eq!(
+            script_transition(&mut game, destination),
+            1,
+            "script request is first in the batch"
+        );
+        tick(&mut game, DEPARTURE_FRAME_DELTA, &mut InputState::default());
+        let transition = one_transition(&mut game)?;
+        assert_eq!(
+            transition,
+            LevelTransition::Script(destination.into()),
+            "first destination is selected even when both requests name the same level"
+        );
+        assert!(
+            game.transition_elevator_arrival(&transition)?.is_none(),
+            "a script transition uses authored spawn"
+        );
+        assert_eq!(
+            lift(&game)?.phase,
+            Phase::Opening,
+            "the losing departure releases its source cabin"
+        );
+        settle(&mut game, 100);
+        assert!(
+            game.entities_mut().take_commands().is_empty(),
+            "a losing departure cannot leak into later frames"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn same_frame_lift_transition_keeps_its_departure_when_script_is_later() -> Result<(), String> {
+    let mut game = before_cross_level_departure(&level()?)?;
+    tick(&mut game, DEPARTURE_FRAME_DELTA, &mut InputState::default());
+    assert_eq!(
+        script_transition(&mut game, "annex"),
+        0,
+        "the first queued lift request precedes script dispatch"
+    );
+    let transition = one_transition(&mut game)?;
+    let arrival = game
+        .transition_elevator_arrival(&transition)?
+        .ok_or("Lift transition lost its rider arrival")?;
+    assert_eq!(
+        transition.level(),
+        "annex",
+        "the level belongs to the accepted departure"
+    );
+    for (cabin, expected_error) in [
+        (Some("arrival"), None),
+        (Some("other"), Some("Arrival elevator 'arrival' is missing")),
+        (None, Some("Arrival elevator 'arrival' is missing")),
+    ] {
+        let mut destination = level()?;
+        if let Some(id) = cabin {
+            destination
+                .elevators
+                .first_mut()
+                .ok_or("Missing fixture lift")?
+                .id = id.into();
+        } else {
+            destination.elevators.clear();
+        }
+        let mut candidate = game_from_level(&destination);
+        let result = candidate.arrive_elevator_from(&arrival);
+        assert_eq!(
+            result.as_ref().err().map(String::as_str),
+            expected_error,
+            "candidate must admit the exact cabin ID or refuse the elevator load"
+        );
+    }
+    Ok(())
+}
+
+#[test]
+fn script_only_transition_has_no_cabin_arrival() -> Result<(), String> {
+    let mut game = game()?;
+    assert_eq!(script_transition(&mut game, "annex"), 1, "script admitted");
+    let transition = one_transition(&mut game)?;
+    assert_eq!(
+        transition,
+        LevelTransition::Script("annex".into()),
+        "script-only travel keeps its explicit level"
+    );
+    assert!(
+        game.transition_elevator_arrival(&transition)?.is_none(),
+        "script-only travel uses authored spawn"
+    );
+    Ok(())
 }
 
 #[test]
@@ -198,7 +357,7 @@ fn level_button_requires_cabin_and_emits_once_after_door_closure() -> Result<(),
     interact(&mut game, "@elevator:lift:floor:2")?;
     settle(&mut game, 2);
     assert!(
-        game.entities_mut().take_elevator_departure().is_none(),
+        game.entities_mut().take_commands().is_empty(),
         "hall player cannot trigger cabin travel"
     );
     interact(&mut game, "@elevator:lift:call:0")?;
@@ -207,7 +366,7 @@ fn level_button_requires_cabin_and_emits_once_after_door_closure() -> Result<(),
     interact(&mut game, "@elevator:lift:floor:2")?;
     settle(&mut game, 20);
     assert!(
-        game.entities_mut().take_elevator_departure().is_none(),
+        game.entities_mut().take_commands().is_empty(),
         "loading waits for real leaf closure"
     );
     settle(&mut game, 100);
@@ -217,17 +376,15 @@ fn level_button_requires_cabin_and_emits_once_after_door_closure() -> Result<(),
         "Closed doors retain the simulated ride before loading"
     );
     assert!(
-        game.entities_mut().take_elevator_departure().is_none(),
+        game.entities_mut().take_commands().is_empty(),
         "The motor cue has a real presentation interval"
     );
     settle(&mut game, 100);
-    let departure = game
-        .entities_mut()
-        .take_elevator_departure()
-        .ok_or("No departure")?;
+    let LevelTransition::Elevator(departure) = one_transition(&mut game)? else {
+        return Err("Expected lift departure".into());
+    };
     assert_eq!(
-        departure.level.as_deref(),
-        Some("annex"),
+        departure.level, "annex",
         "declared project destination is retained"
     );
     assert_eq!(
@@ -236,7 +393,7 @@ fn level_button_requires_cabin_and_emits_once_after_door_closure() -> Result<(),
     );
     settle(&mut game, 20);
     assert!(
-        game.entities_mut().take_elevator_departure().is_none(),
+        game.entities_mut().take_commands().is_empty(),
         "a held request cannot reload repeatedly"
     );
     game.entities_mut().recover_elevators();
@@ -528,11 +685,10 @@ fn cross_level_rider_admission_preserves_cabin_pose_or_rejects() -> Result<(), S
                 source.duck_fraction = 1.0;
                 source.set_feet_y(0.0);
             }
-            let departure = crate::engine::elevator::Departure {
-                landing: None,
+            let departure = LevelDeparture {
                 source: "a".into(),
                 arrival: "c".into(),
-                level: Some("next".into()),
+                level: "next".into(),
             };
             let arrival = source.elevator_departure_pose(&departure)?;
             let mut target = port_game(&def);
@@ -619,7 +775,11 @@ fn separate_door_control_stays_put_and_preserves_obstruction_safety() -> Result<
         assert_eq!(named_lift(&game, id)?.phase, Phase::Closed);
         assert_eq!(named_lift(&game, id)?.at, 0);
         assert_eq!(game.player_position, Vec3::new(x, EYE_HEIGHT, 1.2));
-        assert!(game.entities_mut().take_elevator_departure().is_none());
+        assert!(
+            game.entities_mut()
+                .take_local_elevator_departure()
+                .is_none()
+        );
         assert!(
             game.entities_mut().take_commands().is_empty(),
             "door operation cannot issue a level change"
@@ -641,7 +801,16 @@ fn separate_door_control_stays_put_and_preserves_obstruction_safety() -> Result<
         game.set_benchmark_player_position(Vec3::new(x, EYE_HEIGHT, 0.4), 0.0, 0.0);
         settle(&mut game, 100);
         assert_eq!(named_lift(&game, id)?.phase, Phase::Open);
-        assert!(game.entities_mut().take_elevator_departure().is_none());
+        assert!(
+            game.entities_mut()
+                .take_local_elevator_departure()
+                .is_none()
+        );
+        assert_eq!(
+            game.entities_mut().take_commands(),
+            [],
+            "obstructed doors cannot queue a level change"
+        );
     }
     Ok(())
 }
@@ -659,7 +828,11 @@ fn door_control_cancels_unstarted_trips_but_never_opens_during_travel() -> Resul
         settle(&mut game, 100);
         assert_eq!(lift(&game)?.phase, Phase::Open);
         assert_eq!(lift(&game)?.at, 0);
-        assert!(game.entities_mut().take_elevator_departure().is_none());
+        assert!(
+            game.entities_mut()
+                .take_local_elevator_departure()
+                .is_none()
+        );
         assert!(
             game.entities_mut().take_commands().is_empty(),
             "door operation cannot issue a level change"
