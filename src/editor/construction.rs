@@ -99,10 +99,15 @@ impl App {
         self.status = tool.hint().into();
         Ok(())
     }
-    pub(super) fn cancel_placement(&mut self) {
-        self.placement = None;
+    pub(super) fn retire_construction(&mut self) {
+        if self.placement.take().is_some() {
+            self.viewport.highlight(None, &[]);
+        }
         self.wall_drag = None;
-        self.viewport.highlight(None, &[]);
+    }
+
+    pub(super) fn cancel_placement(&mut self) {
+        self.retire_construction();
         self.changed();
     }
     fn placement_position(&self, point: [f32; 2]) -> Option<[f32; 3]> {

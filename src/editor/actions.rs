@@ -569,6 +569,8 @@ impl App {
                 Action::ChainWalls
                     | Action::ApplyPlacement
                     | Action::CancelPlacement
+                    | Action::Play
+                    | Action::PlayCamera
                     | Action::Snap
                     | Action::Step
                     | Action::Grid

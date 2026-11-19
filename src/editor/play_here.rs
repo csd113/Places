@@ -82,6 +82,8 @@ impl App {
                 text.clone_into(&mut source.source);
             }
         }
+        self.retire_construction();
+        self.translation = None;
         self.pending_play = None;
         self.play_floor_pick = false;
         self.preview_audio.clear_world();
