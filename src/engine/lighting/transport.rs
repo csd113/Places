@@ -709,6 +709,54 @@ impl TransportEmitter {
         self.direct_from(scene, point, point, taps)
     }
 
+    fn direct_support<'a>(
+        &self,
+        prepared: &'a PreparedEmitter,
+        point: [f32; 3],
+        taps: u8,
+    ) -> Option<(&'a [[f32; 3]], f32)> {
+        if self.intensity <= 0.0 {
+            return None;
+        }
+        let distance = if self.directional {
+            let distance = prepared.horizontal_distance(self, point);
+            if distance > prepared.reach {
+                return None;
+            }
+            distance
+        } else {
+            let delta = sub(point, self.position);
+            let squared_distance = dot(delta, delta);
+            if squared_distance > prepared.reach_squared {
+                return None;
+            }
+            // The former falloff used the negated delta; its three squares
+            // are identical. Reuse the same distance without a second dot.
+            squared_distance.sqrt()
+        };
+        let falloff = self.falloff.factor(distance / self.range);
+        if !falloff.is_finite() || falloff <= 0.0 {
+            return None;
+        }
+        let samples = &prepared.samples[usize::from(taps.clamp(1, 3).saturating_sub(1))];
+        Some((samples, prepared.strength * falloff))
+    }
+
+    fn tap_weight(
+        &self,
+        strength: f32,
+        throughput: f32,
+        emission: f32,
+        count: f32,
+        attenuation: [f32; 3],
+    ) -> [f32; 3] {
+        attenuate(
+            self.color
+                .map(|color| color * strength * throughput * emission / count),
+            attenuation,
+        )
+    }
+
     /// Integrate actual incoming directions instead of normalizing their sum.
     /// The calibrated fixture falloff remains one source-wide scalar; only the
     /// per-tap visibility, coverage and cosine are integrated independently.
@@ -723,33 +771,11 @@ impl TransportEmitter {
         attenuation: [f32; 3],
         taps: u8,
     ) -> (u64, usize) {
-        if self.intensity <= 0.0 {
+        let Some((samples, strength)) = self.direct_support(prepared, point, taps) else {
             return (0, 0);
-        }
-        let distance = if self.directional {
-            let distance = prepared.horizontal_distance(self, point);
-            if distance > prepared.reach {
-                return (0, 0);
-            }
-            distance
-        } else {
-            let delta = sub(point, self.position);
-            let squared_distance = dot(delta, delta);
-            if squared_distance > prepared.reach_squared {
-                return (0, 0);
-            }
-            // The former falloff used the negated delta; its three squares
-            // are identical. Reuse the same distance without a second dot.
-            squared_distance.sqrt()
         };
-        let falloff = self.falloff.factor(distance / self.range);
-        if !falloff.is_finite() || falloff <= 0.0 {
-            return (0, 0);
-        }
-        let samples = &prepared.samples[usize::from(taps.clamp(1, 3).saturating_sub(1))];
         let sample_count = samples.len();
         let count = f32::from(u8::try_from(sample_count).unwrap_or(1).max(1));
-        let strength = prepared.strength * falloff;
         if !strength.is_finite() {
             accumulator.surface_light = [f32::NAN; 3];
             return (0, 0);
@@ -768,11 +794,7 @@ impl TransportEmitter {
             }
             let direction = scale(delta, 1.0 / length);
             let emission = self.emission_factor(direction);
-            let weight = attenuate(
-                self.color
-                    .map(|color| color * strength * throughput * emission / count),
-                attenuation,
-            );
+            let weight = self.tap_weight(strength, throughput, emission, count, attenuation);
             if let Some(surface_normal) = normal {
                 accumulate_surface_lobe(accumulator, weight, direction, surface_normal);
             } else {
@@ -780,6 +802,54 @@ impl TransportEmitter {
             }
         }
         (signature, sample_count)
+    }
+
+    fn accumulate_reflected_rect(
+        &self,
+        prepared: &PreparedEmitter,
+        scene: &TransportScene,
+        surface_light: &mut [f32; 3],
+        receiver: &TransportReceiver,
+        taps: u8,
+    ) {
+        let Some((samples, strength)) = self.direct_support(prepared, receiver.position, taps)
+        else {
+            return;
+        };
+        if !strength.is_finite() {
+            *surface_light = [f32::NAN; 3];
+            return;
+        }
+        let count = f32::from(u8::try_from(samples.len()).unwrap_or(1).max(1));
+        for &sample in samples {
+            let delta = sub(sample, receiver.position);
+            let length = length(delta);
+            if length <= 1.0e-6 {
+                continue;
+            }
+            let direction = scale(delta, 1.0 / length);
+            let emission = self.emission_factor(direction);
+            let cosine = dot(direction, receiver.normal).max(0.0);
+            // With bounded color, attenuation, transmission and emission,
+            // the tap weight stays finite. A zero product adds at most a signed zero;
+            // the sum starts at +0 and cannot acquire -0. Keep poisoned sums
+            // and non-finite geometry on the ordinary arithmetic path.
+            if (cosine == 0.0 || emission == 0.0)
+                && length.is_finite()
+                && cosine.is_finite()
+                && emission <= 1.0
+                && surface_light.iter().all(|value| !value.is_nan())
+            {
+                continue;
+            }
+            let throughput = scene.transmittance(receiver.ray_origin, sample);
+            if throughput <= 0.0 {
+                continue;
+            }
+            let weight =
+                self.tap_weight(strength, throughput, emission, count, receiver.attenuation);
+            accumulate_surface_energy(surface_light, weight, cosine);
+        }
     }
 
     fn visibility(
@@ -1073,6 +1143,7 @@ pub struct TransportScene {
     surface_materials: Vec<u32>,
     /// Ray-tree nodes containing Blend surfaces, for a sparse throughput walk.
     blend_nodes: Vec<bool>,
+    finite_shadow_transmission: bool,
     /// Physical samples per metre, before integer chart dimensions are rounded.
     chart_sample_density: Vec<f32>,
     order: Vec<u32>,
@@ -1675,6 +1746,7 @@ impl TransportScene {
             surface_alpha: Vec::new(),
             surface_materials: Vec::new(),
             blend_nodes: Vec::new(),
+            finite_shadow_transmission: true,
             chart_sample_density: Vec::new(),
             order,
             ray_triangles,
@@ -3398,9 +3470,45 @@ impl TransportScene {
             surface: u32::try_from(surface).unwrap_or(u32::MAX),
             attenuation: self.attenuation_at(position),
         };
-        self.direct_sample(&receiver, emitters, global, taps)
-            .light
-            .surface_light
+        let can_skip_zero = self.finite_shadow_transmission
+            && receiver.attenuation.iter().all(|value| value.is_finite());
+        let mut light = Accumulator::default();
+        for &index in emitters {
+            let Some(emitter) = self.emitters.get(index) else {
+                continue;
+            };
+            let prepared = &self.prepared_emitters[index];
+            if can_skip_zero && matches!(emitter.shape, EmitterShape::Rect { u: _, v: _ }) {
+                emitter.accumulate_reflected_rect(
+                    prepared,
+                    self,
+                    &mut light.surface_light,
+                    &receiver,
+                    taps,
+                );
+            } else {
+                let _visibility = emitter.accumulate_direct(
+                    prepared,
+                    self,
+                    &mut light,
+                    receiver.position,
+                    receiver.ray_origin,
+                    Some(receiver.normal),
+                    receiver.attenuation,
+                    taps,
+                );
+            }
+        }
+        if global {
+            let _visibility = self.accumulate_global(
+                &mut light,
+                receiver.ray_origin,
+                Some(receiver.normal),
+                receiver.attenuation,
+                taps,
+            );
+        }
+        light.surface_light
     }
 
     /// Reconstructs the light a receiver sees at one normal, in HDR units.
@@ -3788,8 +3896,12 @@ fn accumulate_surface_lobe(
 ) {
     accumulate_lobe(accumulator, weight, direction);
     let cosine = dot(direction, normal).max(0.0);
+    accumulate_surface_energy(&mut accumulator.surface_light, weight, cosine);
+}
+
+fn accumulate_surface_energy(surface_light: &mut [f32; 3], weight: [f32; 3], cosine: f32) {
     for channel in 0..3 {
-        accumulator.surface_light[channel] += weight[channel] * cosine;
+        surface_light[channel] += weight[channel] * cosine;
     }
 }
 

@@ -183,6 +183,18 @@ impl TransportScene {
         {
             return None;
         }
+        // A finite segment has a finite hit position. Leave extreme textured
+        // BLEND UVs on the original path if the three f32 interpolation terms
+        // could overflow before texture addressing. MASK yields a boolean.
+        self.finite_shadow_transmission = surfaces.iter().flatten().all(|surface| {
+            surface.alpha.mode != AlphaMode::Blend
+                || surface.image.is_none()
+                || surface
+                    .uv
+                    .iter()
+                    .flatten()
+                    .all(|coordinate| coordinate.abs() <= f32::MAX / 4.0)
+        });
         self.blend_nodes = vec![false; self.ray_nodes.len()];
         for index in (0..self.ray_nodes.len()).rev() {
             let node = &self.ray_nodes[index];
