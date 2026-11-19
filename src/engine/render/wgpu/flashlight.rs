@@ -14,7 +14,7 @@ pub const SHADOW_EDGE: u32 = 1024;
 /// Only gameplay ray candidates acquire a local posed visibility resource.
 /// Textures are copied once per asset identity; pose refreshes share those PNGs.
 pub struct CharacterVisibility {
-    identity: usize,
+    birth: u64,
     asset: usize,
     revision: u64,
     opacity_bits: u32,
@@ -36,9 +36,7 @@ pub fn character_transmittance(
             .iter()
             .chain(characters.runtime_characters())
     };
-    cache.retain(|cached| {
-        current().any(|character| std::ptr::from_ref(character).addr() == cached.identity)
-    });
+    cache.retain(|cached| current().any(|character| character.blood_identity() == cached.birth));
     let mut throughput = 1.0;
     for character in current() {
         if character.opacity() <= 0.0
@@ -55,11 +53,11 @@ pub fn character_transmittance(
         {
             continue;
         }
-        let identity = std::ptr::from_ref(character).addr();
+        let birth = character.blood_identity();
         let asset = std::ptr::from_ref(character.asset().as_ref()).addr();
         let index = cache
             .iter()
-            .position(|cached| cached.identity == identity)
+            .position(|cached| cached.birth == birth)
             .unwrap_or(cache.len());
         if index == cache.len() {
             let textures = cache
@@ -70,7 +68,7 @@ pub fn character_transmittance(
                     |cached| cached.textures.clone(),
                 );
             cache.push(CharacterVisibility {
-                identity,
+                birth,
                 asset,
                 revision: u64::MAX,
                 opacity_bits: u32::MAX,
