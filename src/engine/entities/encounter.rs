@@ -3,8 +3,11 @@ use super::components::StateValue;
 use super::{EntityWorld, WorldContext};
 use crate::engine::entity::PoseCue;
 use crate::engine::{
+    ai::{AiState, NAVIGATION_OVERRIDE_SPEED_MPS},
+    game_mode::PLAYER_WALK_SPEED_MPS,
     health::{HealthAction, HealthTarget},
     level::LevelDef,
+    logging,
 };
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
@@ -498,11 +501,29 @@ impl EntityWorld {
             } else {
                 position
             };
-            let _goal = self.ai.set_navigation_goal_with_speed(
-                &robot.id,
-                destination,
-                Some(ctx.player_walk_speed),
-            );
+            // The player can walk faster than a navigation override allows.
+            let walk_speed = ctx.player_walk_speed;
+            if !PLAYER_WALK_SPEED_MPS.contains(&walk_speed)
+                || !self.ai.set_navigation_goal_with_speed(
+                    &robot.id,
+                    destination,
+                    Some(walk_speed.min(*NAVIGATION_OVERRIDE_SPEED_MPS.end())),
+                )
+            {
+                logging::warn_once(
+                    "encounter:companion-follow-goal",
+                    format_args!(
+                        "Companion '{}' rejected follow goal {destination:?} at {walk_speed} m/s",
+                        robot.id
+                    ),
+                );
+                // A rejected request must never leave an older follow or attack goal active.
+                if let Some(hold) = self.ai.agent(&robot.id).map(|agent| agent.position)
+                    && !self.ai.set_navigation_goal(&robot.id, hold)
+                {
+                    let _cleared = self.ai.force_state(&robot.id, AiState::Idle);
+                }
+            }
             self.ai.set_combat_facing(&robot.id, ctx.feet);
         }
     }
@@ -535,7 +556,10 @@ impl EntityWorld {
         let _goal = self.ai.set_navigation_goal_with_speed(
             &actor.id,
             destination,
-            Some(speed.clamp(0.05, 8.0)),
+            Some(speed.clamp(
+                *NAVIGATION_OVERRIDE_SPEED_MPS.start(),
+                *NAVIGATION_OVERRIDE_SPEED_MPS.end(),
+            )),
         );
         self.ai.set_combat_facing(&actor.id, intent.goal);
         if can_engage && actor.cooldown <= 0.0 {

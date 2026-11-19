@@ -51,6 +51,7 @@ mod actor_collision_tests;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::ops::RangeInclusive;
 
 use crate::engine::collision::WallAabb;
 use crate::engine::collision_index::CollisionIndex;
@@ -68,6 +69,8 @@ use perception::Stimulus;
 pub use search::Memory as PredatorSearchMemory;
 
 pub use perception::{Perceived, Stimulus as AiStimulus, sight_clear};
+
+pub(crate) const NAVIGATION_OVERRIDE_SPEED_MPS: RangeInclusive<f32> = 0.05..=8.0;
 
 /// What an agent does when it is not reacting to anything.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -1234,7 +1237,7 @@ impl AiWorld {
         speed: Option<f32>,
     ) -> bool {
         if !goal.is_finite()
-            || speed.is_some_and(|value| !value.is_finite() || !(0.05..=8.0).contains(&value))
+            || speed.is_some_and(|value| !NAVIGATION_OVERRIDE_SPEED_MPS.contains(&value))
         {
             return false;
         }

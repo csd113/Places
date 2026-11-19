@@ -30,6 +30,7 @@ use std::fs;
 use std::io::Write;
 use std::path::{Path, PathBuf};
 
+use crate::engine::game_mode::PLAYER_WALK_SPEED_MPS;
 use crate::engine::input::canonical_key_name;
 use crate::engine::quality::{GraphicsSpec, LightmapQuality, QualityLevel, ReflectionQuality};
 
@@ -904,7 +905,12 @@ impl Settings {
             sanitized_scalar(self.look_speed_h, 30.0, 360.0, default_look_speed_h());
         self.look_speed_v =
             sanitized_scalar(self.look_speed_v, 20.0, 240.0, default_look_speed_v());
-        self.walk_speed = sanitized_scalar(self.walk_speed, 1.0, 10.0, default_walk_speed());
+        self.walk_speed = sanitized_scalar(
+            self.walk_speed,
+            *PLAYER_WALK_SPEED_MPS.start(),
+            *PLAYER_WALK_SPEED_MPS.end(),
+            default_walk_speed(),
+        );
         self.fov_degrees = sanitized_scalar(self.fov_degrees, 45.0, 110.0, default_fov());
         // A non-finite sensitivity (hand-edited memory or a future decoder)
         // falls back to the default rather than poisoning the camera with NaN.

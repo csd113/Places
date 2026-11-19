@@ -1,11 +1,14 @@
 //! Versioned, copy-on-apply map rules. Presets never become live dependencies.
 use serde::{Deserialize, Serialize};
+use std::ops::RangeInclusive;
 
 use crate::engine::{level::LevelDef, package::hash, project::ProjectPath};
 
 use super::{health::HealthSettings, tools::ToolSettings};
 
 pub const MAX_MODE_BYTES: u64 = 16 * 1024;
+
+pub(crate) const PLAYER_WALK_SPEED_MPS: RangeInclusive<f32> = 1.0..=10.0;
 
 /// Small inline mode identity and movement override; health/tools keep their
 /// existing level fields so older source maps retain their exact behavior.
@@ -35,7 +38,7 @@ impl ModeInfo {
         {
             return Err("Mode name must contain 1–64 bytes and no control characters".into());
         }
-        if !self.walk_speed.is_finite() || !(1.0..=10.0).contains(&self.walk_speed) {
+        if !PLAYER_WALK_SPEED_MPS.contains(&self.walk_speed) {
             return Err("Walking speed must be between 1 and 10 metres per second".into());
         }
         Ok(())

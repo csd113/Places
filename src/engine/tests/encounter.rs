@@ -39,14 +39,26 @@ fn signal(world: &mut EntityWorld, key: &str) -> Result<(), String> {
     Ok(())
 }
 fn step(world: &mut EntityWorld, seconds: f32, player: Vec3) {
-    step_with_walls(world, seconds, player, &[]);
+    step_at_walk_speed(world, seconds, player, 2.0);
 }
 fn step_with_walls(world: &mut EntityWorld, seconds: f32, player: Vec3, walls: &[WallAabb]) {
+    step_with_walls_and_walk_speed(world, seconds, player, walls, 2.0);
+}
+fn step_at_walk_speed(world: &mut EntityWorld, seconds: f32, player: Vec3, walk_speed: f32) {
+    step_with_walls_and_walk_speed(world, seconds, player, &[], walk_speed);
+}
+fn step_with_walls_and_walk_speed(
+    world: &mut EntityWorld,
+    seconds: f32,
+    player: Vec3,
+    walls: &[WallAabb],
+    walk_speed: f32,
+) {
     let index = CollisionIndex::build(walls);
     let floor = WalkableFloor::default();
     let _tick = world.tick(&WorldContext {
         delta_seconds: seconds,
-        player_walk_speed: 2.0,
+        player_walk_speed: walk_speed,
         feet_from: player,
         feet: player,
         eye: Vec3::new(player.x, 1.6, player.z),
@@ -375,6 +387,101 @@ fn companion_group_targets_individuals_and_toggle_retires_every_member() -> Resu
             .ok_or("definition missing")?
             .companion_count = invalid;
         assert!(validate(&definition).is_err());
+    }
+    Ok(())
+}
+
+#[test]
+fn companion_follow_and_clear_use_bounded_navigation_at_maximum_walk_speed() -> Result<(), String> {
+    let mut settings = crate::game::settings::Settings {
+        walk_speed: 10.0,
+        ..Default::default()
+    };
+    settings.sanitize();
+    assert_eq!(settings.walk_speed.to_bits(), 10.0_f32.to_bits());
+
+    let mut world = EntityWorld::from_level(&level()?);
+    let id = "encounter:robot";
+    let initial_goal = Vec3::new(6.0, 0.0, 0.0);
+    signal(&mut world, "companion")?;
+    step(&mut world, 0.01, initial_goal);
+    assert_eq!(
+        world
+            .ai
+            .agent(id)
+            .ok_or("companion missing")?
+            .navigation_goal,
+        Some(initial_goal),
+        "ordinary follow installs the initial goal"
+    );
+
+    let new_goal = Vec3::new(0.0, 0.0, 6.0);
+    step_at_walk_speed(&mut world, 0.01, new_goal, settings.walk_speed);
+    let following = world.ai.agent(id).ok_or("companion missing")?;
+    assert_eq!(
+        following.navigation_goal,
+        Some(new_goal),
+        "following at the maximum must replace the previous goal"
+    );
+    assert_eq!(
+        following.navigation_speed,
+        Some(8.0),
+        "companion pace stays within the existing navigation limit"
+    );
+    assert!(
+        !world
+            .ai
+            .set_navigation_goal_with_speed(id, initial_goal, Some(8.0_f32.next_up())),
+        "other navigation requests still reject speeds above 8 m/s"
+    );
+
+    signal(&mut world, "start")?;
+    step_at_walk_speed(&mut world, 1.0, new_goal, settings.walk_speed);
+    let opponent = world
+        .encounter
+        .as_ref()
+        .and_then(|encounter| encounter.robots.first())
+        .and_then(|robot| robot.target_enemy.as_deref());
+    assert!(opponent.is_some(), "the companion has engaged an opponent");
+    assert_ne!(
+        world
+            .ai
+            .agent(id)
+            .ok_or("companion missing")?
+            .navigation_goal,
+        Some(new_goal),
+        "combat replaced the follow goal before Clear"
+    );
+
+    signal(&mut world, "clear")?;
+    step_at_walk_speed(&mut world, 0.01, initial_goal, settings.walk_speed);
+    let after_clear = world.ai.agent(id).ok_or("companion missing after Clear")?;
+    assert_eq!(
+        after_clear.navigation_goal,
+        Some(initial_goal),
+        "Clear returns the surviving companion to player follow"
+    );
+    assert_eq!(after_clear.navigation_speed, Some(8.0));
+    assert!(world.ai.agent("encounter:zombie:0").is_none());
+
+    let invalid_speed = settings.walk_speed.next_up();
+    for clear_before_follow in [false, true] {
+        if clear_before_follow {
+            signal(&mut world, "start")?;
+            step_at_walk_speed(&mut world, 1.0, initial_goal, settings.walk_speed);
+            assert!(world.ai.agent("encounter:zombie:0").is_some());
+            signal(&mut world, "clear")?;
+        }
+        let hold = world.ai.agent(id).ok_or("companion missing")?.position;
+        step_at_walk_speed(&mut world, 0.01, new_goal, invalid_speed);
+        let rejected = world.ai.agent(id).ok_or("companion missing")?;
+        assert_eq!(
+            rejected.navigation_goal,
+            Some(hold),
+            "an invalid walking speed must discard the stale goal (Clear: {clear_before_follow})"
+        );
+        assert_eq!(rejected.navigation_speed, None);
+        assert!(world.ai.agent("encounter:zombie:0").is_none());
     }
     Ok(())
 }
