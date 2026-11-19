@@ -6,21 +6,31 @@ use rapier3d::parry::query::{
     NonlinearRigidMotion, ShapeCastHit, ShapeCastOptions, cast_shapes, cast_shapes_nonlinear,
     contact, distance, intersection_test,
 };
-use rapier3d::parry::shape::{Ball, Shape};
+use rapier3d::parry::shape::{Ball, Cuboid, Shape};
 use rapier3d::prelude::{
     Collider, ColliderHandle, Pose, QueryFilter, QueryFilterFlags, Ray, RigidBodyType, SharedShape,
     Vector,
 };
 
-use super::collision::{add, point, pose, quaternion, query_filter, scaled, subtract, vector};
+use super::collision::{
+    add, door_pose, point, pose, quaternion, query_filter, refresh_collider, scaled, subtract,
+    vector,
+};
 use super::world::{ItemWorld, PlayerContext, Runtime};
 use super::{FIXED_STEP, HOLD_DISTANCE, PICKUP_REACH};
+use crate::engine::collision::DoorCollider;
 
 const HOLD_SPEED: f32 = 4.0;
 const SWEEP_MARGIN: f32 = 0.006;
 const CAMERA_RADIUS: f32 = 0.10;
 const OBSTRUCTED_SECONDS: f32 = 0.35;
 const AUTO_DROP_MARGIN: f32 = 0.5;
+
+pub struct HeldPlayerContact {
+    pub eye_after_slide: Vec3,
+    pub normal: Vec3,
+    pub slide_normal: Option<Vec3>,
+}
 
 pub(super) struct HeldItem {
     pub key: u64,
@@ -31,6 +41,9 @@ pub(super) struct HeldItem {
     angular_velocity: Vec3,
     obstructed_seconds: f32,
     solver_anchor: Option<CarryAnchor>,
+    // Controller-only poses are visible to stance and interaction before the
+    // item clock runs. The solver resumes from the original published pose.
+    command_anchor: Option<CommandCarryAnchor>,
     // Opposed static-friction contacts retain their decision until retreat or
     // separation; control previews and clock changes do not release hand lag.
     jammed: Vec<ColliderHandle>,
@@ -40,6 +53,11 @@ struct CarryAnchor {
     pose: Pose,
     route: Option<CarryRoute>,
     obstructed_seconds: f32,
+}
+
+struct CommandCarryAnchor {
+    pose: Pose,
+    origin: PlayerContext,
 }
 
 impl HeldItem {
@@ -56,6 +74,7 @@ impl HeldItem {
             angular_velocity: Vec3::ZERO,
             obstructed_seconds: 0.0,
             solver_anchor: None,
+            command_anchor: None,
             jammed: Vec::new(),
         }
     }
@@ -314,47 +333,120 @@ impl ItemWorld {
         let Some(previous) = runtime.last_player else {
             return player.eye;
         };
+        self.sweep_item_contact(runtime, previous, player, false).0
+    }
+
+    /// Uses the resolved start of this command and the carry pose swept by
+    /// earlier commands in the same frame. The item solver owns the live pose.
+    pub(crate) fn constrain_carried_player_eye(
+        &self,
+        previous: PlayerContext,
+        player: PlayerContext,
+    ) -> (Vec3, Option<HeldPlayerContact>) {
+        self.runtime.as_ref().map_or((player.eye, None), |runtime| {
+            self.sweep_item_contact(runtime, previous, player, true)
+        })
+    }
+
+    fn sweep_item_contact(
+        &self,
+        runtime: &Runtime,
+        previous: PlayerContext,
+        player: PlayerContext,
+        slide_on_held: bool,
+    ) -> (Vec3, Option<HeldPlayerContact>) {
+        if !player.active || !previous.active || !player.valid() || !previous.valid() {
+            return (player.eye, None);
+        }
+        let motion = subtract(player.feet, previous.feet);
+        if motion.length_squared() == 0.0 {
+            return (player.eye, None);
+        }
         let clock = self.simulation_state();
         let frozen = clock.paused || clock.time_scale <= 0.0;
         let held_key = runtime.held.as_ref().map(|held| held.key);
-        if !player.active || !previous.active || !player.valid() || !previous.valid() {
-            return player.eye;
-        }
-        let start_feet = previous.feet;
-        let start = pose(
-            add(start_feet, Vec3::new(0.0, player.height * 0.5, 0.0)),
-            Quat::IDENTITY,
-        );
-        let motion = subtract(player.feet, start_feet);
-        let capsule = SharedShape::cuboid(player.half, player.height * 0.5, player.half);
-        let blocking_items = |handle, collider: &rapier3d::prelude::Collider| {
-            collider.is_enabled()
-                && runtime.key_for_collider(handle).is_some_and(|key| {
-                    runtime.entries.get(&key).is_some_and(|entry| {
-                        entry.collider == handle
-                            && (frozen || entry.dormant || held_key == Some(key))
-                    })
-                })
-        };
-        let filter = query_filter().predicate(&blocking_items);
+        let start = add(previous.feet, Vec3::new(0.0, player.height * 0.5, 0.0));
+        let hull = SharedShape::cuboid(player.half, player.height * 0.5, player.half);
         let options = ShapeCastOptions {
             max_time_of_impact: 1.0,
             target_distance: SWEEP_MARGIN,
-            // A become copy can start around its player. Allow separating
-            // motion while still refusing incoming motion through that body.
+            // Allow separating motion when a become copy starts around its player.
             stop_at_penetration: false,
             ..ShapeCastOptions::default()
         };
-        let travel = runtime
-            .world
-            .cast_shape(&start, vector(motion), capsule.as_ref(), options, filter)
-            .map_or(1.0, |(_, hit)| hit.time_of_impact.clamp(0.0, 1.0));
-        let resolved_feet = add(start_feet, scaled(motion, travel));
-        Vec3::new(
-            resolved_feet.x,
-            resolved_feet.y + player.eye.y - player.feet.y,
-            resolved_feet.z,
-        )
+        let sweep = |center, delta, sliding| {
+            let blocking = |handle, collider: &Collider| {
+                collider.is_enabled()
+                    && runtime.key_for_collider(handle).map_or(sliding, |key| {
+                        runtime.entries.get(&key).is_some_and(|entry| {
+                            entry.collider == handle
+                                && (frozen || entry.dormant || held_key == Some(key))
+                        })
+                    })
+            };
+            runtime.world.cast_shape(
+                &pose(center, Quat::IDENTITY),
+                vector(delta),
+                hull.as_ref(),
+                options,
+                query_filter()
+                    .exclude_rigid_body(runtime.player)
+                    .predicate(&blocking),
+            )
+        };
+        let Some((handle, hit)) = sweep(start, motion, false) else {
+            return (player.eye, None);
+        };
+        let travel = hit.time_of_impact.clamp(0.0, 1.0);
+        let moved = scaled(motion, travel);
+        let resolved_eye = add(subtract(player.eye, motion), moved);
+        if slide_on_held && held_key.is_some() && runtime.key_for_collider(handle) == held_key {
+            let normal = point(hit.normal1);
+            let remaining = scaled(motion, 1.0 - travel);
+            let slide = subtract(remaining, scaled(normal, remaining.dot(normal).min(0.0)));
+            // The slide can take a path the main controller hasn't swept.
+            let slide_hit = (slide.length_squared() > 1.0e-10)
+                .then(|| sweep(add(start, moved), slide, true))
+                .flatten()
+                .map(|(_, obstacle)| obstacle);
+            let slide_travel =
+                slide_hit.map_or(1.0, |obstacle| obstacle.time_of_impact.clamp(0.0, 1.0));
+            (
+                resolved_eye,
+                Some(HeldPlayerContact {
+                    eye_after_slide: add(resolved_eye, scaled(slide, slide_travel)),
+                    normal,
+                    slide_normal: slide_hit.map(|obstacle| point(obstacle.normal1)),
+                }),
+            )
+        } else {
+            (resolved_eye, None)
+        }
+    }
+
+    /// Advances the checked carry query pose between movement commands. These
+    /// poses are available to stance and release while world time stands still.
+    pub(crate) fn preview_carried_translation(
+        &mut self,
+        origin: PlayerContext,
+        player: PlayerContext,
+        doors: &[DoorCollider],
+    ) {
+        if let Some(runtime) = self.runtime.as_mut() {
+            runtime.preview_carried_translation(origin, player, doors);
+        }
+    }
+
+    /// Publishes the last swept query pose to the interaction and model APIs.
+    pub(crate) fn publish_carried_preview(&mut self) {
+        if let Some(runtime) = self.runtime.as_mut()
+            && runtime
+                .held
+                .as_ref()
+                .is_some_and(|held| held.command_anchor.is_some())
+        {
+            runtime.update_poses();
+        }
     }
 
     /// The nearest enabled item collider on the exact ray, including fixed or
@@ -535,6 +627,7 @@ impl ItemWorld {
             angular_velocity: Vec3::ZERO,
             obstructed_seconds: 0.0,
             solver_anchor: None,
+            command_anchor: None,
             jammed: Vec::new(),
         });
         true
@@ -742,6 +835,7 @@ impl Runtime {
     pub(super) const fn accept_held_preview(&mut self) {
         if let Some(held) = self.held.as_mut() {
             held.solver_anchor = None;
+            held.command_anchor = None;
         }
     }
 
@@ -760,6 +854,116 @@ impl Runtime {
                 });
         }
         self.advance_held(player, delta, true);
+    }
+
+    fn preview_carried_translation(
+        &mut self,
+        origin: PlayerContext,
+        player: PlayerContext,
+        doors: &[DoorCollider],
+    ) {
+        if !origin.active || !player.active || !origin.valid() || !player.valid() {
+            return;
+        }
+        let Some(held) = self.held.as_ref() else {
+            return;
+        };
+        let motion = subtract(player.eye, origin.eye);
+        // A routed or jammed body still needs the ordinary hand solver.
+        if held.route.is_some() || !held.jammed.is_empty() || motion.length_squared() == 0.0 {
+            return;
+        }
+        let Some(entry) = self.entries.get(&held.key) else {
+            return;
+        };
+        let Some(body) = self.world.bodies.get(entry.body) else {
+            return;
+        };
+        let start = *body.position();
+        // Retain contact with an item behind the new aim after a camera turn.
+        if subtract(point(start.translation), origin.eye).dot(origin.view) <= 0.0 {
+            return;
+        }
+        let cast_motion = vector(motion);
+        let options = ShapeCastOptions {
+            max_time_of_impact: 1.0,
+            target_distance: SWEEP_MARGIN,
+            stop_at_penetration: false,
+            ..ShapeCastOptions::default()
+        };
+        // Treat active items as solid for the preview. The solver owns
+        // their pushback and still sees the original carry pose.
+        let filter = query_filter()
+            .exclude_collider(entry.collider)
+            .exclude_rigid_body(self.player);
+        let mut travel = self
+            .world
+            .cast_shape(&start, cast_motion, entry.shape.as_ref(), options, filter)
+            .map_or(1.0, |(_, hit)| hit.time_of_impact.clamp(0.0, 1.0));
+        for door in doors {
+            // Gameplay has already advanced the leaves for this frame.
+            let shape = Cuboid::new(Vector::new(
+                door.width * 0.5,
+                door.height * 0.5,
+                door.thickness * 0.5,
+            ));
+            if let Ok(Some(hit)) = cast_shapes(
+                &start,
+                cast_motion,
+                entry.shape.as_ref(),
+                &door_pose(door),
+                Vector::ZERO,
+                &shape,
+                options,
+            ) {
+                travel = travel.min(hit.time_of_impact.clamp(0.0, 1.0));
+            }
+        }
+        let candidate = translated_pose(&start, cast_motion, travel);
+        let hull = Cuboid::new(Vector::new(player.half, player.height * 0.5, player.half));
+        let center = add(player.feet, Vec3::new(0.0, player.height * 0.5, 0.0));
+        if travel <= f32::EPSILON
+            || !camera_clear(&candidate, &entry.shape, player.eye)
+            || !intersection_test(
+                &candidate,
+                entry.shape.as_ref(),
+                &pose(center, Quat::IDENTITY),
+                &hull,
+            )
+            .is_ok_and(|overlap| !overlap.intersecting)
+        {
+            return;
+        }
+        if let Some(pending) = self.held.as_mut()
+            && let Some(body_to_preview) = self.world.bodies.get_mut(entry.body)
+        {
+            let _anchor = pending.command_anchor.get_or_insert(CommandCarryAnchor {
+                pose: start,
+                origin,
+            });
+            body_to_preview.set_position(candidate, false);
+            body_to_preview.set_next_kinematic_position(candidate);
+            self.world
+                .bodies
+                .propagate_modified_body_positions_to_colliders(&mut self.world.colliders);
+            refresh_collider(&mut self.world, entry.collider);
+        }
+    }
+
+    pub(super) fn restore_command_carry_pose(&mut self) -> Option<PlayerContext> {
+        let held = self.held.as_mut()?;
+        let anchor = held.command_anchor.take()?;
+        let entry = self.entries.get(&held.key)?;
+        let body = self.world.bodies.get_mut(entry.body)?;
+        body.set_position(anchor.pose, false);
+        body.set_next_kinematic_position(anchor.pose);
+        let collider = entry.collider;
+        self.world
+            .bodies
+            .propagate_modified_body_positions_to_colliders(&mut self.world.colliders);
+        refresh_collider(&mut self.world, collider);
+        self.update_poses();
+        Some(anchor.origin)
     }
 
     fn carry_filter(&self, collider: ColliderHandle) -> QueryFilter<'static> {
@@ -906,8 +1110,13 @@ impl Runtime {
         previous_route: Option<CarryRoute>,
     ) -> (Pose, Option<CarryRoute>) {
         if !self.carry_path_crosses_player(entry, start, desired, player) {
+            // The hand's ordinary pursuit limit must not leave it behind a jump
+            // that is already clear. Only player motion toward the goal can add
+            // speed, and the entire translation still passes the same sweep.
+            let towards_hand = subtract(desired, point(start.translation)).normalize_or_zero();
+            let speed = HOLD_SPEED.max(self.carry_follow_velocity.dot(towards_hand));
             return (
-                self.swept_carried_pose(entry, start, desired, rotation, player.eye)
+                self.swept_carried_pose(entry, start, desired, rotation, player.eye, speed)
                     .unwrap_or(start),
                 None,
             );
@@ -935,7 +1144,7 @@ impl Runtime {
         {
             let waypoint = carry_waypoint(route, center, desired, player, entry.radius);
             if let Some(candidate) =
-                self.swept_carried_pose(entry, start, waypoint, rotation, player.eye)
+                self.swept_carried_pose(entry, start, waypoint, rotation, player.eye, HOLD_SPEED)
                 && point(candidate.translation).distance_squared(center) > 1.0e-6
             {
                 return (candidate, Some(route));
@@ -1117,9 +1326,10 @@ impl Runtime {
         desired_center: Vec3,
         desired_rotation: Quat,
         eye: Vec3,
+        speed: f32,
     ) -> Option<Pose> {
         let motion_delta = subtract(desired_center, point(start.translation))
-            .clamp_length_max(HOLD_SPEED * self.carry_delta());
+            .clamp_length_max(speed * self.carry_delta());
         let filter = self.carry_filter(entry.collider);
         let options = ShapeCastOptions {
             max_time_of_impact: 1.0,

@@ -149,9 +149,6 @@ impl Items {
     pub(crate) fn hand_visible(&self) -> bool {
         interaction_hand_visible(self.target, self.world.held())
     }
-    pub(super) fn constrain_player_eye(&self, game: &crate::game::Game) -> Vec3 {
-        self.world.constrain_player_eye(player_context(game))
-    }
     pub(super) fn new() -> Self {
         Self {
             world: crate::engine::physics::ItemWorld::default(),
@@ -173,19 +170,7 @@ impl Items {
 }
 
 pub(super) fn player_context(game: &crate::game::Game) -> PlayerContext {
-    PlayerContext {
-        half: game.body_half(),
-        eye: game.player_position,
-        feet: Vec3::new(
-            game.player_position.x,
-            game.feet_y(),
-            game.player_position.z,
-        ),
-        height: game.body_height(),
-        view: game.view_direction(),
-        yaw: game.player_yaw,
-        active: !game.noclip_enabled() && !game.player_is_dead(),
-    }
+    game.physical_player_context()
 }
 
 fn diagnostic_delta() -> Option<f32> {
@@ -672,11 +657,10 @@ impl FrameLoop<'_> {
             self.flashlight.toggle();
             self.trace_world("flashlight_toggled");
         }
-        self.game.update_player_movement_with_constraints(
+        self.game.update_player_movement_with_items(
             self.input_handler.state_mut(),
             self.settings,
-            |game| self.items.constrain_player_eye(game),
-            |game| self.items.world.player_pose_clear(player_context(game)),
+            &mut self.items.world,
         );
     }
 
@@ -776,23 +760,14 @@ impl FrameLoop<'_> {
             crate::engine::logging::warn_once("player-model", format!("Player model: {problem}"));
         }
         let started = Instant::now();
-        let context = PlayerContext {
-            half: self.game.body_half(),
-            eye: self.game.player_position,
-            feet: Vec3::new(
-                self.game.player_position.x,
-                self.game.feet_y(),
-                self.game.player_position.z,
-            ),
-            height: self.game.body_height(),
-            view: self.game.view_direction(),
-            yaw: self.game.player_yaw,
-            active: !self.game.noclip_enabled() && !self.game.player_is_dead(),
-        };
+        let context = self.physical_player_context();
         self.items.world.sync_water(&self.game.water);
-        self.items
-            .world
-            .step(delta, context, self.game.door_colliders());
+        self.items.world.step_with_player_velocity(
+            delta,
+            context,
+            self.game.door_colliders(),
+            self.game.airborne_velocity(),
+        );
         for recovery in self.items.world.take_recoveries() {
             if recovery.released_held {
                 self.items.input.invalidate();

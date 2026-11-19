@@ -295,6 +295,7 @@ pub(super) struct Runtime {
     player_half: f32,
     doors: Vec<RigidBodyHandle>,
     pub player_velocity: Vec3,
+    pub(super) carry_follow_velocity: Vec3,
     previous_player: Option<Vec3>,
     // Interaction queries may sync last_player several times before a step.
     // Keep the preceding control sample and unsolved real time independently.
@@ -545,6 +546,7 @@ impl ItemWorld {
                 player_half: PLAYER_RADIUS,
                 doors: Vec::new(),
                 player_velocity: Vec3::ZERO,
+                carry_follow_velocity: Vec3::ZERO,
                 previous_player: None,
                 control_player: None,
                 control_remainder: 0.0,
@@ -1192,11 +1194,24 @@ impl ItemWorld {
     /// Invalid or negative frame intervals perform no work. Carrying continues
     /// through an explicit pause or zero scale, using swept geometry alone.
     pub fn step(&mut self, delta: f32, player: PlayerContext, doors: &[DoorCollider]) {
+        self.step_with_player_velocity(delta, player, doors, Vec3::ZERO);
+    }
+
+    /// Supplies resolved controller velocity for direct hand following.
+    /// Drop velocity still comes from measured player displacement.
+    pub(crate) fn step_with_player_velocity(
+        &mut self,
+        delta: f32,
+        player: PlayerContext,
+        doors: &[DoorCollider],
+        player_velocity: Vec3,
+    ) {
         self.stats = PhysicsStats::default();
         let world_delta = self.scaled_delta(delta);
         let Some(runtime) = self.runtime.as_mut() else {
             return;
         };
+        let command_origin = runtime.restore_command_carry_pose();
         runtime.begin_frame(&mut self.stats);
         if !delta.is_finite() || delta <= 0.0 || !player.valid() {
             return;
@@ -1239,6 +1254,7 @@ impl ItemWorld {
             remaining = (remaining - FIXED_STEP).max(0.0);
             planned_steps = planned_steps.saturating_add(1);
         }
+        runtime.carry_follow_velocity = player_velocity;
         if interval <= 0.0 {
             runtime.control_remainder = 0.0;
             runtime.accept_held_preview();
@@ -1246,11 +1262,18 @@ impl ItemWorld {
         } else if planned_steps > 0 {
             // Sample this control segment where each fixed tick ends. Ordinary
             // fractional frames never overwrite kinematic motion history.
+            // A swept command preview establishes that this carry motion
+            // used bounded controller time even when wall time exceeded it.
+            // Keep the existing discontinuity guard for other callers.
+            let continuous = command_origin.is_some_and(|origin| {
+                origin.feet == previous_control.feet && origin.eye == previous_control.eye
+            });
+            let sample_delta = if continuous { control_interval } else { delta };
             let mut tick_time = FIXED_STEP - previous_accumulator;
             let mut previous_alpha = 0.0;
             for _ in 0..planned_steps {
                 let alpha = (tick_time / interval).clamp(0.0, 1.0);
-                let sample = previous_control.sample(player, alpha, delta);
+                let sample = previous_control.sample(player, alpha, sample_delta);
                 let carry_delta =
                     (alpha - previous_alpha).mul_add(control_interval, runtime.control_remainder);
                 runtime.control_remainder = 0.0;

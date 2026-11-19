@@ -15,19 +15,7 @@ pub(in crate::editor) struct PreparedPhysics {
 }
 
 pub(super) fn player_context(game: &Game) -> PlayerContext {
-    PlayerContext {
-        half: game.body_half(),
-        eye: game.player_position,
-        feet: Vec3::new(
-            game.player_position.x,
-            game.feet_y(),
-            game.player_position.z,
-        ),
-        height: game.body_height(),
-        view: game.view_direction(),
-        yaw: game.player_yaw,
-        active: !game.noclip_enabled() && !game.player_is_dead(),
-    }
+    game.physical_player_context()
 }
 
 impl PreparedPhysics {
@@ -132,8 +120,12 @@ impl PreparedPhysics {
 
     pub(super) fn step(&mut self, game: &mut Game, seconds: f32, renderer: &mut Renderer) {
         self.world.sync_water(&game.water);
-        self.world
-            .step(seconds, player_context(game), game.door_colliders());
+        self.world.step_with_player_velocity(
+            seconds,
+            player_context(game),
+            game.door_colliders(),
+            game.airborne_velocity(),
+        );
         for recovery in self.world.take_recoveries() {
             if recovery.outcome == crate::engine::physics::RecoveryOutcome::Suspended {
                 let _hidden = renderer.set_runtime_model_visible(recovery.key, false);

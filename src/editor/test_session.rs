@@ -222,12 +222,10 @@ impl Session {
         self.game
             .entities_mut()
             .set_navigation_obstacles(self.physics.world.navigation_obstacles());
-        let physical = &self.physics.world;
-        self.game.update_player_movement_with_constraints(
+        self.game.update_player_movement_with_items(
             self.input.state_mut(),
             &self.settings,
-            |game| physical.constrain_player_eye(physics::player_context(game)),
-            |game| physical.player_pose_clear(physics::player_context(game)),
+            &mut self.physics.world,
         );
         if self.game.world_reset_count() != self.world_reset {
             return Err(

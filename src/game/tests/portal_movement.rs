@@ -328,3 +328,231 @@ fn square_corner_clearance_and_fast_sweep_do_not_tunnel() -> Result<(), String> 
     }
     Ok(())
 }
+
+fn spawn_jump_sphere(
+    items: &mut crate::engine::physics::ItemWorld,
+    key: u64,
+    center: Vec3,
+    pickup: bool,
+) -> Result<(), String> {
+    use crate::engine::physics::{BodyMotion, PhysicsDef, ShapeDef};
+
+    let radius = 0.108;
+    items.spawn(
+        key,
+        &PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            pickup,
+            shape: Some(ShapeDef::Sphere { radius }),
+            ..PhysicsDef::default()
+        },
+        (Vec3::splat(-radius), Vec3::splat(radius)),
+        center,
+        0.0,
+        1.0,
+    )
+}
+
+#[derive(Clone, Copy)]
+enum JumpWitness {
+    Flight,
+    Release,
+    Push,
+}
+
+fn replay_carry_jump(
+    held: bool,
+    hitch: Option<u8>,
+    witness: JumpWitness,
+) -> Result<(f32, f32), String> {
+    use crate::engine::physics::{FIXED_STEP, ItemWorld};
+
+    let script = [
+        ScriptedHold {
+            control: Control::MoveForward,
+            first_seconds: 0.0,
+            last_seconds: 0.90,
+        },
+        ScriptedHold {
+            control: Control::Jump,
+            first_seconds: 0.30,
+            last_seconds: 0.40,
+        },
+    ];
+    let mut game = flat()?;
+    let mut items = ItemWorld::default();
+    let player = game.physical_player_context();
+    if held {
+        spawn_jump_sphere(
+            &mut items,
+            1,
+            player.view.mul_add(
+                Vec3::splat(crate::engine::physics::HOLD_DISTANCE),
+                player.eye,
+            ),
+            true,
+        )?;
+        items.sync_context(player, &[]);
+        assert!(
+            items.pickup(1, player.eye, player.view, player.yaw),
+            "the fixture sphere must be held before the run-up"
+        );
+    }
+    let mut command = InputState::default();
+    let mut highest_feet = game.feet_y();
+    let mut elapsed = 0.0;
+    for frame in 0_u8..109 {
+        command.apply_move_script(&script, elapsed);
+        let hitch_frame = Some(frame) == hitch;
+        let raw_delta = if hitch_frame { 0.175 } else { FIXED_STEP };
+        if hitch_frame && matches!(witness, JumpWitness::Push) {
+            let center = items
+                .snapshots()
+                .first()
+                .ok_or("missing held sphere")?
+                .world_center_of_mass;
+            let obstacle = Vec3::new(center.x, center.y + 0.08, center.z - 0.29);
+            spawn_jump_sphere(&mut items, 2, obstacle, false)?;
+        }
+        game.set_benchmark_simulation_delta(raw_delta);
+        game.update_player_movement_with_items(&mut command, &Settings::default(), &mut items);
+        let context = game.physical_player_context();
+        if hitch_frame && matches!(witness, JumpWitness::Release) {
+            items.sync_context(context, &[]);
+            assert!(
+                items.drop(),
+                "release before item physics must see the swept carry pose"
+            );
+            return Ok((game.player_position.z, game.feet_y()));
+        }
+        items.step_with_player_velocity(raw_delta, context, &[], game.airborne_velocity());
+        if hitch_frame && matches!(witness, JumpWitness::Push) {
+            assert!(
+                items
+                    .contact_impulses()
+                    .iter()
+                    .any(|row| row.pair == [1, 2] && row.impulse > 0.0),
+                "the carried sphere must push the loose one in a real solver tick"
+            );
+            return Ok((game.player_position.z, game.feet_y()));
+        }
+        elapsed += game.sim_delta_seconds();
+        highest_feet = highest_feet.max(game.feet_y());
+        assert_eq!(
+            items.held(),
+            held.then_some(1),
+            "pickup must persist through landing"
+        );
+    }
+    assert!(game.grounded, "the replay must end after landing");
+    if held {
+        assert!(items.drop(), "the held sphere must still release normally");
+    }
+    Ok::<_, String>((game.player_position.z, highest_feet))
+}
+
+// Subsecond, asset-free replays protect the interaction between the movement
+// command clock and the carry solver. A hitch raises the otherwise invisible
+// stale-collider failure, the pre-solver release check covers the E ordering,
+// and a second sphere detects loss of physical pushback inside the hitch.
+#[test]
+fn forward_jump_keeps_its_trajectory_while_carrying_in_clear_space() -> Result<(), String> {
+    for hitch in [None, Some(44)] {
+        let (empty_end, empty_apex) = replay_carry_jump(false, hitch, JumpWitness::Flight)?;
+        let (held_end, held_apex) = replay_carry_jump(true, hitch, JumpWitness::Flight)?;
+        assert!(
+            empty_apex > 0.5,
+            "the reference jump must reach its ordinary apex"
+        );
+        assert!(
+            (held_end - empty_end).abs() < 0.01,
+            "carry changed forward travel ({hitch:?}): held {held_end}, empty {empty_end}"
+        );
+        assert!(
+            (held_apex - empty_apex).abs() < 0.005,
+            "carry shortened the jump ({hitch:?}): held {held_apex}, empty {empty_apex}"
+        );
+    }
+    let _release = replay_carry_jump(true, Some(44), JumpWitness::Release)?;
+    let _push = replay_carry_jump(true, Some(44), JumpWitness::Push)?;
+    Ok(())
+}
+
+// One command per case protects side tangents and two genuine undersides
+// (direct contact and an obstruction encountered during a side slide).
+// Clear jumps exercise neither contact path. No item solver steps or assets.
+#[test]
+fn held_body_contact_keeps_side_tangents_and_stops_ascent_at_an_underside() -> Result<(), String> {
+    use crate::engine::physics::{BodyMotion, ItemWorld, PhysicsDef, ShapeDef};
+
+    let side = Vec3::new(0.0, 1.6, -0.62);
+    let underside = Vec3::new(0.0, PLAYER_HEIGHT + 0.23, 0.0);
+    for (relative, aim, velocity, blocks_slide) in [
+        (side, Vec3::NEG_Z, Vec2::new(1.0, -3.0), false),
+        (underside, Vec3::Y, Vec2::X, false),
+        (side, Vec3::NEG_Z, Vec2::new(1.0, -3.0), true),
+    ] {
+        let mut game = flat()?;
+        game.set_feet_y(0.2);
+        game.grounded = false;
+        game.horizontal_velocity = velocity;
+        game.vertical_velocity = 3.0;
+        let player = game.physical_player_context();
+        let half = Vec3::new(0.35, 0.2, 0.2);
+        let mut items = ItemWorld::default();
+        let carry_box = PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            pickup: true,
+            shape: Some(ShapeDef::Cuboid {
+                half_extents: half.to_array(),
+            }),
+            ..PhysicsDef::default()
+        };
+        items.spawn(
+            1,
+            &carry_box,
+            (-half, half),
+            player.feet + relative,
+            0.0,
+            1.0,
+        )?;
+        if blocks_slide {
+            items.spawn_authored(
+                2,
+                &PhysicsDef {
+                    pickup: false,
+                    ..carry_box
+                },
+                (-half, half),
+                player.feet + underside,
+                0.0,
+                1.0,
+            )?;
+        }
+        items.sync_context(player, &[]);
+        assert!(items.pickup(1, player.eye, aim, player.yaw));
+        game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+        game.update_player_movement_with_items(
+            &mut InputState::default(),
+            &Settings::default(),
+            &mut items,
+        );
+        assert!((game.horizontal_velocity.x - 1.0).abs() < 1.0e-4);
+        if !blocks_slide {
+            assert!((game.player_position.x - player.eye.x - VERTICAL_SUBSTEP).abs() < 1.0e-4);
+        }
+        if aim == Vec3::Y || blocks_slide {
+            assert!(game.ceiling_contact_this_frame);
+            assert_eq!(game.vertical_velocity, 0.0);
+            assert!(game.feet_y() < 0.23);
+        } else {
+            assert!(!game.ceiling_contact_this_frame);
+            assert!(game.vertical_velocity > 2.7);
+            assert!(game.feet_y() > 0.24);
+            assert!(game.horizontal_velocity.y.abs() < 1.0e-4);
+            assert!(game.player_position.z > player.eye.z - 0.02);
+        }
+        assert_eq!(items.held(), Some(1));
+    }
+    Ok(())
+}

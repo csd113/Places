@@ -53,9 +53,11 @@ use crate::game::settings::Settings;
 mod developer;
 pub mod movement_probe;
 pub(crate) mod play_spawn;
+mod player_items;
 mod portal_movement;
 mod recovery;
 mod water;
+use player_items::PlayerContacts;
 use recovery::{PlayableSpace, RecoveryDestination};
 
 pub const TWO_PI: f32 = std::f32::consts::TAU;
@@ -1246,6 +1248,22 @@ impl Game {
         constrain: impl Fn(&Self) -> Vec3,
         stance_clear: impl Fn(&Self) -> bool,
     ) {
+        self.update_player_movement_checked(
+            input,
+            settings,
+            PlayerContacts::External {
+                constrain: &constrain,
+                stance_clear: &stance_clear,
+            },
+        );
+    }
+
+    fn update_player_movement_checked(
+        &mut self,
+        input: &mut InputState,
+        settings: &Settings,
+        mut contacts: PlayerContacts<'_>,
+    ) {
         self.ceiling_contact_this_frame = false;
         let changed = self.reconcile_cinematic_control();
         let cinematic = self.cinematic_owns_controls();
@@ -1310,14 +1328,9 @@ impl Game {
         }
 
         self.configured_walk_speed = self.walk_speed(settings);
-        let trigger_origin = self.update_playing_frame_checked(
-            &frame_input,
-            settings,
-            motion,
-            &constrain,
-            &stance_clear,
-        );
-        self.apply_movement_constraint(constrain(self));
+        let trigger_origin =
+            self.update_playing_frame_checked(&frame_input, settings, motion, &mut contacts);
+        contacts.finish(self);
         if self.recover_out_of_map() {
             self.finish_pending_local_elevator_departure(false);
             return;
@@ -1406,8 +1419,10 @@ impl Game {
             input,
             settings,
             motion,
-            &|game| game.player_position,
-            &|_| true,
+            &mut PlayerContacts::External {
+                constrain: &|game| game.player_position,
+                stance_clear: &|_| true,
+            },
         )
     }
 
@@ -1416,8 +1431,7 @@ impl Game {
         input: &InputState,
         settings: &Settings,
         motion: (f32, f32),
-        constrain: &dyn Fn(&Self) -> Vec3,
-        stance_clear: &dyn Fn(&Self) -> bool,
+        contacts: &mut PlayerContacts<'_>,
     ) -> Vec3 {
         let delta = self.sim_delta_seconds;
         self.update_look(input, settings, motion, delta);
@@ -1444,13 +1458,14 @@ impl Game {
             }
             self.movement_accumulator = (self.movement_accumulator - tick).max(0.0);
             let command = self.movement_input;
+            let contact_origin = contacts.command_origin(self);
             let previous_stance = self.stance;
             let previous_feet = self.feet_y;
             let previously_grounded = self.grounded;
             self.update_crouch(&command);
             if previous_stance == Stance::Crouched
                 && self.stance == Stance::Standing
-                && !stance_clear(self)
+                && !contacts.stance_clear(self)
             {
                 self.stance = Stance::Crouched;
                 self.duck_fraction = 1.0;
@@ -1458,8 +1473,11 @@ impl Game {
             }
             self.advance_eye_offset(VERTICAL_SUBSTEP);
             self.update_locomotion_step(&command, settings, VERTICAL_SUBSTEP);
-            self.apply_movement_constraint(constrain(self));
+            contacts.resolve_command(self, contact_origin);
             self.advance_step_eye(previous_feet, previously_grounded);
+            if self.movement_accumulator + 1.0e-8_f64 >= tick {
+                contacts.prepare_next_command(self, contact_origin);
+            }
             self.movement_input.clear_presses();
         }
         self.sim_delta_seconds = delta;
@@ -1667,6 +1685,20 @@ impl Game {
         }
 
         self.refresh_locomotion(horizontal_distance, delta);
+    }
+
+    /// Resolved controller velocity used to follow ordinary land jumps.
+    #[must_use]
+    pub(crate) const fn airborne_velocity(&self) -> Vec3 {
+        if self.grounded || self.swimming || self.climbing.is_some() || self.water_exit.is_some() {
+            Vec3::ZERO
+        } else {
+            Vec3::new(
+                self.horizontal_velocity.x,
+                self.vertical_velocity,
+                self.horizontal_velocity.y,
+            )
+        }
     }
 
     /// The locomotion pose and horizontal speed the last Playing update
