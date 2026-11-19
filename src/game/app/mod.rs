@@ -3729,9 +3729,13 @@ impl FrameLoop<'_> {
         intent: LoadIntent,
         error: crate::engine::resources::MapAdmissionError,
     ) {
-        let retry = (matches!(intent, LoadIntent::Play) && error.can_retry_after_unload())
-            .then(|| self.load_source.clone())
-            .flatten();
+        // Recovering a ride reopens the source cabin and clears its arrival.
+        // An unload retry would then discard the live cargo and use the map spawn.
+        let retry = (matches!(intent, LoadIntent::Play)
+            && self.elevator_arrival.is_none()
+            && error.can_retry_after_unload())
+        .then(|| self.load_source.clone())
+        .flatten();
         self.recover_from_preparation_failure(id, &error.to_string());
         if let Some(source) = retry {
             self.retry_source = Some(source);
