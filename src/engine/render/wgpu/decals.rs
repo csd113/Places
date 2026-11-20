@@ -60,7 +60,9 @@ pub const DECAL_SHADER_SRC: &str = concat!(
     include_str!("../../lighting/prepared_decal_light.wgsl"),
     include_str!("atmosphere.wgsl"),
     "\n",
-    include_str!("caustics.wgsl")
+    include_str!("caustics.wgsl"),
+    include_str!("../../lighting/caustics.wgsl"),
+    include_str!("water_surface_nodes.wgsl")
 );
 
 /// Name of the decal vertex entry point.

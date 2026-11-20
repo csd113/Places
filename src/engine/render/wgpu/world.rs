@@ -99,9 +99,13 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("attached_lights.wgsl"),
     "\n",
     include_str!("world.wgsl"),
+    include_str!("../../lighting/caustic_receiver.wgsl"),
+    include_str!("world_fragment.wgsl"),
     include_str!("atmosphere.wgsl"),
     "\n",
     include_str!("caustics.wgsl"),
+    include_str!("../../lighting/caustics.wgsl"),
+    include_str!("water_surface_nodes.wgsl"),
     include_str!("water.wgsl"),
     "\n",
     include_str!("../../lighting/water_optics.wgsl")
