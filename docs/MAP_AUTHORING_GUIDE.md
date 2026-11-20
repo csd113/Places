@@ -3133,6 +3133,7 @@ anywhere).
 | `category` | string | optional | `"Other"` | props, entities (organizational) |
 | `solid` | boolean | optional | `false` | props, entities (catalog advisory; level `solid` controls collision) |
 | `physics` | object | optional | none | props, entities. Reusable rigid item profile for developer spawning, with the same strict fields and bounds as `props[].physics` (§19). It does not change existing level placements; a placement must explicitly author its own profile. |
+| `editor_placement_physics` | object | optional | none | props, entities. Copied into `props[].physics` when the editor inserts a new catalog model. Provides the developer-spawn profile when no `physics` override is supplied. |
 | `ground_surface` | `"normal"` \| `"ice"` | optional | `"normal"` | material definitions. Selects the established player movement behavior and default rigid-body friction. |
 | `ground_friction` | number | optional | normal: `0.7`; ice: `0.025` | material definitions. Finite `0..=2` coefficient for rigid-body ground contacts; player movement and appearance are unchanged. |
 | `surface` | string | optional | none | materials/textures; `wall`/`floor`/`ceiling` documentation/validation |
@@ -4522,7 +4523,9 @@ Semantics:
 `physics` is optional on a prop placement and on a catalog prop/entity entry.
 An omitted placement profile preserves the existing fixed render, lighting and
 `solid` box behavior, including when the model's catalog entry has a profile.
-Catalog profiles are the reusable defaults used for developer-spawned items.
+The editor writes `editor_placement_physics` into new catalog placements when
+provided. Changing the catalog later leaves saved placements intact. A separate
+`physics` profile overrides the editor default for developer spawning.
 The shipped reusable profiles and floor coefficients are in the optional
 `assets/gameplay.json` runtime-only sidecar, applied after catalog load. Inline
 catalog fields remain supported; explicit sidecar fields override them. Pure

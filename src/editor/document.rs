@@ -303,8 +303,8 @@ impl Document {
         Ok(id)
     }
 
-    /// Adds a validated built-in asset and captures a prop's catalog collision
-    /// size/solid setting in the same undo step. Runtime physics stays opt-in.
+    /// Adds a validated built-in asset and captures catalog collision dimensions,
+    /// solidity and any opted-in placement physics in the same undo step.
     ///
     /// # Errors
     /// Rejects incompatible assets, missing prop dimensions or invalid edits.
@@ -348,6 +348,10 @@ impl Document {
                 .size
                 .ok_or("The selected prop has no catalog dimensions")?;
             objects::set_prop_collision(&mut edited, id, size, entry.solid)?;
+            if let Some(profile) = &entry.editor_placement_physics {
+                let physics = serde_json::to_value(profile).map_err(|error| error.to_string())?;
+                drop(objects::object_mut(&mut edited, id)?.insert("physics".into(), physics));
+            }
             objects::apply_door_preset(&mut edited, id, model)?;
         }
         self.accept_edit(edited)?;

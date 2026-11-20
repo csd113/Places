@@ -12758,6 +12758,58 @@
         "tool": "completed",
         "source": "completed-models.json"
       }
+    },
+    {
+      "id": "core:pocketchip_upright",
+      "display_name": "PocketCHIP (upright)",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "shared/props/pocketchip/pocketchip_upright.glb",
+      "size": [
+        0.1125,
+        0.1651,
+        0.0262
+      ],
+      "color": "#ffffff",
+      "category": "Decorative",
+      "solid": true,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.267,
+        "pickup": true
+      },
+      "description": "An original-stock PocketCHIP standing upright for a propped display.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "core:pocketchip",
+      "display_name": "PocketCHIP",
+      "asset_class": "environment",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "shared/props/pocketchip/pocketchip.glb",
+      "size": [
+        0.1125,
+        0.0262,
+        0.1651
+      ],
+      "color": "#ffffff",
+      "category": "Decorative",
+      "solid": true,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.267,
+        "pickup": true
+      },
+      "description": "An original-stock PocketCHIP with the display and keyboard facing upward for desks and shelves.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
     }
   ]
 }

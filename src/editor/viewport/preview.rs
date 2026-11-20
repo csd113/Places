@@ -323,7 +323,7 @@ fn prepare_test(
     crate::engine::progress::stage("Checking gameplay and scripts");
     crate::editor::test_prepare::validate(&level, catalog.assets())?;
     crate::engine::progress::stage("Preparing quick scene / no lighting bake");
-    let mut preview = prepare(level, true, catalog, assets, textures, reuse, None)?;
+    let mut preview = prepare_scene(level, true, catalog, assets, textures, reuse, None)?;
     if preview.build.lightmaps.is_some() {
         return Err("Quick test must not contain a lighting bake".into());
     }
@@ -342,6 +342,34 @@ fn prepare_test(
 }
 
 fn prepare(
+    mut level: LevelDef,
+    environment: bool,
+    catalog: &PropCatalog,
+    assets: &mut PropAssets,
+    textures: &mut TextureCache,
+    reuse: &mut reuse::Reuse,
+    scope: Option<[f32; 4]>,
+) -> Result<PreparedPreview, String> {
+    // The edit viewport has no item simulation. Draw opted-in catalog items at
+    // their authored pose in this private snapshot, outside local light bakes.
+    if scope.is_none() {
+        for prop in &mut level.props {
+            if prop.is_physics_movable()
+                && catalog
+                    .assets()
+                    .placeable(&prop.model)
+                    .is_some_and(|entry| entry.editor_placement_physics.is_some())
+            {
+                prop.physics = None;
+                prop.solid = false;
+                prop.occludes = false;
+            }
+        }
+    }
+    prepare_scene(level, environment, catalog, assets, textures, reuse, scope)
+}
+
+fn prepare_scene(
     mut level: LevelDef,
     environment: bool,
     catalog: &PropCatalog,

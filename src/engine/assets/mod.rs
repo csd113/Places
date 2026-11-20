@@ -575,9 +575,10 @@ pub struct AssetEntry {
     pub color: Option<[f32; 3]>,
     pub category: Option<String>,
     pub solid: bool,
-    /// Optional reusable developer-spawned rigid item profile. Level placements
-    /// remain static unless they explicitly author their own physics settings.
+    /// Reusable rigid item profile for developer spawning.
     pub physics: Option<crate::engine::physics::config::PhysicsDef>,
+    /// Optional profile the editor writes when inserting a new placement.
+    pub editor_placement_physics: Option<crate::engine::physics::config::PhysicsDef>,
     /// Surface a material applies to (`wall`, `floor`, `ceiling`).
     pub surface: Option<String>,
     /// Base texture asset a material draws with (`core:tex_carpet_beige_01`).
@@ -897,6 +898,8 @@ struct CatalogEntryFile {
     #[serde(default)]
     physics: Option<crate::engine::physics::config::PhysicsDef>,
     #[serde(default)]
+    editor_placement_physics: Option<crate::engine::physics::config::PhysicsDef>,
+    #[serde(default)]
     surface: Option<String>,
     #[serde(default)]
     texture: Option<String>,
@@ -1008,6 +1011,8 @@ impl CatalogEntryFile {
         let asset_class = self.resolve_class(&id)?;
         let asset_type = self.resolve_type(&id)?;
         validate_asset_physics(&id, &asset_type, self.physics.as_ref())?;
+        validate_asset_physics(&id, &asset_type, self.editor_placement_physics.as_ref())
+            .map_err(|error| format!("editor_placement_physics: {error}"))?;
         let theme = parse_optional_slug(self.theme.as_deref(), "theme", &id, AssetTheme::parse)?;
         let model = self.resolve_model(&id)?;
         let texture = self.resolve_texture(&id, &asset_type)?;
@@ -1049,7 +1054,12 @@ impl CatalogEntryFile {
                 .filter(|category| !category.is_empty())
                 .map(str::to_string),
             solid: self.solid,
-            physics: self.physics.clone(),
+            physics: self
+                .physics
+                .as_ref()
+                .or(self.editor_placement_physics.as_ref())
+                .cloned(),
+            editor_placement_physics: self.editor_placement_physics.clone(),
             surface: self
                 .surface
                 .as_deref()

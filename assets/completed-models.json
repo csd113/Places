@@ -7438,5 +7438,41 @@
     "identities": [
       "core:hollow_metal_exit_door_double"
     ]
+  },
+  "shared/props/pocketchip/pocketchip_upright.glb": {
+    "sha256": "451d3891f365c1ce8e52fd43c273b8f31a5d81a710fc3efa01e4f014e119146e",
+    "triangles": 788,
+    "texture_edge": 256,
+    "identities": [
+      "core:pocketchip_upright"
+    ],
+    "bounds_min": [
+      -0.05624999850988388,
+      -6.103515470812226e-09,
+      -0.013100000098347664
+    ],
+    "bounds_max": [
+      0.05624999850988388,
+      0.16509999334812164,
+      0.013100000098347664
+    ]
+  },
+  "shared/props/pocketchip/pocketchip.glb": {
+    "sha256": "f1bb394d845abd3bdda4933f7dec6a18348b091880cea39aa4b342319b94feb8",
+    "triangles": 788,
+    "texture_edge": 256,
+    "identities": [
+      "core:pocketchip"
+    ],
+    "bounds_min": [
+      -0.05624999850988388,
+      -6.51925802230835e-09,
+      -0.08254999667406082
+    ],
+    "bounds_max": [
+      0.05624999850988388,
+      0.02619999647140503,
+      0.08255000412464142
+    ]
   }
 }

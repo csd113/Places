@@ -679,6 +679,12 @@ def validate_catalog(catalog: dict, asset_root: str = ASSET_ROOT) -> Tuple[List[
                 f"(known: {', '.join(sorted(KNOWN_TYPES))})"
             )
 
+        placement_physics = entry.get("editor_placement_physics")
+        if placement_physics is not None:
+            if asset_type not in PLACEABLE_TYPES:
+                errors.append(f"{where}: editor_placement_physics requires a prop or entity asset")
+            errors.extend(validate_physics_profile(placement_physics, f"{where} editor_placement_physics"))
+
         theme = entry.get("theme")
         if theme is not None:
             theme = str(theme).strip()
