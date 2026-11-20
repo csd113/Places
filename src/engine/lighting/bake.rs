@@ -22,7 +22,7 @@
 //! reports one room, and surfaces keep sampling through the room they belong to.
 
 use super::color::LightColor;
-use super::light::{LightFalloff, LightShape, LightSource};
+use super::light::{LightFalloff, LightShape, LightSource, compose_attached_yaw};
 use super::math::{
     EmitterFootprint, EmitterYaw, ceiling_height_factor, effective_power, room_baseline,
     smooth_falloff,
@@ -1160,7 +1160,7 @@ fn baked_attached_lights(
             let position = placement
                 .transform_point3(glam::Vec3::from_array(offset))
                 .to_array();
-            let rotation = prop.rotation_degrees + light.rotation_degrees;
+            let rotation = compose_attached_yaw(prop.rotation_degrees, light.rotation_degrees);
             let mut source = light.to_source(position, rotation, prop.scale).sanitized();
             let emitter_yaw = EmitterYaw::attached(source.rotation_degrees);
             if let Some(control) = prop.light_control() {

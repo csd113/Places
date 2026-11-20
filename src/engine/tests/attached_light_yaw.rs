@@ -1,13 +1,12 @@
-//! One small in-memory room guards the Static nearest point and Full source
-//! axes against the stock fixture snap. No assets, atlas solve or GPU work.
+//! One small in-memory room checks Static footprint distances and CPU-side
+//! Full emitter samples. These checks need no assets, atlas solve or GPU work.
 
 use crate::engine::level::LevelDef;
 use crate::engine::lighting::LevelLighting;
 use crate::engine::lighting::transport::TransportEmitter;
 
-#[test]
-fn attached_light_yaw_reaches_both_bakers() -> Result<(), String> {
-    let level = LevelDef::from_json(
+fn yaw_test_level() -> Result<LevelDef, String> {
+    LevelDef::from_json(
         r#"{"schema":"places-level","format_version":1,"id":"yaw","name":"Yaw",
         "spawn":{"x":1,"z":1},"rooms":[{"width":6,"depth":6,"height":3}],
         "ceiling_lights":[{"x":1,"z":1,"rotation_degrees":45,"fixture":"core:fluorescent_panel_01"}],
@@ -16,7 +15,12 @@ fn attached_light_yaw_reaches_both_bakers() -> Result<(), String> {
             {"shape":"rect","half_width":1.5,"half_depth":0.1,"offset":[0,1,0],"rotation_degrees":15},
             {"shape":"line","length":3,"offset":[0,1,0],"rotation_degrees":60}]}]}"#,
     )
-    .map_err(|error| error.to_string())?;
+    .map_err(|error| error.to_string())
+}
+
+#[test]
+fn attached_light_yaw_reaches_static_footprints_and_full_cpu_emitters() -> Result<(), String> {
+    let level = yaw_test_level()?;
     crate::engine::loader::validate_level(&level)?;
     let bake = LevelLighting::bake(&level);
     let lights = bake.lights();
@@ -52,10 +56,26 @@ fn attached_light_yaw_reaches_both_bakers() -> Result<(), String> {
     let area = TransportEmitter::from_baked(rectangle, None)
         .shape
         .samples(2);
+    let [corner, across_short, across_long, _opposite] = area.as_slice() else {
+        return Err("Expected a two-by-two CPU rectangle sample grid".into());
+    };
+    let origin_tap = glam::Vec3::from_array(*corner);
+    let long_edge = glam::Vec3::from_array(*across_long) - origin_tap;
+    let short_edge = glam::Vec3::from_array(*across_short) - origin_tap;
+    let diagonal_component = std::f32::consts::FRAC_1_SQRT_2;
     assert!(
-        area.iter()
-            .all(|tap| (tap[0] + tap[2]).abs() < 0.1 && tap[0].abs() > 0.4),
-        "Full area taps must span the authored long axis and short axis"
+        long_edge.abs_diff_eq(
+            glam::Vec3::new(diagonal_component, 0.0, -diagonal_component) * 1.5,
+            1.0e-5
+        ),
+        "CPU rectangle sample grid must span the rotated long axis: {long_edge:?}"
+    );
+    assert!(
+        short_edge.abs_diff_eq(
+            glam::Vec3::new(diagonal_component, 0.0, diagonal_component) * 0.1,
+            1.0e-5
+        ),
+        "CPU rectangle sample grid must span the perpendicular short axis: {short_edge:?}"
     );
     assert_eq!(
         TransportEmitter::from_baked(right_angle, None)
@@ -68,5 +88,50 @@ fn attached_light_yaw_reaches_both_bakers() -> Result<(), String> {
         stock.half_d() > stock.half_w(),
         "Stock housing and aperture keep their mounting rule"
     );
+    Ok(())
+}
+
+#[test]
+fn attached_light_composes_extreme_yaw_and_keeps_invalid_local_fallback() -> Result<(), String> {
+    let mut level = yaw_test_level()?;
+    // This finite value is 120 degrees modulo a full turn. Doubling it
+    // overflows f32, but the symmetric line should still resolve to 60 degrees.
+    let extreme = f32::from_bits(0x7f7f_fff0);
+    let cases = [
+        (extreme, extreme, [0.75, 0.0, -1.299_038]),
+        (-extreme, -extreme, [0.75, 0.0, 1.299_038]),
+        (f32::MAX, 90.0, [0.0, 0.0, 1.5]),
+        (30.0, f32::NAN, [1.5, 0.0, 0.0]),
+    ];
+    for (parent_yaw, local_yaw, expected_end) in cases {
+        let [prop] = level.props.as_mut_slice() else {
+            return Err("Expected one attached-light prop".into());
+        };
+        let [line, ..] = prop.lights.as_mut_slice() else {
+            return Err("Expected an attached line".into());
+        };
+        prop.rotation_degrees = parent_yaw;
+        line.rotation_degrees = local_yaw;
+        let validation = crate::engine::loader::validate_level(&level);
+        if local_yaw.is_finite() {
+            validation?;
+        } else {
+            // Direct callers can still hand the bake an unvalidated level.
+            assert!(validation.is_err(), "The loader must reject non-finite yaw");
+        }
+
+        let bake = LevelLighting::bake(&level);
+        let [_, light, ..] = bake.lights() else {
+            return Err("Expected a fixture followed by an attached line".into());
+        };
+        let taps = TransportEmitter::from_baked(light, None).shape.samples(2);
+        let [_, end] = taps.as_slice() else {
+            return Err("Expected two CPU line taps".into());
+        };
+        assert!(
+            glam::Vec3::from_array(*end).abs_diff_eq(glam::Vec3::from_array(expected_end), 1.0e-5),
+            "Yaw {parent_yaw} + {local_yaw} must place the end tap at {expected_end:?}, got {end:?}"
+        );
+    }
     Ok(())
 }

@@ -293,6 +293,18 @@ impl LightFalloff {
     }
 }
 
+/// World yaw of a prop-attached emitter, in degrees.
+pub(super) fn compose_attached_yaw(parent_degrees: f32, local_degrees: f32) -> f32 {
+    // Preserve the signed sum for angles within one turn. Reduce larger
+    // operands before adding so even extreme finite angles can compose.
+    // A non-finite result still gets the LightSource::sanitized fallback.
+    if parent_degrees.abs() <= 360.0 && local_degrees.abs() <= 360.0 {
+        parent_degrees + local_degrees
+    } else {
+        (parent_degrees % 360.0) + (local_degrees % 360.0)
+    }
+}
+
 /// One engine-level light: everything the bake needs, and nothing about what
 /// object (if any) owns it.
 #[derive(Clone, Copy, Debug, PartialEq)]
