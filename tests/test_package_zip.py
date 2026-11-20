@@ -2,8 +2,10 @@
 
 The sub-KiB method-93 fixtures protect original accounting metadata, one-copy
 reuse and temporary ownership on error. The comparison witness is just over
-one streaming block to catch errors at the boundary. These tests need no map,
-bake or native process.
+one streaming block to catch errors at the boundary.
+Two sub-KiB legacy ZIPs and a synthetic stat change check that the comparison
+verifies both source handles after its final record read. These tests need no
+map, bake or native process.
 """
 import hashlib
 import json
@@ -17,7 +19,7 @@ from unittest import mock
 import zipfile
 
 from tools.levels.package_zip import PackageZip
-from tools.bench.compare_packages import BLOCK_BYTES, compare
+from tools.bench.compare_packages import BLOCK_BYTES, compare, compare_record
 
 
 class PackageZipTests(unittest.TestCase):
@@ -110,3 +112,36 @@ class PackageZipTests(unittest.TestCase):
             self.assertEqual(report["differing_records"], [dict(
                 name="record", role="fixture", before_sha256=hashlib.sha256(payload).hexdigest(),
                 after_sha256=hashlib.sha256(changed).hexdigest())])
+
+    def test_comparison_rejects_identity_change_after_legacy_reads(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            paths = [Path(temporary) / name for name in ("before.zip", "after.zip")]
+            for path in paths:
+                with zipfile.ZipFile(path, "w") as archive:
+                    archive.writestr(zipfile.ZipInfo("manifest.json"), '{"entries": []}')
+
+            report = compare(*paths)
+            self.assertTrue(report["archive_byte_equal"])
+            self.assertTrue(report["quality_equal"])
+
+            real_fstat = os.fstat
+            for side in (0, 1):
+                with self.subTest(archive=paths[side].name):
+                    changed_fd = None
+
+                    def read_record(left, right, name):
+                        nonlocal changed_fd
+                        record = compare_record(left, right, name)
+                        changed_fd = (left, right)[side].fp.fileno()
+                        return record
+
+                    def fstat(fd):
+                        stat = real_fstat(fd)
+                        if fd == changed_fd:
+                            return mock.Mock(wraps=stat, st_size=stat.st_size + 1)
+                        return stat
+
+                    with (mock.patch("tools.bench.compare_packages.compare_record", side_effect=read_record),
+                          mock.patch.object(os, "fstat", side_effect=fstat)):
+                        with self.assertRaisesRegex(zipfile.BadZipFile, "package changed since opening"):
+                            compare(*paths)

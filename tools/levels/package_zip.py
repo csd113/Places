@@ -51,12 +51,13 @@ class PackageZip(zipfile.ZipFile):
             if self._source is not None:
                 self._identity = archive_identity(os.fstat(self._source.fileno()))
             super().__init__(file, mode, *args, **kwargs)
-            self._check_source()
+            self.verify_source_identity()
         except BaseException:
             self.close()
             raise
 
-    def _check_source(self):
+    def verify_source_identity(self):
+        """Recheck the identity of the open source handle for path-based reads."""
         if self._source is not None and archive_identity(os.fstat(self._source.fileno())) != self._identity:
             raise zipfile.BadZipFile("package changed since opening the archive")
 
@@ -64,17 +65,17 @@ class PackageZip(zipfile.ZipFile):
     def raw_stream(self):
         """Read the original ZIP bytes from the same handle as the ZIP metadata."""
         with self._lock:
-            self._check_source()
+            self.verify_source_identity()
             position = self.fp.tell()
             self.fp.seek(0)
             try:
                 yield self.fp
-                self._check_source()
+                self.verify_source_identity()
             finally:
                 self.fp.seek(position)
 
     def _bounded_view(self):
-        self._check_source()
+        self.verify_source_identity()
         if self._decoded is not None:
             return self._decoded
         if not self.filename or not Path(self.filename).is_file():
@@ -92,7 +93,7 @@ class PackageZip(zipfile.ZipFile):
                 raise zipfile.BadZipFile("package path changed since opening the archive")
             result = subprocess.run([str(reader), str(source), str(output), "1"],
                                     capture_output=True, text=True, check=False)
-            self._check_source()
+            self.verify_source_identity()
             if self._source is not None and archive_identity(source.stat()) != self._identity:
                 raise zipfile.BadZipFile("package path changed since opening the archive")
             if result.returncode:

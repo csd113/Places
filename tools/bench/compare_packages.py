@@ -94,6 +94,8 @@ def compare(before: Path, after: Path, allow_stage_key=False, asset_root=None):
             result["differing_records"].append(dict(
                 name=name, role=role, before_sha256=before_hash, after_sha256=after_hash))
         result["quality_equal"] = not any(result[key] for key in ("missing", "added", "differing_records"))
+        left.verify_source_identity()
+        right.verify_source_identity()
         return result
 
 
