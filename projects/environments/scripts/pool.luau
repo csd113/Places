@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Pool favor saved at the Hub."
+        elseif status == "failed" then "Pool favor complete for this session."
+        elseif status == "pending" then "Pool favor complete. Save requested."
+        else "Pool favor complete."
+end
 local active, done, afloat = false, false, 0
 -- A 25 cm inset still excludes the rim while allowing a gentle deck-side drop.
 local function safe_float(duck)
@@ -9,7 +17,7 @@ local function safe_float(duck)
 end
 local function talk(api)
     if done then
-        api.message("THE POOL ATTENDANT", {"A champion in a very small boat.", "Pool favor complete. Return using the Hub elevator when ready."})
+        api.message("THE POOL ATTENDANT", {"A champion in a very small boat.", favor_line(api), "Return using the Hub elevator when ready."})
     else
         active = true
         api.message("THE POOL ATTENDANT", {
@@ -26,7 +34,7 @@ local function restored(api)
     afloat = 0
     api.message("REGATTA DUCK RESTORED", {
         "Restore requested: the duck returns if its table is clear.",
-        if done then "Your completed favor stays recorded at the Hub." else "The float timer is back to 0/4. You can try as often as you like.",
+        if done then favor_line(api) else "The float timer is back to 0/4. You can try as often as you like.",
         if active or done then "Carry the duck to that room's main basin and gently put it down." else "Speak to the pool attendant in the first room to begin the regatta.",
     })
 end
@@ -69,7 +77,7 @@ return {
             api.prompt("pool_attendant", "Regatta complete / speak")
             api.message("THE POOL ATTENDANT", {
                 "Four seconds! A flawless maiden voyage.",
-                "Pool favor complete. The Hub will remember.",
+                favor_line(api),
                 "Return using the Hub elevator when ready.",
             })
         end

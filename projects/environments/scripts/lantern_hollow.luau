@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Lantern Hollow favor saved at the Hub."
+        elseif status == "failed" then "Lantern Hollow favor complete for this session."
+        elseif status == "pending" then "Lantern Hollow favor complete. Save requested."
+        else "Lantern Hollow favor complete."
+end
 -- Jun walks every metre; the last authored performance backs into the stool.
 local phase, waypoint, elapsed = "hiding", 1, 0
 local route = { {x=-10.5,z=-24.5}, {x=-11.5,z=-23.2},
@@ -9,7 +17,7 @@ local function navigate(api)
 end
 local function group(api)
     if phase == "seated" then
-        api.message("THE CAMPFIRE CIRCLE", {"Seven friends, seven seats. Everyone is here.", "Lantern Hollow favor complete. Return using the Hub elevator when ready."})
+        api.message("THE CAMPFIRE CIRCLE", {"Seven friends, seven seats. Everyone is here.", favor_line(api), "Return using the Hub elevator when ready."})
     elseif phase == "hiding" then
         api.message("THE CAMPFIRE CIRCLE", {
             "Jun is playing hide-and-seek. One stump is empty.",
@@ -74,7 +82,7 @@ return {
             api.prompt("editor_prop_202", "Jun is home / speak")
             if not api.completed("lantern_hollow") then
                 api.complete()
-                api.message("THE CAMPFIRE CIRCLE", {"One, two, three... seven. Everyone is here.", "Lantern Hollow favor complete. The Hub will remember.", "Return using the Hub elevator when ready."})
+                api.message("THE CAMPFIRE CIRCLE", {"One, two, three... seven. Everyone is here.", favor_line(api), "Return using the Hub elevator when ready."})
             end
         end
     end,

@@ -1,5 +1,5 @@
 //! Bounded package-session completion, separate from disposable map VMs.
-use std::collections::BTreeSet;
+use std::collections::{BTreeMap, BTreeSet};
 use std::sync::{Arc, Mutex};
 
 use serde::{Deserialize, Serialize};
@@ -12,6 +12,16 @@ enum SaveStatus {
     Saved,
     Pending,
     Failed,
+}
+
+impl SaveStatus {
+    const fn label(self) -> &'static str {
+        match self {
+            Self::Saved => "saved",
+            Self::Pending => "pending",
+            Self::Failed => "failed",
+        }
+    }
 }
 
 #[derive(Clone, Copy, Default, PartialEq, Eq)]
@@ -32,6 +42,8 @@ pub struct CampaignProgress {
     reset_requested: bool,
     #[serde(skip)]
     status: SaveStatus,
+    #[serde(skip)]
+    unsaved: BTreeMap<String, SaveStatus>,
 }
 
 impl CampaignProgress {
@@ -56,12 +68,16 @@ impl CampaignProgress {
     /// Rejects invalid identities and growth beyond the bounded destination set.
     pub fn complete(&mut self, id: &str) -> Result<(), String> {
         validate_id(id)?;
-        if !self.completed.contains(id) && self.completed.len() >= MAX_OBJECTIVES {
+        if self.completed(id) {
+            return Ok(());
+        }
+        if self.completed.len() >= MAX_OBJECTIVES {
             return Err("Campaign completion limit reached".into());
         }
-        if self.completed.insert(id.to_string()) {
-            self.status = SaveStatus::Pending;
-        }
+        let completion = id.to_string();
+        let _previous = self.unsaved.insert(completion.clone(), SaveStatus::Pending);
+        let _newly_completed = self.completed.insert(completion);
+        self.status = SaveStatus::Pending;
         Ok(())
     }
 
@@ -75,11 +91,12 @@ impl CampaignProgress {
     }
 
     pub(crate) const fn status(&self) -> &'static str {
-        match self.status {
-            SaveStatus::Saved => "saved",
-            SaveStatus::Pending => "pending",
-            SaveStatus::Failed => "failed",
-        }
+        self.status.label()
+    }
+
+    pub(crate) fn favor_status(&self, id: &str) -> Option<&'static str> {
+        self.completed(id)
+            .then(|| self.unsaved.get(id).copied().unwrap_or_default().label())
     }
 
     pub(crate) const fn request_reset(&mut self) {
@@ -94,11 +111,15 @@ impl CampaignProgress {
         }
     }
 
-    pub(crate) const fn mark_saved(&mut self) {
+    pub(crate) fn mark_saved(&mut self) {
+        self.unsaved.clear();
         self.status = SaveStatus::Saved;
     }
 
-    pub(crate) const fn mark_failed(&mut self) {
+    pub(crate) fn mark_failed(&mut self) {
+        for status in self.unsaved.values_mut() {
+            *status = SaveStatus::Failed;
+        }
         self.reset_requested = false;
         self.status = SaveStatus::Failed;
     }

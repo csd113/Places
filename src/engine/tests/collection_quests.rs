@@ -81,6 +81,10 @@ impl Fixture {
         Self::new(id, props, Arc::new(Mutex::new(CampaignProgress::default())))
     }
     fn tick(&mut self) {
+        self.advance();
+        let _commands = self.world.take_commands();
+    }
+    fn advance(&mut self) {
         let index = CollisionIndex::build(&[]);
         let floor = WalkableFloor::from_level(&self.level);
         let _tick = self.world.tick(&WorldContext {
@@ -97,7 +101,6 @@ impl Fixture {
             floor: &floor,
             nav: None,
         });
-        let _commands = self.world.take_commands();
     }
     fn call(&mut self, handler: &str, subject: &str) -> Result<(), String> {
         let _report = self.world.dispatch_on(
@@ -268,12 +271,28 @@ fn collection_bowling_requires_a_witnessed_blue_ball_launch_and_fallen_pins() ->
     let mut props = pins.iter().map(|id| actor(id)).collect::<Vec<_>>();
     props.extend([actor("arcade_attendant"), actor("rack_0_ball_2")]);
     props.push(json!({"id":"lane_1_secret_switch","model":"mannequin","x":0_i32,"z":0_i32,"components":[{"component":"state","name":"miniatures","value":false}]}));
-    let mut arcade = Fixture::fresh("arcade", &props)?;
+    let mut progress = CampaignProgress::default();
+    progress.complete("pool")?;
+    progress.mark_failed();
+    let mut arcade = Fixture::new("arcade", &props, Arc::new(Mutex::new(progress)))?;
     let upright = pins
         .iter()
         .map(|id| (*id, Vec3::new(10.65, 0., 3.3), 1., false, true))
         .collect::<Vec<_>>();
     arcade.items(&upright);
+    arcade.call("talk", "arcade_attendant")?;
+    // Fouling before any Arcade award leaves collection progress alone.
+    let behind_line = arcade.player;
+    arcade.player = Vec3::new(10.65, 0., 19.);
+    arcade.advance();
+    assert!(
+        arcade.world.take_commands().into_iter().any(|command| {
+            matches!(command, WorldCommand::ShowMessage { title: _, lines }
+                if lines.iter().any(|line| line == "Your collection progress is unchanged."))
+        }),
+        "foul-line guidance must describe the unchanged collection without claiming a save"
+    );
+    arcade.player = behind_line;
     arcade.call("talk", "arcade_attendant")?;
     let down = pins
         .iter()
@@ -293,16 +312,113 @@ fn collection_bowling_requires_a_witnessed_blue_ball_launch_and_fallen_pins() ->
     arcade.world.observe_held_item(None);
     let mut launched = down;
     launched.push(("rack_0_ball_2", Vec3::new(10.65, 0., 19.), 1., false, false));
+    // The game may persist the award before presenting this queued message.
+    // Inspect the exact wording without adding any extra bowling ticks.
+    let mut award_lines = None;
     for _ in 0_u8..15_u8 {
         arcade.items(&launched);
-        arcade.tick();
+        arcade.advance();
+        for command in arcade.world.take_commands() {
+            if let WorldCommand::ShowMessage { title: _, lines } = command
+                && lines
+                    .iter()
+                    .any(|line| line.starts_with("A constellation cleared!"))
+            {
+                award_lines = Some(lines);
+            }
+        }
     }
     arcade.clean()?;
     assert!(
         arcade.done(),
         "a real released blue ball and ten fallen pins score once"
     );
+    assert!(
+        award_lines.is_some_and(|lines| lines
+            .iter()
+            .any(|line| line == "Arcade favor complete. Save requested.")),
+        "first-award dialogue must describe the request even after a same-frame save"
+    );
     Ok(())
+}
+
+// A fresh Beach visit is the smallest real-script fixture for this boundary:
+// the remembered text must survive a sibling's pending/failed save, while a
+// failure of Beach's own receipt remains visible. Three handler calls, no I/O.
+#[test]
+fn remembered_favor_guidance_reports_its_own_receipt() -> Result<(), String> {
+    let mut progress = CampaignProgress::default();
+    progress.complete("beach")?;
+    progress.mark_saved();
+    progress.complete("winter")?;
+    let shared = Arc::new(Mutex::new(progress));
+    let props = [actor("beach_keeper"), actor("beach_quest_crab")];
+    let mut beach = Fixture::new("beach", &props, Arc::clone(&shared))?;
+    let check = |visit: &mut Fixture, expected: &str| -> Result<(), String> {
+        visit.call("hint", "beach_keeper")?;
+        assert!(
+            visit.world.take_commands().into_iter().any(|command| {
+                matches!(command, WorldCommand::ShowMessage { title: _, lines }
+                    if lines.iter().any(|line| line == expected))
+            }),
+            "remembered Beach guidance should contain {expected:?}"
+        );
+        Ok(())
+    };
+    check(&mut beach, "Beach favor saved at the Hub.")?;
+    shared
+        .lock()
+        .map_err(|problem| problem.to_string())?
+        .mark_failed();
+    check(&mut beach, "Beach favor saved at the Hub.")?;
+
+    let mut unsaved = CampaignProgress::default();
+    unsaved.complete("beach")?;
+    unsaved.mark_failed();
+    unsaved.complete("winter")?;
+    let mut unsaved_beach = Fixture::new("beach", &props, Arc::new(Mutex::new(unsaved)))?;
+    check(&mut unsaved_beach, "Beach favor complete for this session.")?;
+    Ok(())
+}
+
+// Run the real Winter script on a read-only host table without favor_status.
+// This exercises both dialogue paths in one VM with three update calls and no I/O.
+#[test]
+fn winter_favor_dialogue_supports_an_older_host() -> Result<(), String> {
+    let lua = mlua::Lua::new();
+    let winter: mlua::Table = lua
+        .load(source("winter"))
+        .eval()
+        .map_err(|problem| problem.to_string())?;
+    lua.load(
+        r#"
+        local winter = ...
+        local completed, lines, position = false, {}, nil
+        local function noop() end
+        local old_api = table.freeze({
+            completed = function() return completed end,
+            complete = function() completed = true end,
+            message = function(_, message) lines = message end,
+            player = function() return position end,
+            prompt = noop,
+            sound = noop,
+            animate = noop,
+        })
+        winter.start(old_api)
+        winter.talk(old_api)
+        for _, mark in {{x=8,y=-0.16,z=-7}, {x=13,y=-0.16,z=-10}, {x=9,y=-0.16,z=-13}} do
+            position = mark
+            winter.update(old_api)
+        end
+        winter.talk(old_api)
+        assert(completed, "the legacy complete call still awards Winter")
+        assert(table.find(lines, "Winter favor complete."), "first award uses neutral text")
+        winter.start(old_api)
+        assert(table.find(lines, "Winter favor complete."), "remembered award uses neutral text")
+        "#,
+    )
+    .call::<()>(winter)
+    .map_err(|problem| problem.to_string())
 }
 
 #[test]

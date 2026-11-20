@@ -34,6 +34,7 @@ export type Api = {
     complete: () -> (),
     reset_campaign: () -> (),
     campaign_status: () -> ("saved" | "pending" | "failed"),
+    favor_status: (() -> ("saved" | "pending" | "failed")?)?,
     change_level: (id: string) -> (),
     exists: (id: string) -> boolean,
     door: (id: string, operation: DoorOperation) -> (),

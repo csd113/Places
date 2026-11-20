@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Arcade favor saved at the Hub."
+        elseif status == "failed" then "Arcade favor complete for this session."
+        elseif status == "pending" then "Arcade favor complete. Save requested."
+        else "Arcade favor complete."
+end
 local active, done, settled = false, false, 0
 local pins = { "lane_1_pin_0_0", "lane_1_pin_1_0", "lane_1_pin_1_1",
     "lane_1_pin_2_0", "lane_1_pin_2_1", "lane_1_pin_2_2",
@@ -33,7 +41,7 @@ local function talk(api)
         return
     end
     if done then
-        api.message("THE LANE ATTENDANT", {"Ten down. Your name belongs among the stars.", "Your Arcade favor is saved. The lanes are yours.", "Return BLUE ball keeps the pins; Fresh rack resets everything."})
+        api.message("THE LANE ATTENDANT", {"Ten down. Your name belongs among the stars.", favor_line(api), "Return BLUE ball keeps the pins; Fresh rack resets everything."})
         return
     end
     if not active then
@@ -58,7 +66,7 @@ return {
     talk = talk,
     hint = function(api)
         if done then
-            api.message("COSMIC LANES", {"Arcade favor complete and saved. Return using the Hub elevator.", "You can keep bowling, return the ball or reset the rack."})
+            api.message("COSMIC LANES", {favor_line(api), "Return using the Hub elevator.", "You can keep bowling, return the ball or reset the rack."})
         else
             api.message("COSMIC LANES", {
                 "Pins down: " .. tostring(fallen) .. " of 10.",
@@ -111,7 +119,7 @@ return {
         if player.x > 9.7 and player.x < 11.6 and player.z < 20 then
             active, settled = false, 0
             api.prompt("arcade_attendant", "Foul - use Fresh rack for another unlimited try")
-            api.message("THE LANE ATTENDANT", {"You crossed the foul line. Come back to the seating end.", "Press FRESH RACK for another try; scoring restarts automatically.", "Your saved collection progress is unchanged."})
+            api.message("THE LANE ATTENDANT", {"You crossed the foul line. Come back to the seating end.", "Press FRESH RACK for another try; scoring restarts automatically.", "Your collection progress is unchanged."})
             return
         end
         local previous = fallen
@@ -136,7 +144,7 @@ return {
             api.animate("arcade_attendant", "pose_arms_up", true)
             api.sound("arcade_quest_cheer", true)
             api.prompt("arcade_attendant", "Arcade favor complete - return to Hub or keep bowling")
-            api.message("THE LANE ATTENDANT", {"A constellation cleared! Ten honest fallen pins.", "Arcade favor complete and saved. Return using the Hub elevator.", "You can keep bowling. Ball return and fresh racks stay available."})
+            api.message("THE LANE ATTENDANT", {"A constellation cleared! Ten honest fallen pins.", favor_line(api), "Return using the Hub elevator.", "You can keep bowling. Ball return and fresh racks stay available."})
         end
     end,
 }

@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Winter favor saved at the Hub."
+        elseif status == "failed" then "Winter favor complete for this session."
+        elseif status == "pending" then "Winter favor complete. Save requested."
+        else "Winter favor complete."
+end
 local active, done, point = false, false, 1
 local marks = { {x=8,z=-7}, {x=13,z=-10}, {x=9,z=-13} }
 local next_steps = {
@@ -9,7 +17,7 @@ local next_steps = {
 local function guidance(api)
     if done then
         api.message("THE ICE COACH", {
-            "Winter favor complete. Your Hub progress is saved.",
+            favor_line(api),
             "The Hub elevator is back beside the main snowy path.",
         })
     elseif point == 4 then
@@ -58,10 +66,10 @@ return {
             done, active = true, false
             api.complete()
             api.animate("winter_coach", "pose_arms_up", true)
-            api.prompt("winter_coach", "Winter favor complete / Hub remembers")
+            api.prompt("winter_coach", "Winter favor complete / speak")
             api.message("THE ICE COACH", {
                 "You drew the whole figure, and came back safely.",
-                "Winter favor complete. The Hub will remember.",
+                favor_line(api),
                 "Return using the Hub elevator beside the main snowy path.",
             })
         elseif active then guidance(api)

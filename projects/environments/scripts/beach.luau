@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Beach favor saved at the Hub."
+        elseif status == "failed" then "Beach favor complete for this session."
+        elseif status == "pending" then "Beach favor complete. Save requested."
+        else "Beach favor complete."
+end
 local active, done, remembered, walking, point = false, false, false, false, 1
 local waiting = ""
 -- Pass the near parasol, then continue to the far garden parasol.
@@ -10,7 +18,7 @@ local function guidance(api)
     if done then
         api.message("THE SHADE KEEPER", {
             "The crab has reached the far striped parasol.",
-            "Beach favor complete. Your Hub progress is saved.",
+            favor_line(api),
             "The Hub elevator waits back by the stilt house.",
         })
     elseif active then
@@ -23,7 +31,7 @@ local function guidance(api)
         })
     elseif remembered then
         api.message("THE SHADE KEEPER", {
-            "Your Beach favor is already saved in the Hub.",
+            favor_line(api),
             "Visits start fresh. Speak to the crab for an optional walk.",
             "The Hub elevator waits back by the stilt house.",
         })
@@ -42,7 +50,7 @@ return {
         remembered = api.completed("beach")
         if remembered then
             api.prompt("beach_quest_crab", "Walk with the crab again / optional")
-            api.prompt("beach_keeper", "Beach favor already saved / optional walk")
+            api.prompt("beach_keeper", "Beach favor complete / optional walk")
         end
     end,
     talk = guidance,
@@ -59,7 +67,8 @@ return {
         if done then
             api.message("THE LITTLE CRAB", {
                 "Click-click. A contented sound from the shade.",
-                "Beach favor complete. You may return to the Hub.",
+                favor_line(api),
+                "You may return to the Hub.",
             })
         elseif active then guidance(api)
         else
@@ -115,13 +124,13 @@ return {
                 active, done = false, true
                 api.animate("beach_quest_crab", "idle", true)
                 api.prompt("beach_quest_crab", "Crab safe in the shade / favor complete")
-                api.prompt("beach_keeper", "Beach favor complete / Hub remembers")
+                api.prompt("beach_keeper", "Beach favor complete / speak")
                 if not remembered then api.complete() end
                 remembered = true
                 api.animate("beach_keeper", "pose_arms_up", true)
                 api.message("THE SHADE KEEPER", {
                     "Look! It has settled beneath the far garden parasol.",
-                    "Beach favor complete. The Hub will remember.",
+                    favor_line(api),
                     "Return using the Hub elevator beside the stilt house.",
                 })
             end

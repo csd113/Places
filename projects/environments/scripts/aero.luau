@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Aero favor saved at the Hub."
+        elseif status == "failed" then "Aero favor complete for this session."
+        elseif status == "pending" then "Aero favor complete. Save requested."
+        else "Aero favor complete."
+end
 local done = false
 local valves = { false, false, false }
 local ids = { "aero_valve_blue", "aero_valve_white", "aero_valve_lime" }
@@ -23,7 +31,7 @@ local function reward(api)
 end
 local function talk(api)
     if done then
-        api.message("THE GLASS GARDENER", {"Water, air, and one very happy fish.", "Aero favor complete. Return using the Hub elevator when ready."})
+        api.message("THE GLASS GARDENER", {"Water, air, and one very happy fish.", favor_line(api), "Return using the Hub elevator when ready."})
     else
         api.message("THE GLASS GARDENER", {
             "Restore the fountain with exactly FIVE measures.",
@@ -52,7 +60,7 @@ return {
             api.complete()
             reward(api)
             prompts(api)
-            api.message("THE GLASS GARDENER", {"Five measures. Listen to the fountain sing!", "Aero favor complete. The Hub will remember.", "Return using the Hub elevator when ready."})
+            api.message("THE GLASS GARDENER", {"Five measures. Listen to the fountain sing!", favor_line(api), "Return using the Hub elevator when ready."})
         else talk(api) end
     end,
     valve = function(api, event)

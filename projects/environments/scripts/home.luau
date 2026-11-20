@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Home favor saved at the Hub."
+        elseif status == "failed" then "Home favor complete for this session."
+        elseif status == "pending" then "Home favor complete. Save requested."
+        else "Home favor complete."
+end
 -- A local, resettable favour. Ownership confirmation precedes dialogue/motion.
 local phase = "waiting"
 local pending_frames = 0
@@ -26,7 +34,7 @@ return {
 
     talk = function(api)
         if phase == "complete" then
-            api.message("THE CARETAKER", { "The cushion is safe. I remember your help.", "The Hub remembers it, too." })
+            api.message("THE CARETAKER", { "The cushion is safe. I remember your help.", favor_line(api) })
             return
         end
         if phase == "departing" or phase == "hidden_wait" then
@@ -95,7 +103,7 @@ return {
         elseif phase == "hidden_wait" and actor.retired then
             phase = "complete"
             api.complete()
-            api.message("THE CARETAKER", {"All put away. Thank you for your help.", "Home favor complete. The Hub will remember."})
+            api.message("THE CARETAKER", {"All put away. Thank you for your help.", favor_line(api)})
             api.notice("Caretaker and carried cushion retired only after whole-model occlusion")
         end
     end,
@@ -127,7 +135,7 @@ return {
             })
         else
             api.message("HOME", {
-                "Home favour complete. The Hub has recorded your help.",
+                favor_line(api),
                 "Use the Hub elevator at the end of the entry hall.",
                 "The entry-hall switch resets this visit only.",
             })

@@ -1,4 +1,12 @@
 --!strict
+local function favor_line(api)
+    local query = api.favor_status
+    local status = if query ~= nil then query() else nil
+    return if status == "saved" then "Office favor saved at the Hub."
+        elseif status == "failed" then "Office favor complete for this session."
+        elseif status == "pending" then "Office favor complete. Save requested."
+        else "Office favor complete."
+end
 local active, done = false, false
 local received = { false, false, false }
 local papers = { "office_scrap_1", "office_scrap_2", "office_scrap_3" }
@@ -21,7 +29,7 @@ local function talk(api)
     if done then
         api.message("THE NIGHT ARCHIVIST", {
             "Three less things to carry into tomorrow.",
-            "Office favor complete. The Hub has your stamp.",
+            favor_line(api),
             "Return using the Hub elevator in the entry foyer.",
         })
         return
@@ -95,7 +103,7 @@ return {
             api.message("THE NIGHT ARCHIVIST", {
                 "All three are in. Thank you for leaving the good things.",
                 "You brought the last page up from the basement, too.",
-                "Office favor complete. The Hub will remember.",
+                favor_line(api),
                 "Return using the Hub elevator beside the foyer crate.",
             })
         elseif count ~= reported then

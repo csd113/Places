@@ -102,6 +102,7 @@ that the editor performs Luau typechecking.
 | `api.completed(id)` / `api.complete()` | Queries remembered completion / records the current destination once in the attached installation's campaign |
 | `api.reset_campaign()` | Requests a separate durable collection clear; live completions clear only after successful atomic save publication |
 | `api.campaign_status()` | Returns `"saved"`, `"pending"` or `"failed"` for attached collection progress; check on a later invocation before acknowledging a clear |
+| `api.favor_status()` | Reports the current level's favor as `"saved"`, `"pending"`, `"failed"`, or `nil` if incomplete. A first completion queued in the current callback returns `"pending"`. Check that the function exists before calling it on older players. |
 | `api.notice(text)` | Bounded diagnostic, retained/logged with `[luau]` |
 
 Identity/key/group arguments are nonempty printable UTF-8, at most 96 bytes;

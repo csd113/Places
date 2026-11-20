@@ -206,6 +206,18 @@ pub(super) fn host<'scope>(
         })?,
     )?;
     api.set(
+        "favor_status",
+        capability(scope, calls, move |_, ()| {
+            let progress = world
+                .campaign
+                .lock()
+                .map_err(|_problem| error("Campaign state unavailable"))?;
+            Ok(progress.favor_status(&world.campaign_level).or_else(|| {
+                (completion.get() == super::campaign::CampaignChange::Complete).then_some("pending")
+            }))
+        })?,
+    )?;
+    api.set(
         "message",
         capability(
             scope,
