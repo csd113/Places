@@ -29,7 +29,7 @@ pub const ARRIVE_RADIUS_M: f32 = 0.05;
 /// Keep arrivals well inside a default 20 cm navigation cell so an actor
 /// reaches a corridor corner before turning toward its next segment.
 #[must_use]
-pub fn arrival_radius(radius: f32) -> f32 {
+pub const fn arrival_radius(radius: f32) -> f32 {
     radius.clamp(0.025, ARRIVE_RADIUS_M)
 }
 
@@ -126,6 +126,10 @@ impl AgentMove {
     }
 
     /// Movement against the same live physical boxes the route overlay reads.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep the public movement entry point and its independently supplied collision inputs."
+    )]
     pub fn step_with_solids(
         &mut self,
         waypoint: Vec3,
@@ -147,16 +151,7 @@ impl AgentMove {
                 speed_mps: 0.0,
             };
         }
-        if !headroom_clear(
-            self,
-            self.position.x,
-            self.position.z,
-            self.position.y,
-            floor,
-            ceiling,
-            index,
-            walls,
-        ) {
+        if !headroom_clear(self, self.position, floor, ceiling, index, walls) {
             return MoveStep::Blocked;
         }
         let step_delta = delta.clamp(0.0, MAX_MOVE_STEP_S);
@@ -292,6 +287,10 @@ fn support_step(
     walls: &[WallAabb],
 ) -> Option<f32> {
     let distance = (to.x - from.x).hypot(to.z - from.z);
+    #[expect(
+        clippy::suboptimal_flops,
+        reason = "Preserve the separately rounded slope contribution at the step boundary."
+    )]
     let reach = body.step_height + body.max_slope * distance + crate::engine::collision::STEP_EPS;
     let flags = |x, z, height| {
         if floor.walk_surface_sloped(x, z, height) {
@@ -319,7 +318,7 @@ fn support_step(
                 flags(to.x, to.z, y),
                 &profile,
             )
-            && headroom_clear(body, to.x, to.z, y, floor, ceiling, index, walls)
+            && headroom_clear(body, Vec3::new(to.x, y, to.z), floor, ceiling, index, walls)
         {
             selected = Some(y);
         }
@@ -329,14 +328,13 @@ fn support_step(
 
 fn headroom_clear(
     body: &AgentMove,
-    x: f32,
-    z: f32,
-    y: f32,
+    position: Vec3,
     floor: &WalkableFloor,
     ceiling: &WalkableCeiling,
     index: &CollisionIndex,
     walls: &[WallAabb],
 ) -> bool {
+    let Vec3 { x, y, z } = position;
     let point = Vec2::new(x, z);
     let underside = ceiling
         .ceiling_above_disc(x, z, body.radius, y)

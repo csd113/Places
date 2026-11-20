@@ -14,6 +14,10 @@ use glam::Vec3;
 use std::collections::HashMap;
 
 #[test]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Compare indexed and scanned poses across one fixture with controlled ordering and generation changes."
+)]
 fn indexed_actor_poses_match_reverse_scan_with_generation_and_order_controls() -> Result<(), String>
 {
     let mut world = AiWorld::new();

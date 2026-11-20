@@ -55,7 +55,7 @@ pub struct Controller {
 }
 
 impl Controller {
-    pub fn suspend_baseline(&mut self, agent: &AiAgent) {
+    pub const fn suspend_baseline(&mut self, agent: &AiAgent) {
         if self.baseline.is_none() {
             self.baseline = Some(BaselineIntent {
                 state: agent.state,
@@ -77,7 +77,7 @@ impl Controller {
             agent.speed_mps = 0.0;
         }
     }
-    pub fn arbitrate(&mut self, caught: bool, sequence: bool, light: bool) -> MotionOwner {
+    pub const fn arbitrate(&mut self, caught: bool, sequence: bool, light: bool) -> MotionOwner {
         self.sequence_owns_motion = sequence;
         self.owner = if caught {
             MotionOwner::Caught
@@ -112,7 +112,7 @@ pub(crate) enum PoseInvalidation {
     Dirty,
 }
 impl PoseInvalidation {
-    pub fn mark(&mut self) {
+    pub const fn mark(&mut self) {
         *self = Self::Dirty;
     }
     pub fn take(&mut self) -> bool {

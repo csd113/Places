@@ -74,6 +74,10 @@ impl Alerts {
     clippy::arithmetic_side_effects,
     reason = "finite bounded eye vectors; propagation counts use saturating operations"
 )]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Resolve all sensing rules in output order against the same tick budget."
+)]
 pub fn tick(
     agent: &mut AiAgent,
     ctx: &AiTickContext<'_>,

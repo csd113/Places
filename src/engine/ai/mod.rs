@@ -23,18 +23,6 @@
 // Preserve exact sentinel comparisons, floating-point operation order and
 // cohesive geometry/query stages. Numeric conversions and integer arithmetic
 // are audited at their local expressions instead of exempting the module.
-#![allow(
-    clippy::float_cmp,
-    clippy::imprecise_flops,
-    clippy::missing_const_for_fn,
-    clippy::needless_range_loop,
-    clippy::similar_names,
-    clippy::suboptimal_flops,
-    clippy::too_many_arguments,
-    clippy::too_many_lines,
-    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
-)]
-
 pub mod authoring;
 pub mod controller;
 pub mod movement;
@@ -348,25 +336,25 @@ impl AiDef {
     }
 }
 
-fn default_walk_speed() -> f32 {
+const fn default_walk_speed() -> f32 {
     1.0
 }
-fn default_run_speed() -> f32 {
+const fn default_run_speed() -> f32 {
     2.0
 }
-fn default_sight_range() -> f32 {
+const fn default_sight_range() -> f32 {
     8.0
 }
-fn default_sight_fov() -> f32 {
+const fn default_sight_fov() -> f32 {
     200.0
 }
-fn default_hearing_range() -> f32 {
+const fn default_hearing_range() -> f32 {
     6.0
 }
-fn default_flee_distance() -> f32 {
+const fn default_flee_distance() -> f32 {
     5.0
 }
-fn default_pursue_distance() -> f32 {
+const fn default_pursue_distance() -> f32 {
     12.0
 }
 const fn default_search_after_seconds() -> f32 {
@@ -375,19 +363,19 @@ const fn default_search_after_seconds() -> f32 {
 const fn default_search_radius() -> f32 {
     12.0
 }
-fn default_catch_radius() -> f32 {
+const fn default_catch_radius() -> f32 {
     0.45
 }
-fn default_catch_height() -> f32 {
+const fn default_catch_height() -> f32 {
     0.8
 }
-fn default_wander_radius() -> f32 {
+const fn default_wander_radius() -> f32 {
     4.0
 }
-fn default_idle_seconds() -> f32 {
+const fn default_idle_seconds() -> f32 {
     2.5
 }
-fn default_hide_seconds() -> f32 {
+const fn default_hide_seconds() -> f32 {
     8.0
 }
 
@@ -637,7 +625,7 @@ impl AiAgent {
     }
 
     #[must_use]
-    pub fn authored_pose(&self) -> bool {
+    pub const fn authored_pose(&self) -> bool {
         self.frozen() || self.task_clip.is_some()
     }
     /// True when this agent should be immobilized.
@@ -875,13 +863,13 @@ impl AiWorld {
 
     /// True when nothing is registered.
     #[must_use]
-    pub fn is_empty(&self) -> bool {
+    pub const fn is_empty(&self) -> bool {
         self.agents.is_empty()
     }
 
     /// Registered agent count.
     #[must_use]
-    pub fn len(&self) -> usize {
+    pub const fn len(&self) -> usize {
         self.agents.len()
     }
 
@@ -957,6 +945,10 @@ impl AiWorld {
     }
 
     /// Registers one agent, replacing any previous registration of `handle`.
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Keep the existing registration API and its independent identity, authored definition, agent profile and spawn pose."
+    )]
     pub fn register(
         &mut self,
         handle: EntityHandle,
@@ -1166,6 +1158,10 @@ impl AiWorld {
             return false;
         };
         let moved = agent.position != position;
+        #[expect(
+            clippy::float_cmp,
+            reason = "A changed authored yaw must invalidate the exact pose even for a sub-epsilon update."
+        )]
         let changed = moved || agent.yaw_degrees != yaw_degrees;
         agent.position = position;
         agent.yaw_degrees = yaw_degrees;
@@ -1286,6 +1282,10 @@ impl AiWorld {
     }
 
     /// Submit or replace an authored task key. Eight bounded continuations per actor.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Validate a task and replace its operation and reservations in one ordered update."
+    )]
     pub fn request_task(&mut self, id: &str, request: authoring::TaskRequest) -> bool {
         if !request.is_valid() || self.epoch == 0 {
             return false;
@@ -1600,6 +1600,18 @@ impl AiWorld {
     }
 
     /// Advances every agent once.
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep the per-agent priority order and shared per-tick budgets together."
+    )]
+    #[expect(
+        clippy::float_cmp,
+        reason = "Cue and pose changes use exact state comparisons to keep small changes observable."
+    )]
+    #[expect(
+        clippy::suboptimal_flops,
+        reason = "Preserve the rounded squared-direction test at the facing threshold."
+    )]
     pub fn tick(&mut self, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         if !ctx.delta.is_finite() || ctx.delta <= 0.0 {
             out.catches_total = self.catches_total;
@@ -1779,7 +1791,7 @@ fn path_attempt_due(agent: &AiAgent) -> bool {
     agent.clock - agent.last_path_attempt_at >= REPLAN_INTERVAL_S
 }
 
-fn reserve_path_query(agent: &mut AiAgent, out: &mut AiOutcome) -> bool {
+const fn reserve_path_query(agent: &mut AiAgent, out: &mut AiOutcome) -> bool {
     if out.path_queries >= MAX_PATH_QUERIES_PER_TICK {
         return false;
     }
@@ -1796,6 +1808,10 @@ fn perception_baseline(phase: u32) -> f32 {
 }
 
 /// Updates one agent's perception on its staggered interval.
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Preserve the rounding of elapsed perception intervals when advancing the clock."
+)]
 fn perceive(agent: &mut AiAgent, ctx: &AiTickContext<'_>) {
     let interval = PERCEPTION_INTERVAL_S.max(0.02);
     if agent.clock - agent.last_perception_at < interval {
@@ -1895,6 +1911,10 @@ fn investigation_done(agent: &AiAgent) -> bool {
 }
 
 /// Prey: any reacting contact within the flee distance starts a retreat.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Decide and record the prey state and associated path changes together."
+)]
 fn decide_prey(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     let threat = agent.contact.clone().and_then(|contact| {
         let close = contact.position.distance(agent.position)
@@ -2301,6 +2321,14 @@ fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcom
 }
 
 /// Moves one agent along its route, replanning when needed.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Keep the ordered checks and shared route state for advancing one agent together."
+)]
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Preserve rounding at the movement arrival boundary."
+)]
 fn advance(
     agent: &mut AiAgent,
     ctx: &AiTickContext<'_>,
@@ -2663,6 +2691,10 @@ fn physical_approach(
 /// Short, collision-checked probes give opposing actors a consistent right
 /// shoulder. Actors stay out of the global topology; a narrow passage waits
 /// instead of inventing a route through another body.
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Preserve the rounded steering lookahead and acceleration limits."
+)]
 fn local_move_step(
     agent: &AiAgent,
     ctx: &AiTickContext<'_>,
@@ -2850,6 +2882,10 @@ fn can_catch(agent: &AiAgent, target: &AiTarget, ctx: &AiTickContext<'_>) -> boo
     }
     let dx = target.position.x - agent.position.x;
     let dz = target.position.z - agent.position.z;
+    #[expect(
+        clippy::imprecise_flops,
+        reason = "Preserve the existing rounded horizontal distance at the catch threshold."
+    )]
     let horizontal = dx.mul_add(dx, dz * dz).sqrt();
     let reach = agent.def.catch_radius + target.radius;
     if horizontal > reach {
@@ -2873,6 +2909,14 @@ fn can_catch(agent: &AiAgent, target: &AiTarget, ctx: &AiTickContext<'_>) -> boo
 }
 
 /// Picks a flee destination from navigable candidates around the threat.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Rank and try candidate routes in the same query-budgeted search."
+)]
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Preserve the rounded candidate coordinates and score ordering for the flee search."
+)]
 fn choose_flee_destination(
     agent: &mut AiAgent,
     threat: Vec3,
@@ -2896,15 +2940,11 @@ fn choose_flee_destination(
     };
     let base_angle = away.1.atan2(away.0);
     let mut candidates: Vec<(f32, Vec3)> = Vec::new();
-    for index in 0..FLEE_CANDIDATES {
+    let candidate_count = u8::try_from(FLEE_CANDIDATES).ok()?;
+    for index in 0..candidate_count {
         // The first candidate is straight away from the threat; the rest
         // sweep the full circle so a cornered agent always has choices.
-        #[expect(
-            clippy::cast_precision_loss,
-            clippy::as_conversions,
-            reason = "The fixed candidate count is 16 and the loop index is smaller; both integers have exact f32 representations."
-        )]
-        let turn = (index as f32 / FLEE_CANDIDATES as f32) * std::f32::consts::TAU;
+        let turn = (f32::from(index) / f32::from(candidate_count)) * std::f32::consts::TAU;
         let (sin, cos) = (base_angle + turn).sin_cos();
         for distance in [
             agent.def.flee_distance * 0.6,
@@ -3011,6 +3051,10 @@ fn choose_flee_destination(
     clippy::cast_precision_loss,
     clippy::as_conversions,
     reason = "The eight candidate indices convert exactly; the u32 perception phase intentionally becomes a rounded finite f32 angular offset without changing its stored counter."
+)]
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Preserve the rounded waypoint coordinates sampled on each deterministic turn."
 )]
 fn choose_wander_destination(
     agent: &mut AiAgent,

@@ -774,6 +774,10 @@ fn step(
     clippy::arithmetic_side_effects,
     reason = "finite world-space contact and eye vectors"
 )]
+#[expect(
+    clippy::too_many_lines,
+    reason = "Select an object use position and report why all candidates failed in the same search."
+)]
 fn use_point(
     point: &UsePoint,
     p: &mut Progress,
