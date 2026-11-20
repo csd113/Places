@@ -8,21 +8,6 @@
 //! leaves. Both are evaluated on a staggered interval per agent by
 //! [`crate::engine::ai::AiWorld`], never as a global per-frame scan.
 
-// Preserve exact sentinel comparisons, floating-point operation order and
-// cohesive geometry/query stages. Numeric conversions and integer arithmetic
-// are audited at their local expressions instead of exempting the module.
-#![allow(
-    clippy::float_cmp,
-    clippy::imprecise_flops,
-    clippy::missing_const_for_fn,
-    clippy::needless_range_loop,
-    clippy::similar_names,
-    clippy::suboptimal_flops,
-    clippy::too_many_arguments,
-    clippy::too_many_lines,
-    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
-)]
-
 use glam::Vec3;
 
 use crate::engine::collision::{DoorCollider, WallAabb, ray_aabb_entry};
