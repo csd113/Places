@@ -34,7 +34,7 @@ Editor + level/project JSON + catalog/GLB/PNG materials
 | Starting point | Role and connections |
 | --- | --- |
 | `src/map_compiler/mod.rs` | **Bridge/Core orchestration.** Offline Static/Full preparation, geometry, lighting, probes, package records and stage/cache decisions. |
-| `src/engine/render/common/api.rs` | **Core/Bridge.** Neutral `LevelBuild`, geometry preparation, lightmap fill requests, transport/probe solve handoff, preview and vertex-lit paths. Crucial boundary between editor preview and final preparation. |
+| `src/engine/render/common/level_build.rs` | **Core/Bridge.** Neutral `LevelBuild`, geometry preparation, lightmap fill requests, transport/probe solve handoff, preview and vertex-lit paths. Crucial boundary between editor preview and final preparation. |
 | `src/engine/package/world.rs` | **Bridge.** Loads prepared lighting, atlases, irradiance, reflection captures and geometry; checks required Full lighting and cross-record references. |
 | `src/engine/render/wgpu/renderer.rs` | **Core orchestration.** Installs prepared resources, updates live light/receiver state, orders scene/shadow/reflection/post passes and changes graphics settings. |
 | `src/engine/render/wgpu/world.rs` and `world.wgsl` | **Core.** Pipeline/vertex/binding contract and shared material lighting for architecture, props and characters. WGSL is assembled with other shader fragments, not a self-contained file. |

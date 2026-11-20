@@ -34,15 +34,15 @@ pub mod font;
 pub mod weather;
 mod wgpu;
 
-pub(crate) use common::api::{
-    LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
-    lightmap_content_key, prepare_compiled_level_geometry, prepare_local_lightmap_geometry,
-    set_fill_workers,
-};
 pub use common::blacklight::MAX_BLACKLIGHTS;
 pub use common::blood::{BloodEmission, MAX_REQUESTS as MAX_BLOOD_REQUESTS};
 pub use common::camera::RenderCamera;
 pub use common::dynamic_lights::Flashlight;
+pub(crate) use common::level_build::{
+    LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
+    lightmap_content_key, prepare_compiled_level_geometry, prepare_local_lightmap_geometry,
+    set_fill_workers,
+};
 pub(crate) use common::light_transport::prepare_runtime_transport;
 pub use common::materials::MaterialRenderState;
 pub use common::reflections::routing_from_mesh;
@@ -89,7 +89,7 @@ pub struct UiImage {
     pub image: std::sync::Arc<crate::engine::materials::RawImage>,
 }
 
-pub(crate) use common::api::build_authoring_preview_reusing;
+pub(crate) use common::level_build::build_authoring_preview_reusing;
 pub(crate) use common::preview_cache::{PreviewDependencies, PreviewReuse};
 
 /// Exact GPU upload planning exposed for explicit developer diagnostics.

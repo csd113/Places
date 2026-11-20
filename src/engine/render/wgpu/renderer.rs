@@ -78,13 +78,13 @@ use crate::engine::render::RenderCamera;
 use crate::engine::render::common::SurfaceKind;
 use crate::engine::render::common::Vertex;
 use crate::engine::render::common::animation::{AnimationEffect, EmissionAnimation};
-use crate::engine::render::common::api::{GraphicsTransition, LevelBuild};
 use crate::engine::render::common::atmosphere::LevelFog;
 use crate::engine::render::common::character::{CharacterScene, EntityFrame};
 use crate::engine::render::common::dynamic::{
     DynamicId, DynamicObject, DynamicScene, DynamicUpdate, SpawnOrientation,
 };
 use crate::engine::render::common::effects::EffectScene;
+use crate::engine::render::common::level_build::{GraphicsTransition, LevelBuild};
 use crate::engine::render::common::materials::MaterialRenderState;
 use crate::engine::render::common::postprocess::PostSettings;
 use crate::engine::render::common::reflections::{
@@ -8735,7 +8735,7 @@ fn upload_probe_chain(
 
 /// The immutable alternate bank shares images and yields between upload families.
 struct StaticBankUpload {
-    state: Arc<crate::engine::render::common::api::StaticLightState>,
+    state: Arc<crate::engine::render::common::level_build::StaticLightState>,
     geometry: Option<super::world::WorldUpload>,
     world: Option<WgpuWorldGeometry>,
     textures: Option<WorldTextures>,

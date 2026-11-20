@@ -9,7 +9,6 @@ use crate::engine::lighting::{LevelLighting, LightColor, wall_light_segments};
 use crate::engine::materials::{MaterialTable, ResolvedMaterial};
 
 pub mod animation;
-pub mod api;
 pub mod architecture;
 pub mod atmosphere;
 pub mod blacklight;
@@ -28,6 +27,7 @@ pub mod elevators;
 pub mod fixtures;
 pub mod framebuffer;
 pub mod geometry;
+pub mod level_build;
 pub mod light_transport;
 pub mod materials;
 pub mod mesh;
@@ -50,15 +50,6 @@ pub mod water;
 pub use animation::{
     AnimationEffect, EmissionAnimation, MAX_ANIMATION_DEPTH, MAX_FLICKER_HZ, MAX_PULSE_HZ,
 };
-pub use api::{
-    BuildTimings, GraphicsTransition, LevelBuild, LightmapBuildOptions, StaticLightState,
-    build_authoring_environment_preview, build_authoring_preview, build_level_geometry,
-    build_level_geometry_timed, build_level_geometry_with_assets,
-    build_level_geometry_with_assets_and_lighting,
-    build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
-    build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
-    logical_materials,
-};
 pub use atmosphere::{FogRegion, FogState, LevelFog};
 pub use character::{
     BLEND_TIME_CONSTANT_S, CHARACTER_BOUNDS_EXPANSION, CHARACTER_BOUNDS_MARGIN_M, Character,
@@ -78,6 +69,15 @@ pub use dynamic::{
 pub use dynamic_lights::{DynamicLight, DynamicLightSet, Flashlight, MAX_DYNAMIC_LIGHTS};
 use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
+pub use level_build::{
+    BuildTimings, GraphicsTransition, LevelBuild, LightmapBuildOptions, StaticLightState,
+    build_authoring_environment_preview, build_authoring_preview, build_level_geometry,
+    build_level_geometry_timed, build_level_geometry_with_assets,
+    build_level_geometry_with_assets_and_lighting,
+    build_level_geometry_with_assets_and_lighting_and_materials, build_level_geometry_with_catalog,
+    build_level_geometry_with_catalog_and_materials, build_level_geometry_with_materials,
+    logical_materials,
+};
 pub use mesh::{
     BatchRange, LIGHTMAP_NONE, LevelMesh, LevelMeshBatches, LevelMeshRange, MATERIAL_NONE,
     MaterialIndex, MaterialSlot, SMOOTH_NORMAL, SurfaceKey, SurfaceKind, SurfaceShine, Vertex,

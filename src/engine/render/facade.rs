@@ -16,9 +16,9 @@ pub use super::wgpu::caustics::PreparedCaustics;
 
 use sdl3::video::Window;
 
-use super::common::api::GraphicsTransition;
 use super::common::character::{CharacterScene, EntityFrame};
 use super::common::dynamic::{DynamicScene, DynamicUpdate};
+use super::common::level_build::GraphicsTransition;
 use super::common::stats::{GpuTiming, LevelBuildStats, RenderStats};
 use super::common::view::DrawableSize;
 use super::wgpu::WgpuRenderer;

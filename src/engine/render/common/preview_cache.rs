@@ -1,7 +1,7 @@
 //! One previous editor build supplies immutable batches; no second geometry cache.
 use std::collections::HashMap;
 
-use super::api::LevelBuild;
+use super::level_build::LevelBuild;
 use super::props::PropMeshBatch;
 
 #[derive(Default)]

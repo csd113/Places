@@ -110,7 +110,7 @@ backend module that names it.
 | `src/engine/render/font.rs` | Shared bitmap font atlas access and UI glyph coordinates | preparation |
 | `src/engine/render/weather.rs` | Authored weather definitions, validation and playback state | preparation |
 | `src/engine/render/common/mod.rs` | Emitters and level-build helpers (`tiled_uv`, wall/floor emitters, decal quads, `MaterialLookup`) | preparation |
-| `src/engine/render/common/api.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
+| `src/engine/render/common/level_build.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
 | `src/engine/render/common/mesh.rs` | `Vertex`, `LevelMesh`, chunk packing, unit quantisation | preparation (CPU layout) |
 | `src/engine/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `character.rs`, `water.rs`, `decals.rs`, `dynamic.rs`, `doors.rs`, `effects.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, skinned-character posing, water surfaces, decals, dynamic objects, code-built door models, the bounded steam plume model, emission animation, fog; the shared decal constants | preparation |
 | `src/engine/render/common/view.rs` | `DrawableSize`, `UiViewport`, FOV and viewport maths, value-only budgets | preparation |
