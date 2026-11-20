@@ -58,8 +58,10 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         let mut cache_decisions = Vec::new();
         for level in &folder.manifest().levels {
             progress::check_cancelled()?;
+            #[cfg(unix)]
             staging.check()?;
             if !request.force && member_current(request, &staged_source, &level.id) {
+                #[cfg(unix)]
                 staging.check()?;
                 index
                     .levels
@@ -99,14 +101,17 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
                 last_report = Some(report);
                 continue;
             }
-            let selected_output = staging.path()?.join(format!("{}.placesmap", level.id));
-            let built = build_staged(request, &staged_source, &selected_output, &level.id)?;
+            let built = staging.with_path(|root| {
+                let output = root.join(format!("{}.placesmap", level.id));
+                build_staged(request, &staged_source, &output, &level.id)
+            })?;
             warnings.extend(built.warnings.iter().cloned());
             cache_decisions.extend(built.cache_decisions.iter().cloned().map(|mut decision| {
                 decision.stage = format!("{}/{}", level.id, decision.stage);
                 decision
             }));
             last_report = Some(built);
+            #[cfg(unix)]
             staging.check()?;
             index
                 .levels
@@ -117,20 +122,12 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         let mut report = last_report.ok_or("Project has no levels")?;
         report.warnings = warnings;
         report.cache_decisions = cache_decisions;
-        let outcome = publish(
-            request,
-            &index,
-            blobs,
-            staging.path()?,
-            report,
-            || {
-                staging.check()?;
-                publication_guard.check()
-            },
-            started,
-        );
-        publication.finish(&outcome);
-        outcome
+        staging.with_path(|root| {
+            let check = || staging.with_path(|_| publication_guard.check());
+            let outcome = publish(request, &index, blobs, root, report, check, started);
+            publication.finish(&outcome);
+            outcome
+        })
     })();
     finish_staging(result, &staging)
 }
@@ -289,7 +286,9 @@ fn spool_map(
         #[cfg(not(unix))]
         {
             drop(reader);
-            fs::remove_file(staging.path()?.join(name)).map_err(|error| error.to_string())?;
+            staging.with_path(|root| {
+                fs::remove_file(root.join(name)).map_err(|error| error.to_string())
+            })?;
         }
         progress::stage(format!(
             "spooled {id}: {} unique records, {} record bytes",
@@ -389,19 +388,21 @@ fn stage_sources(
     #[cfg(unix)]
     staging.create_directories(root)?;
     #[cfg(not(unix))]
-    fs::create_dir(staging.path()?.join(root)).map_err(|error| error.to_string())?;
+    staging.with_path(|path| fs::create_dir(path.join(root)).map_err(|error| error.to_string()))?;
     for (path, bytes) in sources {
         progress::check_cancelled()?;
         let relative = root.join(path.as_str());
         staging.create_directories(relative.parent().ok_or("Staged source has no parent")?)?;
-        let mut file = fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(staging.path()?.join(relative))
-            .map_err(|error| error.to_string())?;
+        let mut file = staging.with_path(|staging_root| {
+            fs::OpenOptions::new()
+                .create_new(true)
+                .write(true)
+                .open(staging_root.join(relative))
+                .map_err(|error| error.to_string())
+        })?;
         file.write_all(bytes).map_err(|error| error.to_string())?;
     }
-    Ok(staging.path()?.join(root))
+    staging.with_path(|path| Ok(path.join(root)))
 }
 
 fn publish(

@@ -22,16 +22,27 @@ impl OwnedStaging {
         }
     }
 
+    /// Runs a path-only operation after verifying ownership where the staging
+    /// directory has a retained identity.
+    pub fn with_path<T>(
+        &self,
+        operation: impl FnOnce(&Path) -> Result<T, String>,
+    ) -> Result<T, String> {
+        #[cfg(unix)]
+        self.check()?;
+        operation(&self.path)
+    }
+
     /// Keeps path-only compiler APIs inside the recorded private directory.
+    #[cfg(unix)]
     pub fn path(&self) -> Result<&Path, String> {
         self.check()?;
         Ok(&self.path)
     }
 
+    #[cfg(unix)]
     pub fn check(&self) -> Result<(), String> {
-        #[cfg(unix)]
-        self.owned.check_path(&self.path)?;
-        Ok(())
+        self.owned.check_path(&self.path)
     }
 
     pub fn display(&self) -> std::path::Display<'_> {

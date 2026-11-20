@@ -30,7 +30,7 @@ impl ProjectSpool {
         }
         #[cfg(not(unix))]
         {
-            Self::new(staging.path()?)
+            staging.with_path(Self::new)
         }
     }
 

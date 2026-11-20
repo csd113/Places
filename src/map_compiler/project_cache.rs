@@ -61,11 +61,15 @@ pub(super) fn seed(previous: &Path, level: &str, staged: &Path) -> Result<(), St
                 })
             })
             .collect::<Result<Vec<_>, String>>()?;
+        #[cfg(unix)]
+        let staging_guard = || staging.check();
+        #[cfg(not(unix))]
+        let staging_guard = || Ok(());
         archive::write_archive_files_with_level_guarded(
             staged,
             entries,
             super::progress::check_cancelled,
-            || staging.check(),
+            staging_guard,
             6,
         )
     })();
