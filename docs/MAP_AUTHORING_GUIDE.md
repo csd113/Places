@@ -4270,7 +4270,7 @@ ordinary material id or an authored fixture asset id:
 | `effect` | `pulse` (a slow sinusoid) or `flicker` (an occasional, bounded stutter). Omitted means `pulse`; an unknown name is rejected by the loader. |
 | `hz` | cycles per second, must be finite, `> 0` and `≤ 24` **for both effects**. A `pulse` above 2 Hz is accepted by the loader and then clamped to 2 Hz at render time; `validate.py` rejects it up front. Omitted uses the effect default (`pulse` 0.12, `flicker` 9.5). |
 | `depth` | how far the emission may fall below its authored value, must be finite, `> 0` and `≤ 0.85`. Omitted uses the effect default (`pulse` 0.22, `flicker` 0.55). |
-| `phase` | a phase offset in cycles, so two signs do not breathe in lockstep; must be finite. Default `0.0`. |
+| `phase` | A finite phase offset in cycles that staggers the animation. The renderer ignores the sign and whole cycles. Default `0.0`. |
 
 Five things to know:
 
@@ -4278,11 +4278,12 @@ Five things to know:
   illumination is static by design, so a flickering panel keeps lighting the room
   exactly as it was baked — the fixture blinks, its pool of light does not. That
   is a deliberate, and rather liminal, property of the engine.
-* **Deterministic.** Both shapes are pure functions of the level's elapsed
-  seconds and start at full brightness, so the first frame is always the authored
-  image and the same clock reading always produces the same picture. The clock
-  advances from the simulation's delta, so a later frame number does not pin the
-  phase of a running animation — only `PLACES_CAPTURE_FRAME=1` does.
+* **Deterministic.** Each effect samples its curve using elapsed level time and
+  `phase`. At zero elapsed time, both effects apply a multiplier of `1.0` when
+  `phase` is `0.0`. A nonzero offset applies from that opening sample, so a
+  pulse can start below full strength and a flicker can start mid-dip.
+  `PLACES_CAPTURE_FRAME=1` selects the first ready frame. Later frame numbers
+  can sample different points on the curve as frame timing varies.
 * **Subtle by default.** `depth` is how *far down* the emission goes, so a pulse
   at `0.18` is a 9 % average drop and a flicker at `0.6` stutters to 40 % about a
   tenth of the time.
