@@ -20,6 +20,7 @@ mod video;
 
 use crate::engine::diagnostics::journal as diagnostics;
 use crate::engine::entities::LevelTransition;
+use crate::engine::package::world::PackageRevision;
 use crate::engine::{level, loader, logging, perf, quality, render};
 use crate::game::perf_overlay::PerfOverlay;
 use crate::game::{self, bench, console, display, input, settings, ui, world_labels};
@@ -639,6 +640,9 @@ struct PendingCommit {
     cargo: elevator_cargo::Ledger,
     id: u64,
     loaded: loader::LoadedLevel,
+    canonical: Option<std::path::PathBuf>,
+    revision: PackageRevision,
+    campaign: Option<game::campaign::Binding>,
     collision: CollisionWorld,
     resumed: Option<Box<game::Game>>,
     checkpoint: Option<crate::game::checkpoint::Snapshot>,
@@ -3460,6 +3464,7 @@ impl FrameLoop<'_> {
             .reset_level(Vec3::ZERO, 0.0, game::CollisionWorld::default());
         self.renderer.unload_level();
         *self.current_level = None;
+        self.checkpoints.live_revision = None;
         self.displayed_lease = None;
         self.flashlight = flashlight::Power::Off;
         self.outcome = None;
@@ -3554,7 +3559,7 @@ impl FrameLoop<'_> {
                 .checkpoints
                 .resume
                 .as_ref()
-                .is_some_and(|(identity, _)| identity.level != source.level_id())
+                .is_some_and(|resume| !resume.matches_source(&source))
         {
             self.checkpoints.resume = None;
         }
@@ -3649,6 +3654,7 @@ impl FrameLoop<'_> {
     }
 
     fn recover_from_load_submission_failure(&mut self, error: String) {
+        self.checkpoints.resume = None;
         self.renderer.end_transition();
         self.elevator_arrival = None;
         self.game.entities_mut().recover_elevators();
@@ -3732,6 +3738,7 @@ impl FrameLoop<'_> {
         // Recovering a ride reopens the source cabin and clears its arrival.
         // An unload retry would then discard the live cargo and use the map spawn.
         let retry = (matches!(intent, LoadIntent::Play)
+            && self.checkpoints.resume.is_none()
             && self.elevator_arrival.is_none()
             && error.can_retry_after_unload())
         .then(|| self.load_source.clone())
@@ -3827,11 +3834,36 @@ impl FrameLoop<'_> {
         }
     }
 
+    fn poll_loading(&mut self) -> Option<(u64, Result<loading::PreparedWorld, String>)> {
+        let deferred = self
+            .checkpoints
+            .resume
+            .as_mut()
+            .and_then(|resume| resume.deferred.take());
+        let (id, result) = deferred
+            .map(|(id, prepared)| (id, Ok(*prepared)))
+            .or_else(|| self.loader.poll())?;
+        let Some(resume) = self.checkpoints.resume.as_mut() else {
+            return Some((id, result));
+        };
+        let Ok(prepared) = result else {
+            return Some((id, result));
+        };
+        match resume.try_bind(&self.campaign) {
+            Ok(true) => Some((id, Ok(prepared))),
+            Ok(false) => {
+                resume.deferred = Some((id, Box::new(prepared)));
+                None
+            }
+            Err(error) => Some((id, Err(error))),
+        }
+    }
+
     fn advance_loading(&mut self) {
         if !self.prepare_startup_pipelines() {
             return;
         }
-        if let Some((id, result)) = self.loader.poll() {
+        if let Some((id, result)) = self.poll_loading() {
             match result {
                 Ok(mut prepared) => {
                     let Some(intent) = self.load_intent else {
@@ -3861,6 +3893,8 @@ impl FrameLoop<'_> {
                         caustics,
                         transport,
                         loaded,
+                        canonical,
+                        revision,
                         build,
                         collision,
                         physical,
@@ -3897,10 +3931,14 @@ impl FrameLoop<'_> {
                     self.renderer.set_prepared_geometry(geometry);
                     self.renderer.set_prepared_caustics(caustics);
                     self.renderer.set_prepared_transport(transport);
+                    let campaign = self.take_resume_binding();
                     self.pending_commit = Some(PendingCommit {
                         cargo,
                         id,
                         loaded,
+                        canonical,
+                        revision,
+                        campaign,
                         collision,
                         resumed,
                         checkpoint,
@@ -3922,7 +3960,19 @@ impl FrameLoop<'_> {
     }
 
     fn advance_prepared_upload(&mut self) {
-        if self.pending_commit.is_some() {
+        let ready = match self.prepare_campaign_upload() {
+            Ok(ready) => ready,
+            Err(error) => {
+                let id = self
+                    .pending_commit
+                    .take()
+                    .map_or(self.load_generation, |pending| pending.id);
+                self.checkpoints.resume = None;
+                self.recover_from_preparation_failure(id, &error);
+                return;
+            }
+        };
+        if ready {
             self.trace
                 .record("upload_step_begin", self.load_generation, "");
             let upload = self.renderer.advance_prepared_install();
@@ -4004,6 +4054,7 @@ impl FrameLoop<'_> {
     /// remembered so the reconciliation does not retry it every frame. A
     /// failed *level* preparation still reveals the previous screen.
     fn recover_from_preparation_failure(&mut self, id: u64, error: &str) {
+        self.checkpoints.resume = None;
         let interrupted_play = self.renderer.transition_frozen();
         self.renderer.end_transition();
         self.elevator_arrival = None;
@@ -4437,7 +4488,6 @@ impl FrameLoop<'_> {
             };
             self.trace_world("checkpoint_resumed");
         }
-        self.checkpoints.resume = None;
     }
 
     fn apply_launch_overrides(&mut self, intent: LoadIntent, resuming_checkpoint: bool) {
@@ -4487,20 +4537,43 @@ impl FrameLoop<'_> {
     }
 
     fn commit_loaded_world(&mut self) {
-        let Some(PendingCommit {
+        let Some(pending) = self.pending_commit.take() else {
+            return;
+        };
+        let guard = self.checkpoints.resume.take().map(|resume| resume.package);
+        game::checkpoint::PackageGuard::through_commit(guard, || {
+            self.install_loaded_world(pending);
+        });
+    }
+
+    fn install_live_level(
+        &mut self,
+        loaded: loader::LoadedLevel,
+        revision: PackageRevision,
+        intent: LoadIntent,
+    ) {
+        // Graphics-only installs keep the provenance of the running game.
+        if !matches!(intent, LoadIntent::Graphics) {
+            self.checkpoints.live_revision = Some(revision);
+        }
+        *self.current_level = Some(loaded);
+    }
+
+    fn install_loaded_world(&mut self, pending: PendingCommit) {
+        let PendingCommit {
             cargo,
             id,
             loaded,
+            canonical: _,
+            revision,
+            campaign,
             collision,
             resumed,
             checkpoint,
             physical,
             intent,
             lease,
-        }) = self.pending_commit.take()
-        else {
-            return;
-        };
+        } = pending;
         self.elevator_cargo = cargo;
         if !matches!(intent, LoadIntent::Graphics) {
             self.console_runtime.reset_map_presentation();
@@ -4533,13 +4606,11 @@ impl FrameLoop<'_> {
             self.install_resumed_game(resumed, collision);
             self.elevator_arrival = None;
             self.sync_mechanisms();
-            self.game
-                .entities_mut()
-                .attach_campaign(self.campaign.attach(
-                    &loaded.entry.path,
-                    loaded.project_id.as_deref(),
-                    &loaded.level.id,
-                ));
+            if let Some(binding) = campaign {
+                self.game
+                    .entities_mut()
+                    .attach_campaign(self.campaign.attach(binding));
+            }
             install_timer.step("game-reset");
             if let Some(prepared_items) = physical {
                 self.install_physical_items(&loaded.level, prepared_items);
@@ -4576,7 +4647,7 @@ impl FrameLoop<'_> {
         log_prop_usage(self.renderer);
         let retiring_menu = self.menu_world() && matches!(intent, LoadIntent::Play);
         self.track_retired_world();
-        *self.current_level = Some(loaded);
+        self.install_live_level(loaded, revision, intent);
         self.displayed_lease = Some(lease);
         // Gameplay keeps its active lease; the tiny menu has no reason to
         // remain in the worker LRU once its simulation and GPU world retire.

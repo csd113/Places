@@ -124,6 +124,22 @@ impl CampaignProgress {
         self.status = SaveStatus::Failed;
     }
 
+    pub(crate) fn merge_installed(&mut self, installed: &Self) -> Result<(), String> {
+        if self.generation != installed.generation {
+            return Err("Cannot merge different campaign generations".into());
+        }
+        let additional = installed.completed.difference(&self.completed).count();
+        if self.completed.len().saturating_add(additional) > MAX_OBJECTIVES {
+            return Err("Campaign completion limit reached while merging receipts".into());
+        }
+        self.completed.extend(installed.completed.iter().cloned());
+        self.unsaved.retain(|id, _| !installed.completed(id));
+        if self.unsaved.is_empty() && !self.reset_requested {
+            self.mark_saved();
+        }
+        Ok(())
+    }
+
     #[must_use]
     pub fn count(&self) -> usize {
         self.completed.len()

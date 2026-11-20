@@ -11,6 +11,7 @@
 //! A package built without the GPU capture step is refused with an actionable
 //! error rather than silently rendering without reflections.
 
+use std::fs::File;
 use std::path::Path;
 use std::sync::Arc;
 
@@ -34,6 +35,9 @@ use crate::engine::package::{
 };
 use crate::engine::quality::LightmapQuality;
 use crate::engine::render::{LevelMesh, PropMeshBatch};
+
+#[cfg(windows)]
+mod windows_identity;
 
 #[derive(Deserialize)]
 struct CatalogBuildInput {
@@ -606,12 +610,18 @@ struct PackageFileIdentity {
     node: (u64, u64),
     #[cfg(unix)]
     changed: (i64, i64),
+    #[cfg(windows)]
+    file_id: windows_identity::FileId,
 }
 
 impl PackageFileIdentity {
-    fn from_metadata(metadata: &std::fs::Metadata) -> Result<Self, String> {
+    fn from_file(file: &File) -> Result<Self, String> {
         #[cfg(unix)]
         use std::os::unix::fs::MetadataExt as _;
+        let metadata = file.metadata().map_err(|error| error.to_string())?;
+        if !metadata.is_file() {
+            return Err(revision_changed());
+        }
         Ok(Self {
             bytes: metadata.len(),
             modified: metadata.modified().map_err(|error| error.to_string())?,
@@ -619,7 +629,19 @@ impl PackageFileIdentity {
             node: (metadata.dev(), metadata.ino()),
             #[cfg(unix)]
             changed: (metadata.ctime(), metadata.ctime_nsec()),
+            #[cfg(windows)]
+            file_id: windows_identity::FileId::from_file(file)
+                .map_err(|error| format!("Cannot verify Windows package file identity: {error}"))?,
         })
+    }
+
+    fn check_named(&self, path: &Path) -> Result<(), String> {
+        let named = super::archive::open_file(path)
+            .map_err(|error| format!("{}: {error}", revision_changed()))?;
+        if self != &Self::from_file(&named)? {
+            return Err(revision_changed());
+        }
+        Ok(())
     }
 }
 
@@ -630,21 +652,19 @@ fn revision_changed() -> String {
 fn read_package_file<T>(
     path: &Path,
     expected: Option<&PackageFileIdentity>,
-    read: impl FnOnce(&mut std::fs::File) -> Result<T, String>,
+    read: impl FnOnce(&mut File) -> Result<T, String>,
 ) -> Result<(T, PackageFileIdentity), String> {
     let mut file = super::archive::open_file(path)?;
-    let before = PackageFileIdentity::from_metadata(&file.metadata().map_err(|e| e.to_string())?)?;
+    let before = PackageFileIdentity::from_file(&file)?;
     if expected.is_some_and(|stamp| stamp != &before) {
         return Err(revision_changed());
     }
     let result = read(&mut file)?;
-    let after = PackageFileIdentity::from_metadata(&file.metadata().map_err(|e| e.to_string())?)?;
-    let named =
-        std::fs::metadata(path).map_err(|error| format!("{}: {error}", revision_changed()))?;
-    if before != after || !named.is_file() || before != PackageFileIdentity::from_metadata(&named)?
-    {
+    if before != PackageFileIdentity::from_file(&file)? {
         return Err(revision_changed());
     }
+    before.check_named(path)?;
+    drop(file);
     Ok((result, before))
 }
 
@@ -673,9 +693,33 @@ impl PackageRevision {
         self.manifest_sha256.capacity()
     }
 
+    pub(crate) fn check_named_file(&self, path: &Path) -> Result<(), String> {
+        self.file.check_named(path)
+    }
+
+    /// Pin the verified archive through the checkpoint's final step. Unix
+    /// publishers lock the same opened file before replacing an installation.
+    pub(crate) fn hold(&self, path: &Path, id: &str) -> Result<File, String> {
+        let mut file = super::archive::open_for_checkpoint(path)?;
+        if self.file != PackageFileIdentity::from_file(&file)? {
+            return Err(revision_changed());
+        }
+        let manifest = inspect_selected(
+            PackageReader::new(&mut file).map_err(|error| error.to_string())?,
+            id,
+        )?;
+        if self.file != PackageFileIdentity::from_file(&file)?
+            || self.manifest_sha256 != manifest_identity(&manifest)?
+        {
+            return Err(revision_changed());
+        }
+        self.check_named_file(path)?;
+        Ok(file)
+    }
+
     pub(crate) fn allows_reuse(&self, other: &Self) -> bool {
-        // Require stable device/inode and change time. On platforms without
-        // these fields, decode the requested records from the current file.
+        // Cache reuse also requires the Unix change time. Windows still decodes
+        // the requested records even when the open file ID matches.
         cfg!(unix) && self == other
     }
 

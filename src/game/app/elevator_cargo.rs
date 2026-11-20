@@ -641,9 +641,9 @@ impl FrameLoop<'_> {
     }
 
     pub(super) fn cargo_visit(&self, source: &super::loading::Source) -> Result<Visit, String> {
-        if let Some((_, snapshot)) = &self.checkpoints.resume {
+        if let Some(resume) = &self.checkpoints.resume {
             return Ok(Visit {
-                ledger: snapshot.elevator_cargo.clone(),
+                ledger: resume.snapshot.elevator_cargo.clone(),
                 transfer: None,
             });
         }

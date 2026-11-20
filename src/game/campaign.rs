@@ -9,6 +9,18 @@ use crate::engine::scripting::{CampaignProgress, SharedCampaign};
 #[path = "tests/campaign.rs"]
 mod tests;
 
+mod receipt;
+
+pub(super) use receipt::{Installation, LockedReceipt};
+use receipt::{Location, Stored};
+
+/// A visit keeps the exact receipt locked from admission through attachment.
+pub(super) struct Binding {
+    installation: Installation,
+    receipt: Option<LockedReceipt>,
+    stored: Stored,
+}
+
 #[derive(Default)]
 pub(super) struct CampaignSave {
     active: CampaignSession,
@@ -18,150 +30,158 @@ pub(super) struct CampaignSave {
 
 #[derive(Default)]
 struct CampaignSession {
-    package: Option<PathBuf>,
-    project: String,
-    save: Option<PathBuf>,
+    installation: Option<Installation>,
+    location: Option<Location>,
     progress: SharedCampaign,
     saved_count: usize,
     saved_generation: u64,
-    receipt_valid: bool,
+    epoch_known: bool,
+    receipt_health: ReceiptHealth,
+    stale: bool,
     failed_count: Option<(u64, usize)>,
     retry_after: Option<std::time::Instant>,
 }
 
+#[derive(Default)]
+enum ReceiptHealth {
+    #[default]
+    Readable,
+    Unavailable {
+        damaged: Option<String>,
+    },
+}
+
+impl ReceiptHealth {
+    const fn is_readable(&self) -> bool {
+        matches!(self, Self::Readable)
+    }
+
+    fn damaged(&self) -> Option<&str> {
+        match self {
+            Self::Readable => None,
+            Self::Unavailable { damaged } => damaged.as_deref(),
+        }
+    }
+}
+
 impl CampaignSave {
-    pub fn attach(
-        &mut self,
-        package: &Path,
-        project_id: Option<&str>,
-        level_id: &str,
-    ) -> SharedCampaign {
-        let canonical = std::fs::canonicalize(package).unwrap_or_else(|problem| {
-            crate::engine::logging::warn(format!(
-                "Campaign installation path unavailable: {problem}"
-            ));
-            package.to_path_buf()
-        });
-        let project = project_scope(project_id, level_id);
-        let save = crate::engine::paths::user()
-            .map(|paths| save_path(&paths.saves(), &canonical, &project));
-        self.attach_resolved(package, canonical, project, save)
+    pub fn prepare_visit(
+        &self,
+        installation: Installation,
+        checkpoint_generation: Option<u64>,
+    ) -> Result<Option<Binding>, String> {
+        let locked = crate::engine::paths::user()
+            .and_then(|paths| installation.location(&paths.saves()).try_lock());
+        self.prepare_binding(installation, locked, checkpoint_generation)
     }
 
-    fn attach_resolved(
-        &mut self,
-        package: &Path,
-        canonical: PathBuf,
-        project: String,
-        save: Result<PathBuf, String>,
-    ) -> SharedCampaign {
-        // This method is called only when a fresh world is committed. Its
-        // invocation admits the new visit's authored state for checkpoints.
-        self.active.retry_after = None;
-        let _prior_flush_notice = self.flush();
-        if self.active.package.as_deref() == Some(canonical.as_path())
-            && self.active.project == project
-        {
-            return self.enter_visit();
-        }
-        if self.active.package.is_some() && self.active.needs_retention() {
-            self.retained.push(std::mem::take(&mut self.active));
-        }
-        if let Some(index) = self.retained.iter().position(|session| {
-            session.package.as_deref() == Some(canonical.as_path()) && session.project == project
-        }) {
-            self.active = self.retained.swap_remove(index);
-            if let Ok(path) = save {
-                self.active.save = Some(path);
+    fn prepare_binding(
+        &self,
+        installation: Installation,
+        locked: Result<Option<LockedReceipt>, String>,
+        checkpoint_generation: Option<u64>,
+    ) -> Result<Option<Binding>, String> {
+        let (receipt, stored) = match locked {
+            Ok(Some(receipt)) => {
+                let stored = receipt.read();
+                (Some(receipt), stored)
             }
-            self.active.retry_after = None;
-            let _retry_notice = self.flush();
-            return self.enter_visit();
-        }
-        let restoration = save
-            .as_ref()
-            .map_err(ToString::to_string)
-            .and_then(|path| read_installed(path, &canonical, package, &project));
-        let receipt_valid = restoration.is_ok();
-        let (progress, migrated) = match restoration {
-            Ok(restored) => restored,
-            Err(problem) => {
-                crate::engine::logging::warn(format!("Campaign save unavailable: {problem}"));
-                // A fresh epoch prevents a repaired corrupt receipt from admitting
-                // old checkpoints with an unknowable earlier reset generation.
-                let mut empty = CampaignProgress::empty_at(next_generation(0).unwrap_or(u64::MAX));
-                empty.mark_failed();
-                (empty, false)
-            }
+            // Contention cannot establish an epoch. The caller leaves its
+            // prepared world pending and tries again without attaching.
+            Ok(None) => return Ok(None),
+            Err(problem) => (
+                None,
+                Stored::Unreadable {
+                    problem,
+                    damaged: None,
+                },
+            ),
         };
-        self.active = CampaignSession {
-            saved_count: if migrated {
-                usize::MAX
-            } else {
-                progress.count()
-            },
-            saved_generation: progress.generation(),
-            receipt_valid,
-            package: Some(canonical),
-            project,
-            save: save.ok(),
-            progress: std::sync::Arc::new(std::sync::Mutex::new(progress)),
-            ..CampaignSession::default()
+        let binding = Binding {
+            installation,
+            receipt,
+            stored,
         };
-        if migrated {
-            // Copy exactly one owned legacy receipt; retain it for recovery.
-            let _migration_flush_notice = self.flush();
+        if let Some(expected) = checkpoint_generation {
+            self.validate_resume(&binding, expected)?;
         }
-        self.enter_visit()
+        if let Some(owner) = self.owner(&binding.installation) {
+            owner.check_reentry(&binding.stored)?;
+        }
+        Ok(Some(binding))
     }
 
-    fn enter_visit(&mut self) -> SharedCampaign {
+    pub fn validate_resume(&self, binding: &Binding, expected: u64) -> Result<(), String> {
+        if expected != binding.generation()? {
+            return Err("This checkpoint belongs to a different collection generation. Start new to keep the current progress.".into());
+        }
+        if let Some(owner) = self.owner(&binding.installation) {
+            let progress = owner
+                .progress
+                .lock()
+                .map_err(|_problem| "Campaign state unavailable")?;
+            if expected == progress.generation() && progress.reset_pending() {
+                return Err(
+                    "Wait for the collection reset to finish before saving or resuming".into(),
+                );
+            }
+        }
+        Ok(())
+    }
+
+    pub fn attach(&mut self, binding: Binding) -> SharedCampaign {
+        let previous = std::mem::take(&mut self.active);
+        let existing = if previous.owns(&binding.installation) {
+            Some(previous)
+        } else {
+            if previous.needs_retention() {
+                self.retained.push(previous);
+            }
+            self.retained
+                .iter()
+                .position(|session| session.owns(&binding.installation))
+                .map(|index| self.retained.swap_remove(index))
+        };
+        self.active = CampaignSession::restore(&binding, existing);
         self.visit_generation = self
             .active
             .progress
             .lock()
             .map_or(u64::MAX, |progress| progress.generation());
+        drop(binding);
         self.active.progress.clone()
     }
 
-    /// # Errors
-    /// Refuses unavailable or corrupt installation receipts.
-    pub fn generation_for(&self, entry: &crate::engine::loader::LevelEntry) -> Result<u64, String> {
-        let canonical =
-            std::fs::canonicalize(&entry.path).map_err(|problem| problem.to_string())?;
-        let project_id = crate::engine::package::project::inspect(&entry.path)?
-            .map(|package| package.project.id);
-        let project = project_scope(project_id.as_deref(), &entry.id);
-        if self.active.package.as_deref() == Some(canonical.as_path())
-            && self.active.project == project
-        {
-            return self.retained_generation();
-        }
-        if let Some(session) = self.retained.iter().find(|session| {
-            session.package.as_deref() == Some(canonical.as_path()) && session.project == project
-        }) {
-            return session.retained_generation();
-        }
-        let path = save_path(&crate::engine::paths::user()?.saves(), &canonical, &project);
-        read_installed(&path, &canonical, &entry.path, &project)
-            .map(|(progress, _migrated)| progress.generation())
+    fn owner(&self, installation: &Installation) -> Option<&CampaignSession> {
+        std::iter::once(&self.active)
+            .chain(&self.retained)
+            .find(|session| session.owns(installation))
     }
 
-    /// # Errors
-    /// Refuses capture until a fresh authored world attaches after a clear.
-    pub fn current_generation(&self) -> Result<u64, String> {
-        let generation = self.retained_generation()?;
-        if generation != self.visit_generation {
+    pub fn owns_current(&self, installation: &Installation) -> bool {
+        self.active.owns(installation)
+    }
+
+    pub fn lock_checkpoint(&self) -> Result<(LockedReceipt, u64), String> {
+        let location = self
+            .active
+            .location
+            .as_ref()
+            .ok_or("No collection receipt is attached")?;
+        let locked = location
+            .try_lock()?
+            .ok_or("Collection save is busy. Retry the checkpoint.")?;
+        let Stored::Valid(progress, _) = locked.read() else {
+            return Err("Collection save is unavailable; repair it or clear progress before saving a checkpoint".into());
+        };
+        let generation = progress.generation();
+        if self.active.retained_generation()? != generation || generation != self.visit_generation {
             return Err(
-                "Collection progress was cleared. Re-enter this level before saving a checkpoint."
+                "Collection progress changed. Re-enter this level before saving a checkpoint."
                     .into(),
             );
         }
-        Ok(generation)
-    }
-
-    fn retained_generation(&self) -> Result<u64, String> {
-        self.active.retained_generation()
+        Ok((locked, generation))
     }
 
     /// Retry failed publications at most once per second, including departed
@@ -183,18 +203,54 @@ impl CampaignSave {
     }
 }
 
+impl Binding {
+    pub const fn installation(&self) -> &Installation {
+        &self.installation
+    }
+
+    pub fn directory(&self) -> Result<&Path, String> {
+        self.receipt
+            .as_ref()
+            .ok_or("No verified collection receipt")?
+            .directory()
+    }
+
+    /// The receipt epoch observed when admitting this visit.
+    fn generation(&self) -> Result<u64, String> {
+        match &self.stored {
+            Stored::Valid(progress, _) => Ok(progress.generation()),
+            Stored::Unreadable {
+                problem,
+                damaged: _,
+            } => Err(format!("Collection save is unavailable: {problem}")),
+        }
+    }
+}
+
 impl CampaignSession {
+    fn owns(&self, installation: &Installation) -> bool {
+        self.installation
+            .as_ref()
+            .is_some_and(|owner| owner.same_owner(installation))
+    }
+
+    fn pending_updates(&self, progress: &CampaignProgress) -> bool {
+        progress.reset_pending()
+            || progress.count() != self.saved_count
+            || progress.generation() != self.saved_generation
+    }
+
     fn needs_retention(&self) -> bool {
-        !self.receipt_valid
-            || self.progress.lock().map_or(true, |progress| {
-                progress.reset_pending()
-                    || progress.count() != self.saved_count
-                    || progress.generation() != self.saved_generation
-            })
+        !self.stale
+            && self.installation.is_some()
+            && self
+                .progress
+                .lock()
+                .map_or(true, |progress| self.pending_updates(&progress))
     }
 
     fn retained_generation(&self) -> Result<u64, String> {
-        if !self.receipt_valid {
+        if !self.epoch_known || !self.receipt_health.is_readable() || self.stale {
             return Err("Collection save is unavailable; repair it or clear progress before resuming a checkpoint".into());
         }
         let progress = self
@@ -207,58 +263,155 @@ impl CampaignSession {
         Ok(progress.generation())
     }
 
+    fn check_reentry(&self, stored: &Stored) -> Result<(), String> {
+        let progress = self
+            .progress
+            .lock()
+            .map_err(|_problem| "Campaign state unavailable")?;
+        if let Stored::Valid(installed, _) = stored
+            && self.epoch_known
+            && progress.generation() == installed.generation()
+        {
+            // Verify that two bounded receipts can be combined before the
+            // renderer commits. The live owner is untouched if this fails.
+            let mut candidate = progress.clone();
+            drop(progress);
+            return candidate.merge_installed(installed);
+        }
+        drop(progress);
+        Ok(())
+    }
+
+    fn restore(binding: &Binding, existing: Option<Self>) -> Self {
+        let installation = Some(binding.installation.clone());
+        let location = binding
+            .receipt
+            .as_ref()
+            .map(|receipt| receipt.location.clone());
+        let (progress, epoch_known, receipt_health, migrated) = match &binding.stored {
+            Stored::Valid(installed, migrated) => {
+                if let Some(mut owner) = existing {
+                    let reused = owner.epoch_known
+                        && owner.progress.lock().is_ok_and(|mut progress| {
+                            if progress.generation() != installed.generation() {
+                                return false;
+                            }
+                            if let Err(problem) = progress.merge_installed(installed) {
+                                progress.mark_failed();
+                                crate::engine::logging::warn(problem);
+                            }
+                            true
+                        });
+                    if reused {
+                        owner.installation = installation;
+                        owner.location = location;
+                        owner.saved_count = if *migrated {
+                            usize::MAX
+                        } else {
+                            installed.count()
+                        };
+                        owner.saved_generation = installed.generation();
+                        owner.retry_after = None;
+                        owner.receipt_health = ReceiptHealth::Readable;
+                        owner.stale = false;
+                        return owner;
+                    }
+                }
+                (installed.clone(), true, ReceiptHealth::Readable, *migrated)
+            }
+            Stored::Unreadable { problem, damaged } => {
+                crate::engine::logging::warn(format!("Campaign save unavailable: {problem}"));
+                let receipt_health = ReceiptHealth::Unavailable {
+                    damaged: damaged.clone(),
+                };
+                if let Some(mut owner) = existing
+                    && !owner.stale
+                {
+                    // Keep the live collection for ordinary travel. A CLEAR
+                    // queued in the previous visit cannot authorize a repair.
+                    if let Ok(mut progress) = owner.progress.lock() {
+                        progress.mark_failed();
+                    }
+                    owner.installation = installation;
+                    owner.location = location.or(owner.location);
+                    owner.receipt_health = receipt_health;
+                    return owner;
+                }
+                let mut empty = CampaignProgress::empty_at(next_generation(0).unwrap_or(u64::MAX));
+                empty.mark_failed();
+                (empty, false, receipt_health, false)
+            }
+        };
+        Self {
+            installation,
+            location,
+            saved_count: if migrated {
+                usize::MAX
+            } else {
+                progress.count()
+            },
+            saved_generation: progress.generation(),
+            progress: std::sync::Arc::new(std::sync::Mutex::new(progress)),
+            epoch_known,
+            receipt_health,
+            ..Self::default()
+        }
+    }
+
     /// Returns a newly encountered failure for the player's visible notice.
     fn flush_at(&mut self, now: std::time::Instant) -> Option<String> {
         let Ok(mut progress) = self.progress.lock() else {
             return None;
         };
+        if self.stale || self.installation.is_none() {
+            return None;
+        }
         let resetting = progress.reset_pending();
         let identity = (progress.generation(), progress.count());
-        if !resetting && !self.receipt_valid && self.package.is_some() {
+        if !resetting && !self.epoch_known {
             if self.failed_count == Some(identity) {
                 return None;
             }
             progress.mark_failed();
             self.failed_count = Some(identity);
-            drop(progress);
-            let notice = "Collection receipt is unreadable; original data is preserved. Repair it and restart, or confirm CLEAR to replace it.".to_string();
+            let notice = "Collection receipt is unreadable; original data is preserved. Repair it and restart, or confirm CLEAR to replace an unchanged corrupt receipt.".to_string();
             crate::engine::logging::warn(&notice);
             return Some(notice);
         }
         if !resetting
-            && progress.count() == self.saved_count
-            && progress.generation() == self.saved_generation
+            && (!self.pending_updates(&progress)
+                || self.retry_after.is_some_and(|deadline| now < deadline))
         {
             return None;
         }
-        if !resetting && self.retry_after.is_some_and(|deadline| now < deadline) {
-            return None;
-        }
-        let prepared_reset = if resetting {
-            next_generation(progress.generation())
-                .map(|generation| Some(CampaignProgress::empty_at(generation)))
-        } else {
-            Ok(None)
+        let acquisition = self
+            .location
+            .as_ref()
+            .ok_or_else(|| "No writable campaign save path".to_string())
+            .and_then(Location::try_lock);
+        let result = match &acquisition {
+            Ok(Some(receipt)) => self.publish(receipt, &progress, resetting),
+            Ok(None) => return None,
+            Err(problem) => Err(problem.clone()),
         };
-        let result = prepared_reset.and_then(|reset_candidate| {
-            self.save
-                .as_ref()
-                .ok_or_else(|| "No writable campaign save path".to_string())
-                .and_then(|path| write(path, reset_candidate.as_ref().unwrap_or(&progress)))?;
-            Ok(reset_candidate)
-        });
         match result {
-            Ok(published_reset) => {
-                if let Some(cleared) = published_reset {
-                    *progress = cleared;
-                }
+            Ok(Some(published)) => {
+                *progress = published;
                 progress.mark_saved();
-                self.receipt_valid = true;
+                self.epoch_known = true;
+                self.receipt_health = ReceiptHealth::Readable;
                 self.saved_count = progress.count();
                 self.saved_generation = progress.generation();
                 self.failed_count = None;
                 self.retry_after = None;
                 None
+            }
+            Ok(None) => {
+                self.stale = true;
+                progress.mark_failed();
+                let notice = "Collection progress changed in another session. Re-enter this level before saving or clearing.".to_string();
+                crate::engine::logging::warn(&notice);
+                Some(notice)
             }
             Err(problem) => {
                 let newly_failed = resetting || self.failed_count != Some(identity);
@@ -278,6 +431,45 @@ impl CampaignSession {
                 }
             }
         }
+    }
+
+    fn publish(
+        &self,
+        receipt: &LockedReceipt,
+        progress: &CampaignProgress,
+        resetting: bool,
+    ) -> Result<Option<CampaignProgress>, String> {
+        let candidate = match receipt.read() {
+            Stored::Valid(installed, _)
+                if self.epoch_known && installed.generation() == progress.generation() =>
+            {
+                if resetting {
+                    if !self.receipt_health.is_readable() {
+                        return Err("The unavailable receipt was replaced. Re-enter this level before clearing it.".into());
+                    }
+                    CampaignProgress::empty_at(next_generation(progress.generation())?)
+                } else {
+                    let mut merged = progress.clone();
+                    merged.merge_installed(&installed)?;
+                    merged
+                }
+            }
+            Stored::Valid(_, _) => return Ok(None),
+            Stored::Unreadable { problem, damaged }
+                if resetting
+                    && damaged.is_some()
+                    && damaged.as_deref() == self.receipt_health.damaged() =>
+            {
+                drop(problem);
+                CampaignProgress::empty_at(next_generation(progress.generation())?)
+            }
+            Stored::Unreadable {
+                problem,
+                damaged: _,
+            } => return Err(problem),
+        };
+        receipt.write(&candidate)?;
+        Ok(Some(candidate))
     }
 }
 
@@ -404,13 +596,7 @@ fn read_installed(
 }
 
 fn read(path: &Path) -> Result<CampaignProgress, String> {
-    let file = match std::fs::File::open(path) {
-        Ok(file) => file,
-        Err(problem) if problem.kind() == std::io::ErrorKind::NotFound => {
-            return Ok(CampaignProgress::default());
-        }
-        Err(problem) => return Err(problem.to_string()),
-    };
+    let file = std::fs::File::open(path).map_err(|problem| problem.to_string())?;
     let mut bytes = Vec::new();
     let _read = file
         .take(16_385)
@@ -419,8 +605,12 @@ fn read(path: &Path) -> Result<CampaignProgress, String> {
     if bytes.len() > 16_384 {
         return Err("Campaign save exceeds 16 KiB".into());
     }
+    decode_progress(&bytes)
+}
+
+fn decode_progress(bytes: &[u8]) -> Result<CampaignProgress, String> {
     let progress: CampaignProgress =
-        serde_json::from_slice(&bytes).map_err(|problem| problem.to_string())?;
+        serde_json::from_slice(bytes).map_err(|problem| problem.to_string())?;
     progress.validate()?;
     Ok(progress)
 }

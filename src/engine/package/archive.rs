@@ -49,6 +49,27 @@ pub(crate) fn open_file(path: &Path) -> Result<std::fs::File, String> {
     Ok(file)
 }
 
+/// The checkpoint keeps this handle alive until the save or load commits.
+pub(crate) fn open_for_checkpoint(path: &Path) -> Result<std::fs::File, String> {
+    #[cfg(unix)]
+    {
+        let file = open_file(path)?;
+        file.try_lock_shared()
+            .map_err(|error| format!("Cannot hold map package for checkpoint: {error}"))?;
+        Ok(file)
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        // Permit the loader's reads while denying write and delete access.
+        std::fs::OpenOptions::new()
+            .read(true)
+            .share_mode(1)
+            .open(path)
+            .map_err(|error| format!("Cannot hold map package for checkpoint: {error}"))
+    }
+}
+
 /// Read-only access to one opened package: a ZIP archive plus its validated
 /// entry index.
 ///
@@ -700,18 +721,12 @@ pub(crate) fn write_archive_with_level_guarded(
     // Own the temporary before writing or cleaning it up. Exclusive creation
     // never truncates a pre-existing file or follows a pre-existing symlink.
     let (temporary, file) = create_temporary(path)?;
-    let result = write_archive_to(file, &entries, &check, compression)
-        .and_then(|()| check())
-        .and_then(|()| publish_check());
+    let result = write_archive_to(file, &entries, &check, compression).and_then(|()| check());
     if let Err(error) = result {
         return Err(cleanup_failed_write(&temporary, error));
     }
-    std::fs::rename(&temporary, path).map_err(|error| {
-        cleanup_failed_write(
-            &temporary,
-            format!("could not publish {}: {error}", path.display()),
-        )
-    })
+    publish_package(&temporary, path, publish_check)
+        .map_err(|error| cleanup_failed_write(&temporary, error))
 }
 
 /// Streams a complete project from owned spool files into an atomic package.
@@ -774,17 +789,48 @@ fn write_archive_files(
             }
             Ok(())
         })
-        .and_then(|()| check())
-        .and_then(|()| publish_check());
+        .and_then(|()| check());
     if let Err(error) = result {
         return Err(cleanup_failed_write(&temporary, error));
     }
-    std::fs::rename(&temporary, path).map_err(|error| {
-        cleanup_failed_write(
-            &temporary,
-            format!("could not publish {}: {error}", path.display()),
-        )
-    })
+    publish_package(&temporary, path, publish_check)
+        .map_err(|error| cleanup_failed_write(&temporary, error))
+}
+
+/// An existing Unix archive must be locked before replacing its directory
+/// entry. A name found absent uses exclusive rename so it cannot overwrite a
+/// newly installed archive which a checkpoint may already hold.
+pub(crate) fn publish_package(
+    temporary: &Path,
+    target: &Path,
+    check: impl FnOnce() -> Result<(), String>,
+) -> Result<(), String> {
+    let publication_error = |error| format!("could not publish {}: {error}", target.display());
+    #[cfg(unix)]
+    let _existing = {
+        use std::os::unix::fs::MetadataExt as _;
+        match std::fs::metadata(target) {
+            Ok(_) => {
+                let file = open_file(target)?;
+                file.try_lock().map_err(|error| format!(
+                    "Map package is in use or cannot be locked: {error}. Retry publication after the checkpoint operation."
+                ))?;
+                let opened = file.metadata().map_err(publication_error)?;
+                let current = std::fs::metadata(target).map_err(publication_error)?;
+                if (opened.dev(), opened.ino()) != (current.dev(), current.ino()) {
+                    return Err("Map package changed before publication".into());
+                }
+                file
+            }
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {
+                check()?;
+                return rename_noreplace(temporary, target).map_err(publication_error);
+            }
+            Err(error) => return Err(publication_error(error)),
+        }
+    };
+    check()?;
+    std::fs::rename(temporary, target).map_err(publication_error)
 }
 
 fn validate_spool_entries(entries: &[SpoolEntry], is_project: bool) -> Result<(), String> {

@@ -9,6 +9,7 @@
 //! Geometry emission, the lighting bake, chart planning, atlas filling, probe
 //! capture and static collision derivation all happen offline in
 //! `places-compile`.
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, mpsc};
 use std::thread::JoinHandle;
@@ -74,22 +75,35 @@ impl Phase {
 
 /// Package revision captured when a request is created.
 #[derive(Clone, Debug)]
-pub struct SourceIdentity(Option<PackageRevision>);
+pub struct SourceIdentity {
+    revision: Option<PackageRevision>,
+    exact: bool,
+}
 
 impl SourceIdentity {
     fn capture(entry: &LevelEntry) -> Self {
-        Self(
-            PackageRevision::inspect(&entry.path, &entry.id)
+        Self {
+            revision: PackageRevision::inspect(&entry.path, &entry.id)
                 .ok()
                 .map(|(revision, _)| revision),
-        )
+            exact: false,
+        }
     }
 
     fn matches(&self, other: &Self) -> bool {
-        self.0
+        self.revision
             .as_ref()
-            .zip(other.0.as_ref())
+            .zip(other.revision.as_ref())
             .is_some_and(|(left, right)| left.allows_reuse(right))
+    }
+
+    fn check_revision(&self, revision: &PackageRevision) -> Result<(), String> {
+        if self.exact && self.revision.as_ref() != Some(revision) {
+            return Err(
+                "Checkpoint package changed before preparation; select the level again".into(),
+            );
+        }
+        Ok(())
     }
 }
 
@@ -110,6 +124,27 @@ impl Source {
     pub fn entry(entry: LevelEntry) -> Self {
         let identity = SourceIdentity::capture(&entry);
         Self::Entry(entry, identity)
+    }
+
+    pub(super) const fn checkpoint(entry: LevelEntry, revision: PackageRevision) -> Self {
+        Self::Entry(
+            entry,
+            SourceIdentity {
+                revision: Some(revision),
+                exact: true,
+            },
+        )
+    }
+
+    pub(super) fn matches_checkpoint(
+        &self,
+        path: &Path,
+        level: &str,
+        revision: &PackageRevision,
+    ) -> bool {
+        matches!(self, Self::Entry(entry, identity) if
+            identity.exact && identity.revision.as_ref() == Some(revision)
+                && entry.path == path && entry.id == level)
     }
 
     /// A retained-world request that snapshots the package identity now.
@@ -241,6 +276,8 @@ pub struct PreparedWorld {
     pub preparation_millis: f64,
     pub cache_hit: bool,
     pub loaded: LoadedLevel,
+    pub canonical: Option<PathBuf>,
+    pub revision: PackageRevision,
     pub build: Arc<LevelBuild>,
     pub collision: CollisionWorld,
     pub physical: Option<super::item_runtime::PreparedItems>,
@@ -761,10 +798,22 @@ fn prepare_world(
     // The variant records, already read while the level's own assets resolved.
     let mut prefetched_variant: Option<crate::engine::package::world::LoadedVariant> = None;
     let prepare_physical = matches!(&request.source, Source::Entry(_, _));
+    let mut installation = None;
     let mut loaded = match request.source {
-        Source::Entry(entry, _) => {
+        Source::Entry(mut entry, identity) => {
+            let canonical =
+                std::fs::canonicalize(&entry.path).map_err(|problem| problem.to_string())?;
+            if identity.exact && canonical != entry.path {
+                return Err(
+                    "Checkpoint installation changed before preparation; select the level again"
+                        .into(),
+                );
+            }
+            let original = std::mem::replace(&mut entry.path, canonical.clone());
+            installation = Some((original, canonical));
             manager.refresh_catalog();
             let key = PackageKey::for_entry(&entry, request.lightmaps)?;
+            identity.check_revision(&key.revision)?;
             let reusable = reusable_records(&key, builds, identities);
             // Validate semantics/catalog/dependencies once per request. Both
             // consumers use this snapshot; the variant reader still checks its
@@ -897,7 +946,7 @@ fn prepare_world(
         builds.insert(key.clone(), Arc::clone(&records));
         records
     };
-    remember_build(identities, key, &records);
+    remember_build(identities, key.clone(), &records);
     if !control.checkpoint(Phase::Collision) {
         return Ok(None);
     }
@@ -963,6 +1012,12 @@ fn prepare_world(
         return Ok(None);
     }
     let transport_probe = transport.as_ref().map(Arc::downgrade);
+    let canonical = installation.map(|(original, canonical)| {
+        // Keep discovery's original alias for later UI/legacy compatibility,
+        // while carrying the actual prepared path separately to the app.
+        loaded.entry.path = original;
+        canonical
+    });
     Ok(Some(PreparedWorld {
         cargo,
         geometry,
@@ -971,6 +1026,8 @@ fn prepare_world(
         preparation_millis: started.elapsed().as_secs_f64() * 1000.0,
         cache_hit,
         loaded,
+        canonical,
+        revision: key.revision,
         build: Arc::clone(&records.build),
         collision,
         physical,

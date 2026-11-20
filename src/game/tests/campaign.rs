@@ -1,9 +1,282 @@
 //! One tiny save guards the actual disk round trip, bounded admission and
 //! idempotence across app restarts. No environment mutation, asset load or bake.
 use super::{
-    CampaignProgress, CampaignSave, CampaignSession, legacy_path, migration_path, read,
-    read_installed, save_path, write,
+    Binding, CampaignProgress, CampaignSave, Installation, Location, SharedCampaign, legacy_path,
+    migration_path, read, read_installed, save_path, write,
 };
+use std::path::Path;
+
+fn location(folder: &Path, canonical: &Path, original: &Path, scope: &str) -> Location {
+    Installation::new(
+        original.to_path_buf(),
+        canonical.to_path_buf(),
+        scope.strip_prefix("project:"),
+        "fixture",
+    )
+    .location(folder)
+}
+
+fn prepare(owner: &CampaignSave, location: &Location) -> Result<Option<Binding>, String> {
+    owner.prepare_binding(location.installation.clone(), location.try_lock(), None)
+}
+
+fn attach(owner: &mut CampaignSave, location: &Location) -> Result<SharedCampaign, String> {
+    let binding = prepare(owner, location)?.ok_or("Unexpected fixture lock contention")?;
+    Ok(owner.attach(binding))
+}
+
+// Use one tiny synthetic receipt to exercise the same-project travel and
+// corrupt-receipt CLEAR path, including replacement by valid same-epoch data.
+#[test]
+fn ordinary_home_to_hub_travel_preserves_favors_until_a_fresh_clear() -> Result<(), String> {
+    let folder = std::env::temp_dir().join(format!("places-campaign-hub-{}", std::process::id()));
+    let package = folder.join("fixture.placesmap");
+    let home = Installation::new(package.clone(), package.clone(), Some("fixture"), "home")
+        .location(&folder);
+    let hub = Installation::new(package.clone(), package, Some("fixture"), "hub").location(&folder);
+    assert_eq!(home.path, hub.path);
+    write(&home.path, &CampaignProgress::empty_at(4))?;
+    let mut owner = CampaignSave::default();
+    let home_progress = attach(&mut owner, &home)?;
+    let original_epoch = owner.lock_checkpoint()?.1;
+    {
+        let mut progress = home_progress.lock().map_err(|error| error.to_string())?;
+        progress.complete("home")?;
+        progress.request_reset();
+    }
+    let damaged = b"corrupt Home receipt";
+    std::fs::write(&home.path, damaged).map_err(|error| error.to_string())?;
+    let hub_progress = attach(&mut owner, &hub)?;
+    assert!(std::sync::Arc::ptr_eq(&home_progress, &hub_progress));
+    {
+        let progress = hub_progress.lock().map_err(|error| error.to_string())?;
+        assert!(progress.completed("home"));
+        assert_eq!(progress.status(), "failed");
+        assert!(
+            !progress.reset_pending(),
+            "a prior visit's CLEAR must be discarded"
+        );
+        drop(progress);
+    }
+    assert!(owner.lock_checkpoint().is_err());
+    assert!(
+        owner
+            .prepare_binding(
+                hub.installation.clone(),
+                hub.try_lock(),
+                Some(original_epoch),
+            )
+            .is_err(),
+        "checkpoint resume still requires a readable receipt"
+    );
+    let _notice = owner.flush();
+    assert_eq!(
+        std::fs::read(&hub.path).map_err(|error| error.to_string())?,
+        damaged,
+        "an ordinary flush must preserve malformed bytes"
+    );
+
+    let mut repaired = CampaignProgress::empty_at(original_epoch);
+    repaired.complete("pool")?;
+    write(&hub.path, &repaired)?;
+    hub_progress
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(owner.flush().is_some());
+    let preserved = read(&hub.path)?;
+    assert_eq!(preserved.generation(), original_epoch);
+    assert!(
+        preserved.completed("pool"),
+        "corruption recovery cannot clear a valid replacement"
+    );
+    assert!(
+        hub_progress
+            .lock()
+            .map_err(|error| error.to_string())?
+            .completed("home")
+    );
+
+    std::fs::write(&hub.path, b"new corrupt receipt").map_err(|error| error.to_string())?;
+    let fresh_confirmation = attach(&mut owner, &hub)?;
+    assert!(std::sync::Arc::ptr_eq(&hub_progress, &fresh_confirmation));
+    fresh_confirmation
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(owner.flush().is_none());
+    let cleared = read(&hub.path)?;
+    assert_eq!(cleared.count(), 0);
+    assert!(cleared.generation() > original_epoch);
+    std::fs::remove_file(&hub.path)
+        .and_then(|()| std::fs::remove_file(hub.path.with_extension("lock")))
+        .and_then(|()| std::fs::remove_dir(&folder))
+        .map_err(|error| error.to_string())
+}
+
+// This uses the generation from a separate owner's post-CLEAR visit as the
+// selected checkpoint's generation. One synthetic receipt and a held sidecar
+// exercise final admission for active, retained, and previously unseen owners.
+#[test]
+fn checkpoint_visit_uses_the_locked_epoch_and_waits_after_selection() -> Result<(), String> {
+    let folder =
+        std::env::temp_dir().join(format!("places-campaign-resume-{}", std::process::id()));
+    let package = folder.join("fixture.placesmap");
+    let receipt = location(&folder, &package, &package, "project:fixture");
+    let other = location(&folder, &package, &package, "project:other");
+    let checkpoint_visit = |owner: &CampaignSave, epoch| {
+        owner.prepare_binding(
+            receipt.installation.clone(),
+            receipt.try_lock(),
+            Some(epoch),
+        )
+    };
+    let mut active = CampaignSave::default();
+    let mut departed = CampaignSave::default();
+    let mut clearing = CampaignSave::default();
+    let old_active = attach(&mut active, &receipt)?;
+    let old_departed = attach(&mut departed, &receipt)?;
+    let resetter = attach(&mut clearing, &receipt)?;
+    let old_epoch = active.lock_checkpoint()?.1;
+    old_active
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(
+        checkpoint_visit(&active, old_epoch).is_err(),
+        "a local CLEAR pending in the same epoch blocks checkpoint admission"
+    );
+    old_departed
+        .lock()
+        .map_err(|error| error.to_string())?
+        .complete("winter")?;
+    let _different_visit = attach(&mut departed, &other)?;
+    assert_eq!(departed.retained.len(), 1);
+
+    resetter
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(clearing.flush().is_none());
+    let _cleared_visit = attach(&mut clearing, &receipt)?;
+    let selected_epoch = clearing.lock_checkpoint()?.1;
+    assert!(selected_epoch > old_epoch);
+    for owner in [&mut active, &mut departed] {
+        assert!(checkpoint_visit(owner, old_epoch).is_err());
+        let binding = checkpoint_visit(owner, selected_epoch)?
+            .ok_or("A checkpoint from the installed epoch must be admissible")?;
+        let _attached = owner.attach(binding);
+        assert_eq!(owner.lock_checkpoint()?.1, selected_epoch);
+    }
+
+    let mut first_visit = CampaignSave::default();
+    let held = receipt.try_lock()?.ok_or("Expected a fresh fixture lock")?;
+    assert!(
+        checkpoint_visit(&first_visit, selected_epoch)?.is_none(),
+        "a lock gained after selection leaves a first visit pending"
+    );
+    drop(held);
+    let binding = checkpoint_visit(&first_visit, selected_epoch)?
+        .ok_or("Selected checkpoint did not become admissible after contention")?;
+    let first_progress = first_visit.attach(binding);
+    assert_eq!(first_visit.lock_checkpoint()?.1, selected_epoch);
+    let recheck_binding = checkpoint_visit(&first_visit, selected_epoch)?
+        .ok_or("Expected a locked checkpoint visit")?;
+    first_progress
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(
+        first_visit
+            .validate_resume(&recheck_binding, selected_epoch)
+            .is_err(),
+        "a CLEAR queued after admission must still stop the final attachment",
+    );
+    drop(recheck_binding);
+
+    std::fs::remove_file(&receipt.path)
+        .and_then(|()| std::fs::remove_file(receipt.path.with_extension("lock")))
+        .and_then(|()| std::fs::remove_file(other.path.with_extension("lock")))
+        .and_then(|()| std::fs::remove_dir(&folder))
+        .map_err(|error| error.to_string())
+}
+
+// Two owners share one tiny synthetic receipt. This exercises real lock
+// contention, same-epoch union and fresh re-entry before a stale writer runs.
+#[test]
+fn reentry_waits_for_contended_clear_and_rejects_stale_writers() -> Result<(), String> {
+    let folder = std::env::temp_dir().join(format!("places-campaign-epoch-{}", std::process::id()));
+    let package = folder.join("fixture.placesmap");
+    let receipt = location(&folder, &package, &package, "project:fixture");
+    let mut returning = CampaignSave::default();
+    let mut clearing = CampaignSave::default();
+    let mut stale_writer = CampaignSave::default();
+    let mut stale_clear = CampaignSave::default();
+    let old = attach(&mut returning, &receipt)?;
+    let resetter = attach(&mut clearing, &receipt)?;
+    let stale_progress = attach(&mut stale_writer, &receipt)?;
+    let stale_reset = attach(&mut stale_clear, &receipt)?;
+    old.lock()
+        .map_err(|error| error.to_string())?
+        .complete("beach")?;
+    resetter
+        .lock()
+        .map_err(|error| error.to_string())?
+        .complete("home")?;
+    assert!(returning.flush().is_none() && clearing.flush().is_none());
+    let merged = read(&receipt.path)?;
+    assert!(merged.completed("beach") && merged.completed("home"));
+    assert_eq!(merged.generation(), 0);
+
+    old.lock()
+        .map_err(|error| error.to_string())?
+        .complete("winter")?;
+    stale_progress
+        .lock()
+        .map_err(|error| error.to_string())?
+        .complete("pool")?;
+    stale_reset
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    let held = receipt.try_lock()?.ok_or("Expected a fresh fixture lock")?;
+    resetter
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(clearing.flush().is_none());
+    assert!(prepare(&returning, &receipt)?.is_none());
+    assert!(
+        old.lock()
+            .map_err(|error| error.to_string())?
+            .completed("winter")
+    );
+    assert_eq!(read(&receipt.path)?.generation(), 0);
+    drop(held);
+
+    assert!(clearing.flush().is_none());
+    let cleared_generation = read(&receipt.path)?.generation();
+    assert!(cleared_generation > 0);
+    let binding = prepare(&returning, &receipt)?.ok_or("Expected re-entry to resume")?;
+    assert_eq!(binding.generation()?, cleared_generation);
+    assert!(receipt.try_lock()?.is_none());
+    let new = returning.attach(binding);
+    assert!(!std::sync::Arc::ptr_eq(&old, &new));
+    {
+        let fresh = new.lock().map_err(|error| error.to_string())?;
+        assert_eq!(fresh.generation(), cleared_generation);
+        assert_eq!(fresh.count(), 0);
+    }
+    assert!(stale_writer.flush().is_some());
+    assert!(stale_clear.flush().is_some());
+    let unchanged = read(&receipt.path)?;
+    assert_eq!(unchanged.generation(), cleared_generation);
+    assert_eq!(unchanged.count(), 0);
+    std::fs::remove_file(&receipt.path)
+        .and_then(|()| std::fs::remove_file(receipt.path.with_extension("lock")))
+        .and_then(|()| std::fs::remove_dir(&folder))
+        .map_err(|error| error.to_string())
+}
 
 #[test]
 fn completion_save_roundtrips_atomically_and_refuses_bad_or_oversized_data() -> Result<(), String> {
@@ -58,7 +331,9 @@ fn completion_save_roundtrips_atomically_and_refuses_bad_or_oversized_data() -> 
 fn collection_clear_commits_only_after_publication_and_survives_restart() -> Result<(), String> {
     let folder = std::env::temp_dir().join(format!("places-campaign-clear-{}", std::process::id()));
     std::fs::create_dir(&folder).map_err(|problem| problem.to_string())?;
-    let path = folder.join("progress.json");
+    let package = folder.join("fixture.placesmap");
+    let receipt = location(&folder, &package, &package, "project:first");
+    let path = receipt.path.clone();
     let mut progress = CampaignProgress::default();
     for id in [
         "home",
@@ -73,27 +348,22 @@ fn collection_clear_commits_only_after_publication_and_survives_restart() -> Res
         progress.complete(id)?;
     }
     write(&path, &progress)?;
-    let shared = std::sync::Arc::new(std::sync::Mutex::new(read(&path)?));
     let mut save = CampaignSave::default();
-    save.active = CampaignSession {
-        save: Some(path.clone()),
-        progress: shared.clone(),
-        saved_count: 8,
-        receipt_valid: true,
-        ..CampaignSession::default()
-    };
+    let shared = attach(&mut save, &receipt)?;
     // A directory at the publication target produces a deterministic disk error.
     let blocked = folder.join("blocked.json");
     std::fs::create_dir(&blocked).map_err(|problem| problem.to_string())?;
-    save.active.save = Some(blocked.clone());
     shared
         .lock()
         .map_err(|problem| problem.to_string())?
         .request_reset();
     assert!(
-        save.current_generation().is_err(),
+        save.lock_checkpoint().is_err(),
         "pending clears cannot be captured"
     );
+    let mut blocked_receipt = receipt.clone();
+    blocked_receipt.path.clone_from(&blocked);
+    save.active.location = Some(blocked_receipt);
     assert!(
         save.flush().is_some(),
         "publication failure must reach the player"
@@ -117,7 +387,7 @@ fn collection_clear_commits_only_after_publication_and_survives_restart() -> Res
         8,
         "failed clear preserves durable favors"
     );
-    save.active.save = Some(path.clone());
+    save.active.location = Some(receipt);
     shared
         .lock()
         .map_err(|problem| problem.to_string())?
@@ -153,6 +423,8 @@ fn collection_clear_commits_only_after_publication_and_survives_restart() -> Res
         "post-clear progress starts a new collection"
     );
     std::fs::remove_file(&path)
+        .and_then(|()| std::fs::remove_file(path.with_extension("lock")))
+        .and_then(|()| std::fs::remove_file(blocked.with_extension("lock")))
         .and_then(|()| std::fs::remove_dir(&blocked))
         .and_then(|()| std::fs::remove_dir(&folder))
         .map_err(|problem| problem.to_string())?;
@@ -182,14 +454,9 @@ fn project_scopes_own_legacy_once_and_clear_requires_a_fresh_visit() -> Result<(
     write(&legacy, &old)?;
     let mut save = CampaignSave::default();
     let bind = |session: &mut CampaignSave, scope: &str| {
-        session.attach_resolved(
-            original,
-            canonical.clone(),
-            scope.to_string(),
-            Ok(save_path(&folder, &canonical, scope)),
-        )
+        attach(session, &location(&folder, &canonical, original, scope))
     };
-    let first_progress = bind(&mut save, first);
+    let first_progress = bind(&mut save, first)?;
     assert_eq!(
         first_progress
             .lock()
@@ -198,7 +465,7 @@ fn project_scopes_own_legacy_once_and_clear_requires_a_fresh_visit() -> Result<(
         1,
         "first project migrates exact raw-path progress"
     );
-    let second_progress = bind(&mut save, second);
+    let second_progress = bind(&mut save, second)?;
     assert_eq!(
         second_progress
             .lock()
@@ -212,7 +479,7 @@ fn project_scopes_own_legacy_once_and_clear_requires_a_fresh_visit() -> Result<(
         .map_err(|problem| problem.to_string())?
         .complete("pool")?;
     assert!(save.flush().is_none(), "second project's own receipt saves");
-    let restored_first = bind(&mut save, first);
+    let restored_first = bind(&mut save, first)?;
     assert!(
         restored_first
             .lock()
@@ -226,13 +493,13 @@ fn project_scopes_own_legacy_once_and_clear_requires_a_fresh_visit() -> Result<(
         .request_reset();
     assert!(save.flush().is_none(), "scoped clear publishes");
     assert!(
-        save.current_generation().is_err(),
+        save.lock_checkpoint().is_err(),
         "new generation cannot stamp an old unlocked world before re-entry"
     );
-    let cleared_generation = save.retained_generation()?;
-    let _fresh_visit = bind(&mut save, first);
+    let cleared_generation = read(&first_path)?.generation();
+    let _fresh_visit = bind(&mut save, first)?;
     assert_eq!(
-        save.current_generation()?,
+        save.lock_checkpoint()?.1,
         cleared_generation,
         "fresh same-package attach releases capture barrier"
     );
@@ -256,7 +523,14 @@ fn project_scopes_own_legacy_once_and_clear_requires_a_fresh_visit() -> Result<(
             .completed("pool"),
         "another project's corruption does not block an existing scoped save"
     );
-    for file in [first_path, second_path, legacy, marker] {
+    for file in [
+        first_path.with_extension("lock"),
+        second_path.with_extension("lock"),
+        first_path,
+        second_path,
+        legacy,
+        marker,
+    ] {
         std::fs::remove_file(file).map_err(|problem| problem.to_string())?;
     }
     std::fs::remove_dir(folder).map_err(|problem| problem.to_string())?;
@@ -277,12 +551,10 @@ fn preserve_corrupt_receipt_until_clear(
         "corrupt scoped receipt cannot resurrect legacy favors"
     );
     let mut restarted = CampaignSave::default();
-    let session = restarted.attach_resolved(
-        original,
-        canonical.to_path_buf(),
-        project.to_string(),
-        Ok(path.clone()),
-    );
+    let session = attach(
+        &mut restarted,
+        &location(folder, canonical, original, project),
+    )?;
     session
         .lock()
         .map_err(|problem| problem.to_string())?
@@ -331,15 +603,10 @@ fn failed_progress_survives_switch_and_retries_without_frame_writes() -> Result<
     let canonical = folder.join("installed.placesmap");
     let path = save_path(&folder, &canonical, "project:first");
     let bind = |save: &mut CampaignSave, project: &str| {
-        save.attach_resolved(
-            &canonical,
-            canonical.clone(),
-            project.into(),
-            Ok(save_path(&folder, &canonical, project)),
-        )
+        attach(save, &location(&folder, &canonical, &canonical, project))
     };
     let mut save = CampaignSave::default();
-    let progress = bind(&mut save, "project:first");
+    let progress = bind(&mut save, "project:first")?;
     progress
         .lock()
         .map_err(|e| e.to_string())?
@@ -347,7 +614,7 @@ fn failed_progress_survives_switch_and_retries_without_frame_writes() -> Result<
     std::fs::create_dir(&path).map_err(|e| e.to_string())?;
     let now = std::time::Instant::now();
     assert!(save.flush_at(now).is_some());
-    let other = bind(&mut save, "project:other");
+    let other = bind(&mut save, "project:other")?;
     assert_eq!(other.lock().map_err(|e| e.to_string())?.count(), 0);
     assert_eq!(save.retained.len(), 1, "dirty owner survives departure");
     std::fs::remove_dir(&path).map_err(|e| e.to_string())?;
@@ -365,7 +632,7 @@ fn failed_progress_survives_switch_and_retries_without_frame_writes() -> Result<
         save.retained.is_empty(),
         "durable inactive owners can be released"
     );
-    let returned = bind(&mut save, "project:first");
+    let returned = bind(&mut save, "project:first")?;
     assert!(
         returned
             .lock()
@@ -379,11 +646,21 @@ fn failed_progress_survives_switch_and_retries_without_frame_writes() -> Result<
     std::fs::remove_file(&path).map_err(|e| e.to_string())?;
     std::fs::create_dir(&path).map_err(|e| e.to_string())?;
     assert!(save.flush().is_some());
-    let _other = bind(&mut save, "project:other");
-    let retained = bind(&mut save, "project:first");
+    let _other = bind(&mut save, "project:other")?;
+    let unreadable = bind(&mut save, "project:first")?;
+    assert!(std::sync::Arc::ptr_eq(&returned, &unreadable));
+    assert!(save.lock_checkpoint().is_err());
+    unreadable
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(save.flush().is_some());
+    assert!(path.is_dir(), "CLEAR cannot repair an unreadable object");
+    std::fs::remove_dir(&path).map_err(|e| e.to_string())?;
+    let retained = bind(&mut save, "project:first")?;
     assert!(
         std::sync::Arc::ptr_eq(&returned, &retained),
-        "return before recovery reuses the dirty owner"
+        "verified same-epoch re-entry reuses the dirty owner"
     );
     assert!(
         retained
@@ -391,14 +668,13 @@ fn failed_progress_survives_switch_and_retries_without_frame_writes() -> Result<
             .map_err(|e| e.to_string())?
             .completed("pool")
     );
-    std::fs::remove_dir(&path).map_err(|e| e.to_string())?;
     assert!(
         save.flush_at(std::time::Instant::now() + std::time::Duration::from_secs(2))
             .is_none()
     );
     let mut restart = CampaignSave::default();
     assert_eq!(
-        bind(&mut restart, "project:first")
+        bind(&mut restart, "project:first")?
             .lock()
             .map_err(|e| e.to_string())?
             .count(),
@@ -406,4 +682,54 @@ fn failed_progress_survives_switch_and_retries_without_frame_writes() -> Result<
     );
     std::fs::remove_dir_all(&folder).map_err(|e| e.to_string())?;
     Ok(())
+}
+
+// A bounded decode refusal must not strand ordinary travel or make a large
+// receipt eligible for repair. One synthetic 16 KiB buffer and a retry.
+#[test]
+fn oversized_receipt_keeps_dirty_travel_read_only_until_same_epoch_is_readable()
+-> Result<(), String> {
+    let folder =
+        std::env::temp_dir().join(format!("places-campaign-oversize-{}", std::process::id()));
+    let package = folder.join("fixture.placesmap");
+    let receipt = location(&folder, &package, &package, "project:fixture");
+    let mut save = CampaignSave::default();
+    let previous = attach(&mut save, &receipt)?;
+    previous
+        .lock()
+        .map_err(|error| error.to_string())?
+        .complete("home")?;
+    let oversized = vec![b' '; 16_385];
+    std::fs::write(&receipt.path, &oversized).map_err(|error| error.to_string())?;
+    let travelled = attach(&mut save, &receipt)?;
+    assert!(std::sync::Arc::ptr_eq(&travelled, &previous));
+    assert!(save.lock_checkpoint().is_err());
+    assert!(
+        save.prepare_binding(receipt.installation.clone(), receipt.try_lock(), Some(0))
+            .is_err()
+    );
+    travelled
+        .lock()
+        .map_err(|error| error.to_string())?
+        .request_reset();
+    assert!(save.flush().is_some());
+    assert_eq!(
+        std::fs::read(&receipt.path).map_err(|error| error.to_string())?,
+        oversized
+    );
+    assert!(
+        travelled
+            .lock()
+            .map_err(|error| error.to_string())?
+            .completed("home")
+    );
+    write(&receipt.path, &CampaignProgress::default())?;
+    let rebound = attach(&mut save, &receipt)?;
+    assert!(std::sync::Arc::ptr_eq(&travelled, &rebound));
+    assert!(save.flush().is_none());
+    assert!(read(&receipt.path)?.completed("home"));
+    std::fs::remove_file(&receipt.path)
+        .and_then(|()| std::fs::remove_file(receipt.path.with_extension("lock")))
+        .and_then(|()| std::fs::remove_dir(&folder))
+        .map_err(|error| error.to_string())
 }

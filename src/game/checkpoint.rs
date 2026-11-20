@@ -1,7 +1,9 @@
 //! One opt-in gameplay checkpoint per stable installed project/level/content.
 use super::Game;
-use crate::engine::loader::LoadedLevel;
+use super::campaign::{Installation, LockedReceipt};
+use crate::engine::loader::{LevelEntry, LoadedLevel};
 use crate::engine::package::hash::sha256_hex;
+use crate::engine::package::world::{OpenedPackage, PackageRevision};
 use serde::{Deserialize, Serialize};
 use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
@@ -22,73 +24,141 @@ pub struct Identity {
 }
 
 impl Identity {
-    pub fn for_entry(entry: &crate::engine::loader::LevelEntry) -> Result<Option<Self>, String> {
-        let opened = crate::engine::package::world::open_level(&entry.path, &entry.id)?;
-        if !opened.level.saving {
-            return Ok(None);
-        }
-        let project = opened
-            .project_id
-            .unwrap_or_else(|| format!("standalone:{}", entry.id));
-        let installation =
-            std::fs::canonicalize(&entry.path).map_err(|problem| problem.to_string())?;
-        Ok(Some(Self {
+    fn scoped(
+        installation: &Path,
+        declared_project: Option<&str>,
+        level: &str,
+        content: &str,
+    ) -> Self {
+        let project = declared_project.map_or_else(|| format!("standalone:{level}"), str::to_owned);
+        Self {
             project: format!(
                 "{project}:{}",
                 sha256_hex(installation.to_string_lossy().as_bytes())
             ),
-            level: entry.id.clone(),
-            content: crate::engine::package::world::manifest_identity(&opened.manifest)?,
-        }))
+            level: level.into(),
+            content: content.into(),
+        }
     }
 
-    pub fn for_level(loaded: &LoadedLevel) -> Result<Self, String> {
-        if !loaded.level.saving {
-            return Err("Saving is disabled for this level".into());
-        }
-        let project = loaded
-            .project_id
-            .clone()
-            .unwrap_or_else(|| format!("standalone:{}", loaded.level.id));
-        let content = loaded
-            .package_identity
-            .clone()
-            .ok_or("Gameplay checkpoints need a verified installed package")?;
-        let current_project = crate::engine::package::project::inspect(&loaded.entry.path)?
-            .map_or_else(
-                || format!("standalone:{}", loaded.level.id),
-                |package| package.project.id,
-            );
-        if current_project != project
-            || crate::engine::package::world::package_identity(&loaded.entry)? != content
-        {
-            return Err(
-                "Level package changed during this visit. Reload or start new before saving."
-                    .into(),
-            );
-        }
-        // Installation scope prevents an unrelated same-named project adopting another save.
-        let installation =
-            std::fs::canonicalize(&loaded.entry.path).map_err(|problem| problem.to_string())?;
-        let scoped_project = format!(
-            "{project}:{}",
-            sha256_hex(installation.to_string_lossy().as_bytes())
-        );
-        Ok(Self {
-            project: scoped_project,
-            level: loaded.level.id.clone(),
-            content,
-        })
-    }
     fn stem(&self) -> String {
         sha256_hex(format!("{}\n{}", self.project, self.level).as_bytes())
     }
     pub fn path(&self) -> Result<PathBuf, String> {
-        crate::engine::paths::user().map(|paths| {
-            paths
-                .saves()
-                .join(format!("checkpoint-{}.json", self.stem()))
-        })
+        crate::engine::paths::user().map(|paths| self.path_in(&paths.saves()))
+    }
+
+    pub fn path_in(&self, directory: &Path) -> PathBuf {
+        directory.join(format!("checkpoint-{}.json", self.stem()))
+    }
+}
+
+/// Retains the verified package handle through the complete world install.
+pub(super) struct PackageGuard {
+    _file: std::fs::File,
+}
+
+impl PackageGuard {
+    pub fn through_commit<T>(guard: Option<Self>, commit: impl FnOnce() -> T) -> T {
+        let result = commit();
+        drop(guard);
+        result
+    }
+}
+
+/// The archive and collection owner authenticated together during selection.
+pub(super) struct Target {
+    pub identity: Identity,
+    pub installation: Installation,
+    pub revision: PackageRevision,
+}
+
+impl Target {
+    pub fn for_entry(entry: &LevelEntry) -> Result<Option<Self>, String> {
+        let canonical =
+            std::fs::canonicalize(&entry.path).map_err(|problem| problem.to_string())?;
+        let (target, opened) = Self::open(entry, canonical)?;
+        Ok(opened.level.saving.then_some(target))
+    }
+
+    pub fn for_level(
+        loaded: &LoadedLevel,
+        installation: &Installation,
+        revision: &PackageRevision,
+    ) -> Result<Self, String> {
+        if !loaded.level.saving {
+            return Err("Saving is disabled for this level".into());
+        }
+        let target = Self::from_package(
+            &loaded.entry,
+            installation.canonical.clone(),
+            loaded.project_id.as_deref(),
+            revision.clone(),
+        );
+        if !target.installation.same_owner(installation) {
+            return Err("The collection receipt belongs to a different installed package".into());
+        }
+        target.check_loaded(loaded, &installation.canonical, revision)?;
+        Ok(target)
+    }
+
+    fn open(entry: &LevelEntry, canonical: PathBuf) -> Result<(Self, OpenedPackage), String> {
+        let (revision, _) = PackageRevision::inspect(&canonical, &entry.id)?;
+        let opened = revision.open_level(&canonical, &entry.id)?;
+        let target = Self::from_package(entry, canonical, opened.project_id.as_deref(), revision);
+        target.verify_current()?;
+        Ok((target, opened))
+    }
+
+    fn from_package(
+        entry: &LevelEntry,
+        canonical: PathBuf,
+        project: Option<&str>,
+        revision: PackageRevision,
+    ) -> Self {
+        let identity = Identity::scoped(&canonical, project, &entry.id, revision.manifest_sha256());
+        let installation = Installation::new(entry.path.clone(), canonical, project, &entry.id);
+        Self {
+            identity,
+            installation,
+            revision,
+        }
+    }
+
+    pub fn verify_current(&self) -> Result<(), String> {
+        self.installation.verify_path()?;
+        self.revision.check_named_file(&self.installation.canonical)
+    }
+
+    pub fn hold_package(&self) -> Result<PackageGuard, String> {
+        self.verify_current()?;
+        let file = self
+            .revision
+            .hold(&self.installation.canonical, &self.identity.level)?;
+        self.verify_current()?;
+        Ok(PackageGuard { _file: file })
+    }
+
+    pub fn check_loaded(
+        &self,
+        loaded: &LoadedLevel,
+        canonical: &Path,
+        revision: &PackageRevision,
+    ) -> Result<(), String> {
+        let actual = Installation::new(
+            loaded.entry.path.clone(),
+            canonical.to_path_buf(),
+            loaded.project_id.as_deref(),
+            &loaded.level.id,
+        );
+        if !actual.same_owner(&self.installation)
+            || loaded.level.id != self.identity.level
+            || revision != &self.revision
+            || loaded.package_identity.as_deref() != Some(&self.identity.content)
+        {
+            return Err("Checkpoint installation or content changed during loading. Select the level again.".into());
+        }
+        self.verify_current()
     }
 }
 
@@ -195,15 +265,6 @@ pub struct Snapshot {
     pub flashlight: bool,
 }
 
-impl Snapshot {
-    pub(super) fn check_campaign_generation(&self, current: u64) -> Result<(), String> {
-        if self.campaign_generation != current {
-            return Err("This checkpoint predates a collection reset. Start new to keep the cleared progress.".into());
-        }
-        Ok(())
-    }
-}
-
 #[derive(Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
 struct Envelope {
@@ -218,6 +279,7 @@ pub struct Saved {
     pub snapshot: Snapshot,
     pub name: String,
     pub recovered: bool,
+    pub checksum: String,
 }
 
 fn decode(bytes: &[u8], identity: &Identity) -> Result<Saved, String> {
@@ -241,6 +303,7 @@ fn decode(bytes: &[u8], identity: &Identity) -> Result<Saved, String> {
     Ok(Saved {
         snapshot,
         name: envelope.name,
+        checksum: envelope.checksum,
         recovered: false,
     })
 }
@@ -276,11 +339,27 @@ pub fn read_at(path: &Path, identity: &Identity) -> Result<Option<Saved>, String
     }
 }
 
+pub(super) fn verify_selection(
+    path: &Path,
+    identity: &Identity,
+    checksum: &str,
+) -> Result<(), String> {
+    let selected = read_at(path, identity)?.ok_or("The selected checkpoint was removed")?;
+    if selected.checksum != checksum {
+        return Err("The selected checkpoint changed. Select it again before resuming.".into());
+    }
+    Ok(())
+}
+
 pub fn read(identity: &Identity) -> Result<Option<Saved>, String> {
     read_at(&identity.path()?, identity)
 }
 
-fn atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
+fn atomic(
+    path: &Path,
+    bytes: &[u8],
+    check: &impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
     static NEXT: std::sync::atomic::AtomicU64 = std::sync::atomic::AtomicU64::new(0);
     let parent = path.parent().ok_or("Checkpoint path has no parent")?;
     std::fs::create_dir_all(parent).map_err(|problem| problem.to_string())?;
@@ -289,16 +368,17 @@ fn atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
         std::process::id(),
         NEXT.fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     ));
+    let mut file = std::fs::OpenOptions::new()
+        .write(true)
+        .create_new(true)
+        .open(&temporary)
+        .map_err(|problem| problem.to_string())?;
     let result = (|| {
-        let mut file = std::fs::OpenOptions::new()
-            .write(true)
-            .create_new(true)
-            .open(&temporary)
-            .map_err(|problem| problem.to_string())?;
         file.write_all(bytes)
             .and_then(|()| file.sync_all())
             .map_err(|problem| problem.to_string())?;
         drop(file);
+        check()?;
         std::fs::rename(&temporary, path).map_err(|problem| problem.to_string())
     })();
     if result.is_err()
@@ -310,12 +390,44 @@ fn atomic(path: &Path, bytes: &[u8]) -> Result<(), String> {
     result
 }
 
-pub fn write_at(
+#[derive(Debug, PartialEq, Eq)]
+pub(super) enum WriteOutcome {
+    Written,
+    WrittenUnconfirmed(String),
+}
+
+#[cfg(test)]
+fn write_at(
     path: &Path,
     identity: &Identity,
     name: &str,
     snapshot: &Snapshot,
-) -> Result<(), String> {
+) -> Result<WriteOutcome, String> {
+    write_checked(path, identity, name, snapshot, || Ok(()))
+}
+
+fn write_checked(
+    path: &Path,
+    identity: &Identity,
+    name: &str,
+    snapshot: &Snapshot,
+    check: impl Fn() -> Result<(), String>,
+) -> Result<WriteOutcome, String> {
+    let parent = path.parent().ok_or("Checkpoint path has no parent")?;
+    std::fs::create_dir_all(parent).map_err(|problem| problem.to_string())?;
+    let directory = open_checkpoint_directory(parent)?;
+    let sync = || sync_checkpoint_directory(&directory);
+    publish_checkpoint(path, identity, name, snapshot, check, sync)
+}
+
+fn publish_checkpoint(
+    path: &Path,
+    identity: &Identity,
+    name: &str,
+    snapshot: &Snapshot,
+    check: impl Fn() -> Result<(), String>,
+    sync: impl Fn() -> Result<(), String>,
+) -> Result<WriteOutcome, String> {
     if name.is_empty() || name.len() > 80 || name.chars().any(char::is_control) {
         return Err("Invalid checkpoint name".into());
     }
@@ -331,16 +443,57 @@ pub fn write_at(
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_BYTES {
         return Err("Checkpoint exceeds 4 MiB".into());
     }
+    // Confirm that this filesystem can synchronize the parent before replacing
+    // either file. Successful synchronization is a filesystem acknowledgement.
+    sync()?;
     // Only a validated previous save is eligible for recovery. A failed backup or
     // replacement leaves the primary intact; stale temp files are never promoted.
     if let Ok(previous) = bounded_read(path)
         && decode(&previous, identity).is_ok()
     {
-        atomic(&path.with_extension("previous"), &previous)?;
+        atomic(&path.with_extension("previous"), &previous, &check)?;
     }
-    atomic(path, &bytes)
+    atomic(path, &bytes, &check)?;
+    Ok(sync().map_or_else(WriteOutcome::WrittenUnconfirmed, |()| WriteOutcome::Written))
 }
 
-pub fn write(identity: &Identity, name: &str, snapshot: &Snapshot) -> Result<(), String> {
-    write_at(&identity.path()?, identity, name, snapshot)
+fn open_checkpoint_directory(parent: &Path) -> Result<std::fs::File, String> {
+    let mut options = std::fs::OpenOptions::new();
+    let _access = options.read(true);
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        // FlushFileBuffers requires write access; BACKUP_SEMANTICS permits
+        // opening a directory handle. A refusal is a checkpoint error.
+        let _directory_access = options.write(true).custom_flags(0x0200_0000);
+    }
+    options.open(parent).map_err(|problem| {
+        format!("Cannot open the checkpoint directory for synchronization: {problem}")
+    })
+}
+
+fn sync_checkpoint_directory(directory: &std::fs::File) -> Result<(), String> {
+    // macOS File::sync_all uses F_FULLFSYNC on ordinary files; fsync is the
+    // directory operation. Windows reports whether FlushFileBuffers succeeded.
+    #[cfg(unix)]
+    let result = rustix::fs::fsync(directory);
+    #[cfg(windows)]
+    let result = directory.sync_all();
+    result.map_err(|problem| format!("Cannot synchronize the checkpoint directory: {problem}"))
+}
+
+pub fn write(
+    receipt: &LockedReceipt,
+    identity: &Identity,
+    name: &str,
+    snapshot: &Snapshot,
+    check: impl Fn() -> Result<(), String>,
+) -> Result<WriteOutcome, String> {
+    write_checked(
+        &identity.path_in(receipt.directory()?),
+        identity,
+        name,
+        snapshot,
+        check,
+    )
 }

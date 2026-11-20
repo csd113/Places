@@ -1027,29 +1027,26 @@ fn publish_import(temporary: &Path, plan: &ImportPlan) -> Result<(), String> {
         return crate::engine::package::archive::rename_noreplace(temporary, &plan.target)
             .map_err(publication_error);
     }
-    let current_hash = match fs::symlink_metadata(&plan.target) {
-        Ok(metadata) if metadata.file_type().is_file() => {
-            crate::engine::package::hash::sha256_file(&plan.target)
-                .map_err(|error| cleanup_failed_write(temporary, error))?
+    let check_target = || {
+        let current_hash = match fs::symlink_metadata(&plan.target) {
+            Ok(metadata) if metadata.file_type().is_file() => {
+                crate::engine::package::hash::sha256_file(&plan.target)?
+            }
+            _ => return Err("Import destination changed during admission".into()),
+        };
+        if plan.previous_hash.as_deref() != Some(current_hash.as_str()) {
+            return Err(
+                "Import destination changed during admission; previous data retained".into(),
+            );
         }
-        _ => {
-            return Err(cleanup_failed_write(
-                temporary,
-                "Import destination changed during admission".into(),
-            ));
-        }
+        Ok(())
     };
-    if plan.previous_hash.as_deref() != Some(current_hash.as_str()) {
-        return Err(cleanup_failed_write(
-            temporary,
-            "Import destination changed during admission; previous data retained".into(),
-        ));
-    }
-    if plan.outcome == ImportOutcome::Unchanged {
-        fs::remove_file(temporary).map_err(|error| error.to_string())
+    let result = if plan.outcome == ImportOutcome::Unchanged {
+        check_target().and_then(|()| fs::remove_file(temporary).map_err(|error| error.to_string()))
     } else {
-        fs::rename(temporary, &plan.target).map_err(publication_error)
-    }
+        crate::engine::package::archive::publish_package(temporary, &plan.target, check_target)
+    };
+    result.map_err(|error| cleanup_failed_write(temporary, error))
 }
 
 /// Owns and closes the write handle before validation or temporary cleanup.
