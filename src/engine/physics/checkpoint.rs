@@ -320,6 +320,23 @@ impl ItemWorld {
         Ok(result)
     }
 
+    /// Restores a fresh candidate's rigid props and verifies the restored player hull.
+    ///
+    /// # Errors
+    /// Refuses invalid item records or a player pose blocked by the resulting bodies.
+    pub fn restore_player_checkpoint(
+        &mut self,
+        authored: &[(u64, String, String)],
+        records: &[(String, Item)],
+        player: super::PlayerContext,
+    ) -> Result<(), String> {
+        self.restore_checkpoint(authored, records)?;
+        if !self.player_pose_clear(player) {
+            return Err("Checkpoint player pose is obstructed by a physical item. Start new to play from the beginning.".into());
+        }
+        Ok(())
+    }
+
     /// # Errors
     /// Validates all identities and values before modifying the private candidate.
     pub fn restore_checkpoint(

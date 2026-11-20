@@ -140,9 +140,11 @@ impl FrameLoop<'_> {
         let eye = candidate.player_position;
         candidate.entities_mut().restore_checkpoint_light_holds(eye);
         if let Some(items) = prepared.physical.as_mut() {
-            items
-                .world
-                .restore_checkpoint(&items.authored, &snapshot.items)?;
+            items.world.restore_player_checkpoint(
+                &items.authored,
+                &snapshot.items,
+                super::item_runtime::player_context(&candidate),
+            )?;
             candidate
                 .entities_mut()
                 .set_navigation_obstacles(items.world.navigation_obstacles());

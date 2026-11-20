@@ -1,8 +1,9 @@
 //! Essential reconstruction regression: actual Luau closure locals and once-only
 //! startup and full-precision numeric locals survive disk JSON and a fresh VM,
-//! plus held item ownership survives fresh solver keys.
-//! Existing scripting/hold tests cover live sessions, not reconstruction. Two tiny
-//! CPU worlds and a sphere, no filesystem, model decode, render or map bake.
+//! plus held item ownership survives fresh solver keys and a loose prop moved
+//! inside the player hull by restoration refuses admission.
+//! Existing scripting/hold tests cover live sessions, not reconstruction. Tiny CPU worlds
+//! and a single sphere each, no filesystem, model decode, render or map bake.
 use crate::engine::{
     collision_index::CollisionIndex,
     entities::{EntityWorld, WorldContext},
@@ -108,8 +109,18 @@ fn checkpoint_resolves_held_item_by_authored_id_in_a_fresh_solver() -> Result<()
         "sphere is reachable"
     );
     let snapshot = original.checkpoint(&[(7, "item".into(), "fixture".into())])?;
+    let player = crate::engine::physics::PlayerContext {
+        eye: Vec3::new(0.0, 1.5, 0.0),
+        feet: Vec3::ZERO,
+        yaw: 0.0,
+        view: Vec3::NEG_Z,
+        height: 1.8,
+        half: crate::engine::collision::PLAYER_RADIUS,
+        active: true,
+    };
+    let authored = [(93, "item".into(), "fixture".into())];
     let mut restored = sphere(93)?;
-    restored.restore_checkpoint(&[(93, "item".into(), "fixture".into())], &snapshot)?;
+    restored.restore_player_checkpoint(&authored, &snapshot, player)?;
     assert_eq!(
         restored.held(),
         Some(93),
@@ -129,10 +140,29 @@ fn checkpoint_resolves_held_item_by_authored_id_in_a_fresh_solver() -> Result<()
         before.pose, after.pose,
         "held object does not teleport during reconstruction"
     );
+
+    // The authored pose is clear. The obstruction is introduced during restore,
+    // so checking before the solver's query refresh would miss it.
+    let loose = sphere_at(7, Vec3::new(0.0, 0.5, 0.0))?;
+    let obstructed = loose.checkpoint(&[(7, "item".into(), "fixture".into())])?;
+    let mut candidate = sphere(93)?;
+    assert!(
+        candidate.player_pose_clear(player),
+        "the spawn prop is clear"
+    );
+    let refusal = candidate.restore_player_checkpoint(&authored, &obstructed, player);
+    assert!(
+        refusal.is_err_and(|problem| problem.contains("physical item")),
+        "a restored loose body inside the player hull must block admission"
+    );
     Ok(())
 }
 
 fn sphere(key: u64) -> Result<ItemWorld, String> {
+    sphere_at(key, Vec3::new(0.0, 1.4, -1.0))
+}
+
+fn sphere_at(key: u64, position: Vec3) -> Result<ItemWorld, String> {
     let mut world = ItemWorld::default();
     world.spawn_authored(
         key,
@@ -143,7 +173,7 @@ fn sphere(key: u64) -> Result<ItemWorld, String> {
             ..PhysicsDef::default()
         },
         (Vec3::new(-0.1, 0.0, -0.1), Vec3::new(0.1, 0.2, 0.1)),
-        Vec3::new(0.0, 1.4, -1.0),
+        position,
         0.0,
         1.0,
     )?;
