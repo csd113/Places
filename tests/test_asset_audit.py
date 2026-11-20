@@ -92,6 +92,35 @@ class AssetAuditTests(unittest.TestCase):
         for point in points:
             self.assertAlmostEqual(sum(value*value for value in point), 1)
 
+    def test_short_step_track_holds_its_last_key_during_a_longer_linear_track(self):
+        document = {"nodes": [{}], "accessors": [
+            {"bufferView": 0, "componentType": 5126, "count": 3, "type": "SCALAR"},
+            {"bufferView": 1, "componentType": 5126, "count": 3, "type": "VEC3"},
+            {"bufferView": 2, "componentType": 5126, "count": 2, "type": "SCALAR"},
+            {"bufferView": 3, "componentType": 5126, "count": 2, "type": "VEC3"}],
+            "bufferViews": [{"byteOffset": 0, "byteLength": 12},
+                            {"byteOffset": 12, "byteLength": 36},
+                            {"byteOffset": 48, "byteLength": 8},
+                            {"byteOffset": 56, "byteLength": 24}]}
+        binary = audit.struct.pack("<20f",
+                                   0.125, 0.25, 0.5, 2, 0, 0, 4, 0, 0, 8, 0, 0,
+                                   0, 0.75, 1, 1, 1, 4, 4, 4)
+        animation = {"channels": [{"sampler": 0, "target": {"node": 0, "path": "translation"}},
+                                  {"sampler": 1, "target": {"node": 0, "path": "scale"}}],
+                     "samplers": [{"input": 0, "output": 1, "interpolation": "STEP"},
+                                  {"input": 2, "output": 3}]}
+        record = audit.animation_record(document, binary, animation)
+        self.assertEqual(record["errors"], [])
+        self.assertEqual(record["duration"], 0.75)
+        with patch.object(glb, "_node_rest_matrices", wraps=glb._node_rest_matrices) as matrices:
+            frames = audit.inspect_rigid_frames(document, binary, animation, record["duration"])
+
+        self.assertEqual(frames, 46)
+        nodes = [call.args[0]["nodes"][0] for call in matrices.call_args_list]
+        self.assertEqual([node["scale"][0] for node in nodes[::15]], [1, 2, 3, 4])
+        self.assertEqual([node["translation"][0] for node in nodes[:31]], [2]*15 + [4]*15 + [8])
+        self.assertEqual([node["translation"][0] for node in nodes[31:]], [8]*15)
+
     def test_preview_cutout_preserves_background_and_uses_each_material_texture(self):
         model = preview.Model()
         model.positions = [(-1, 0, 0), (0, 0, 0), (-0.5, 1, 0),

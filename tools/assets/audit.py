@@ -169,13 +169,14 @@ def inspect_rigid_frames(document, binary, animation, duration):
         for target, interpolation, times, values in tracks:
             right = next((i for i, value in enumerate(times) if value >= time_), len(times)-1)
             left = max(0, right-1)
-            t = 0 if right == left else (time_-times[left])/(times[right]-times[left])
-            if interpolation == "STEP" and time_ < times[right]:
-                value = values[left]
-            elif target["path"] == "rotation":
-                value = _slerp(values[left], values[right], t)
+            if interpolation == "STEP":
+                value = values[left] if time_ < times[right] else values[right]
             else:
-                value = tuple(a+(b-a)*t for a, b in zip(values[left], values[right]))
+                t = 0 if right == left else (time_-times[left])/(times[right]-times[left])
+                if target["path"] == "rotation":
+                    value = _slerp(values[left], values[right], t)
+                else:
+                    value = tuple(a+(b-a)*t for a, b in zip(values[left], values[right]))
             nodes[target["node"]][target["path"]] = value
         posed = {**document, "nodes": nodes}
         matrices, _ = glb._node_rest_matrices(posed)
