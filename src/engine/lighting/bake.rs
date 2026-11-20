@@ -37,7 +37,7 @@ use super::tuning::{
 use super::visibility::{Occluders, QuerySite, ShadowSampling, Visibility};
 use crate::engine::level::{
     CeilingProfileDef, LevelDef, LevelSurfaces, LightFixtureDef, LightMount, MAX_PROP_LIGHTS,
-    WallAxis,
+    WALL_SLICE_EPS, WallAxis, WallOpeningDef,
 };
 use crate::engine::package::binary::{Reader, Writer};
 
@@ -520,10 +520,9 @@ fn resolve_wall_fixture_y(rooms: &[RoomLighting], x: f32, z: f32, authored: Opti
 struct OpeningBlend {
     x: f32,
     z: f32,
-    /// Floor Y of the lower of the two areas the opening joins, used as the
-    /// bottom of the aperture when testing whether the sample can see through.
+    /// Bottom of the opening shared by both room air volumes.
     base_y: f32,
-    /// Top edge of the opening in world Y.
+    /// Top of the opening shared by both room air volumes.
     top_y: f32,
     /// Query site of this opening in [`LevelLighting::visibility`].
     site: u32,
@@ -781,7 +780,7 @@ impl RoomLighting {
     }
 }
 
-/// A closed interval on the floor plane: `(min, max)`.
+/// A closed interval along one axis: `(min, max)`.
 type Span = (f32, f32);
 
 /// Horizontal reach of a light's bounce fill, in metres.
@@ -1629,15 +1628,86 @@ struct OpeningSide {
     baseline: LightColor,
 }
 
-/// Resolves the room area at `(x, z)` and the baseline a sample there receives.
+/// One room's air at the probe point, clipped to the doorway.
+struct OpeningRoom {
+    room: usize,
+    span: Span,
+    sill_distance: f32,
+    area_m2: f32,
+}
+
+fn opening_rooms(
+    rooms: &[RoomLighting],
+    room_index: &RoomIndex,
+    (x, z): (f32, f32),
+    (sill, top): Span,
+) -> Vec<OpeningRoom> {
+    let mut eligible: Vec<_> = room_index
+        .candidates(x, z)
+        .iter()
+        .filter_map(|&index| {
+            let room = rooms.get(index)?;
+            if x < room.x0 - ROOM_EDGE_EPS_M
+                || x > room.x1 + ROOM_EDGE_EPS_M
+                || z < room.z0 - ROOM_EDGE_EPS_M
+                || z > room.z1 + ROOM_EDGE_EPS_M
+            {
+                return None;
+            }
+            let (floor, ceiling) = room.span_at(x, z);
+            // The cut must reach this room's floor, even if a higher
+            // part of the room could receive direct light through it.
+            let span = (sill.max(floor), top.min(ceiling));
+            (sill <= floor + 1e-3 && span.1 > span.0 + WALL_SLICE_EPS).then_some(OpeningRoom {
+                room: index,
+                span,
+                sill_distance: (floor - sill).abs(),
+                area_m2: room.area_m2,
+            })
+        })
+        .collect();
+    eligible.sort_unstable_by(|first, second| {
+        first
+            .span
+            .0
+            .total_cmp(&second.span.0)
+            .then_with(|| first.sill_distance.total_cmp(&second.sill_distance))
+            .then_with(|| first.area_m2.total_cmp(&second.area_m2))
+            .then_with(|| first.room.cmp(&second.room))
+    });
+    eligible
+}
+
+/// Chooses the first pair with shared air in sill order. An interval that
+/// ends before the opposite side can open cannot match any later start on
+/// that side. Each failed comparison therefore discards one candidate.
+fn opening_pair(first: &[OpeningRoom], second: &[OpeningRoom]) -> Option<(usize, usize, Span)> {
+    let mut a = first.iter();
+    let mut b = second.iter();
+    let mut left = a.next()?;
+    let mut right = b.next()?;
+    loop {
+        let bottom = left.span.0.max(right.span.0);
+        let top = left.span.1.min(right.span.1);
+        if top > bottom + WALL_SLICE_EPS {
+            return Some((left.room, right.room, (bottom, top)));
+        }
+        if left.span.1 <= right.span.1 {
+            left = a.next()?;
+        } else {
+            right = b.next()?;
+        }
+    }
+}
+
+/// Resolves the selected room area and its baseline at the probe.
 fn opening_side(
     rooms: &[RoomLighting],
     room_zones: &[Option<RoomZones>],
     occluders: &Occluders,
-    x: f32,
-    z: f32,
+    room: usize,
+    (x, z): (f32, f32),
 ) -> Option<OpeningSide> {
-    let room = LevelLighting::room_index_of(rooms, x, z)?;
     let info = rooms.get(room)?;
     let zones = room_zones.get(room).and_then(Option::as_ref);
     let zone = zones.and_then(|selected_zones| selected_zones.zone_at(info, occluders, x, z));
@@ -1659,15 +1729,16 @@ fn opening_side(
 fn opening_blends(
     level: &LevelDef,
     rooms: &[RoomLighting],
+    room_index: &RoomIndex,
     room_zones: &[Option<RoomZones>],
     occluders: &Occluders,
     light_site_count: u32,
 ) -> (Vec<Vec<OpeningBlend>>, Vec<QuerySite>) {
     let mut blends: Vec<Vec<OpeningBlend>> = vec![Vec::new(); rooms.len()];
     let mut blend_sites: Vec<QuerySite> = Vec::new();
+    let surfaces = LevelSurfaces::new(level);
     for wall in &level.walls {
-        let length = wall.length();
-        if !length.is_finite() || length <= 0.0 {
+        if !wall.openings.iter().any(WallOpeningDef::is_door) {
             continue;
         }
         let axis = wall.axis();
@@ -1683,26 +1754,11 @@ fn opening_blends(
             ),
         };
         let half_thickness = (t1 - t0).abs() * 0.5;
-        for opening in &wall.openings {
+        for (opening, cut) in surfaces.wall_openings_at_centres(wall) {
             if !opening.is_door() {
                 continue;
             }
-            // Only openings the geometry actually cuts count as passages:
-            // the same guards `wall_solid_slices` uses, so a zero-width or
-            // non-finite opening cannot blend light through a solid wall.
-            if !opening.offset.is_finite()
-                || !opening.width.is_finite()
-                || !opening.height.is_finite()
-                || !opening.sill.is_finite()
-                || opening.width <= 0.0
-                || opening.height <= 0.0
-            {
-                continue;
-            }
-            let center = opening
-                .width
-                .mul_add(0.5, opening.offset)
-                .clamp(0.0, length);
+            let center = f32::midpoint(cut.start, cut.end);
             let across = f32::midpoint(t0, t1);
             let probe = half_thickness + OPENING_PROBE_M;
             let (center_x, center_z) = match axis {
@@ -1713,9 +1769,20 @@ fn opening_blends(
                 WallAxis::X => ((center_x, center_z + probe), (center_x, center_z - probe)),
                 WallAxis::Z => ((center_x + probe, center_z), (center_x - probe, center_z)),
             };
+            let aperture = (cut.bottom, cut.top);
+            let a_candidates = opening_rooms(rooms, room_index, side_a, aperture);
+            if a_candidates.is_empty() {
+                continue;
+            }
+            let b_candidates = opening_rooms(rooms, room_index, side_b, aperture);
+            let Some((room_a, room_b, (base_y, top_y))) =
+                opening_pair(&a_candidates, &b_candidates)
+            else {
+                continue;
+            };
             let (Some(a), Some(b)) = (
-                opening_side(rooms, room_zones, occluders, side_a.0, side_a.1),
-                opening_side(rooms, room_zones, occluders, side_b.0, side_b.1),
+                opening_side(rooms, room_zones, occluders, room_a, side_a),
+                opening_side(rooms, room_zones, occluders, room_b, side_b),
             ) else {
                 continue;
             };
@@ -1724,25 +1791,13 @@ fn opening_blends(
             if a.room == b.room && a.zone == b.zone {
                 continue;
             }
-            let (Some(info_a), Some(info_b)) = (rooms.get(a.room), rooms.get(b.room)) else {
-                continue;
-            };
-            // A walk-through opening has to reach the floor it connects: a
-            // wall raised off the floor (`wall.y`) is a header or lintel,
-            // not a passage, and an opening that only reaches an upper
-            // room's floor does not join the two rooms for light either.
-            let floor = info_a.floor_y.min(info_b.floor_y);
-            if wall.y + opening.sill.max(0.0) > floor + 1e-3 {
-                continue;
-            }
-            let top_y = opening.top(wall.y);
             let site = light_site_count
                 .saturating_add(u32::try_from(blend_sites.len()).unwrap_or(u32::MAX));
             blend_sites.push(QuerySite::new(center_x, center_z, OPENING_BLEND_RADIUS_M));
             let blend = OpeningBlend {
                 x: center_x,
                 z: center_z,
-                base_y: floor,
+                base_y,
                 top_y,
                 site,
                 neighbor_baseline: b.baseline,
@@ -1894,8 +1949,15 @@ impl LevelLighting {
 
         // Link the areas on either side of every walk-through opening.
         let light_site_count = u32::try_from(lights.len()).unwrap_or(u32::MAX);
-        let (blends, blend_sites) =
-            opening_blends(level, &rooms, &room_zones, &occluders, light_site_count);
+        let room_index = RoomIndex::new(&rooms);
+        let (blends, blend_sites) = opening_blends(
+            level,
+            &rooms,
+            &room_index,
+            &room_zones,
+            &occluders,
+            light_site_count,
+        );
 
         // Opaque geometry for the whole bake. Query sites are the fixtures
         // first (one per light, in fixture order) and then the doorway blends,
@@ -1923,7 +1985,7 @@ impl LevelLighting {
         let visibility = Visibility::build_with_occluders(occluders, &sites);
 
         Self {
-            room_index: RoomIndex::new(&rooms),
+            room_index,
             rooms,
             light_index: LightIndex::new(&lights),
             lights,

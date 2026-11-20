@@ -5775,6 +5775,21 @@ pub fn wall_solid_slices_profiled(
     wall_solid_slices_with_span_maximum(wall, clear_ceiling_at, breaks, |_, _| None)
 }
 
+fn wall_top_at(wall: &WallDef, clear_ceiling_at: impl FnOnce() -> f32) -> f32 {
+    wall.y + wall.height.unwrap_or_else(clear_ceiling_at)
+}
+
+fn wall_slice_base(wall_y: f32, length: f32, breaks: &[f32], top_at: &impl Fn(f32) -> f32) -> f32 {
+    [0.0, length]
+        .into_iter()
+        .chain(
+            breaks.iter().copied().filter(|at| {
+                at.is_finite() && *at > WALL_SLICE_EPS && *at < length - WALL_SLICE_EPS
+            }),
+        )
+        .fold(wall_y, |low, at| low.min(top_at(at)))
+}
+
 /// Shared decomposition with an optional exact maximum from a span's roof owner.
 fn wall_solid_slices_with_span_maximum(
     wall: &WallDef,
@@ -5789,23 +5804,8 @@ fn wall_solid_slices_with_span_maximum(
 
     // Top of the wall at a length offset: an explicitly authored height is
     // constant, an omitted one follows the room's ceiling profile.
-    let top_at = |offset: f32| -> f32 {
-        let clear = if wall.height.is_some() {
-            wall.height.unwrap_or(0.0)
-        } else {
-            clear_ceiling_at(offset)
-        };
-        wall.y + clear
-    };
-
-    let mut probes: Vec<f32> = vec![0.0, length];
-    probes.extend(
-        breaks
-            .iter()
-            .copied()
-            .filter(|at| at.is_finite() && *at > WALL_SLICE_EPS && *at < length - WALL_SLICE_EPS),
-    );
-    let base = probes.iter().fold(wall.y, |low, at| low.min(top_at(*at)));
+    let top_at = |offset| wall_top_at(wall, || clear_ceiling_at(offset));
+    let base = wall_slice_base(wall.y, length, breaks, &top_at);
     if !base.is_finite() {
         return Vec::new();
     }
@@ -5813,7 +5813,11 @@ fn wall_solid_slices_with_span_maximum(
     // Clamp every opening to the wall footprint and the ceiling over its own
     // span. Malformed entries (non-finite, zero-sized, out of range) are
     // ignored.
-    let openings = clamped_wall_openings(wall, length, base, &top_at);
+    let openings: Vec<_> = wall
+        .openings
+        .iter()
+        .filter_map(|opening| clamp_wall_opening(opening, length, base, &top_at))
+        .collect();
 
     // Split the wall's length at every opening boundary and profile break.
     let mut cuts: Vec<f32> = Vec::with_capacity(
@@ -5842,55 +5846,47 @@ fn wall_solid_slices_with_span_maximum(
     solid_wall_slices(&cuts, &openings, base, &top_at, &span_maximum)
 }
 
-/// Clamps a wall's authored openings to its footprint and local ceiling.
+/// Clamps an authored opening to its wall's footprint and local ceiling.
 ///
 /// Malformed entries (non-finite, zero-sized, outside the wall or the ceiling)
 /// are dropped; every surviving opening is returned with `start`/`end` inside
 /// `[0, length]` and `bottom`/`top` inside the wall's own vertical range.
-fn clamped_wall_openings(
-    wall: &WallDef,
+fn clamp_wall_opening(
+    opening: &WallOpeningDef,
     length: f32,
     base: f32,
     top_at: &impl Fn(f32) -> f32,
-) -> Vec<WallSlice> {
-    let mut openings: Vec<WallSlice> = Vec::with_capacity(wall.openings.len());
-    for opening in &wall.openings {
-        if !opening.offset.is_finite()
-            || !opening.width.is_finite()
-            || !opening.height.is_finite()
-            || !opening.sill.is_finite()
-        {
-            continue;
-        }
-        if opening.width <= 0.0 || opening.height <= 0.0 {
-            continue;
-        }
-        let start = opening.offset.clamp(0.0, length);
-        let end = opening.end().clamp(0.0, length);
-        if end <= start + WALL_SLICE_EPS {
-            continue;
-        }
-        // The higher end of the opening's span is the conservative local
-        // ceiling: a hole can never be taller than the wall that contains it.
-        let local_ceiling = top_at(start).max(top_at(end));
-        if !local_ceiling.is_finite() {
-            continue;
-        }
-        let low = base.min(local_ceiling);
-        let sill = opening.sill.max(0.0);
-        let bottom = (base + sill).clamp(low, local_ceiling);
-        let top = (base + sill + opening.height).clamp(low, local_ceiling);
-        if top <= bottom + WALL_SLICE_EPS {
-            continue;
-        }
-        openings.push(WallSlice {
-            start,
-            end,
-            bottom,
-            top,
-        });
+) -> Option<WallSlice> {
+    if !opening.offset.is_finite()
+        || !opening.width.is_finite()
+        || !opening.height.is_finite()
+        || !opening.sill.is_finite()
+        || opening.width <= 0.0
+        || opening.height <= 0.0
+    {
+        return None;
     }
-    openings
+    let start = opening.offset.clamp(0.0, length);
+    let end = opening.end().clamp(0.0, length);
+    if end <= start + WALL_SLICE_EPS {
+        return None;
+    }
+    // The higher end bounds the cut over the entire opening. Consumers
+    // sampling one point can further clip it to the wall top at that point.
+    let local_ceiling = top_at(start).max(top_at(end));
+    if !local_ceiling.is_finite() {
+        return None;
+    }
+    let low = base.min(local_ceiling);
+    let sill = opening.sill.max(0.0);
+    let bottom = (base + sill).clamp(low, local_ceiling);
+    let top = (base + sill + opening.height).clamp(low, local_ceiling);
+    (top > bottom + WALL_SLICE_EPS).then_some(WallSlice {
+        start,
+        end,
+        bottom,
+        top,
+    })
 }
 
 /// Emits one solid slice per vertical span left between `openings` over every
@@ -9608,6 +9604,34 @@ impl<'a> LevelSurfaces<'a> {
                 }
             },
         )
+    }
+
+    /// Authored openings clipped by the wall-slice geometry at their centres.
+    pub(crate) fn wall_openings_at_centres<'w>(
+        &self,
+        wall: &'w WallDef,
+    ) -> impl Iterator<Item = (&'w WallOpeningDef, WallSlice)> {
+        let length = wall.length();
+        let top_at = |offset| wall_top_at(wall, || self.clear_ceiling_height_along(wall, offset));
+        let base = if !length.is_finite() || length <= WALL_SLICE_EPS {
+            f32::NAN
+        } else if wall.height.is_some() {
+            wall.y.min(top_at(0.0))
+        } else {
+            wall_slice_base(wall.y, length, &self.wall_profile_breaks(wall), &top_at)
+        };
+        wall.openings.iter().filter_map(move |opening| {
+            if !base.is_finite() {
+                return None;
+            }
+            let mut slice = clamp_wall_opening(opening, length, base, &top_at)?;
+            let local_top = top_at(f32::midpoint(slice.start, slice.end));
+            if !local_top.is_finite() {
+                return None;
+            }
+            slice.top = slice.top.min(local_top);
+            (slice.top > slice.bottom + WALL_SLICE_EPS).then_some((opening, slice))
+        })
     }
 
     /// Solid wall spans with exact endpoint maxima from each span's own roof.
