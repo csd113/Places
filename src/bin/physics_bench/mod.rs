@@ -6,18 +6,16 @@
 //! Worker-count independence is Rapier's documented contract:
 //! <https://rapier.rs/docs/user_guides/rust/determinism/>.
 
-#![allow(
-    clippy::print_stdout,
-    clippy::print_stderr,
-    reason = "the explicit benchmark CLI reports its JSON receipt and errors"
-)]
-
 #[cfg(not(target_arch = "wasm32"))]
 pub fn run() -> std::process::ExitCode {
     native::main()
 }
 
 #[cfg(target_arch = "wasm32")]
+#[expect(
+    clippy::print_stderr,
+    reason = "The unsupported-target error is part of the benchmark CLI."
+)]
 pub fn run() -> std::process::ExitCode {
     eprintln!("places-physics-bench requires a native thread-capable target");
     std::process::ExitCode::FAILURE
@@ -92,6 +90,10 @@ mod native {
         parallel: Measurement,
     }
 
+    #[expect(
+        clippy::print_stderr,
+        reason = "Benchmark failures are written to stderr."
+    )]
     pub fn main() -> ExitCode {
         match run() {
             Ok(()) => ExitCode::SUCCESS,
@@ -154,6 +156,10 @@ mod native {
             .map_err(|error| format!("could not create bounded benchmark pool: {error}"))
     }
 
+    #[expect(
+        clippy::print_stdout,
+        reason = "The benchmark's JSON receipt is written to stdout."
+    )]
     fn run() -> Result<(), String> {
         let options = options()?;
         let serial_pool = worker_pool(1)?;

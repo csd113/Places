@@ -7,13 +7,6 @@
 //!
 //! Exit codes: `0` success, `1` operation failure, `2` usage error.
 
-// A command-line tool's contract is its stdout/stderr output.
-#![allow(
-    clippy::print_stdout,
-    clippy::print_stderr,
-    reason = "the compiler CLI reports results and errors through standard output streams"
-)]
-
 use std::path::PathBuf;
 use std::process::ExitCode;
 
@@ -82,6 +75,10 @@ OPTIONS:
 /// Call at process startup before creating worker threads, so asset-root
 /// selection is pinned before shared engine asset discovery begins.
 #[must_use = "use the compiler exit status to report the command outcome"]
+#[expect(
+    clippy::print_stderr,
+    reason = "Top-level CLI diagnostics and usage errors are written to stderr."
+)]
 pub fn run() -> ExitCode {
     crate::engine::logging::diagnostics_to_stderr();
     let parsed_arguments: Result<Vec<String>, CliError> = std::env::args_os()
@@ -301,6 +298,10 @@ fn parse_variants(value: &str) -> Result<Vec<LightmapQuality>, CliError> {
 }
 
 #[expect(clippy::too_many_lines, reason = "one cohesive command dispatcher")] // one cohesive command dispatcher
+#[expect(
+    clippy::print_stdout,
+    reason = "Human-readable command results are written to stdout."
+)]
 fn dispatch(args: &[String]) -> Result<(), CliError> {
     let Some(command) = args.first().map(String::as_str) else {
         return Err(CliError::Usage("no command given".to_string()));
@@ -635,7 +636,13 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
                     }
                     Err((source, error)) => {
                         failures = failures.saturating_add(1);
-                        eprintln!("failed {source}: {error}");
+                        #[expect(
+                            clippy::print_stderr,
+                            reason = "A batch member's failure is written to stderr."
+                        )]
+                        {
+                            eprintln!("failed {source}: {error}");
+                        }
                     }
                 }
             }
@@ -792,6 +799,10 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
     }
 }
 
+#[expect(
+    clippy::print_stdout,
+    reason = "The human-readable package verification report is written to stdout."
+)]
 fn print_verify_report(report: &compiler::VerifyReport, show_member: bool) {
     let status = if report.current { "current" } else { "stale" };
     if show_member {
@@ -829,6 +840,10 @@ fn option_value(args: &[String], name: &str) -> Option<String> {
     args.get(index.saturating_add(1)).cloned()
 }
 
+#[expect(
+    clippy::print_stdout,
+    reason = "The machine-readable JSON response is written to stdout."
+)]
 fn print_json<T: serde::Serialize>(value: &T) -> Result<(), CliError> {
     let text = serde_json::to_string_pretty(value)
         .map_err(|error| CliError::Failure(format!("could not serialize result: {error}")))?;
