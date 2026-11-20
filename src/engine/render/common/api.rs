@@ -1416,6 +1416,10 @@ pub fn prepare_local_lightmap_geometry(
     )?;
     // Transport already owns the source albedo. Light the uncharted draw
     // vertices with the ordinary fallback used when no probe field is present.
-    super::props::relight_probe_props(&mut prepared.build.batches, &prepared.build.lighting, None);
+    crate::engine::lighting::prop_receivers::relight_probe_props(
+        &mut prepared.build.batches,
+        &prepared.build.lighting,
+        None,
+    );
     Ok(prepared)
 }

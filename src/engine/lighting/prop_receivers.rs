@@ -1,0 +1,52 @@
+//! Prepared diffuse lighting for uncharted static props.
+
+use super::{LevelLighting, probes::ProbeField};
+use crate::engine::render::{LIGHTMAP_NONE, PropMeshBatch};
+
+/// Light the deferred, uncharted static scenery after transport has consumed
+/// its original albedo. Valid dark probes stay dark; missing fields use the
+/// established environment lighting, never an unlit/full-bright colour.
+pub fn relight_probe_props(
+    batches: &mut [PropMeshBatch],
+    lighting: &LevelLighting,
+    field: Option<&ProbeField>,
+) {
+    for batch in batches
+        .iter_mut()
+        .filter(|batch| batch.pending_probe_lighting)
+    {
+        for vertex in batch
+            .vertices
+            .make_mut()
+            .iter_mut()
+            .filter(|vertex| vertex.lightmap_page == LIGHTMAP_NONE)
+        {
+            let position = glam::Vec3::from_array(vertex.pos);
+            let normal = glam::Vec3::from_array(vertex.normal).normalize_or_zero();
+            let sample = normal
+                .mul_add(glam::Vec3::splat(0.025), position)
+                .to_array();
+            let display = field
+                .and_then(|prepared| {
+                    prepared.sample_filtered_with_rooms(
+                        sample,
+                        None,
+                        lighting.labelled_probe_visibility(sample),
+                    )
+                })
+                .map_or_else(
+                    || {
+                        let light = lighting
+                            .sample(position.x, position.y, position.z)
+                            .plus(lighting.global_surface_light(vertex.pos, normal.to_array()));
+                        [light.r, light.g, light.b]
+                    },
+                    |texel| texel.light_at(normal.to_array()),
+                );
+            for (channel, light) in vertex.color.iter_mut().take(3).zip(display) {
+                *channel *= light;
+            }
+        }
+        batch.pending_probe_lighting = false;
+    }
+}

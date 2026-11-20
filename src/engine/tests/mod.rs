@@ -5,6 +5,7 @@ mod authored_physics_removal;
 mod automatic_reset;
 mod caustics_metadata;
 mod checkpoints;
+mod dense_prop_receivers;
 mod elevator_items;
 mod entity_routes;
 mod entity_sequences;

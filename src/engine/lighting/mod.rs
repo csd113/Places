@@ -145,6 +145,7 @@ pub mod lightmap;
 pub(crate) mod prepared_source;
 pub(crate) mod probe_placement;
 pub mod probes;
+pub(crate) mod prop_receivers;
 pub mod transport;
 
 /// Compiled lighting record version, for the package codec and fingerprints.

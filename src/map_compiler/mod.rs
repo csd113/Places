@@ -1626,7 +1626,7 @@ fn build_variant(
                 build.lightmaps = None;
                 build.probes = None;
                 lightmap_failure = Some(crate::engine::package::NO_LIGHTMAP_CHARTS.to_owned());
-                crate::engine::render::relight_probe_props(
+                crate::engine::lighting::prop_receivers::relight_probe_props(
                     &mut build.batches,
                     &build.lighting,
                     None,
@@ -1666,7 +1666,7 @@ fn build_variant(
                 let atlas = std::sync::Arc::new(product.lightmaps);
                 build.lightmap_millis = atlas.stats.bake_millis;
                 build.lightmaps = Some(atlas);
-                crate::engine::render::relight_probe_props(
+                crate::engine::lighting::prop_receivers::relight_probe_props(
                     &mut build.batches,
                     &build.lighting,
                     build.probes.as_deref(),

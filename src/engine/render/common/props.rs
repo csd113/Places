@@ -962,47 +962,6 @@ fn dense_large_model(
             .any(|(high, low)| high - low > 3.0)
 }
 
-/// Light the deferred, uncharted static scenery after transport has consumed
-/// its original albedo. Valid dark probes stay dark; missing fields use the
-/// established environment lighting, never an unlit/full-bright colour.
-pub fn relight_probe_props(
-    batches: &mut [PropMeshBatch],
-    lighting: &LevelLighting,
-    field: Option<&crate::engine::lighting::probes::ProbeField>,
-) {
-    for batch in batches
-        .iter_mut()
-        .filter(|batch| batch.pending_probe_lighting)
-    {
-        for vertex in batch
-            .vertices
-            .make_mut()
-            .iter_mut()
-            .filter(|vertex| vertex.lightmap_page == super::LIGHTMAP_NONE)
-        {
-            let position = glam::Vec3::from_array(vertex.pos);
-            let normal = glam::Vec3::from_array(vertex.normal).normalize_or_zero();
-            let sample = normal.mul_add(glam::Vec3::splat(0.025), position);
-            let room = lighting.room_index_at_height(sample.x, sample.y, sample.z);
-            let display = field
-                .and_then(|prepared| prepared.sample(sample.to_array(), room))
-                .map_or_else(
-                    || {
-                        let light = lighting
-                            .sample(position.x, position.y, position.z)
-                            .plus(lighting.global_surface_light(vertex.pos, normal.to_array()));
-                        [light.r, light.g, light.b]
-                    },
-                    |texel| texel.light_at(normal.to_array()),
-                );
-            for (channel, light) in vertex.color.iter_mut().take(3).zip(display) {
-                *channel *= light;
-            }
-        }
-        batch.pending_probe_lighting = false;
-    }
-}
-
 fn prop_instance_bounds(
     model: &crate::engine::gltf::PropModel,
     transform: &glam::Mat4,
