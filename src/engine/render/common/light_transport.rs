@@ -23,6 +23,7 @@ use std::collections::BTreeMap;
 use crate::engine::level::{LevelDef, WaterVolumes};
 use crate::engine::lighting::LevelLighting;
 use crate::engine::lighting::lightmap::{Chart, LightmapPatch};
+use crate::engine::lighting::probes::probe_light_enabled;
 use crate::engine::lighting::transport::{
     TransportAlphaSurface, TransportEmitter, TransportScene, TransportTextureAddress,
     TransportTriangle, TransportWaterBody, receiver_targets,
@@ -786,13 +787,6 @@ fn runtime_entity_light_ids(
         }
     }
     ids
-}
-
-fn probe_light_enabled(lighting: &LevelLighting, index: u32) -> bool {
-    usize::try_from(index)
-        .ok()
-        .and_then(|id| lighting.lights().get(id))
-        .is_some_and(crate::engine::lighting::BakedLight::is_active)
 }
 
 /// One synchronous receiver batch borrows a complete lighting/visibility

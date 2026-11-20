@@ -125,6 +125,14 @@ pub struct ProbeSwitchableField {
     pub probes: Vec<LightmapTexel>,
 }
 
+/// Whether the representative source of a prepared probe group is active.
+pub(crate) fn probe_light_enabled(lighting: &super::LevelLighting, index: u32) -> bool {
+    usize::try_from(index)
+        .ok()
+        .and_then(|id| lighting.lights().get(id))
+        .is_some_and(super::BakedLight::is_active)
+}
+
 /// One prepared probe field: a uniform grid over the mapped world.
 #[derive(Clone, Debug, PartialEq)]
 pub struct ProbeField {

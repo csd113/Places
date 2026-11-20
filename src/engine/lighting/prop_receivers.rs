@@ -1,11 +1,17 @@
 //! Prepared diffuse lighting for uncharted static props.
 
-use super::{LevelLighting, probes::ProbeField};
+use super::{
+    LevelLighting,
+    probes::{ProbeField, probe_light_enabled},
+};
 use crate::engine::render::{LIGHTMAP_NONE, PropMeshBatch};
 
 /// Light the deferred, uncharted static scenery after transport has consumed
 /// its original albedo. Valid dark probes stay dark; missing fields use the
 /// established environment lighting, never an unlit/full-bright colour.
+/// Switched probe bounce uses the authored source state at preparation time.
+/// Dense colours are stored in the package, while charted vertices sample
+/// the renderer's live selection of atlas layers.
 pub fn relight_probe_props(
     batches: &mut [PropMeshBatch],
     lighting: &LevelLighting,
@@ -28,9 +34,10 @@ pub fn relight_probe_props(
                 .to_array();
             let display = field
                 .and_then(|prepared| {
-                    prepared.sample_filtered_with_rooms(
+                    prepared.sample_with_switchable_indirect(
                         sample,
                         None,
+                        |index| probe_light_enabled(lighting, index),
                         lighting.labelled_probe_visibility(sample),
                     )
                 })
