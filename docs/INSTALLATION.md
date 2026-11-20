@@ -355,7 +355,9 @@ direct user `levels/` discovery remain supported. Raw JSON/ZIP authoring sources
 give the compiler command instead of becoming playable entries.
 
 `places --import /absolute/path/map.placesmap` uses the same import path without
-opening a window; then launch normally or select an installed ID with the
+opening a window. It prints the level ID, the installed path, and the outcome
+(`installed-or-updated` or `unchanged`) as tab-separated fields. Then launch
+normally or select an installed ID with the
 existing `PLACES_LEVEL` developer override. Imported maps persist across restart
 and changes of working directory. Same-file/repeated imports are safe. Replacing
 a package with the same exact ID/name updates that map. A different ID at the

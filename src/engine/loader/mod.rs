@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 mod manager;
-pub use manager::LevelManager;
+pub use manager::{ImportCounts, ImportOutcome, ImportedPackage, LevelManager};
 mod validation;
 pub(super) use validation::props::validate_prop_physics;
 pub(crate) use validation::validation_has_checkpoints;

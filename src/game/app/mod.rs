@@ -4661,18 +4661,14 @@ impl FrameLoop<'_> {
     /// Imports packs waiting in the import folders and refreshes the level list.
     fn import_levels(&mut self) {
         match self.level_manager.import_available() {
-            Ok(count) => {
-                // `import_available` rescans after importing.
+            Ok(counts) => {
                 self.refresh_level_entries();
-                if count > 0 {
-                    self.ui_state.set_status(
-                        format!("Imported {count} level(s). Select one from the list."),
-                        false,
-                    );
+                let status = if counts.installed_or_updated == 0 && counts.unchanged == 0 {
+                    "No packages found in the import folders.".into()
                 } else {
-                    self.ui_state
-                        .set_status("No new maps found in the import folder.", false);
-                }
+                    counts.to_string()
+                };
+                self.ui_state.set_status(status, false);
             }
             Err(err) => {
                 self.refresh_level_entries();
@@ -5514,8 +5510,13 @@ fn dispatch_paths_cli(args: &[String]) -> Result<bool, String> {
             return Err("Usage: places --import <file.placesmap>".into());
         };
         let mut manager = loader::LevelManager::new()?;
-        let entry = manager.import_file(Path::new(source))?;
-        println!("{}\t{}", entry.id, entry.path.display());
+        let import = manager.import_file(Path::new(source))?;
+        println!(
+            "{}\t{}\t{}",
+            import.entry.id,
+            import.entry.path.display(),
+            import.outcome.label()
+        );
         return Ok(true);
     }
     Ok(false)

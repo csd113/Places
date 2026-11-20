@@ -20,6 +20,47 @@ use crate::engine::props::catalog::PropCatalog;
 #[path = "../tests/import_publication.rs"]
 mod publication_tests;
 
+/// Whether the validated incoming package changed the installation.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImportOutcome {
+    InstalledOrUpdated,
+    Unchanged,
+}
+
+impl ImportOutcome {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::InstalledOrUpdated => "installed-or-updated",
+            Self::Unchanged => "unchanged",
+        }
+    }
+}
+
+/// The installed entry point and publication outcome for one package.
+#[derive(Debug)]
+pub struct ImportedPackage {
+    pub entry: LevelEntry,
+    pub outcome: ImportOutcome,
+}
+
+/// Package counts for one scan of the import folders.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+pub struct ImportCounts {
+    pub installed_or_updated: usize,
+    pub unchanged: usize,
+}
+
+impl std::fmt::Display for ImportCounts {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(
+            f,
+            "Installed or updated {} package(s). {} unchanged.",
+            self.installed_or_updated, self.unchanged
+        )
+    }
+}
+
 /// Import transport budget: the project package budget plus generous ZIP
 /// metadata and incompressible-deflate overhead. This bounds staging disk use
 /// even when the source grows while copying or carries unused archive padding.
@@ -684,7 +725,7 @@ impl LevelManager {
     /// exceeds the import byte budget, cannot be validated, or cannot be
     /// staged and atomically published in the installed levels directory.
     /// A failed import preserves the previous installed file.
-    pub fn import_file(&mut self, source_path: &Path) -> Result<LevelEntry, String> {
+    pub fn import_file(&mut self, source_path: &Path) -> Result<ImportedPackage, String> {
         if !source_path.exists() {
             return Err(format!(
                 "Source file does not exist: {}",
@@ -736,16 +777,19 @@ impl LevelManager {
         }
         self.refresh();
         // Admission resolves the stable package ID, independent of an incoming rename.
-        let (opened, installed_path) = import_package(source_path, &target_path, |staged_path| {
+        let (opened, plan) = import_package(source_path, &target_path, |staged_path| {
             self.accept_import(staged_path, &target_path)
         })?;
         self.refresh();
-        Ok(LevelEntry {
-            id: opened.level.id,
-            name: opened.level.name,
-            author: opened.level.author,
-            source_type: LevelSourceType::Installed,
-            path: installed_path,
+        Ok(ImportedPackage {
+            entry: LevelEntry {
+                id: opened.level.id,
+                name: opened.level.name,
+                author: opened.level.author,
+                source_type: LevelSourceType::Installed,
+                path: plan.target,
+            },
+            outcome: plan.outcome,
         })
     }
 
@@ -789,7 +833,7 @@ impl LevelManager {
                     ));
                 }
                 if same_id {
-                    matching.push((path, existing));
+                    matching.push(path);
                 } else if let Some(id) = overlap {
                     return Err(format!(
                         "Map id '{id}' is already owned by another package at {}",
@@ -804,16 +848,9 @@ impl LevelManager {
                 incoming.package_id
             ));
         }
-        let (target, unchanged) = if let Some((path, previous)) = matching.pop() {
-            let unchanged = previous.admit_update(&incoming)? == UpdateAdmission::Unchanged;
-            (path, unchanged)
-        } else {
-            (named_target.to_path_buf(), false)
-        };
-        if unchanged {
-            validate_unchanged_installation(&target)?;
-        }
-        let previous_hash = match fs::symlink_metadata(&target) {
+        let matched = matching.pop();
+        let target = matched.as_deref().unwrap_or(named_target);
+        let (previous_hash, outcome) = match fs::symlink_metadata(target) {
             Ok(metadata) => {
                 if !metadata.file_type().is_file() {
                     return Err(format!(
@@ -821,16 +858,24 @@ impl LevelManager {
                         target.display()
                     ));
                 }
-                let previous = release::inspect_installed(&target).map_err(|error| {
+                let hash = crate::engine::package::hash::sha256_file(target)?;
+                let previous = release::inspect_installed(target).map_err(|error| {
                     format!(
                         "Refusing to replace unreadable map {}: {error}",
                         target.display()
                     )
                 })?;
-                let _admission = previous.admit_update(&incoming)?;
-                Some(crate::engine::package::hash::sha256_file(&target)?)
+                let outcome = if previous.admit_update(&incoming)? == UpdateAdmission::Unchanged {
+                    validate_unchanged_installation(target)?;
+                    ImportOutcome::Unchanged
+                } else {
+                    ImportOutcome::InstalledOrUpdated
+                };
+                (Some(hash), outcome)
             }
-            Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound && matched.is_none() => {
+                (None, ImportOutcome::InstalledOrUpdated)
+            }
             Err(error) => return Err(error.to_string()),
         };
         // A rename update retains the existing filename; never leave a second copy.
@@ -845,8 +890,8 @@ impl LevelManager {
             ));
         }
         Ok(ImportPlan {
-            target,
-            unchanged,
+            target: target.to_path_buf(),
+            outcome,
             previous_hash,
         })
     }
@@ -859,9 +904,8 @@ impl LevelManager {
     ///
     /// # Errors
     ///
-    /// Returns a message when a candidate package is malformed; files that
-    /// import cleanly are reported through the returned count.
-    pub fn import_available(&mut self) -> Result<usize, String> {
+    /// Returns a message with partial counts when a candidate fails admission.
+    pub fn import_available(&mut self) -> Result<ImportCounts, String> {
         fs::create_dir_all(&self.import_dir).map_err(|error| {
             format!(
                 "Failed to create import directory {}: {error}",
@@ -874,7 +918,7 @@ impl LevelManager {
                 self.levels_dir.display()
             )
         })?;
-        let mut imported_count: usize = 0;
+        let mut counts = ImportCounts::default();
         let mut first_error = None;
         let nested_import = self.levels_dir.join("import");
         let candidate_dirs = [self.import_dir.clone(), nested_import];
@@ -897,7 +941,15 @@ impl LevelManager {
             for path in paths {
                 if crate::engine::package::is_package_path(&path) {
                     match self.import_file(&path) {
-                        Ok(_) => imported_count = imported_count.saturating_add(1),
+                        Ok(import) => {
+                            let count = match import.outcome {
+                                ImportOutcome::InstalledOrUpdated => {
+                                    &mut counts.installed_or_updated
+                                }
+                                ImportOutcome::Unchanged => &mut counts.unchanged,
+                            };
+                            *count = count.saturating_add(1);
+                        }
                         Err(error) => {
                             Self::report_skipped_level(&path, &error);
                             if first_error.is_none() {
@@ -924,10 +976,8 @@ impl LevelManager {
         // Also discover packages dropped directly into levels/ while running,
         // including when import/ is empty or a different candidate failed.
         self.refresh();
-        first_error.map_or(Ok(imported_count), |error| {
-            Err(format!(
-                "Imported {imported_count} map(s); skipped an invalid package: {error}"
-            ))
+        first_error.map_or(Ok(counts), |error| {
+            Err(format!("{counts} Skipped a package: {error}"))
         })
     }
 }
@@ -935,7 +985,7 @@ impl LevelManager {
 /// Copies into an exclusively owned sibling and publishes only validated bytes.
 struct ImportPlan {
     target: PathBuf,
-    unchanged: bool,
+    outcome: ImportOutcome,
     previous_hash: Option<String>,
 }
 
@@ -950,7 +1000,7 @@ fn import_package(
     source: &Path,
     named_target: &Path,
     accept: impl FnOnce(&Path) -> Result<ImportPlan, String>,
-) -> Result<(OpenedPackage, PathBuf), String> {
+) -> Result<(OpenedPackage, ImportPlan), String> {
     let mut input = crate::engine::package::archive::open_file(source)?;
     let (temporary, output) = create_temporary(named_target)?;
     let staged = stage_import(&mut input, output, &temporary)
@@ -958,7 +1008,7 @@ fn import_package(
     let plan = accept(&temporary).map_err(|error| cleanup_failed_write(&temporary, error))?;
     drop(input);
     publish_import(&temporary, &plan)?;
-    Ok((staged, plan.target))
+    Ok((staged, plan))
 }
 
 fn publish_import(temporary: &Path, plan: &ImportPlan) -> Result<(), String> {
@@ -971,7 +1021,7 @@ fn publish_import(temporary: &Path, plan: &ImportPlan) -> Result<(), String> {
             ),
         )
     };
-    if !plan.unchanged && plan.previous_hash.is_none() {
+    if plan.outcome == ImportOutcome::InstalledOrUpdated && plan.previous_hash.is_none() {
         // The directory lock serializes Places imports. The rename also refuses
         // a destination created independently of that lock.
         return crate::engine::package::archive::rename_noreplace(temporary, &plan.target)
@@ -995,7 +1045,7 @@ fn publish_import(temporary: &Path, plan: &ImportPlan) -> Result<(), String> {
             "Import destination changed during admission; previous data retained".into(),
         ));
     }
-    if plan.unchanged {
+    if plan.outcome == ImportOutcome::Unchanged {
         fs::remove_file(temporary).map_err(|error| error.to_string())
     } else {
         fs::rename(temporary, &plan.target).map_err(publication_error)

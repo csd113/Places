@@ -1,7 +1,7 @@
 //! A few bytes and real filesystem operations verify the fresh-publication
 //! boundary directly. No race scheduling, map creation or decoding is needed.
 
-use super::{ImportPlan, publish_import};
+use super::{ImportOutcome, ImportPlan, publish_import};
 use crate::engine::package::archive;
 use std::fs;
 
@@ -13,7 +13,7 @@ fn late_fresh_import_conflict_preserves_destination_and_cleans_staging() -> Resu
         let staged = root.join("staged");
         let plan = ImportPlan {
             target: root.join("installed.placesmap"),
-            unchanged: false,
+            outcome: ImportOutcome::InstalledOrUpdated,
             previous_hash: None,
         };
         fs::write(&staged, b"complete candidate").map_err(|e| e.to_string())?;

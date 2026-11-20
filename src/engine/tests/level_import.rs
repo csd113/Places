@@ -226,7 +226,7 @@ fn importing_installed_file_aliases_never_truncates_the_package() -> Result<(), 
     }
     let mut manager = fixture.manager()?;
     for source in sources {
-        let entry = manager.import_file(&source)?;
+        let entry = manager.import_file(&source)?.entry;
         assert_eq!(
             entry.id, "same_file",
             "alias import retains package metadata"
@@ -284,7 +284,7 @@ fn import_failure_preserves_destination_and_cleans_only_owned_temporary() -> Res
         original
     );
     let replacement = write_fixture(&source, "original")?;
-    let entry = manager.import_file(&source)?;
+    let entry = manager.import_file(&source)?.entry;
     assert_eq!(entry.id, "original", "metadata must describe staged bytes");
     assert_eq!(
         fs::read(&entry.path).map_err(|error| error.to_string())?,
@@ -294,7 +294,7 @@ fn import_failure_preserves_destination_and_cleans_only_owned_temporary() -> Res
     let duplicate = fixture.path("source")?.join("different-name.placesmap");
     let _duplicate_bytes = write_fixture(&duplicate, "original")?;
     assert_eq!(
-        manager.import_file(&duplicate)?.path,
+        manager.import_file(&duplicate)?.entry.path,
         installed,
         "an identical renamed import resolves the installed stable ID without a second copy"
     );
@@ -332,11 +332,11 @@ fn release_updates_are_numeric_atomic_idempotent_and_preserve_rejected_bytes() -
     let source = fixture.path("source")?.join("first.placesmap");
     let original = write_release_fixture(&source, "releases", "1.9.0", "First")?;
     let mut manager = fixture.manager()?;
-    let installed = manager.import_file(&source)?.path;
+    let installed = manager.import_file(&source)?.entry.path;
     let renamed = fixture.path("source")?.join("renamed.placesmap");
     let upgrade = write_release_fixture(&renamed, "releases", "1.10.0", "Next")?;
     assert_eq!(
-        manager.import_file(&renamed)?.path,
+        manager.import_file(&renamed)?.entry.path,
         installed,
         "renamed upgrades keep one stable installed location"
     );
@@ -472,7 +472,7 @@ fn check_older_target_update(
     );
     let incoming = write_release_fixture(source, "releases", "1.11.0", "Current game")?;
     assert_eq!(
-        manager.import_file(source)?.path,
+        manager.import_file(source)?.entry.path,
         installed,
         "current-contract metadata still resolves incompatible installed targets for update"
     );
@@ -700,7 +700,49 @@ fn concurrent_installer_lock_refuses_and_recovers_without_stale_lock_cleanup() -
     assert!(error.contains("Another package import"), "{error}");
     assert!(!levels.join("map.placesmap").exists());
     drop(lock);
-    let installed = manager.import_file(&source)?.path;
+    let installed = manager.import_file(&source)?.entry.path;
     assert_eq!(fs::read(installed).map_err(|e| e.to_string())?, expected);
+    Ok(())
+}
+
+// A scan of two tiny valid packages checks the public counters for a new
+// install, untouched repeats, and a mixed update/no-op scan without native I/O.
+#[test]
+fn import_scan_counts_installs_updates_and_valid_repeats_separately() -> Result<(), String> {
+    use crate::engine::loader::ImportCounts;
+
+    let fixture = ImportFixture::new()?;
+    let inbox = fixture.path("import")?;
+    let first = inbox.join("a.placesmap");
+    let second = inbox.join("b.placesmap");
+    let _first_bytes = write_fixture(&first, "first")?;
+    let second_bytes = write_fixture(&second, "second")?;
+    let mut manager = fixture.manager()?;
+    assert_eq!(
+        manager.import_available()?,
+        ImportCounts {
+            installed_or_updated: 2,
+            unchanged: 0
+        }
+    );
+    assert_eq!(
+        manager.import_available()?,
+        ImportCounts {
+            installed_or_updated: 0,
+            unchanged: 2
+        }
+    );
+    let _update = write_release_fixture(&first, "first", "1.0.1", "Updated")?;
+    assert_eq!(
+        manager.import_available()?,
+        ImportCounts {
+            installed_or_updated: 1,
+            unchanged: 1
+        }
+    );
+    assert_eq!(
+        fs::read(fixture.path("levels")?.join("b.placesmap")).map_err(|e| e.to_string())?,
+        second_bytes
+    );
     Ok(())
 }
