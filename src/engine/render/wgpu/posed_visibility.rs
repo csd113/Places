@@ -67,8 +67,21 @@ pub(super) const fn diagnostic_mode() -> &'static str {
     ""
 }
 
+// The fragment constants and ambient compute assemble the same query source.
+macro_rules! posed_query_source {
+    () => {
+        concat!(
+            include_str!("posed_query_options.wgsl"),
+            include_str!("../../lighting/posed_directions.wgsl"),
+            include_str!("posed_visibility_layout.wgsl"),
+            include_str!("../../lighting/posed_traversal.wgsl"),
+        )
+    };
+}
+pub(super) use posed_query_source;
+
 pub(super) const fn query_source() -> &'static str {
-    include_str!("posed_queries.wgsl")
+    posed_query_source!()
 }
 
 impl PosedVisibility {

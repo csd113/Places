@@ -95,8 +95,11 @@ use crate::engine::spatial::{Aabb, Frustum};
 pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("storm.wgsl"),
     "\n",
-    include_str!("posed_queries.wgsl"),
+    super::posed_visibility::posed_query_source!(),
     include_str!("attached_lights.wgsl"),
+    include_str!("../../lighting/attached_light_visibility.wgsl"),
+    include_str!("flashlight_visibility.wgsl"),
+    include_str!("../../lighting/attached_light_response.wgsl"),
     "\n",
     include_str!("world.wgsl"),
     include_str!("../../lighting/world_receiver_sampling.wgsl"),
@@ -104,7 +107,15 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("../../lighting/world_entity_light.wgsl"),
     include_str!("../../lighting/world_contact_shadows.wgsl"),
     include_str!("../../lighting/world_surface_light.wgsl"),
+    include_str!("../../lighting/world_diffuse.wgsl"),
     include_str!("world_material.wgsl"),
+    include_str!("../../lighting/world_sheen.wgsl"),
+    include_str!("world_reflection_begin.wgsl"),
+    include_str!("../../lighting/world_reflection_weight.wgsl"),
+    include_str!("world_reflection_capture.wgsl"),
+    include_str!("../../lighting/world_emission.wgsl"),
+    include_str!("world_shaded.wgsl"),
+    include_str!("../../lighting/world_ultraviolet.wgsl"),
     include_str!("../../lighting/caustic_receiver.wgsl"),
     include_str!("world_fragment.wgsl"),
     include_str!("atmosphere.wgsl"),
@@ -126,7 +137,7 @@ fn world_shader_source(instanced: bool, posed: bool) -> std::borrow::Cow<'static
     let mut source: std::borrow::Cow<'static, str> = WORLD_SHADER_SRC.into();
     source = source
         .replace(
-            include_str!("posed_queries.wgsl"),
+            super::posed_visibility::posed_query_source!(),
             super::posed_visibility::query_source(),
         )
         .into();
