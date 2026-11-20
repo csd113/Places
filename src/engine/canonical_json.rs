@@ -9,10 +9,12 @@
 
 /// Serializes `value` as compact JSON with object keys in sorted order.
 ///
+/// Non-finite floats become JSON `null`. Callers that require finite values
+/// must validate them before serialization.
+///
 /// # Errors
 ///
-/// Returns an error when the value cannot be represented as JSON (for example
-/// a non-finite float).
+/// Propagates serialization errors, such as an unsupported map key.
 pub fn canonical_json_bytes<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, String> {
     let json_value = serde_json::to_value(value).map_err(|error| error.to_string())?;
     serde_json::to_vec(&json_value).map_err(|error| error.to_string())
