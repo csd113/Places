@@ -222,10 +222,16 @@ pub fn open_bytes(bytes: &[u8]) -> Result<OpenedPackage, String> {
 /// # Errors
 /// Rejects payload hash/length disagreement without allocating prepared worlds.
 pub(crate) fn validate_import(path: &Path) -> Result<(), String> {
-    let mut reader =
-        PackageReader::new(super::archive::open_file(path)?).map_err(|error| error.to_string())?;
-    if super::project::read_index(&mut reader)?.is_some() {
-        return Ok(());
+    let _scope = crate::engine::resources::admission_scope();
+    let (mut reader, project_index) = PackageReader::new_indexed(super::archive::open_file(path)?)
+        .map_err(|error| error.to_string())?;
+    if let Some(index) = &project_index {
+        return super::project::validate_contents(
+            &mut reader,
+            index,
+            path,
+            &crate::engine::resources::checkpoint,
+        );
     }
     let manifest = read_manifest(&mut reader)?;
     for entry in &manifest.entries {

@@ -214,6 +214,21 @@ fn validate_member_release<R: Read + Seek>(
             compiled.id
         ));
     }
+    // Bind every virtual declaration before trusting the shared physical scan.
+    // That scan proves each physical payload matches its content-addressed name.
+    for entry in &manifest.entries {
+        crate::engine::resources::checkpoint()?;
+        let physical = compiled
+            .records
+            .get(&entry.name)
+            .ok_or_else(|| format!("Missing project member record '{}'", entry.name))?;
+        if hash::sha256_from_blob_name(physical).as_deref() != Some(entry.sha256.as_str()) {
+            return Err(format!(
+                "Project member '{}' record '{}' disagrees with its mapped blob",
+                compiled.id, entry.name
+            ));
+        }
+    }
     Ok(())
 }
 
@@ -308,20 +323,32 @@ pub fn menu_thumbnail(
 /// Returns corrupt record, script, dependency or index errors.
 pub fn validate(path: &Path, check: &impl Fn() -> Result<(), String>) -> Result<(), String> {
     let _scope = crate::engine::resources::admission_scope();
-    let mut reader =
-        PackageReader::new(super::archive::open_file(path)?).map_err(|e| e.to_string())?;
-    if let Some(index) = read_index(&mut reader)? {
-        validate_sources(&mut reader, &index, path, check)?;
-        for name in reader.names().to_vec() {
-            check()?;
-            if name != INDEX {
-                let _verified = reader.copy_entry_to(
-                    &name,
-                    super::MAX_BINARY_BYTES,
-                    &mut std::io::sink(),
-                    check,
-                )?;
-            }
+    let (mut reader, project_index) =
+        PackageReader::new_indexed(super::archive::open_file(path)?).map_err(|e| e.to_string())?;
+    if let Some(index) = &project_index {
+        validate_contents(&mut reader, index, path, check)?;
+    }
+    Ok(())
+}
+
+pub(super) fn validate_contents<R: Read + Seek>(
+    reader: &mut PackageReader<R>,
+    index: &ProjectPackage,
+    path: &Path,
+    check: &impl Fn() -> Result<(), String>,
+) -> Result<(), String> {
+    super::release::admit_places_version(&index.places_version)?;
+    validate_sources(reader, index, path, check)?;
+    // The namespace is unique even when many members share a prepared record.
+    for name in reader.names().to_vec() {
+        check()?;
+        if name != INDEX {
+            let _verified = reader.copy_entry_to(
+                &name,
+                super::MAX_BINARY_BYTES,
+                &mut std::io::sink(),
+                check,
+            )?;
         }
     }
     Ok(())

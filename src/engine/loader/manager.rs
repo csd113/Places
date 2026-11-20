@@ -938,8 +938,7 @@ struct ImportPlan {
 fn validate_unchanged_installation(path: &Path) -> Result<(), String> {
     // An equal manifest hash is a content claim, not proof that installed
     // payloads remain intact. Never report corrupt installed bytes as a no-op.
-    crate::engine::package::project::validate(path, &|| Ok(()))
-        .and_then(|()| crate::engine::package::world::validate_import(path))
+    crate::engine::package::world::validate_import(path)
         .map_err(|error| format!("Installed package {} failed integrity validation: {error}; retain it for diagnosis and explicitly remove it before reinstalling", path.display()))
 }
 
@@ -1023,7 +1022,6 @@ fn stage_import(
         )
     })?;
     drop(output);
-    crate::engine::package::project::validate(temporary, &|| Ok(()))?;
     crate::engine::package::world::validate_import(temporary)?;
     crate::engine::package::world::open(temporary)
         .map_err(|error| format!("Imported map validation failed: {error}"))
