@@ -261,11 +261,7 @@ impl Blocker {
         dx.hypot(dz)
     }
 
-    /// True when the point lies inside the box in plan view.
-    ///
-    /// The box is the wall's real solid extent, so a surfel *on* a wall face
-    /// counts as buried: the bake walks such a sample out of the wall before it
-    /// measures light, which is what keeps a wall from shadowing its own base.
+    /// True when the point lies inside the box in plan view, boundary included.
     fn contains_xz(&self, x: f32, z: f32) -> bool {
         x >= self.min[0] && x <= self.max[0] && z >= self.min[2] && z <= self.max[2]
     }
@@ -1043,35 +1039,6 @@ impl Footprint for Horizontal {
 }
 
 /// Grid cell containing `(x, z)`, or `None` when the point is outside.
-fn grid_cell(
-    x: f32,
-    z: f32,
-    min_x: f32,
-    min_z: f32,
-    cell_m: f32,
-    cells_x: u32,
-    cells_z: u32,
-) -> Option<(u32, u32)> {
-    let ix = ((x - min_x) / cell_m).floor();
-    let iz = ((z - min_z) / cell_m).floor();
-    if ix < 0.0 || iz < 0.0 {
-        return None;
-    }
-    // `floor` leaves non-negative integral values; the saturating cast and the
-    // bounds check reject everything outside the grid.
-    #[expect(
-        clippy::as_conversions,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "`floor` leaves non-negative integral values; the saturating cast and the bounds check reject everything outside the grid."
-    )]
-    let (column_index, row_index) = (ix as u32, iz as u32);
-    if column_index >= cells_x || row_index >= cells_z {
-        return None;
-    }
-    Some((column_index, row_index))
-}
-
 /// Number of grid cells spanning `extent`, capped at
 /// [`MAX_GRID_CELLS_PER_AXIS`].
 fn grid_axis_cells(extent: f32, cell_m: f32) -> u32 {
@@ -1270,60 +1237,8 @@ impl Occluders {
         self.props.len()
     }
 
-    /// True when `(x, z)` lies inside a solid wall, ignoring height.
-    ///
-    /// A room's floor and ceiling are sampled on the room's own footprint, and
-    /// a wall authored across that boundary encloses the outermost sample row.
-    /// The bake asks this so it can move such a sample out of the solid before
-    /// it measures light, instead of leaving a dark strip along the wall base.
-    /// Floor interfaces and ceiling bodies are deliberately excluded: a surface
-    /// sample sits on its own floor plane by construction, so counting floors
-    /// here would walk every floor vertex toward the middle of its room.
-    #[must_use]
-    pub(super) fn contains_point(&self, x: f32, z: f32) -> bool {
-        if self.wall_grid.cells_x == 0 || self.wall_grid.cells_z == 0 {
-            return false;
-        }
-        if !x.is_finite() || !z.is_finite() {
-            return false;
-        }
-        let Some(cell) = grid_cell(
-            x,
-            z,
-            self.wall_grid.min_x,
-            self.wall_grid.min_z,
-            self.wall_grid.cell_m,
-            self.wall_grid.cells_x,
-            self.wall_grid.cells_z,
-        ) else {
-            return false;
-        };
-        let Ok(index) = usize::try_from(
-            cell.1
-                .saturating_mul(self.wall_grid.cells_x)
-                .saturating_add(cell.0),
-        ) else {
-            return false;
-        };
-        let Some(&(start, end)) = self.wall_grid.ranges.get(index) else {
-            return false;
-        };
-        self.wall_grid
-            .items
-            .get(
-                usize::try_from(start).unwrap_or(usize::MAX)
-                    ..usize::try_from(end).unwrap_or(usize::MAX),
-            )
-            .is_some_and(|items| {
-                items.iter().any(|item| {
-                    self.walls
-                        .get(usize::try_from(*item).unwrap_or(usize::MAX))
-                        .is_some_and(|wall| wall.contains_xz(x, z))
-                })
-            })
-    }
-
-    /// Roof-probe occupancy for one storey, independent of other floors' walls.
+    /// True when a point lies inside a solid wall, including its boundary.
+    /// Floor and ceiling interfaces are excluded so their samples stay in place.
     pub(super) fn wall_contains_at(&self, point: [f32; 3]) -> bool {
         let mut contains = false;
         self.wall_grid.for_each_in_rect(
@@ -2088,15 +2003,15 @@ impl Visibility {
         self.occluders.fingerprint()
     }
 
-    /// True when `(x, z)` lies inside a solid wall, ignoring height.
+    /// True when a world point lies inside a solid wall.
     ///
     /// A room's floor and ceiling are sampled on the room's own footprint, and
     /// a wall authored across that boundary encloses the outermost sample row.
     /// The bake asks this so it can move such a sample out of the solid before
     /// it measures light, instead of leaving a dark strip along the wall base.
     #[must_use]
-    pub fn contains_point(&self, x: f32, z: f32) -> bool {
-        self.occluders.contains_point(x, z)
+    pub fn contains_point(&self, point: [f32; 3]) -> bool {
+        self.occluders.wall_contains_at(point)
     }
 
     /// True when solid geometry crosses the segment from `from` to `to`.

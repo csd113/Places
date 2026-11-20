@@ -2632,16 +2632,13 @@ impl LevelLighting {
         resolve_wall_fixture_y(&self.rooms, x, z, authored)
     }
 
-    /// True when `(x, z)` lies inside a static wall solid, ignoring height.
+    /// True when `(x, y, z)` lies inside a static wall solid.
     ///
-    /// The baked-lighting query behind [`Self::clear_sample`]. Surface emitters
-    /// ask it directly for lightmap texels: a wall-face texel nudged off its own
-    /// face can still land inside another wall at a junction (a cross wall, a
-    /// doorway jamb), and such a texel has to take the walked
-    /// [`Self::sample_in_room`] path instead of the fast texel path.
+    /// The baked-lighting query behind [`Self::clear_sample`]. It counts a sample
+    /// on a wall face as buried so the walk can clear wall junctions and jambs.
     #[must_use]
-    pub fn wall_contains_point(&self, x: f32, z: f32) -> bool {
-        self.visibility.contains_point(x, z)
+    pub fn wall_contains_point(&self, x: f32, y: f32, z: f32) -> bool {
+        self.visibility.contains_point([x, y, z])
     }
 
     /// Moves a room surface sample out of an opaque wall it lies inside.
@@ -2652,8 +2649,8 @@ impl LevelLighting {
     /// leaves the solid (a room authored entirely inside a wall) falls back to
     /// the room centre. The step count is bounded, so a pathological level
     /// cannot turn this into an unbounded search.
-    fn clear_sample(&self, room: usize, x: f32, z: f32) -> (f32, f32) {
-        if !self.visibility.contains_point(x, z) {
+    fn clear_sample(&self, room: usize, x: f32, y: f32, z: f32) -> (f32, f32) {
+        if !self.wall_contains_point(x, y, z) {
             return (x, z);
         }
         let Some(info) = self.rooms.get(room) else {
@@ -2678,7 +2675,7 @@ impl LevelLighting {
             let t = walked / distance;
             let probe_x = delta_x.mul_add(t, x);
             let probe_z = delta_z.mul_add(t, z);
-            if !self.visibility.contains_point(probe_x, probe_z) {
+            if !self.wall_contains_point(probe_x, y, probe_z) {
                 return (probe_x, probe_z);
             }
         }
@@ -2773,7 +2770,7 @@ impl LevelLighting {
                 value,
             };
         };
-        let (sample_x, sample_z) = self.clear_sample(room_index, x, z);
+        let (sample_x, sample_z) = self.clear_sample(room_index, x, y, z);
         let baseline = self.baseline_at(room_index, sample_x, sample_z);
         let candidates = self
             .room_lights
@@ -2854,7 +2851,7 @@ impl LevelLighting {
         if !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return ambient_color();
         }
-        let (sample_x, sample_z) = self.clear_sample(room, x, z);
+        let (sample_x, sample_z) = self.clear_sample(room, x, y, z);
         self.illumination_in_room(room, sample_x, y, sample_z)
     }
 
@@ -2870,9 +2867,8 @@ impl LevelLighting {
     ///
     /// The caller must rule out a buried point itself. A texel can sit inside a
     /// crossing wall at a junction, and the outermost floor/ceiling row sits
-    /// inside a wall authored across the room boundary; `lightmap::fill` checks
-    /// [`Self::wall_contains_point`] for every patch kind and falls back to
-    /// [`Self::sample_in_room`] for exactly those texels.
+    /// inside a wall authored across the room boundary. Use
+    /// [`Self::sample_in_room`] when the sample may be buried.
     ///
     /// `room` is the patch's room hint. `None` — a patch outside every room —
     /// resolves the room by containment, exactly like [`Self::sample`].
@@ -2923,7 +2919,7 @@ impl LevelLighting {
         if self.rooms.get(room).is_none() || !x.is_finite() || !y.is_finite() || !z.is_finite() {
             return LightColor::BLACK;
         }
-        let (sample_x, sample_z) = self.clear_sample(room, x, z);
+        let (sample_x, sample_z) = self.clear_sample(room, x, y, z);
         let delta = self.blend_delta(room, sample_x, y, sample_z);
         if delta.is_finite() {
             delta
