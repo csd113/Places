@@ -356,6 +356,10 @@ impl Viewport {
             && self.status().is_none()
     }
 
+    pub(super) fn document_scene_ready(&self) -> bool {
+        self.editor_preview == EditorPreview::Document && self.editing_scene_ready()
+    }
+
     pub fn capture(&mut self, path: &std::path::Path) -> Result<(), String> {
         use std::io::Write;
         let image = self.renderer.capture_default_framebuffer()?;
@@ -440,7 +444,7 @@ impl Viewport {
     }
 
     pub fn wall_picking(&self) -> Option<WallPicking> {
-        if self.editor_preview == EditorPreview::Draft || !self.editing_scene_ready() {
+        if !self.document_scene_ready() {
             return None;
         }
         Some(WallPicking {

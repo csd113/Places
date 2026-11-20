@@ -38,6 +38,10 @@ pub(super) enum Mode {
     Place,
     Link(usize),
 }
+const WAIT_FOR_PREVIEW: &str =
+    "Wait for the current scene preview before placing or linking elevators.";
+const LINK_HINT: &str = "Click the other elevator to link them. Existing groups stay separate until you link them. Esc cancels.";
+
 #[derive(Default)]
 pub(super) struct State {
     pub mode: Option<Mode>,
@@ -84,7 +88,7 @@ impl App {
                 let source = self.elevators.selected.ok_or("Select an elevator")?;
                 self.popup = None;
                 self.elevators.mode = Some(Mode::Link(source));
-                self.status="Click the other elevator to link them. Existing groups stay separate until you link them. Esc cancels.".into();
+                self.status = LINK_HINT.into();
             }
             Command::Level => {
                 self.elevators.external = true;
@@ -143,6 +147,10 @@ impl App {
         Ok(())
     }
     fn elevator_click(&mut self, point: [f32; 2]) -> Result<(), String> {
+        if !self.viewport.document_scene_ready() {
+            self.viewport.highlight(None, &[]);
+            return Err(WAIT_FOR_PREVIEW.into());
+        }
         let doc = self.document.as_ref().ok_or("Open a project")?;
         let (origin, direction) = self
             .viewport
@@ -235,6 +243,15 @@ impl App {
                 let Some(point) = convert(*x, *y).filter(|p| self.viewport.contains_ui(*p)) else {
                     return false;
                 };
+                if !self.viewport.document_scene_ready() {
+                    self.viewport.highlight(None, &[]);
+                    self.status = WAIT_FOR_PREVIEW.into();
+                    return true;
+                }
+                if matches!(self.elevators.mode, Some(Mode::Link(_))) {
+                    self.status = LINK_HINT.into();
+                    return true;
+                }
                 match placement_at(self, point) {
                     Ok(fitted) => {
                         let def = fitted.definition();
