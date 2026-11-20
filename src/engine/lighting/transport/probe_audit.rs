@@ -4,7 +4,14 @@ use std::io::{BufWriter, Write as _};
 
 use serde::Serialize;
 
-use super::{Accumulator, ProbeField, TransportReceiver, TransportScene, compress};
+use super::{
+    Accumulator, Chart, LightmapPatch, ProbeField, TransportReceiver, TransportScene,
+    chart_fill_eligibility, compress, compress_surface,
+};
+
+#[cfg(test)]
+#[path = "../../tests/transport_probe_audit.rs"]
+mod tests;
 
 /// Opt-in dump directory; use a separate directory for each source/build.
 pub const DUMP_ENV: &str = "PLACES_PROBE_DUMP_DIR";
@@ -58,41 +65,47 @@ impl ProbeAudit {
     }
 }
 
-/// Writes the unfiltered physical surface receivers as a comparison oracle.
+#[derive(Serialize)]
+struct Surface {
+    position: [f32; 3],
+    normal: [f32; 3],
+    triangle: u32,
+    physical: [f32; 3],
+    filled: [f32; 3],
+}
+
+/// Writes physical receivers and their fill estimate before indirect filtering.
 pub(super) fn dump_receivers(
     scene: &TransportScene,
+    charts: &[(LightmapPatch, Chart)],
     receivers: &[TransportReceiver],
     values: &[Accumulator],
     bounces: u8,
 ) -> Result<(), String> {
-    #[derive(Serialize)]
-    struct Surface {
-        position: [f32; 3],
-        normal: [f32; 3],
-        triangle: u32,
-        physical: [f32; 3],
-        filled: [f32; 3],
-    }
     if super::diagnostics::directory(DUMP_ENV).is_none() {
         return Ok(());
     }
+    let surfaces: Vec<_> = surface_receivers(scene, charts, receivers, values).collect();
+    write_dump(&format!("surfaces-b{bounces}.json"), &surfaces)
+}
+
+fn surface_receivers<'a>(
+    scene: &'a TransportScene,
+    charts: &'a [(LightmapPatch, Chart)],
+    receivers: &'a [TransportReceiver],
+    values: &'a [Accumulator],
+) -> impl Iterator<Item = Surface> + 'a {
     let stride = receivers.len().div_ceil(65_536).max(1);
-    let surfaces: Vec<_> = receivers
+    receivers
         .iter()
         .zip(values)
+        .zip(chart_fill_eligibility(charts))
         .enumerate()
         .step_by(stride)
-        .map(|(index, (receiver, value))| {
-            let mut texel = super::compress_surface(value, receiver.normal);
-            if let Some(target) = scene.receiver_target.get(index) {
-                super::fill_texel(
-                    &mut texel,
-                    receiver.normal,
-                    super::scale(
-                        super::attenuate(*target, receiver.attenuation),
-                        scene.baseline_support(receiver.position),
-                    ),
-                );
+        .map(|(index, ((receiver, value), eligible))| {
+            let mut texel = compress_surface(value, receiver.normal);
+            if eligible && let Some(&target) = scene.receiver_target.get(index) {
+                scene.apply_receiver_fill(&mut texel, receiver, target);
             }
             Surface {
                 position: receiver.position,
@@ -102,8 +115,6 @@ pub(super) fn dump_receivers(
                 filled: texel.light_at(receiver.normal),
             }
         })
-        .collect();
-    write_dump(&format!("surfaces-b{bounces}.json"), &surfaces)
 }
 
 pub(super) fn dump_bake(

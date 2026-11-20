@@ -1380,6 +1380,16 @@ const fn chart_receives_fill(kind: PatchKind) -> bool {
     )
 }
 
+/// Fill eligibility in the same flat order as the chart receivers.
+fn chart_fill_eligibility(charts: &[(LightmapPatch, Chart)]) -> impl Iterator<Item = bool> + '_ {
+    charts.iter().flat_map(|(patch, chart)| {
+        let count = usize::try_from(chart.width)
+            .unwrap_or(0)
+            .saturating_mul(usize::try_from(chart.height).unwrap_or(0));
+        std::iter::repeat_n(chart_receives_fill(patch.kind), count)
+    })
+}
+
 /// Smooth, chart-independent protection against a broken near-black solve.
 /// At zero light this adds the authored target; at four times the target it
 /// joins the unchanged physical solve with a continuous first derivative.
@@ -2959,7 +2969,8 @@ impl TransportScene {
             dump: apply_fill,
         };
         if probes.is_some() && apply_fill && probe_audit::enabled() {
-            if let Err(error) = probe_audit::dump_receivers(self, receivers, &accumulators, bounces)
+            if let Err(error) =
+                probe_audit::dump_receivers(self, charts, receivers, &accumulators, bounces)
             {
                 crate::engine::logging::warn(format_args!("[probe-diagnostics] {error}"));
             }
@@ -3233,15 +3244,7 @@ impl TransportScene {
         if self.receiver_target.len() != receivers.len() {
             return Ok(texels);
         }
-        let eligible: Vec<_> = charts
-            .iter()
-            .flat_map(|(patch, chart)| {
-                let count = usize::try_from(chart.width)
-                    .unwrap_or(0)
-                    .saturating_mul(usize::try_from(chart.height).unwrap_or(0));
-                std::iter::repeat_n(chart_receives_fill(patch.kind), count)
-            })
-            .collect();
+        let eligible: Vec<_> = chart_fill_eligibility(charts).collect();
         if eligible.len() != texels.len() || receivers.len() != texels.len() {
             return Err(LightmapFailure::FillSize);
         }
@@ -3252,18 +3255,29 @@ impl TransportScene {
             let mut texel = texels[index];
             let receiver = &receivers[index];
             let target = self.receiver_target[index];
-            if eligible[index] && target.iter().any(|channel| *channel > 0.0) {
-                fill_texel(
-                    &mut texel,
-                    receiver.normal,
-                    scale(
-                        attenuate(target, receiver.attenuation),
-                        self.baseline_support_from(receiver.position, receiver.ray_origin),
-                    ),
-                );
+            if eligible[index] {
+                self.apply_receiver_fill(&mut texel, receiver, target);
             }
             texel
         })
+    }
+
+    fn apply_receiver_fill(
+        &self,
+        texel: &mut LightmapTexel,
+        receiver: &TransportReceiver,
+        target: [f32; 3],
+    ) {
+        if target.iter().any(|channel| *channel > 0.0) {
+            fill_texel(
+                texel,
+                receiver.normal,
+                scale(
+                    attenuate(target, receiver.attenuation),
+                    self.baseline_support_from(receiver.position, receiver.ray_origin),
+                ),
+            );
+        }
     }
 
     /// Dynamic-object probes use the same local response, avoiding a second
