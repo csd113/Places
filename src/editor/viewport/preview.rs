@@ -1,10 +1,10 @@
 //! A single coalesced CPU preparation worker; GPU upload stays on the UI thread.
 
 pub(in crate::editor) mod audit;
-mod local;
+mod progress;
 mod reuse;
 mod timing;
-pub(in crate::editor) use local::Progress;
+pub(in crate::editor) use progress::Progress;
 
 use std::sync::{Arc, mpsc};
 use std::thread::{self, JoinHandle};
@@ -412,7 +412,9 @@ fn prepare_scene(
     let materials_ms = materials_started.elapsed().as_secs_f64() * 1_000.0_f64;
     let (build, reused_build, reused_props) = if let Some(bounds) = scope {
         (
-            Arc::new(local::prepare(&level, catalog, assets, &materials, bounds)?),
+            Arc::new(progress::prepare(
+                &level, catalog, assets, &materials, bounds,
+            )?),
             false,
             false,
         )
