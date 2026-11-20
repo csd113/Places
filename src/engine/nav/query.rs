@@ -17,18 +17,6 @@
 // Preserve exact sentinel comparisons, floating-point operation order and
 // cohesive geometry/query stages. Numeric conversions and integer arithmetic
 // are audited at their local expressions instead of exempting the module.
-#![allow(
-    clippy::float_cmp,
-    clippy::imprecise_flops,
-    clippy::missing_const_for_fn,
-    clippy::needless_range_loop,
-    clippy::similar_names,
-    clippy::suboptimal_flops,
-    clippy::too_many_arguments,
-    clippy::too_many_lines,
-    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
-)]
-
 use std::collections::BinaryHeap;
 use std::fmt::Write as _;
 
@@ -110,7 +98,7 @@ pub struct Path {
 impl Path {
     /// An empty route.
     #[must_use]
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             waypoints: Vec::new(),
             door_requests: Vec::new(),
@@ -394,8 +382,6 @@ impl NavMesh {
         let max_ring = i32::try_from((max_distance / self.grid.cell_m).ceil() as i64)
             .unwrap_or(i32::MAX)
             .max(0_i32);
-        let origin_cx = i32::try_from(cx).unwrap_or(i32::MAX);
-        let origin_cz = i32::try_from(cz).unwrap_or(i32::MAX);
         let start_cell = self.grid.column_range(cx, cz).min_by(|a, b| {
             (self.grid.surface(*a).unwrap_or(f32::INFINITY) - position.y)
                 .abs()
@@ -434,10 +420,7 @@ impl NavMesh {
             self.scan_ring(
                 class,
                 &profile,
-                cx,
-                cz,
-                origin_cx,
-                origin_cz,
+                (cx, cz),
                 max_ring,
                 position,
                 max_vertical,
@@ -455,10 +438,7 @@ impl NavMesh {
         self.scan_ring(
             class,
             &profile,
-            cx,
-            cz,
-            origin_cx,
-            origin_cz,
+            (cx, cz),
             max_ring,
             position,
             max_vertical,
@@ -470,20 +450,21 @@ impl NavMesh {
         )
     }
 
-    /// One Chebyshev-ring search over the grid around `(origin_cx, origin_cz)`.
+    /// One Chebyshev-ring search over the grid around the origin column.
     ///
     /// Rings bound the search, but candidates are compared across rings: a
     /// diagonal cell in one ring can be farther than an axial cell in the
     /// next. Equal distances resolve to the lowest cell index.
     #[expect(clippy::too_many_arguments, reason = "one cohesive ring search")] // one cohesive ring search
+    #[expect(
+        clippy::float_cmp,
+        reason = "The equal-distance tie break selects the lowest cell only at exactly the same distance."
+    )]
     fn scan_ring(
         &self,
         class: usize,
         profile: &NavClass,
-        cx: u32,
-        cz: u32,
-        origin_cx: i32,
-        origin_cz: i32,
+        (cx, cz): (u32, u32),
         max_ring: i32,
         position: Vec3,
         max_vertical: f32,
@@ -493,11 +474,13 @@ impl NavMesh {
         doors: &dyn NavDoorState,
         can_open_doors: bool,
     ) -> Option<NavPoint> {
+        let origin_x = i32::try_from(cx).unwrap_or(i32::MAX);
+        let origin_z = i32::try_from(cz).unwrap_or(i32::MAX);
         let bounds = (
-            origin_cx.checked_neg()?,
+            origin_x.checked_neg()?,
             i32::try_from(self.grid.cells_x.saturating_sub(cx.saturating_add(1)))
                 .unwrap_or(i32::MAX),
-            origin_cz.checked_neg()?,
+            origin_z.checked_neg()?,
             i32::try_from(self.grid.cells_z.saturating_sub(cz.saturating_add(1)))
                 .unwrap_or(i32::MAX),
         );
@@ -510,10 +493,10 @@ impl NavMesh {
         let mut best: Option<(f32, NavPoint)> = None;
         for ring in 0_i32..=max_ring.min(grid_radius) {
             for (dx, dz) in ring_offsets(ring, bounds) {
-                let Some(nx) = origin_cx.checked_add(dx) else {
+                let Some(nx) = origin_x.checked_add(dx) else {
                     continue;
                 };
-                let Some(nz) = origin_cz.checked_add(dz) else {
+                let Some(nz) = origin_z.checked_add(dz) else {
                     continue;
                 };
                 let (Ok(column), Ok(row)) = (u32::try_from(nx), u32::try_from(nz)) else {
@@ -623,9 +606,7 @@ impl NavMesh {
             let expected_y = (to.y - from.y).mul_add(t, from.y);
             let Some(index) = self.layer_at(
                 class,
-                cx,
-                cz,
-                expected_y,
+                (cx, cz, expected_y),
                 previous,
                 &profile,
                 doors,
@@ -650,8 +631,7 @@ impl NavMesh {
             if let Some(previous_cell) = previous
                 && !self.segment_transition_clear(
                     class,
-                    previous_cell,
-                    index,
+                    (previous_cell, index),
                     &profile,
                     doors,
                     can_open_doors,
@@ -734,6 +714,10 @@ impl NavMesh {
         self.path_into_constrained(query, scratch, out, None, excluded)
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep the bounded search, scratch reuse and route reconstruction tied to the same frontier."
+    )]
     fn path_into_constrained(
         &self,
         query: &PathQuery<'_>,
@@ -870,8 +854,7 @@ impl NavMesh {
                 let diagonal = dx != 0_i32 && dz != 0_i32;
                 if !self.segment_transition_clear(
                     query.class,
-                    cell,
-                    next,
+                    (cell, next),
                     &profile,
                     query.doors,
                     query.can_open_doors,
@@ -901,6 +884,10 @@ impl NavMesh {
                 if !passable {
                     continue;
                 }
+                #[expect(
+                    clippy::suboptimal_flops,
+                    reason = "Preserve the rounded graph cost used to rank equally viable routes."
+                )]
                 let step = distance + 0.5 * (to_y - from_y).abs() + door_cost;
                 let candidate = cost + step;
                 let known = if scratch.stamp.get(next).copied() == Some(epoch) {
@@ -1142,6 +1129,14 @@ impl NavMesh {
         clippy::as_conversions,
         reason = "The float sample count is clamped to 1..=4096 before saturation/truncation; all visited sample indices and counts have exact f32 representations."
     )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Check endpoint identity, live obstacles and all traversed layers as one ordered segment query."
+    )]
+    #[expect(
+        clippy::suboptimal_flops,
+        reason = "Preserve rounding in the endpoint slope tolerance."
+    )]
     fn segment_clear_bounded(
         &self,
         class: usize,
@@ -1202,9 +1197,7 @@ impl NavMesh {
             let expected_y = (to.y - from.y).mul_add(t, from.y);
             let Some(index) = self.layer_at(
                 class,
-                cx,
-                cz,
-                expected_y,
+                (cx, cz, expected_y),
                 previous,
                 &profile,
                 doors,
@@ -1245,8 +1238,7 @@ impl NavMesh {
             if let Some(previous_cell) = previous
                 && !self.segment_transition_clear(
                     class,
-                    previous_cell,
-                    index,
+                    (previous_cell, index),
                     &profile,
                     doors,
                     can_open_doors,
@@ -1264,9 +1256,7 @@ impl NavMesh {
     fn layer_at(
         &self,
         class: usize,
-        cx: u32,
-        cz: u32,
-        y: f32,
+        (cx, cz, y): (u32, u32, f32),
         previous: Option<usize>,
         profile: &NavClass,
         doors: &dyn NavDoorState,
@@ -1283,8 +1273,7 @@ impl NavMesh {
                     from == *node
                         || self.segment_transition_clear(
                             class,
-                            from,
-                            *node,
+                            (from, *node),
                             profile,
                             doors,
                             can_open_doors,
@@ -1399,8 +1388,7 @@ impl NavMesh {
     fn segment_transition_clear(
         &self,
         class: usize,
-        from: usize,
-        to: usize,
+        (from, to): (usize, usize),
         profile: &NavClass,
         doors: &dyn NavDoorState,
         can_open_doors: bool,
@@ -1554,6 +1542,10 @@ impl NavMesh {
 }
 
 /// The A\* heuristic: straight-line distance to the goal position.
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "The search heuristic retains the same rounded squared-distance sum."
+)]
 fn heuristic(grid: &NavGrid, cell: usize, goal: Vec3) -> f32 {
     let (Some(cx), Some(cz)) = (cell_column(grid, cell), cell_row(grid, cell)) else {
         return f32::INFINITY;
@@ -1730,7 +1722,7 @@ fn region_stats(grid: &NavGrid, class: usize) -> Vec<RegionStat> {
 
 /// True when the region label run mentions a surface bit for a cell.
 #[must_use]
-pub fn cell_is_surface(flags: u8) -> bool {
+pub const fn cell_is_surface(flags: u8) -> bool {
     flags & CELL_SURFACE != 0
 }
 

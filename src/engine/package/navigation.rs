@@ -25,12 +25,6 @@
 
 // Keep the binary codec and its validation in cohesive, readable routines.
 // Numeric conversions and arithmetic exceptions are justified locally.
-#![allow(
-    clippy::missing_const_for_fn,
-    clippy::too_many_lines,
-    reason = "The codec uses cohesive routines for validating and encoding each complete record; const qualification is not needed for runtime binary parsing."
-)]
-
 use super::binary::{Reader, Writer};
 use super::{MAX_NAV_CELLS, MAX_NAV_CLASSES, MAX_NAV_PORTALS, MAX_NAVIGATION_BYTES};
 
@@ -235,7 +229,7 @@ impl NavGrid {
 
     /// Number of walking-surface nodes, including every floor in a column.
     #[must_use]
-    pub fn cell_count(&self) -> usize {
+    pub const fn cell_count(&self) -> usize {
         self.cell_y.len()
     }
 
@@ -478,6 +472,10 @@ pub fn write_navigation(grid: &NavGrid) -> Result<Vec<u8>, String> {
 /// Returns a named error when the record exceeds the byte limit, has the wrong
 /// magic or version, is truncated, declares an out-of-range count, holds a
 /// non-finite or inconsistent value, or has trailing bytes.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Decode and bound the ordered fields of one navigation record before accepting it."
+)]
 pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
     if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_NAVIGATION_BYTES {
         return Err(format!(
@@ -654,6 +652,10 @@ pub fn read_navigation(bytes: &[u8]) -> Result<NavGrid, String> {
 /// # Errors
 ///
 /// Returns a named error for the first violated invariant.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Check the cross-field invariants in the order used to report the first invalid field."
+)]
 pub fn validate_navigation(grid: &NavGrid) -> Result<(), String> {
     if !grid.cell_m.is_finite() || grid.cell_m <= 0.0 {
         return Err("navigation cell size must be finite and positive".to_string());

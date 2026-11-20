@@ -15,18 +15,6 @@
 // Preserve exact sentinel comparisons, floating-point operation order and
 // cohesive geometry/query stages. Numeric conversions and integer arithmetic
 // are audited at their local expressions instead of exempting the module.
-#![allow(
-    clippy::float_cmp,
-    clippy::imprecise_flops,
-    clippy::missing_const_for_fn,
-    clippy::needless_range_loop,
-    clippy::similar_names,
-    clippy::suboptimal_flops,
-    clippy::too_many_arguments,
-    clippy::too_many_lines,
-    reason = "Preserve exact sentinel comparisons and established floating-point operation order; named geometry stages and cohesive query parameters keep these numeric kernels readable. Numeric conversions and integer arithmetic exceptions are documented locally."
-)]
-
 use crate::engine::collision::{DoorCollider, WallAabb};
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::Doors;
@@ -156,6 +144,10 @@ struct BakeCell {
 /// # Errors
 /// Returns a named error for invalid metadata, bounded allocation limits or
 /// region overflow. No shipped-map build is required by ordinary Rust tests.
+#[expect(
+    clippy::too_many_lines,
+    reason = "Own the ordered worker, topology and region stages of building one complete navigation grid."
+)]
 pub fn bake(
     input: &NavBakeInput<'_>,
     options: &NavBakeOptions,
@@ -216,7 +208,12 @@ pub fn bake(
             let budget_ref = &node_budget;
             handles.push(scope.spawn(move || {
                 scene_ref.bake_rows(
-                    start, end, cell_m, origin_x, origin_z, cells_x, columns, budget_ref,
+                    start..end,
+                    cell_m,
+                    [origin_x, origin_z],
+                    cells_x,
+                    columns,
+                    budget_ref,
                 )
             }));
         }
@@ -475,20 +472,22 @@ impl BakeScene<'_> {
         clippy::as_conversions,
         reason = "grid indices are bounded by 2^21 columns and exactly representable in f32"
     )]
+    #[expect(
+        clippy::suboptimal_flops,
+        reason = "Keep cell-centre rounding after the existing fused grid-origin calculation."
+    )]
     fn bake_rows(
         &self,
-        start: u32,
-        end: u32,
+        rows: std::ops::Range<u32>,
         cell_m: f32,
-        origin_x: f32,
-        origin_z: f32,
+        [origin_x, origin_z]: [f32; 2],
         cells_x: u32,
         columns: usize,
         node_budget: &AtomicUsize,
     ) -> Result<Vec<Vec<BakeCell>>, String> {
         let index = CollisionIndex::build(self.walls);
         let mut output = Vec::new();
-        for cz in start..end {
+        for cz in rows {
             crate::engine::progress::check_cancelled()?;
             for cx in 0..cells_x {
                 let x = (cx as f32).mul_add(cell_m, origin_x) + cell_m * 0.5;
@@ -552,6 +551,10 @@ impl BakeScene<'_> {
         })
     }
 
+    #[expect(
+        clippy::suboptimal_flops,
+        reason = "Preserve the rounded overlap tolerance for baked door portals."
+    )]
     fn portal_at(&self, x: f32, z: f32, y: f32, cell_m: f32) -> u16 {
         let portals = self
             .doors
