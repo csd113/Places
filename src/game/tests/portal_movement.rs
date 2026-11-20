@@ -556,3 +556,79 @@ fn held_body_contact_keeps_side_tangents_and_stops_ascent_at_an_underside() -> R
     }
     Ok(())
 }
+
+// Two short walks and one takeoff on the existing flat fixture check the
+// rig sample after item resolution. The existing stop checks only inspect
+// physics. A single cuboid and fixed commands need no assets or bake.
+#[test]
+fn player_rig_uses_accepted_motion_and_resolved_support() -> Result<(), String> {
+    use crate::engine::physics::{BodyMotion, ItemWorld, PhysicsDef, ShapeDef};
+    use crate::engine::scene::LocomotionState;
+
+    for blocked in [false, true] {
+        let mut game = flat()?;
+        let mut items = ItemWorld::default();
+        if blocked {
+            let half = Vec3::new(0.6, 0.9, 0.2);
+            items.spawn(
+                1,
+                &PhysicsDef {
+                    motion: BodyMotion::Dynamic,
+                    shape: Some(ShapeDef::Cuboid {
+                        half_extents: half.to_array(),
+                    }),
+                    ..PhysicsDef::default()
+                },
+                (-half, half),
+                Vec3::new(20.0, 0.9, 29.0),
+                0.0,
+                1.0,
+            )?;
+            items.pause();
+        }
+        for _ in 0_u8..45 {
+            items.sync_context(game.physical_player_context(), &[]);
+            game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+            game.update_player_movement_with_items(
+                &mut input(&[Control::MoveForward]),
+                &Settings::default(),
+                &mut items,
+            );
+        }
+        items.sync_context(game.physical_player_context(), &[]);
+        let before = game.player_position;
+        game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+        game.update_player_movement_with_items(
+            &mut input(&[Control::MoveForward]),
+            &Settings::default(),
+            &mut items,
+        );
+        let accepted = (game.player_position.x - before.x).hypot(game.player_position.z - before.z);
+        let snapshot = game.locomotion_snapshot();
+        assert!(game.grounded);
+        assert!((snapshot.speed - accepted / VERTICAL_SUBSTEP).abs() < 1.0e-5);
+        if blocked {
+            assert!(game.player_position.z > 29.49);
+            assert!(snapshot.speed < 0.001);
+            assert_eq!(snapshot.state, LocomotionState::Idle);
+        } else {
+            assert!(snapshot.speed > 3.0);
+            assert_eq!(snapshot.state, LocomotionState::Walking);
+
+            let launch = game.player_position;
+            game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+            game.update_player_movement_with_items(
+                &mut input(&[Control::MoveForward, Control::Jump]),
+                &Settings::default(),
+                &mut items,
+            );
+            let distance =
+                (game.player_position.x - launch.x).hypot(game.player_position.z - launch.z);
+            let airborne = game.locomotion_snapshot();
+            assert!(!game.grounded && game.feet_y() > 0.0);
+            assert_eq!(airborne.state, LocomotionState::Airborne);
+            assert!((airborne.speed - distance / VERTICAL_SUBSTEP).abs() < 1.0e-5);
+        }
+    }
+    Ok(())
+}

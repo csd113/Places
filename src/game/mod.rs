@@ -1330,7 +1330,6 @@ impl Game {
         self.configured_walk_speed = self.walk_speed(settings);
         let trigger_origin =
             self.update_playing_frame_checked(&frame_input, settings, motion, &mut contacts);
-        contacts.finish(self);
         if self.recover_out_of_map() {
             self.finish_pending_local_elevator_departure(false);
             return;
@@ -1452,6 +1451,7 @@ impl Game {
         self.movement_accumulator += f64::from(clamp_sim_delta(delta));
         let tick = f64::from(VERTICAL_SUBSTEP);
         self.sim_delta_seconds = VERTICAL_SUBSTEP;
+        let mut rig_sample = None;
         for _ in 0_u8..8 {
             if self.movement_accumulator + 1.0e-8_f64 < tick {
                 break;
@@ -1472,7 +1472,15 @@ impl Game {
                 self.set_feet_y(previous_feet);
             }
             self.advance_eye_offset(VERTICAL_SUBSTEP);
+            let start = Vec2::new(self.player_position.x, self.player_position.z);
             self.update_locomotion_step(&command, settings, VERTICAL_SUBSTEP);
+            let proposed = self.movement_debug.then(|| {
+                Vec2::new(
+                    self.player_position.x - start.x,
+                    self.player_position.z - start.y,
+                )
+            });
+            rig_sample = Some((start, proposed));
             contacts.resolve_command(self, contact_origin);
             self.advance_step_eye(previous_feet, previously_grounded);
             if self.movement_accumulator + 1.0e-8_f64 >= tick {
@@ -1481,6 +1489,20 @@ impl Game {
             self.movement_input.clear_presses();
         }
         self.sim_delta_seconds = delta;
+        contacts.finish(self);
+        if let Some((start, proposed)) = rig_sample {
+            let accepted = Vec2::new(
+                self.player_position.x - start.x,
+                self.player_position.z - start.y,
+            );
+            self.refresh_locomotion(accepted.length(), VERTICAL_SUBSTEP);
+            if let Some(proposed_xz) = proposed {
+                crate::engine::logging::warn(format_args!(
+                    "[movement] rig_tick proposed_xz={proposed_xz:?} accepted_xz={accepted:?} grounded={} locomotion={:?}",
+                    self.grounded, self.locomotion
+                ));
+            }
+        }
         trigger_origin
     }
 
@@ -1613,13 +1635,11 @@ impl Game {
         if self.update_ladder(move_dir, jump_pressed, delta, settings) {
             self.horizontal_velocity = Vec2::ZERO;
             self.ice_airborne = false;
-            self.refresh_locomotion(0.0, delta);
             return;
         }
 
         if self.water_exit.is_some() {
-            let distance = self.advance_water_exit(delta);
-            self.refresh_locomotion(distance, delta);
+            let _distance = self.advance_water_exit(delta);
             return;
         }
         let before_sample = self.water.sample(
@@ -1660,8 +1680,7 @@ impl Game {
             self.grounded = false;
             self.vertical_accumulator = 0.0;
         }
-        let horizontal_distance =
-            self.move_on_surface(move_dir, settings, delta, before_sample, on_ice);
+        let _distance = self.move_on_surface(move_dir, settings, delta, before_sample, on_ice);
         let after_sample = self.water.sample(
             self.player_position.x,
             self.player_position.z,
@@ -1683,8 +1702,6 @@ impl Game {
             self.swimming = false;
             self.land_vertical(false);
         }
-
-        self.refresh_locomotion(horizontal_distance, delta);
     }
 
     /// Resolved controller velocity used to follow ordinary land jumps.
@@ -3374,7 +3391,7 @@ impl Game {
         }
     }
 
-    /// Refreshes the locomotion pose and speed for this frame.
+    /// Publishes the rig speed and pose from accepted movement and final support.
     fn refresh_locomotion(&mut self, horizontal_distance: f32, delta: f32) {
         let speed = if delta > 0.0 {
             horizontal_distance / delta
