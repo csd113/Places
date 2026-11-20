@@ -28,7 +28,7 @@
 
 use super::geometry::{EmitContext, WALL_BOTTOM_GRADIENT, WALL_TOP_GRADIENT};
 use super::{
-    LitSurface, MaterialSlot, SMOOTH_NORMAL, SurfaceKey, Vertex, WALL_FACE_EAST_MULT,
+    GridLightmap, LitSurface, MaterialSlot, SMOOTH_NORMAL, SurfaceKey, Vertex, WALL_FACE_EAST_MULT,
     WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, add_quad,
     emit_lit_surface_grid, lit_surface_grid, shade, tiled_uv,
 };
@@ -358,18 +358,12 @@ fn emit_face_inner(
     let (_, quad_albedo, _) = fold_triangle_to_quad(face.points, base, face.uv);
     add_quad(
         scratch,
-        points[0],
-        quad_colors[0],
-        uv[0],
-        points[1],
-        quad_colors[1],
-        uv[1],
-        points[2],
-        quad_colors[2],
-        uv[2],
-        points[3],
-        quad_colors[3],
-        uv[3],
+        [
+            (points[0], quad_colors[0], uv[0]),
+            (points[1], quad_colors[1], uv[1]),
+            (points[2], quad_colors[2], uv[2]),
+            (points[3], quad_colors[3], uv[3]),
+        ],
     );
     let [a, b, c, d] = quad_albedo;
     for (vertex, albedo) in scratch.iter_mut().zip([a, b, c, a, c, d]) {
@@ -446,6 +440,14 @@ fn fold_triangle_to_quad<T: Copy + Default>(
     (points, colors, uv)
 }
 
+#[derive(Clone, Copy)]
+struct HorizontalRect {
+    axis: WallAxis,
+    span: (f32, f32),
+    across: (f32, f32),
+    y: f32,
+}
+
 /// The four corners of a horizontal rectangle at world Y `y`, wound so the quad
 /// faces up, with its UVs in the same order.
 fn horizontal_quad(
@@ -466,22 +468,21 @@ fn horizontal_quad(
 }
 
 /// Emits one horizontal quad (a cap or a tread) facing up.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "matches the other quad emitters in this module"
-)] // matches the other quad emitters in this module
 fn emit_horizontal(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
     key: SurfaceKey,
     kind: PatchKind,
-    axis: WallAxis,
-    span: (f32, f32),
-    across: (f32, f32),
-    y: f32,
+    rect: HorizontalRect,
     tile: f32,
 ) {
+    let HorizontalRect {
+        axis,
+        span,
+        across,
+        y,
+    } = rect;
     let (points, uv) = horizontal_quad(axis, span, across, y, |point| match axis {
         WallAxis::X => tiled_uv(point[0], point[2], tile),
         WallAxis::Z => tiled_uv(point[2], point[0], tile),
@@ -612,10 +613,12 @@ fn emit_ramp_surface(
             region: None,
         },
         |x, z| tiled_uv(x, z, tile),
-        PatchKind::Floor,
-        Some(room_index),
-        context.lightmap,
-        Some(context.contacts),
+        GridLightmap {
+            kind: PatchKind::Floor,
+            room: Some(room_index),
+            lightmap: context.lightmap,
+            contacts: Some(context.contacts),
+        },
     );
     buckets.add_quads(key, scratch);
 }
@@ -1250,10 +1253,12 @@ fn emit_stair_step(
         scratch,
         frame.tread_key,
         PatchKind::Floor,
-        frame.axis,
-        (span_start, span_end),
-        (frame.across_low, frame.across_high),
-        tread_y,
+        HorizontalRect {
+            axis: frame.axis,
+            span: (span_start, span_end),
+            across: (frame.across_low, frame.across_high),
+            y: tread_y,
+        },
         frame.tread_tile,
     );
 }
@@ -1509,10 +1514,12 @@ fn emit_box_caps(
             scratch,
             cap,
             PatchKind::Wall,
-            WallAxis::X,
-            (x0, x1),
-            (z0, z1),
-            y1,
+            HorizontalRect {
+                axis: WallAxis::X,
+                span: (x0, x1),
+                across: (z0, z1),
+                y: y1,
+            },
             context.materials.tile_metres(cap),
         );
     }
@@ -2358,10 +2365,12 @@ fn emit_archway(
             scratch,
             frame.key,
             PatchKind::Wall,
-            frame.axis,
-            (0.0, length),
-            (frame.t0, frame.t1),
-            frame.top,
+            HorizontalRect {
+                axis: frame.axis,
+                span: (0.0, length),
+                across: (frame.t0, frame.t1),
+                y: frame.top,
+            },
             frame.tile,
         );
     }

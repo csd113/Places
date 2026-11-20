@@ -7,16 +7,16 @@
 use std::cell::RefCell;
 
 use super::{
-    DECAL_EXTERNAL_BASE, LIGHT_FACE_PROBE_M, LevelDef, LevelLighting, LevelMesh, LevelSurfaces,
-    LightmapEmit, LitSurface, MaterialIndex, MaterialLookup, MaterialSlot, MaterialTable, PropDef,
-    SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS, WALL_FACE_EAST_MULT,
-    WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis, WallCoverage,
-    WallUnit, add_decal_quad, add_flush_mount_fixture, add_panel_fixture, add_prop_box, add_quad,
-    add_round_fixture, add_wall_cross_quad, add_wall_fixture, add_wall_length_face,
-    cross_section_covered, decal_sheet_index, decal_uv_rect, decal_uv_rect_full, emit_floor_skirts,
-    emit_lit_surface_grid, finish_indexed_mesh, floor_surfaces, flush_wall_run,
-    interval_symmetric_difference, lit_corners, lit_surface_grid, quad_normal,
-    room_is_tessellatable, shade, spatial_cell_grid, split_rect, stamp_lightmap_quad,
+    DECAL_EXTERNAL_BASE, GridLightmap, LIGHT_FACE_PROBE_M, LevelDef, LevelLighting, LevelMesh,
+    LevelSurfaces, LightmapEmit, LitSurface, MaterialIndex, MaterialLookup, MaterialSlot,
+    MaterialTable, PropDef, SurfaceKey, SurfaceKind, Vertex, WALL_COINCIDENCE_EPS,
+    WALL_FACE_EAST_MULT, WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, WallAxis,
+    WallCoverage, WallUnit, add_decal_quad, add_flush_mount_fixture, add_panel_fixture,
+    add_prop_box, add_quad, add_round_fixture, add_wall_cross_quad, add_wall_fixture,
+    add_wall_length_face, cross_section_covered, decal_sheet_index, decal_uv_rect,
+    decal_uv_rect_full, emit_floor_skirts, emit_lit_surface_grid, finish_indexed_mesh,
+    floor_surfaces, flush_wall_run, interval_symmetric_difference, lit_corners, lit_surface_grid,
+    quad_normal, room_is_tessellatable, shade, spatial_cell_grid, split_rect, stamp_lightmap_quad,
     subtract_rectangles, tiled_uv, wall_layout, wall_vertical_extent,
 };
 use crate::engine::level::{MaterialRef, RoomDef, WallDef, WallSlice};
@@ -307,10 +307,12 @@ fn emit_floors(
                     region: Some((u32::try_from(label).unwrap_or(u32::MAX), &labels)),
                 },
                 |x, z| tiled_uv(x, z, tile),
-                PatchKind::Floor,
-                Some(room_index),
-                context.lightmap,
-                Some(context.contacts),
+                GridLightmap {
+                    kind: PatchKind::Floor,
+                    room: Some(room_index),
+                    lightmap: context.lightmap,
+                    contacts: Some(context.contacts),
+                },
             );
             buckets.add_quads(surface.key, scratch);
         }
@@ -569,10 +571,12 @@ fn emit_ceilings(
                 let (local_x, local_z) = room.ceiling_tile_local(x, z);
                 tiled_uv(local_x, local_z, tile)
             },
-            PatchKind::Ceiling,
-            Some(room_index),
-            context.lightmap,
-            Some(context.contacts),
+            GridLightmap {
+                kind: PatchKind::Ceiling,
+                room: Some(room_index),
+                lightmap: context.lightmap,
+                contacts: Some(context.contacts),
+            },
         );
         buckets.add_quads(ceiling_key, scratch);
     }
@@ -1221,7 +1225,8 @@ fn emit_wall_caps(
             covered.extend(coplanar_roof_coverage(context, state, slice.top));
         }
         for rect in subtract_rectangles(cap, &covered) {
-            emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, true, rect);
+            let section = (true, rect);
+            emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, section);
         }
     }
 
@@ -1232,7 +1237,8 @@ fn emit_wall_caps(
         covered.extend(floor_covered(slice.bottom));
         covered.extend(earlier_wall_covered(slice.bottom, false));
         for rect in subtract_rectangles(cap, &covered) {
-            emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, false, rect);
+            let section = (false, rect);
+            emit_wall_slice_cap(context, buckets, scratch, state, slice, cursor, section);
         }
     }
 }
@@ -1270,10 +1276,6 @@ fn coplanar_roof_coverage(
 /// cap looks up or down, so the two directions use opposite winding; the
 /// Z-axis world mapping is the transpose of the X-axis one, so its corners
 /// run the other way round to keep the same facing.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "matches the other quad emitters in this module"
-)] // matches the other quad emitters in this module
 fn emit_wall_slice_cap(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -1281,8 +1283,7 @@ fn emit_wall_slice_cap(
     state: &WallState<'_>,
     slice: &WallSlice,
     cursor: &mut usize,
-    up: bool,
-    rect: (f32, f32, f32, f32),
+    (up, rect): (bool, (f32, f32, f32, f32)),
 ) {
     let y = if up { slice.top } else { slice.bottom };
     let key = state
@@ -1368,18 +1369,12 @@ fn emit_wall_slice_cap(
         let first = scratch.len();
         add_quad(
             scratch,
-            points[0],
-            colors[0],
-            uv(points[0]),
-            points[1],
-            colors[1],
-            uv(points[1]),
-            points[2],
-            colors[2],
-            uv(points[2]),
-            points[3],
-            colors[3],
-            uv(points[3]),
+            [
+                (points[0], colors[0], uv(points[0])),
+                (points[1], colors[1], uv(points[1])),
+                (points[2], colors[2], uv(points[2])),
+                (points[3], colors[3], uv(points[3])),
+            ],
         );
         super::contact::stamp(
             context.contacts,
@@ -2121,8 +2116,13 @@ fn emit_glass_panes(
             scratch.clear();
             let first = scratch.len();
             add_quad(
-                scratch, p0, colours[0], uv0, p1, colours[1], uv1, p2, colours[2], uv2, p3,
-                colours[3], uv3,
+                scratch,
+                [
+                    (p0, colours[0], uv0),
+                    (p1, colours[1], uv1),
+                    (p2, colours[2], uv2),
+                    (p3, colours[3], uv3),
+                ],
             );
             stamp_lightmap_quad(
                 context.lightmap,

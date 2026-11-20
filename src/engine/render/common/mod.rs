@@ -180,86 +180,39 @@ pub fn tiled_uv(a: f32, b: f32, tile_metres: f32) -> [f32; 2] {
     [a / tile, b / tile]
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "One quad uses four explicit position/color/UV tuples, preserving the established vertex order."
-)]
-fn add_quad(
-    vertices: &mut Vec<Vertex>,
-    p0: [f32; 3],
-    c0: [f32; 3],
-    uv0: [f32; 2],
-    p1: [f32; 3],
-    c1: [f32; 3],
-    uv1: [f32; 2],
-    p2: [f32; 3],
-    c2: [f32; 3],
-    uv2: [f32; 2],
-    p3: [f32; 3],
-    c3: [f32; 3],
-    uv3: [f32; 2],
-) {
-    let col0 = [c0[0], c0[1], c0[2], 1.0];
-    let col1 = [c1[0], c1[1], c1[2], 1.0];
-    let col2 = [c2[0], c2[1], c2[2], 1.0];
-    let col3 = [c3[0], c3[1], c3[2], 1.0];
-    vertices.push(Vertex {
-        pos: p0,
-        color: col0,
-        uv: uv0,
+/// One mesh corner carries its position, RGB and texture coordinates together.
+type ColoredCorner = ([f32; 3], [f32; 3], [f32; 2]);
+
+fn add_quad(vertices: &mut Vec<Vertex>, [c0, c1, c2, c3]: [ColoredCorner; 4]) {
+    let vertex = |(pos, [r, g, b], uv): ColoredCorner| Vertex {
+        pos,
+        color: [r, g, b, 1.0],
+        uv,
         ..Vertex::UNLIT
-    });
-    vertices.push(Vertex {
-        pos: p1,
-        color: col1,
-        uv: uv1,
-        ..Vertex::UNLIT
-    });
-    vertices.push(Vertex {
-        pos: p2,
-        color: col2,
-        uv: uv2,
-        ..Vertex::UNLIT
-    });
-    vertices.push(Vertex {
-        pos: p0,
-        color: col0,
-        uv: uv0,
-        ..Vertex::UNLIT
-    });
-    vertices.push(Vertex {
-        pos: p2,
-        color: col2,
-        uv: uv2,
-        ..Vertex::UNLIT
-    });
-    vertices.push(Vertex {
-        pos: p3,
-        color: col3,
-        uv: uv3,
-        ..Vertex::UNLIT
-    });
+    };
+    vertices.push(vertex(c0));
+    vertices.push(vertex(c1));
+    vertices.push(vertex(c2));
+    vertices.push(vertex(c0));
+    vertices.push(vertex(c2));
+    vertices.push(vertex(c3));
 }
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "One flat-shaded quad uses four explicit position/UV pairs and a shared color, preserving vertex order."
-)]
 fn add_quad_flat(
     vertices: &mut Vec<Vertex>,
-    p0: [f32; 3],
-    p1: [f32; 3],
-    p2: [f32; 3],
-    p3: [f32; 3],
+    [p0, p1, p2, p3]: [[f32; 3]; 4],
     color: [f32; 3],
-    uv0: [f32; 2],
-    uv1: [f32; 2],
-    uv2: [f32; 2],
-    uv3: [f32; 2],
+    [uv0, uv1, uv2, uv3]: [[f32; 2]; 4],
 ) {
     let first = vertices.len();
     add_quad(
-        vertices, p0, color, uv0, p1, color, uv1, p2, color, uv2, p3, color, uv3,
+        vertices,
+        [
+            (p0, color, uv0),
+            (p1, color, uv1),
+            (p2, color, uv2),
+            (p3, color, uv3),
+        ],
     );
     for vertex in vertices.get_mut(first..).into_iter().flatten() {
         vertex.caustics_albedo = color;
@@ -599,18 +552,28 @@ impl<Y: Fn(f32) -> f32, S: Fn(f32, f32) -> [f32; 3]> WallFaceStrip<'_, Y, S> {
             let first = vertices.len();
             add_quad(
                 vertices,
-                corners[0],
-                first_top_color,
-                self.uv(uv_v_ref, first_at, first_top),
-                corners[1],
-                second_top_color,
-                self.uv(uv_v_ref, second_at, second_top),
-                corners[2],
-                second_bottom,
-                self.uv(uv_v_ref, second_at, self.bottom),
-                corners[3],
-                first_bottom,
-                self.uv(uv_v_ref, first_at, self.bottom),
+                [
+                    (
+                        corners[0],
+                        first_top_color,
+                        self.uv(uv_v_ref, first_at, first_top),
+                    ),
+                    (
+                        corners[1],
+                        second_top_color,
+                        self.uv(uv_v_ref, second_at, second_top),
+                    ),
+                    (
+                        corners[2],
+                        second_bottom,
+                        self.uv(uv_v_ref, second_at, self.bottom),
+                    ),
+                    (
+                        corners[3],
+                        first_bottom,
+                        self.uv(uv_v_ref, first_at, self.bottom),
+                    ),
+                ],
             );
             contact::stamp(
                 self.contacts,
@@ -1939,18 +1902,12 @@ fn add_wall_cross_quad(
     let first = vertices.len();
     add_quad(
         vertices,
-        order[0].0,
-        order[0].1,
-        uv(order[0].0),
-        order[1].0,
-        order[1].1,
-        uv(order[1].0),
-        order[2].0,
-        order[2].1,
-        uv(order[2].0),
-        order[3].0,
-        order[3].1,
-        uv(order[3].0),
+        [
+            (order[0].0, order[0].1, uv(order[0].0)),
+            (order[1].0, order[1].1, uv(order[1].0)),
+            (order[2].0, order[2].1, uv(order[2].0)),
+            (order[3].0, order[3].1, uv(order[3].0)),
+        ],
     );
     contact::stamp(
         contacts,
@@ -2062,8 +2019,13 @@ fn add_prop_box(
         let colors = points.map(|point| shaded(shade_mult, point, normal));
         let first = vertices.len();
         add_quad(
-            vertices, points[0], colors[0], uvs[0], points[1], colors[1], uvs[1], points[2],
-            colors[2], uvs[2], points[3], colors[3], uvs[3],
+            vertices,
+            [
+                (points[0], colors[0], uvs[0]),
+                (points[1], colors[1], uvs[1]),
+                (points[2], colors[2], uvs[2]),
+                (points[3], colors[3], uvs[3]),
+            ],
         );
         for vertex in vertices.get_mut(first..).into_iter().flatten() {
             vertex.caustics_albedo = color.map(|channel| channel * shade_mult);
@@ -2290,8 +2252,13 @@ fn add_decal_quad(
     });
     let first = vertices.len();
     add_quad(
-        vertices, points[0], colors[0], uv[0], points[1], colors[1], uv[1], points[2], colors[2],
-        uv[2], points[3], colors[3], uv[3],
+        vertices,
+        [
+            (points[0], colors[0], uv[0]),
+            (points[1], colors[1], uv[1]),
+            (points[2], colors[2], uv[2]),
+            (points[3], colors[3], uv[3]),
+        ],
     );
     for vertex in vertices.get_mut(first..).into_iter().flatten() {
         vertex.caustics_albedo = tint;
@@ -2597,6 +2564,14 @@ impl<'a, Y: Fn(f32, f32) -> f32> GridMerger<'a, Y> {
     }
 }
 
+#[derive(Clone, Copy)]
+struct GridLightmap<'a> {
+    kind: PatchKind,
+    room: Option<usize>,
+    lightmap: Option<LightmapEmit<'a>>,
+    contacts: Option<&'a contact::Contacts>,
+}
+
 /// Emits one lit floor or ceiling from a precomputed corner-colour grid.
 ///
 /// Cells are greedily merged along X and then Z while every corner of the
@@ -2605,10 +2580,6 @@ impl<'a, Y: Fn(f32, f32) -> f32> GridMerger<'a, Y> {
 /// `MAX_LIGHT_GRID_CELLS`² of them. The surviving corners keep their exact
 /// sampled colours and heights; UVs stay world-space, so merging is invisible
 /// to texturing.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "mirrors the other quad emitters in this module"
-)] // mirrors the other quad emitters in this module
 fn emit_lit_surface_grid(
     vertices: &mut Vec<Vertex>,
     xs: &[f32],
@@ -2616,10 +2587,7 @@ fn emit_lit_surface_grid(
     colors: &[[f32; 3]],
     surface: LitSurface<'_, impl Fn(f32, f32) -> f32>,
     uv: impl Fn(f32, f32) -> [f32; 2],
-    kind: PatchKind,
-    room: Option<usize>,
-    lightmap: Option<LightmapEmit<'_>>,
-    contacts: Option<&contact::Contacts>,
+    stamp: GridLightmap<'_>,
 ) {
     let LitSurface {
         caustics_albedo,
@@ -2633,7 +2601,9 @@ fn emit_lit_surface_grid(
         return;
     }
     let first = vertices.len();
-    let max_span_m = lightmap.map_or(f32::INFINITY, |wall_lightmap| wall_lightmap.max_span_m);
+    let max_span_m = stamp
+        .lightmap
+        .map_or(f32::INFINITY, |lightmap| lightmap.max_span_m);
     let mut merger = GridMerger::new(xs, zs, colors, region, &y_at, max_span_m);
     let row_len = xs.len();
 
@@ -2677,17 +2647,7 @@ fn emit_lit_surface_grid(
                     [c01, c11, c10, c00],
                 )
             };
-            emit_grid_quad(
-                vertices,
-                xz,
-                corner_colors,
-                &y_at,
-                &uv,
-                kind,
-                room,
-                lightmap,
-                contacts,
-            );
+            emit_grid_quad(vertices, xz, corner_colors, &y_at, &uv, stamp);
         }
     }
     for vertex in vertices.get_mut(first..).into_iter().flatten() {
@@ -2697,37 +2657,30 @@ fn emit_lit_surface_grid(
 
 /// Emits one merged grid rectangle: its `(x, z)` corners in winding order and
 /// the four shaded corner colours, with world height and UVs derived here.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "mirrors the other quad emitters in this module"
-)] // mirrors the other quad emitters in this module
 fn emit_grid_quad(
     vertices: &mut Vec<Vertex>,
     xz: [[f32; 2]; 4],
     corner_colors: [[f32; 3]; 4],
     y_at: &impl Fn(f32, f32) -> f32,
     uv: &impl Fn(f32, f32) -> [f32; 2],
-    kind: PatchKind,
-    room: Option<usize>,
-    lightmap: Option<LightmapEmit<'_>>,
-    contacts: Option<&contact::Contacts>,
+    stamp: GridLightmap<'_>,
 ) {
+    let GridLightmap {
+        kind,
+        room,
+        lightmap,
+        contacts,
+    } = stamp;
     let points = xz.map(|[x, z]| [x, y_at(x, z), z]);
     let first = vertices.len();
     add_quad(
         vertices,
-        points[0],
-        corner_colors[0],
-        uv(points[0][0], points[0][2]),
-        points[1],
-        corner_colors[1],
-        uv(points[1][0], points[1][2]),
-        points[2],
-        corner_colors[2],
-        uv(points[2][0], points[2][2]),
-        points[3],
-        corner_colors[3],
-        uv(points[3][0], points[3][2]),
+        [
+            (points[0], corner_colors[0], uv(points[0][0], points[0][2])),
+            (points[1], corner_colors[1], uv(points[1][0], points[1][2])),
+            (points[2], corner_colors[2], uv(points[2][0], points[2][2])),
+            (points[3], corner_colors[3], uv(points[3][0], points[3][2])),
+        ],
     );
     if let Some(index) = contacts {
         contact::stamp(index, lightmap, vertices, first, kind, room, None);
@@ -3023,18 +2976,12 @@ fn emit_skirt_face(
             let first = scratch.len();
             add_quad(
                 scratch,
-                points[0],
-                colors[0],
-                uv(points[0]),
-                points[1],
-                colors[1],
-                uv(points[1]),
-                points[2],
-                colors[2],
-                uv(points[2]),
-                points[3],
-                colors[3],
-                uv(points[3]),
+                [
+                    (points[0], colors[0], uv(points[0])),
+                    (points[1], colors[1], uv(points[1])),
+                    (points[2], colors[2], uv(points[2])),
+                    (points[3], colors[3], uv(points[3])),
+                ],
             );
             stamp_lightmap_quad(lightmap, scratch, first, PatchKind::Skirt, points, room);
             buckets.add_quads(key, scratch);

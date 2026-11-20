@@ -57,15 +57,9 @@ const PANEL_HOUSING_COLOR: [f32; 3] = [1.0; 3];
 fn panel_down_quad(housing: &mut Vec<Vertex>, x0: f32, x1: f32, z0: f32, z1: f32, y: f32) {
     add_quad_flat(
         housing,
-        [x0, y, z0],
-        [x1, y, z0],
-        [x1, y, z1],
-        [x0, y, z1],
+        [[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]],
         PANEL_HOUSING_COLOR,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
     );
 }
 
@@ -90,15 +84,9 @@ pub fn add_blacklight_fixture(
         let [corner_a, corner_b, corner_c, corner_d] = corners;
         add_quad_flat(
             housing,
-            corner_a,
-            corner_b,
-            corner_c,
-            corner_d,
+            [corner_a, corner_b, corner_c, corner_d],
             [0.06, 0.065, 0.08],
-            SHEET_UV[0],
-            SHEET_UV[1],
-            SHEET_UV[2],
-            SHEET_UV[3],
+            [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
         );
     };
     // Four sides, the closed top, and the dark underside beneath the lens.
@@ -140,15 +128,14 @@ pub fn add_blacklight_fixture(
     ]);
     add_quad_flat(
         lit,
-        point(-0.56, -BLACKLIGHT_LENS_DROP_M, -0.07),
-        point(0.56, -BLACKLIGHT_LENS_DROP_M, -0.07),
-        point(0.56, -BLACKLIGHT_LENS_DROP_M, 0.07),
-        point(-0.56, -BLACKLIGHT_LENS_DROP_M, 0.07),
+        [
+            point(-0.56, -BLACKLIGHT_LENS_DROP_M, -0.07),
+            point(0.56, -BLACKLIGHT_LENS_DROP_M, -0.07),
+            point(0.56, -BLACKLIGHT_LENS_DROP_M, 0.07),
+            point(-0.56, -BLACKLIGHT_LENS_DROP_M, 0.07),
+        ],
         emission,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
     );
 }
 
@@ -196,51 +183,47 @@ pub fn add_panel_fixture(
     // down to the frame.
     add_quad_flat(
         housing,
-        [x1, y_bottom, z0],
-        [x0, y_bottom, z0],
-        [x0, y, z0],
-        [x1, y, z0],
+        [
+            [x1, y_bottom, z0],
+            [x0, y_bottom, z0],
+            [x0, y, z0],
+            [x1, y, z0],
+        ],
         PANEL_HOUSING_COLOR,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
     );
     add_quad_flat(
         housing,
-        [x0, y_bottom, z1],
-        [x1, y_bottom, z1],
-        [x1, y, z1],
-        [x0, y, z1],
+        [
+            [x0, y_bottom, z1],
+            [x1, y_bottom, z1],
+            [x1, y, z1],
+            [x0, y, z1],
+        ],
         PANEL_HOUSING_COLOR,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
     );
     add_quad_flat(
         housing,
-        [x0, y_bottom, z0],
-        [x0, y_bottom, z1],
-        [x0, y, z1],
-        [x0, y, z0],
+        [
+            [x0, y_bottom, z0],
+            [x0, y_bottom, z1],
+            [x0, y, z1],
+            [x0, y, z0],
+        ],
         PANEL_HOUSING_COLOR,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
     );
     add_quad_flat(
         housing,
-        [x1, y_bottom, z1],
-        [x1, y_bottom, z0],
-        [x1, y, z0],
-        [x1, y, z1],
+        [
+            [x1, y_bottom, z1],
+            [x1, y_bottom, z0],
+            [x1, y, z0],
+            [x1, y, z1],
+        ],
         PANEL_HOUSING_COLOR,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
     );
     // The bottom frame: four full-width/full-depth border strips that tile the
     // ring around the diffuser aperture without overlapping each other.
@@ -279,15 +262,9 @@ fn panel_diffuser(
     };
     add_quad_flat(
         lit,
-        [x0, y, z0],
-        [x1, y, z0],
-        [x1, y, z1],
-        [x0, y, z1],
+        [[x0, y, z0], [x1, y, z0], [x1, y, z1], [x0, y, z1]],
         emission,
-        uv[0],
-        uv[1],
-        uv[2],
-        uv[3],
+        [uv[0], uv[1], uv[2], uv[3]],
     );
 }
 
@@ -315,7 +292,10 @@ pub fn add_ring_quad(
     let inner1 = [r_in.mul_add(cos1, cx), y, r_in.mul_add(sin1, cz)];
     let inner0 = [r_in.mul_add(cos0, cx), y, r_in.mul_add(sin0, cz)];
     add_quad_flat(
-        scratch, outer0, outer1, inner1, inner0, color, uv[0], uv[1], uv[2], uv[3],
+        scratch,
+        [outer0, outer1, inner1, inner0],
+        color,
+        [uv[0], uv[1], uv[2], uv[3]],
     );
 }
 
@@ -343,15 +323,9 @@ pub fn add_can_quad(
     let bottom0 = [radius.mul_add(cos0, cx), y_bottom, radius.mul_add(sin0, cz)];
     add_quad_flat(
         scratch,
-        top0,
-        top1,
-        bottom1,
-        bottom0,
+        [top0, top1, bottom1, bottom0],
         color,
-        [0.0, 0.0],
-        [1.0, 0.0],
-        [1.0, 1.0],
-        [0.0, 1.0],
+        [[0.0, 0.0], [1.0, 0.0], [1.0, 1.0], [0.0, 1.0]],
     );
 }
 
@@ -367,15 +341,14 @@ fn add_round_backplate(housing: &mut Vec<Vertex>, center: [f32; 3], radius: f32,
     for segment in (1_u8..9).step_by(2) {
         add_quad_flat(
             housing,
-            point(0),
-            point(segment.saturating_add(2)),
-            point(segment.saturating_add(1)),
-            point(segment),
+            [
+                point(0),
+                point(segment.saturating_add(2)),
+                point(segment.saturating_add(1)),
+                point(segment),
+            ],
             color,
-            SHEET_UV[0],
-            SHEET_UV[1],
-            SHEET_UV[2],
-            SHEET_UV[3],
+            [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
         );
     }
 }
@@ -567,15 +540,14 @@ pub fn add_flush_mount_fixture(
     let boss = radius * 0.13;
     add_quad_flat(
         housing,
-        [cx - boss, y_bottom + BOSS_INSET, cz - boss],
-        [cx + boss, y_bottom + BOSS_INSET, cz - boss],
-        [cx + boss, y_bottom + BOSS_INSET, cz + boss],
-        [cx - boss, y_bottom + BOSS_INSET, cz + boss],
+        [
+            [cx - boss, y_bottom + BOSS_INSET, cz - boss],
+            [cx + boss, y_bottom + BOSS_INSET, cz - boss],
+            [cx + boss, y_bottom + BOSS_INSET, cz + boss],
+            [cx - boss, y_bottom + BOSS_INSET, cz + boss],
+        ],
         BODY_COLOR,
-        SHEET_UV[0],
-        SHEET_UV[1],
-        SHEET_UV[2],
-        SHEET_UV[3],
+        [SHEET_UV[0], SHEET_UV[1], SHEET_UV[2], SHEET_UV[3]],
     );
 }
 
@@ -612,77 +584,71 @@ pub fn add_wall_fixture(
     // Emissive front face: the whole luminaire face is the sheet.
     add_quad_flat(
         lit,
-        point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-        point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-        point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
-        point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        [
+            point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+            point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+            point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
+            point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+        ],
         emission,
-        uv[0],
-        uv[1],
-        uv[2],
-        uv[3],
+        [uv[0], uv[1], uv[2], uv[3]],
     );
     // Top face (up), bottom face (down) and the two ends.
     add_quad_flat(
         housing,
-        point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
-        point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
-        point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
-        point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+        [
+            point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+            point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+            point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
+            point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+        ],
         BEZEL_COLOR,
-        uv[0],
-        uv[1],
-        uv[2],
-        uv[3],
+        [uv[0], uv[1], uv[2], uv[3]],
     );
     add_quad_flat(
         housing,
-        point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
-        point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
-        point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-        point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        [
+            point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
+            point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+            point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+            point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+        ],
         BEZEL_COLOR,
-        uv[0],
-        uv[1],
-        uv[2],
-        uv[3],
+        [uv[0], uv[1], uv[2], uv[3]],
     );
     add_quad_flat(
         housing,
-        point(HALF_WIDTH, HALF_HEIGHT, 0.0),
-        point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
-        point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-        point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        [
+            point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+            point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
+            point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+            point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        ],
         BEZEL_COLOR,
-        uv[0],
-        uv[1],
-        uv[2],
-        uv[3],
+        [uv[0], uv[1], uv[2], uv[3]],
     );
     add_quad_flat(
         housing,
-        point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
-        point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-        point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
-        point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+        [
+            point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
+            point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+            point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+            point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+        ],
         BEZEL_COLOR,
-        uv[0],
-        uv[1],
-        uv[2],
-        uv[3],
+        [uv[0], uv[1], uv[2], uv[3]],
     );
     // The mounting back is ordinary metal, including when a model falls back
     // to this procedural shell. Keep the front sheet as the only luminous face.
     add_quad_flat(
         housing,
-        point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
-        point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
-        point(HALF_WIDTH, HALF_HEIGHT, 0.0),
-        point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        [
+            point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
+            point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+            point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+            point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+        ],
         BEZEL_COLOR,
-        uv[0],
-        uv[1],
-        uv[2],
-        uv[3],
+        [uv[0], uv[1], uv[2], uv[3]],
     );
 }

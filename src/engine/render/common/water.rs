@@ -20,8 +20,8 @@ use crate::engine::spatial::SpatialBuckets;
 
 use super::geometry::EmitContext;
 use super::{
-    MaterialSlot, SurfaceKey, Vertex, count_to_f32, lit_corners, shade, stamp_lightmap_quad,
-    tiled_uv,
+    ColoredCorner, MaterialSlot, SurfaceKey, Vertex, count_to_f32, lit_corners, shade,
+    stamp_lightmap_quad, tiled_uv,
 };
 use crate::engine::lighting::lightmap::PatchKind;
 
@@ -134,15 +134,11 @@ pub fn emit_water(
                     let first = scratch.len();
                     add_water_triangle(
                         scratch,
-                        centre,
-                        centre_colour,
-                        centre_uv,
-                        *next,
-                        next_colour,
-                        next_uv,
-                        *current,
-                        current_colour,
-                        current_uv,
+                        [
+                            (centre, centre_colour, centre_uv),
+                            (*next, next_colour, next_uv),
+                            (*current, current_colour, current_uv),
+                        ],
                         volume.opacity,
                     );
                     stamp_lightmap_quad(
@@ -217,33 +213,17 @@ fn add_water_quad(
 /// The folded quad is (`p0, p1, p2, p0, p2, p2`), matching lightmap stamping's
 /// corner convention. Its degenerate second triangle is dropped by indexing;
 /// one fan segment keeps three distinct vertices and one coverage contribution.
-#[expect(
-    clippy::too_many_arguments,
-    reason = "one triangle's three points, colours and uvs"
-)] // one triangle's three points, colours and uvs
-fn add_water_triangle(
-    vertices: &mut Vec<Vertex>,
-    p0: [f32; 3],
-    c0: [f32; 3],
-    uv0: [f32; 2],
-    p1: [f32; 3],
-    c1: [f32; 3],
-    uv1: [f32; 2],
-    p2: [f32; 3],
-    c2: [f32; 3],
-    uv2: [f32; 2],
-    alpha: f32,
-) {
-    let vertex = |pos: [f32; 3], colour: [f32; 3], uv: [f32; 2]| Vertex {
+fn add_water_triangle(vertices: &mut Vec<Vertex>, [c0, c1, c2]: [ColoredCorner; 3], alpha: f32) {
+    let vertex = |(pos, [r, g, b], uv): ColoredCorner| Vertex {
         pos,
-        color: [colour[0], colour[1], colour[2], alpha],
+        color: [r, g, b, alpha],
         uv,
         ..Vertex::UNLIT
     };
-    vertices.push(vertex(p0, c0, uv0));
-    vertices.push(vertex(p1, c1, uv1));
-    vertices.push(vertex(p2, c2, uv2));
-    vertices.push(vertex(p0, c0, uv0));
-    vertices.push(vertex(p2, c2, uv2));
-    vertices.push(vertex(p2, c2, uv2));
+    vertices.push(vertex(c0));
+    vertices.push(vertex(c1));
+    vertices.push(vertex(c2));
+    vertices.push(vertex(c0));
+    vertices.push(vertex(c2));
+    vertices.push(vertex(c2));
 }
