@@ -399,3 +399,113 @@ fn shadow_only_missing_assets_never_emit_a_placeholder() -> Result<(), String> {
     );
     Ok(())
 }
+
+// One water volume and one steam emitter protect reset across the same handoff
+// the app drains. The checkpoint control distinguishes authored reset values
+// from saved runtime values. This fixture needs no renderer or map bake.
+#[test]
+fn reset_restores_authored_water_and_steam_and_supersedes_pending_updates() -> Result<(), String> {
+    let level = LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,"id":"environment_reset","name":"Environment reset",
+        "spawn":{"x":0,"z":0},
+        "water":[{"x":1,"z":1,"width":2,"depth":2,"surface_y":0,"bottom_y":-1,"swimming":true}],
+        "effects":[{"id":"vent","kind":"steam","enabled":false}]}"#,
+    )
+    .map_err(|problem| problem.to_string())?;
+    let mut world = EntityWorld::from_level(&level);
+    let water = world.handle_of("water_1").ok_or("missing water control")?;
+    let steam = world.handle_of("vent").ok_or("missing steam control")?;
+    let disable_water = ActionDef::Disable {
+        target: Some("water_1".into()),
+    };
+    let enable_steam = ActionDef::Enable {
+        target: Some("vent".into()),
+    };
+    let authored = [("steam", 0, false), ("water", 0, true)];
+    let toggled = world.dispatch_actions(&[disable_water.clone(), enable_steam.clone()], None);
+    assert_eq!(toggled.actions_run, 2, "toggle both authored flags");
+    assert_environment_commands(&mut world, &[("water", 0, false), ("steam", 0, true)]);
+    let _ = world.dispatch_queued_events();
+    let saved = world.checkpoint()?;
+
+    world.reset_runtime();
+    assert_environment_commands(&mut world, &authored);
+    let batch = [disable_water, enable_steam, ActionDef::ResetToStart];
+    let pending = world.dispatch_actions(&batch, None);
+    assert!(
+        pending.player_reset && pending.actions_run == 3,
+        "request reset in the toggle batch"
+    );
+    world.reset_runtime();
+    assert_environment_commands(&mut world, &authored);
+    assert!(
+        world
+            .components()
+            .water
+            .get(water)
+            .is_some_and(|entry| entry.enabled)
+            && world
+                .components()
+                .steam
+                .get(steam)
+                .is_some_and(|entry| !entry.enabled),
+        "reset restores both component flags"
+    );
+    for (handle, enabled) in [(water, true), (steam, false)] {
+        assert_eq!(
+            world
+                .components()
+                .states
+                .get(handle)
+                .and_then(|state| state.get("enabled")),
+            Some(&crate::engine::entities::components::StateValue::Bool(
+                enabled
+            )),
+            "the synthetic enabled state mirrors the component"
+        );
+    }
+    assert!(
+        world.events().is_empty(),
+        "reset does not replay toggle events"
+    );
+
+    world.restore_checkpoint(&saved)?;
+    assert_environment_commands(&mut world, &[("steam", 0, true), ("water", 0, false)]);
+    assert!(
+        world
+            .components()
+            .water
+            .get(water)
+            .is_some_and(|entry| !entry.enabled)
+            && world
+                .components()
+                .steam
+                .get(steam)
+                .is_some_and(|entry| entry.enabled),
+        "checkpoint retains runtime flags"
+    );
+    Ok(())
+}
+
+fn assert_environment_commands(world: &mut EntityWorld, expected: &[(&str, u32, bool)]) {
+    let commands = world.take_commands();
+    assert_eq!(
+        commands.len(),
+        expected.len(),
+        "exactly one handoff per indexed flag"
+    );
+    for (command, &expected_flag) in commands.iter().zip(expected) {
+        let flag = if let WorldCommand::SetEffectEnabled { index, enabled } = command {
+            Some(("steam", *index, *enabled))
+        } else if let WorldCommand::SetWaterEnabled { index, enabled } = command {
+            Some(("water", *index, *enabled))
+        } else {
+            None
+        };
+        assert_eq!(
+            flag,
+            Some(expected_flag),
+            "pending updates must reflect the selected epoch"
+        );
+    }
+}

@@ -34,6 +34,7 @@ pub mod components;
 pub mod developer;
 mod elevators;
 pub mod encounter;
+mod environment_flags;
 pub mod events;
 pub mod feltling;
 mod feltlings;
@@ -557,6 +558,7 @@ pub struct EntityWorld {
     authored_interactions: Vec<(EntityHandle, String, bool)>,
     /// Authored emitter state, restored on reset.
     authored_audio: Vec<(EntityHandle, AudioEmitter)>,
+    authored_environment: environment_flags::EnvironmentFlags,
     /// Reused bounded trigger work buffers; stationary occupancy allocates no strings.
     trigger_sweeps: Vec<volumes::Sweep>,
     trigger_edges: Vec<volumes::Edge>,
@@ -690,6 +692,7 @@ impl EntityWorld {
             authored_states: Vec::new(),
             authored_interactions: Vec::new(),
             authored_audio: Vec::new(),
+            authored_environment: environment_flags::EnvironmentFlags::default(),
             trigger_sweeps: Vec::new(),
             trigger_edges: Vec::new(),
             trigger_index: volumes::TriggerIndex::default(),
@@ -814,8 +817,7 @@ impl EntityWorld {
         self.resolve_doors(level);
         self.resolve_fixtures(level);
         self.resolve_volumes(level);
-        self.resolve_effects(level);
-        self.resolve_water(level);
+        self.resolve_environment(level);
         self.resolve_timers(level);
         self.resolve_spawn_points(level, &surfaces);
         self.resolve_sound_emitters(level);
@@ -901,6 +903,7 @@ impl EntityWorld {
             }
         }
         self.reset_interactions();
+        self.reset_environment_flags();
         self.rebuild_interactables_from_tables();
         self.sequence_runs.clear();
         let controls: Vec<EntityHandle> = self
@@ -978,19 +981,30 @@ impl EntityWorld {
                 component.prompt.clone_from(prompt);
                 component.enabled = *enabled;
             }
-            // Enable/disable can create this synthetic state on an otherwise
-            // stateless control. Keep it consistent without emitting reset events.
-            // Explicit authored state fields retain their original values above.
-            let declared_enabled = self
-                .authored_states
+            Self::restore_enabled_mirror(
+                &self.authored_states,
+                &mut self.components.states,
+                *handle,
+                *enabled,
+            );
+        }
+    }
+
+    fn restore_enabled_mirror(
+        authored: &[(EntityHandle, ObjectState)],
+        states: &mut components::ComponentTable<ObjectState>,
+        handle: EntityHandle,
+        enabled: bool,
+    ) {
+        // Enable/disable can create a synthetic state on a stateless control.
+        // Leave explicit authored values alone and emit no reset events.
+        if let Some(state) = states.get_mut(handle)
+            && state.get("enabled").is_some()
+            && !authored
                 .iter()
-                .any(|(candidate, state)| candidate == handle && state.get("enabled").is_some());
-            if !declared_enabled
-                && let Some(state) = self.components.states.get_mut(*handle)
-                && state.get("enabled").is_some()
-            {
-                let _changed = state.set("enabled", StateValue::Bool(*enabled));
-            }
+                .any(|(candidate, bag)| *candidate == handle && bag.get("enabled").is_some())
+        {
+            let _changed = state.set("enabled", StateValue::Bool(enabled));
         }
     }
 
@@ -1018,6 +1032,14 @@ impl EntityWorld {
                     | WorldCommand::RetireHidden { target: _ }
                     | WorldCommand::SaveCheckpoint { name: _ }
                     | WorldCommand::ResumeCheckpoint
+                    | WorldCommand::SetEffectEnabled {
+                        index: _,
+                        enabled: _
+                    }
+                    | WorldCommand::SetWaterEnabled {
+                        index: _,
+                        enabled: _
+                    }
                     | WorldCommand::ChangeLevel(_)
                     | WorldCommand::EndRun {
                         won: _,

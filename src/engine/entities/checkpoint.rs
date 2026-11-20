@@ -1,5 +1,5 @@
 //! Stable semantic checkpoints. No engine handles, definitions or executable data.
-use super::{EntityWorld, StateValue, WorldCommand};
+use super::{EntityWorld, StateValue};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -346,31 +346,7 @@ impl EntityWorld {
         self.rebuild_interactables_from_tables();
         self.rebuild_entity_frames();
         // Publish existing effects and loops once; do not replay one-shot audio or startup handlers.
-        let effects: Vec<_> = self
-            .components
-            .steam
-            .iter()
-            .filter_map(|(_, effect)| {
-                effect.effect.map(|index| WorldCommand::SetEffectEnabled {
-                    index,
-                    enabled: effect.enabled,
-                })
-            })
-            .collect();
-        self.commands.extend(effects);
-        let water: Vec<_> = self
-            .components
-            .water
-            .iter()
-            .filter_map(|(handle, water)| {
-                self.water_volume_index(handle)
-                    .map(|index| WorldCommand::SetWaterEnabled {
-                        index,
-                        enabled: water.enabled,
-                    })
-            })
-            .collect();
-        self.commands.extend(water);
+        self.publish_environment_flags();
         let audio: Vec<_> = self
             .components
             .audio
