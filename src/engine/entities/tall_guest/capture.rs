@@ -874,10 +874,6 @@ fn segment_distance_squared([first, second]: [Vec3; 2], [third, fourth]: [Vec3; 
     (first + edge_one * fraction_one).distance_squared(third + edge_two * fraction_two)
 }
 
-#[expect(
-    clippy::arithmetic_side_effects,
-    reason = "Finite certified lumen opening centroid and manifold topology counts."
-)]
 fn close_lumen(
     faces: &mut Vec<[Vec3; 3]>,
     edges: &std::collections::BTreeMap<(usize, usize), usize>,
@@ -911,6 +907,10 @@ fn close_lumen(
     if visited.len() != neighbours.len() {
         return false;
     }
+    #[expect(
+        clippy::arithmetic_side_effects,
+        reason = "The nonempty boundary has a positive neighbour count after conversion, so the centroid divisor is nonzero."
+    )]
     let centre = neighbours
         .keys()
         .filter_map(|i| vertices.get(*i))
