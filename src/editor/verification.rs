@@ -323,7 +323,7 @@ impl Verification {
         } else {
             move_pointer(app, window, point, [0.0, 0.0])?;
         }
-        let record = serde_json::json!({"step":self.next,"world":position,"point":point,"picked":picked.map(|id|format!("{id:?}")),"over_control":over_control,"wall_drag":app.wall_drag.is_some(),"translation":app.translation.is_some(),"selected":app.selected.map(|id|format!("{id:?}")),"preparing":app.viewport.is_preparing(),"status":app.status});
+        let record = serde_json::json!({"step":self.next,"world":position,"point":point,"picked":picked.map(|id|format!("{id:?}")),"over_control":over_control,"wall_drag":app.wall_drag.is_some(),"translation":app.translation.is_some(),"selected":app.selected.map(|id|format!("{id:?}")),"preparing":app.viewport.is_preparing(),"status":app.visible_status()});
         let mut file = OpenOptions::new()
             .create(true)
             .append(true)
@@ -337,7 +337,7 @@ impl Verification {
             "step": self.next, "document": app.document.as_ref().map(super::Document::raw),
             "dirty": app.document.as_ref().is_some_and(super::Document::is_dirty),
             "selected": app.selected.map(|selected| format!("{selected:?}")),
-            "status": app.status, "compile": app.compile.is_some(), "play": app.play.is_some(),
+            "status": app.visible_status(), "compile": app.compile.is_some(), "play": app.play.is_some(),
             "compile_feedback": app.compile.as_ref().map(|job| serde_json::json!({
                 "scope":job.scope(), "cancelling":job.cancelling(), "progress":job.progress()
             })),

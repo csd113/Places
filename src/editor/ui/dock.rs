@@ -354,7 +354,7 @@ fn footer(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             );
         }
     }
-    text(v, &app.status, 5.0, 265.0, INK, 132);
+    text(v, &app.visible_status(), 5.0, 265.0, INK, 132);
 }
 
 pub(in crate::editor) fn help(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {

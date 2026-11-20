@@ -7,6 +7,8 @@ use crate::engine::render::Vertex;
 use crate::game::{CollisionWorld, Game, play_spawn::Pose};
 use std::path::PathBuf;
 
+pub(super) const TEST_STOPPED_PREFIX: &str = "Test stopped: ";
+
 pub(super) struct Intent {
     pub root: PathBuf,
     pub level: String,
@@ -191,7 +193,7 @@ impl App {
                 .flatten()
         }) {
             self.stop_runtime();
-            self.status = format!("Test stopped: {error}");
+            self.status = format!("{TEST_STOPPED_PREFIX}{error}");
             self.script_feedback.clone_from(&self.status);
         }
     }

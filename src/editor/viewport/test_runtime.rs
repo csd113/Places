@@ -28,6 +28,7 @@ pub(super) struct Testing {
 impl Viewport {
     pub fn start_test(&mut self, level: &LevelDef, pose: Option<Pose>) {
         self.cancel_navigation();
+        super::clear_admission_error(&mut self.preview_metrics);
         self.worker.cancel();
         self.renderer.cancel_prepared_install();
         self.uploading = false;

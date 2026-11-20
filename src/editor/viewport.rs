@@ -6,7 +6,11 @@ mod picking;
 pub(super) mod preview;
 mod test_runtime;
 
-use std::{sync::Arc, time::Instant};
+#[cfg(test)]
+#[path = "tests/viewport_status.rs"]
+mod status_tests;
+
+use std::{borrow::Cow, sync::Arc, time::Instant};
 
 use glam::Vec3;
 use sdl3::event::Event;
@@ -56,6 +60,38 @@ enum PipelineReadiness {
     Preparing,
     Ready,
     Failed(String),
+}
+
+#[derive(Clone, Copy)]
+enum ViewportError<'a> {
+    Backend(&'a str),
+    Request(&'a str),
+}
+
+fn status_text<'a>(message: &'a str, viewport_error: Option<ViewportError<'_>>) -> Cow<'a, str> {
+    match viewport_error {
+        Some(ViewportError::Backend(error))
+            if message.strip_prefix(super::play_here::TEST_STOPPED_PREFIX) == Some(error) =>
+        {
+            Cow::Borrowed(message)
+        }
+        Some(ViewportError::Backend(error) | ViewportError::Request(error)) => {
+            Cow::Owned(format!("Viewport: {error}"))
+        }
+        None => Cow::Borrowed(message),
+    }
+}
+
+fn admission_error(metrics: &serde_json::Value) -> Option<&str> {
+    metrics
+        .get("admission_error")
+        .and_then(serde_json::Value::as_str)
+}
+
+fn clear_admission_error(metrics: &mut serde_json::Value) {
+    if let Some(metrics_object) = metrics.as_object_mut() {
+        drop(metrics_object.remove("admission_error"));
+    }
 }
 
 struct PreviewCommit {
@@ -195,6 +231,7 @@ impl Viewport {
     }
 
     fn request_editor_preview(&mut self, level: &LevelDef, kind: EditorPreview) {
+        clear_admission_error(&mut self.preview_metrics);
         self.editor_preview = kind;
         if self.local_preview != LocalPreview::Inactive {
             self.local_preview = LocalPreview::Invalidated;
@@ -324,16 +361,27 @@ impl Viewport {
     }
 
     pub fn status(&self) -> Option<&str> {
+        self.current_error().map(|failure| match failure {
+            ViewportError::Backend(error) | ViewportError::Request(error) => error,
+        })
+    }
+
+    pub(super) fn status_text<'a>(&self, message: &'a str) -> Cow<'a, str> {
+        status_text(message, self.current_error())
+    }
+
+    fn current_error(&self) -> Option<ViewportError<'_>> {
         match &self.pipelines {
             PipelineReadiness::Failed(error) => Some(error.as_str()),
             PipelineReadiness::Preparing | PipelineReadiness::Ready => None,
         }
         .or_else(|| self.renderer.fatal_error())
-        .or_else(|| self.worker.error())
+        .map(ViewportError::Backend)
         .or_else(|| {
-            self.preview_metrics
-                .get("admission_error")
-                .and_then(serde_json::Value::as_str)
+            self.worker
+                .error()
+                .or_else(|| admission_error(&self.preview_metrics))
+                .map(ViewportError::Request)
         })
     }
 
@@ -620,8 +668,7 @@ impl Viewport {
         if self.runtime_preparing() {
             self.testing.pose = None;
             self.testing.failure = Some(error.to_owned());
-        }
-        if let Some(metrics) = self.preview_metrics.as_object_mut() {
+        } else if let Some(metrics) = self.preview_metrics.as_object_mut() {
             drop(metrics.insert("admission_error".into(), serde_json::json!(error)));
         }
     }

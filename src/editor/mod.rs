@@ -263,6 +263,10 @@ impl App {
         }
     }
 
+    fn visible_status(&self) -> std::borrow::Cow<'_, str> {
+        self.viewport.status_text(&self.status)
+    }
+
     fn save(&mut self) -> Result<(), String> {
         if self.compile.is_some() {
             return Err("Wait for the current build or cancel it before saving again. New edits remain in memory.".into());
@@ -401,9 +405,6 @@ impl App {
         self.bakes.poll();
         self.poll_safety();
         self.poll_navigation();
-        if let Some(error) = self.viewport.status() {
-            self.status = format!("Viewport: {error}");
-        }
     }
 
     fn dialogs(&mut self) {
