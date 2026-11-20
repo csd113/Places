@@ -197,9 +197,19 @@ fn metadata_identity(
 /// Returns package validation errors or an undeclared identity.
 pub fn open_level(path: &Path, id: &str) -> Result<OpenedPackage, String> {
     let file = super::archive::open_file(path)?;
-    let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
-    let project_id = super::project::read_index(&mut reader)?.map(|index| index.project.id);
-    super::project::select(&mut reader, Some(id))?;
+    let reader = PackageReader::new(file).map_err(|e| e.to_string())?;
+    open_selected(reader, id)
+}
+
+fn open_selected<R: std::io::Read + std::io::Seek>(
+    mut reader: PackageReader<R>,
+    id: &str,
+) -> Result<OpenedPackage, String> {
+    let project = super::project::read_index(&mut reader)?;
+    if let Some(index) = &project {
+        let _member = super::project::select_index(&mut reader, index, Some(id))?;
+    }
+    let project_id = project.map(|index| index.project.id);
     let mut opened = open_reader(reader)?;
     opened.project_id = project_id;
     if opened.level.id != id {
@@ -519,7 +529,14 @@ pub fn inspect(path: &Path) -> Result<Manifest, String> {
 /// Returns invalid archive/index/manifest errors or an undeclared map identity.
 pub fn inspect_level(path: &Path, id: &str) -> Result<Manifest, String> {
     let file = super::archive::open_file(path)?;
-    let mut reader = PackageReader::new(file).map_err(|e| e.to_string())?;
+    let reader = PackageReader::new(file).map_err(|e| e.to_string())?;
+    inspect_selected(reader, id)
+}
+
+fn inspect_selected<R: std::io::Read + std::io::Seek>(
+    mut reader: PackageReader<R>,
+    id: &str,
+) -> Result<Manifest, String> {
     super::project::select(&mut reader, Some(id))?;
     let manifest = read_manifest(&mut reader)?;
     if manifest.id != id {
@@ -571,6 +588,123 @@ pub fn package_identity(entry: &crate::engine::loader::LevelEntry) -> Result<Str
             let manifest = inspect_level(&entry.path, &entry.id)?;
             manifest_identity(&manifest)
         }
+    }
+}
+
+/// Manifest identity paired with the file observed on the reading handle.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct PackageRevision {
+    manifest_sha256: String,
+    file: PackageFileIdentity,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+struct PackageFileIdentity {
+    bytes: u64,
+    modified: std::time::SystemTime,
+    #[cfg(unix)]
+    node: (u64, u64),
+    #[cfg(unix)]
+    changed: (i64, i64),
+}
+
+impl PackageFileIdentity {
+    fn from_metadata(metadata: &std::fs::Metadata) -> Result<Self, String> {
+        #[cfg(unix)]
+        use std::os::unix::fs::MetadataExt as _;
+        Ok(Self {
+            bytes: metadata.len(),
+            modified: metadata.modified().map_err(|error| error.to_string())?,
+            #[cfg(unix)]
+            node: (metadata.dev(), metadata.ino()),
+            #[cfg(unix)]
+            changed: (metadata.ctime(), metadata.ctime_nsec()),
+        })
+    }
+}
+
+fn revision_changed() -> String {
+    "Map package changed during loading; select the map again".into()
+}
+
+fn read_package_file<T>(
+    path: &Path,
+    expected: Option<&PackageFileIdentity>,
+    read: impl FnOnce(&mut std::fs::File) -> Result<T, String>,
+) -> Result<(T, PackageFileIdentity), String> {
+    let mut file = super::archive::open_file(path)?;
+    let before = PackageFileIdentity::from_metadata(&file.metadata().map_err(|e| e.to_string())?)?;
+    if expected.is_some_and(|stamp| stamp != &before) {
+        return Err(revision_changed());
+    }
+    let result = read(&mut file)?;
+    let after = PackageFileIdentity::from_metadata(&file.metadata().map_err(|e| e.to_string())?)?;
+    let named =
+        std::fs::metadata(path).map_err(|error| format!("{}: {error}", revision_changed()))?;
+    if before != after || !named.is_file() || before != PackageFileIdentity::from_metadata(&named)?
+    {
+        return Err(revision_changed());
+    }
+    Ok((result, before))
+}
+
+impl PackageRevision {
+    pub(crate) fn inspect(path: &Path, id: &str) -> Result<(Self, Manifest), String> {
+        let (manifest, file) = read_package_file(path, None, |file| {
+            inspect_selected(
+                PackageReader::new(file).map_err(|error| error.to_string())?,
+                id,
+            )
+        })?;
+        Ok((
+            Self {
+                manifest_sha256: manifest_identity(&manifest)?,
+                file,
+            },
+            manifest,
+        ))
+    }
+
+    pub(crate) const fn manifest_sha256(&self) -> &str {
+        self.manifest_sha256.as_str()
+    }
+
+    pub(crate) const fn retained_bytes(&self) -> usize {
+        self.manifest_sha256.capacity()
+    }
+
+    pub(crate) fn allows_reuse(&self, other: &Self) -> bool {
+        // Require stable device/inode and change time. On platforms without
+        // these fields, decode the requested records from the current file.
+        cfg!(unix) && self == other
+    }
+
+    pub(crate) fn open_level(&self, path: &Path, id: &str) -> Result<OpenedPackage, String> {
+        read_package_file(path, Some(&self.file), |file| {
+            let opened = open_selected(
+                PackageReader::new(file).map_err(|error| error.to_string())?,
+                id,
+            )?;
+            if manifest_identity(&opened.manifest)? != self.manifest_sha256 {
+                return Err(revision_changed());
+            }
+            Ok(opened)
+        })
+        .map(|(opened, _)| opened)
+    }
+
+    pub(crate) fn load_variant(
+        &self,
+        path: &Path,
+        manifest: &Manifest,
+        quality: LightmapQuality,
+        assets: &mut crate::engine::props::PropAssets,
+    ) -> Result<LoadedVariant, String> {
+        read_package_file(path, Some(&self.file), |file| {
+            let mut reader = PackageReader::new(file).map_err(|error| error.to_string())?;
+            decode_named_variant(&mut reader, manifest, quality, assets)
+        })
+        .map(|(variant, _)| variant)
     }
 }
 

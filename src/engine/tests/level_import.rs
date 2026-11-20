@@ -155,6 +155,60 @@ fn write_target_fixture(
     fs::read(path).map_err(|error| error.to_string())
 }
 
+// The same manifest, file size and mtime must never authorize prepared-cache
+// reuse after ordinary replacement. Both small packages are byte-identical.
+#[cfg(unix)]
+#[test]
+fn prepared_package_revision_detects_byte_identical_replacement() -> Result<(), String> {
+    use crate::engine::package::world::PackageRevision;
+
+    let fixture = ImportFixture::new()?;
+    let levels = fixture.path("levels")?;
+    let path = levels.join("installed.placesmap");
+    let replacement = levels.join("replacement.placesmap");
+    let original = write_fixture(&path, "warm_package_identity")?;
+    let (initial, _) = PackageRevision::inspect(&path, "warm_package_identity")?;
+    let (warm, _) = PackageRevision::inspect(&path, "warm_package_identity")?;
+    assert!(
+        initial.allows_reuse(&warm),
+        "an unchanged revision should hit the cache"
+    );
+
+    let modified = fs::metadata(&path)
+        .and_then(|metadata| metadata.modified())
+        .map_err(|e| e.to_string())?;
+    fs::write(&replacement, original).map_err(|e| e.to_string())?;
+    fs::OpenOptions::new()
+        .write(true)
+        .open(&replacement)
+        .and_then(|file| file.set_modified(modified))
+        .map_err(|e| e.to_string())?;
+    fs::rename(&replacement, &path).map_err(|e| e.to_string())?;
+    let current_mtime = fs::metadata(&path)
+        .and_then(|metadata| metadata.modified())
+        .map_err(|e| e.to_string())?;
+    assert_eq!(
+        modified, current_mtime,
+        "the replacement preserves the visible mtime"
+    );
+    let (changed, _) = PackageRevision::inspect(&path, "warm_package_identity")?;
+    assert_eq!(
+        initial.manifest_sha256(),
+        changed.manifest_sha256(),
+        "the replacement preserves the manifest"
+    );
+    assert!(
+        !initial.allows_reuse(&changed),
+        "replacement must invalidate cached preparation"
+    );
+    assert!(
+        initial.open_level(&path, "warm_package_identity").is_err(),
+        "an outstanding read must reject the replacement"
+    );
+    let _opened = changed.open_level(&path, "warm_package_identity")?;
+    Ok(())
+}
+
 #[test]
 fn importing_installed_file_aliases_never_truncates_the_package() -> Result<(), String> {
     let fixture = ImportFixture::new()?;

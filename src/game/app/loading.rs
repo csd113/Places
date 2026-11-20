@@ -15,7 +15,7 @@ use std::thread::JoinHandle;
 
 use crate::engine::loader::{LevelEntry, LevelManager, LevelSourceType, LoadedLevel};
 use crate::engine::package::collision::CompiledCollision;
-use crate::engine::package::world::{ProbeCaptures, load_variant};
+use crate::engine::package::world::{PackageRevision, ProbeCaptures};
 use crate::engine::props::PropAssets;
 use crate::engine::quality::LightmapQuality;
 use crate::engine::render::{CharacterScene, LevelBuild};
@@ -72,36 +72,24 @@ impl Phase {
     }
 }
 
-/// Content identity of one compiled package captured when its request value
-/// was created.
-///
-/// This is the package's own compiled manifest digest (the same
-/// `package_identity` the preparation worker keys its cache on): it covers the
-/// declared dependencies and the compiler fingerprint, so a rebuilt file with
-/// the same path, size and timestamp still gets a different identity. A value
-/// that could not be captured is never coalesced.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum SourceIdentity {
-    /// The package was inspected and hashed at request time.
-    Known(String),
-    /// The package could not be inspected; no outstanding preparation may be
-    /// reused for it.
-    Unknown,
-}
+/// Package revision captured when a request is created.
+#[derive(Clone, Debug)]
+pub struct SourceIdentity(Option<PackageRevision>);
 
 impl SourceIdentity {
     fn capture(entry: &LevelEntry) -> Self {
-        crate::engine::package::world::package_identity(entry).map_or(Self::Unknown, Self::Known)
+        Self(
+            PackageRevision::inspect(&entry.path, &entry.id)
+                .ok()
+                .map(|(revision, _)| revision),
+        )
     }
-}
 
-/// True when two captured identities are both known and equal.
-fn identities_match(left: &SourceIdentity, right: &SourceIdentity) -> bool {
-    match (left, right) {
-        (SourceIdentity::Known(left_identity), SourceIdentity::Known(right_identity)) => {
-            left_identity == right_identity
-        }
-        _ => false,
+    fn matches(&self, other: &Self) -> bool {
+        self.0
+            .as_ref()
+            .zip(other.0.as_ref())
+            .is_some_and(|(left, right)| left.allows_reuse(right))
     }
 }
 
@@ -140,13 +128,8 @@ impl Source {
 
     /// True when both requests name the same world content.
     ///
-    /// The comparison uses the content identities captured independently when
-    /// each value was created, never a fresh stat of the two paths: a request
-    /// created after an in-place edit carries a different identity and must
-    /// supersede the outstanding preparation instead of promoting it. A
-    /// different path, changed entry metadata, or a request after completion
-    /// does not establish the defect, and an identity that could not be
-    /// captured never coalesces.
+    /// Independently captured file revisions keep requests after a file edit
+    /// or replacement from promoting an earlier preparation.
     ///
     /// This coalesces in-flight requests only; retained-build reuse is the
     /// worker cache's decision.
@@ -154,10 +137,10 @@ impl Source {
     pub fn same_preparation(&self, other: &Self) -> bool {
         match (self, other) {
             (Self::Entry(a, a_identity), Self::Entry(b, b_identity)) => {
-                a == b && identities_match(a_identity, b_identity)
+                a == b && a_identity.matches(b_identity)
             }
             (Self::Retained(a, a_identity), Self::Retained(b, b_identity)) => {
-                a.entry == b.entry && identities_match(a_identity, b_identity)
+                a.entry == b.entry && a_identity.matches(b_identity)
             }
             _ => false,
         }
@@ -530,31 +513,21 @@ impl<I, O> Drop for Worker<I, O> {
     }
 }
 
-/// Identity of one decoded package variant: the canonical manifest SHA-256 and
-/// lightmap quality. Archive recompression does not change prepared content.
+/// One file revision and quality whose prepared records were decoded together.
 #[derive(Clone, Debug, PartialEq, Eq)]
 struct PackageKey {
-    package_sha256: String,
+    revision: PackageRevision,
     quality: LightmapQuality,
 }
 
 impl PackageKey {
     fn for_entry(entry: &LevelEntry, quality: LightmapQuality) -> Result<Self, String> {
-        Ok(Self {
-            package_sha256: crate::engine::package::world::package_identity(entry)?,
-            quality,
-        })
-    }
-
-    fn check_manifest(&self, manifest: &crate::engine::package::Manifest) -> Result<(), String> {
-        if crate::engine::package::world::manifest_identity(manifest)? != self.package_sha256 {
-            return Err("Map package changed during loading; select the map again".to_string());
-        }
-        Ok(())
+        let (revision, _) = PackageRevision::inspect(&entry.path, &entry.id)?;
+        Ok(Self { revision, quality })
     }
 
     fn check_loaded(&self, loaded: &LoadedLevel) -> Result<(), String> {
-        if loaded.package_identity.as_deref() != Some(self.package_sha256.as_str()) {
+        if loaded.package_identity.as_deref() != Some(self.revision.manifest_sha256()) {
             return Err(
                 "Map package changed since its level was read; reload the map before changing lighting"
                     .to_string(),
@@ -620,7 +593,7 @@ impl BuildCache {
         for (key, records, bytes) in &mut self.entries {
             *bytes = records
                 .retained_bytes()
-                .saturating_add(key.package_sha256.capacity());
+                .saturating_add(key.revision.retained_bytes());
         }
     }
 
@@ -666,7 +639,7 @@ impl BuildCache {
         self.enforce_limits();
         let bytes = records
             .retained_bytes()
-            .saturating_add(key.package_sha256.capacity());
+            .saturating_add(key.revision.retained_bytes());
         if max_entries == 0 || bytes > max_bytes {
             return;
         }
@@ -731,11 +704,13 @@ fn reusable_records(
     identities.retain(|(_, records)| records.strong_count() != 0);
     builds
         .entries
-        .retain(|(previous, _, _)| previous.package_sha256 == key.package_sha256);
+        .retain(|(previous, _, _)| previous.revision.allows_reuse(&key.revision));
     builds.get(key).or_else(|| {
-        identities
-            .iter()
-            .find_map(|(previous, records)| (previous == key).then(|| records.upgrade()).flatten())
+        identities.iter().find_map(|(previous, records)| {
+            (previous.quality == key.quality && previous.revision.allows_reuse(&key.revision))
+                .then(|| records.upgrade())
+                .flatten()
+        })
     })
 }
 
@@ -794,8 +769,7 @@ fn prepare_world(
             // Validate semantics/catalog/dependencies once per request. Both
             // consumers use this snapshot; the variant reader still checks its
             // freshly opened archive's manifest and every payload hash.
-            let opened = crate::engine::package::world::open_level(&entry.path, &entry.id)?;
-            key.check_manifest(&opened.manifest)?;
+            let opened = key.revision.open_level(&entry.path, &entry.id)?;
             let loaded = if reusable.is_some() {
                 manager.load_opened_level(&entry, opened)?
             } else {
@@ -809,7 +783,8 @@ fn prepare_world(
                     let budget = crate::engine::resources::current();
                     let reader = scope.spawn(|| {
                         let _variant_scope = crate::engine::resources::enter(budget);
-                        load_variant(&entry.path, &manifest, key.quality, assets)
+                        key.revision
+                            .load_variant(&entry.path, &manifest, key.quality, assets)
                     });
                     let loaded = manager.load_opened_level(&entry, opened);
                     (loaded, reader.join())
@@ -861,15 +836,17 @@ fn prepare_world(
         "[loading] package identity level={} variant={} sha256={} source={}",
         loaded.level.id,
         request.lightmaps.name(),
-        key.package_sha256,
+        key.revision.manifest_sha256(),
         loaded.entry.path.display()
     ));
     // Variant decoding synchronizes model ownership on cache misses. Hits also
     // release unrelated models and retain only this request's dependency hashes.
     if reusable.is_some() {
-        let requested_manifest =
-            crate::engine::package::world::inspect_level(&loaded.entry.path, &loaded.entry.id)?;
-        key.check_manifest(&requested_manifest)?;
+        let (current, requested_manifest) =
+            PackageRevision::inspect(&loaded.entry.path, &loaded.entry.id)?;
+        if !key.revision.allows_reuse(&current) {
+            return Err("Map package changed during loading; select the map again".into());
+        }
         assets.synchronize_dependencies(&requested_manifest.dependencies);
     }
     let cache_hit = reusable.is_some();
@@ -1181,10 +1158,10 @@ fn load_entry_variant(
 ) -> Result<crate::engine::package::world::LoadedVariant, String> {
     match entry.source_type {
         LevelSourceType::Bundled | LevelSourceType::Installed => {
-            let opened = crate::engine::package::world::open_level(&entry.path, &entry.id)?;
-            key.check_manifest(&opened.manifest)?;
+            let opened = key.revision.open_level(&entry.path, &entry.id)?;
             ensure_variant_supported(entry, &opened.manifest, key.quality)?;
-            load_variant(&entry.path, &opened.manifest, key.quality, assets)
+            key.revision
+                .load_variant(&entry.path, &opened.manifest, key.quality, assets)
         }
     }
 }
