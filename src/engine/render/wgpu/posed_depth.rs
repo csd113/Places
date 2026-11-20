@@ -1,6 +1,7 @@
 //! Current-pose practical-light depth layers, fitted per receiver and emitter
 //! tap. Unsupported close-source projections retain exact fragment ray queries.
-use crate::engine::render::common::light_transport::EntityDirectLight;
+use crate::engine::lighting::entity_receivers::EntityDirectLight;
+use crate::engine::lighting::posed_visibility::{depth_source_eligible, depth_taps};
 use crate::engine::spatial::Aabb;
 use glam::{Mat4, Vec3};
 use wgpu::util::DeviceExt;
@@ -113,13 +114,10 @@ impl Depth {
         let mut samples = vec![Sample::zero(); count.max(1)];
         for (receiver_index, receiver) in receivers.iter().enumerate() {
             for (source_index, source) in receiver.sources.iter().enumerate() {
-                if source.color_strength[3] <= 0.0 || !affects(source, &receiver.bounds) {
+                if !depth_source_eligible(source, &receiver.bounds) {
                     continue;
                 }
-                for (tap_index, tap) in source.taps.iter().enumerate() {
-                    if tap[3] <= 0.0 {
-                        continue;
-                    }
+                for (tap_index, tap) in depth_taps(source) {
                     let Some(projection) =
                         projection(Vec3::from_slice(&tap[..3]), &receiver.bounds)
                     else {
@@ -425,21 +423,4 @@ fn projection(source: Vec3, bounds: &Aabb) -> Option<Mat4> {
     let result =
         glam::camera::rh::proj::directx::perspective(angle, 1.0, near * 0.98, far * 1.02) * view;
     result.is_finite().then_some(result)
-}
-#[expect(
-    clippy::arithmetic_side_effects,
-    reason = "Finite geometric range comparison; no integer arithmetic"
-)]
-fn affects(source: &EntityDirectLight, bounds: &Aabb) -> bool {
-    let point = Vec3::from_slice(&source.position_range[..3]);
-    let closest = point.clamp(Vec3::from_array(bounds.min), Vec3::from_array(bounds.max));
-    let delta = point - closest;
-    let distance = if source.extent_falloff[3] > 0.5 {
-        (delta.x.abs() - source.extent_falloff[0])
-            .max(0.0)
-            .hypot((delta.z.abs() - source.extent_falloff[1]).max(0.0))
-    } else {
-        delta.length()
-    };
-    distance < source.position_range[3]
 }

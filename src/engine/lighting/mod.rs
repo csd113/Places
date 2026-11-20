@@ -145,6 +145,8 @@ pub(in crate::engine) mod entity_receivers;
 mod floor_recovery;
 mod light;
 pub mod lightmap;
+pub(in crate::engine) mod posed_topology;
+pub(in crate::engine) mod posed_visibility;
 pub(crate) mod prepared_source;
 pub(crate) mod probe_placement;
 pub mod probes;

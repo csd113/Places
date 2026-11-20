@@ -5,24 +5,17 @@ use std::collections::HashMap;
 use glam::{Mat4, Vec3};
 use wgpu::util::DeviceExt;
 
+use crate::engine::lighting::posed_topology::Topology;
+use crate::engine::lighting::posed_visibility::{
+    GeometryKey, PoseKey, ambient_changed, ambient_reach,
+};
 use crate::engine::lighting::transport::runtime_visibility::{Node, Triangle};
 use crate::engine::render::common::CharacterScene;
+use crate::engine::render::common::character::Character;
 use crate::engine::spatial::Aabb;
 
-#[derive(PartialEq)]
-struct PoseKey {
-    identity: usize,
-    asset: usize,
-    pose: Vec<crate::engine::entity::JointPose>,
-    opacity: u32,
-    transform: [f32; 16],
-    direct: Vec<crate::engine::render::common::light_transport::EntityDirectLight>,
-}
-
 struct GeometryCache {
-    asset: usize,
-    pose: Vec<crate::engine::entity::JointPose>,
-    opacity: u32,
+    key: GeometryKey,
     geometry: super::posed_topology::Geometry,
 }
 
@@ -170,9 +163,7 @@ impl PosedVisibility {
         let keys: Vec<_> = characters()
             .map(|character| PoseKey {
                 identity: std::ptr::from_ref(character).addr(),
-                asset: std::ptr::from_ref(character.asset().as_ref()).addr(),
-                pose: character.animator().joint_pose(),
-                opacity: character.opacity().to_bits(),
+                geometry: geometry_key(character),
                 transform: character.transform().to_cols_array(),
                 direct: character
                     .spatial_lighting()
@@ -182,14 +173,7 @@ impl PosedVisibility {
         if self.keys == keys {
             return;
         }
-        let ambient_changed = self.keys.len() != keys.len()
-            || self.keys.iter().zip(&keys).any(|(old, new)| {
-                old.identity != new.identity
-                    || old.asset != new.asset
-                    || old.pose != new.pose
-                    || old.opacity != new.opacity
-                    || old.transform[..12] != new.transform[..12]
-            });
+        let changed_ambient = ambient_changed(&self.keys, &keys);
         self.keys = keys;
         self.geometry
             .retain(|identity, _| self.keys.iter().any(|key| key.identity == *identity));
@@ -211,7 +195,7 @@ impl PosedVisibility {
                 return;
             }
         };
-        self.publish_frame(device, queue, frame, ambient_changed);
+        self.publish_frame(device, queue, frame, changed_ambient);
     }
 
     fn publish_frame(
@@ -331,8 +315,9 @@ impl PosedVisibility {
                 .get(&identity)
                 .ok_or("Current character visibility cache is unavailable")?;
             let triangle_first = u32::try_from(frame.triangles.len()).map_err(|e| e.to_string())?;
+            let topology = &cached.geometry.topology;
             let root = append_transformed(
-                cached,
+                topology,
                 character.transform(),
                 &mut frame.nodes,
                 &mut frame.triangles,
@@ -344,15 +329,10 @@ impl PosedVisibility {
                     .checked_mul(32)
                     .ok_or("Posed source base overflow")?;
                 let _previous = self.direct_bases.insert(identity, exact_root(source_base));
-                let bounds = cached
-                    .geometry
-                    .nodes
-                    .first()
-                    .ok_or("Posed bounds unavailable")?;
+                let bounds = topology.nodes.first().ok_or("Posed bounds unavailable")?;
                 frame.receivers.push(super::posed_depth::Receiver {
                     first: triangle_first,
-                    count: u32::try_from(cached.geometry.triangles.len())
-                        .map_err(|e| e.to_string())?,
+                    count: u32::try_from(topology.triangles.len()).map_err(|e| e.to_string())?,
                     bounds: crate::engine::render::common::props::transform_bounds(
                         &Aabb {
                             min: bounds.minimum,
@@ -383,41 +363,39 @@ impl PosedVisibility {
         Ok(frame)
     }
 
-    fn cache_geometry(
-        &mut self,
-        character: &crate::engine::render::common::character::Character,
-    ) -> Result<(), String> {
+    fn cache_geometry(&mut self, character: &Character) -> Result<(), String> {
         let identity = std::ptr::from_ref(character).addr();
-        let asset = std::ptr::from_ref(character.asset().as_ref()).addr();
-        let pose = character.animator().joint_pose();
-        let opacity = character.opacity().to_bits();
-        let changed = self.geometry.get(&identity).is_none_or(|cached| {
-            cached.asset != asset || cached.pose != pose || cached.opacity != opacity
-        });
+        let key = geometry_key(character);
+        let changed = self
+            .geometry
+            .get(&identity)
+            .is_none_or(|cached| cached.key != key);
         if changed {
             if let Some(cached) = self
                 .geometry
                 .get_mut(&identity)
-                .filter(|cached| cached.asset == asset)
+                .filter(|cached| cached.key.can_refit(&key))
             {
                 cached.geometry.refit(character)?;
-                cached.pose = pose;
-                cached.opacity = opacity;
+                cached.key = key;
             } else {
                 let geometry = super::posed_topology::Geometry::new(character)?;
-                drop(self.geometry.insert(
-                    identity,
-                    GeometryCache {
-                        asset,
-                        pose,
-                        opacity,
-                        geometry,
-                    },
-                ));
+                drop(
+                    self.geometry
+                        .insert(identity, GeometryCache { key, geometry }),
+                );
             }
         }
         Ok(())
     }
+}
+
+fn geometry_key(character: &Character) -> GeometryKey {
+    GeometryKey::new(
+        std::ptr::from_ref(character.asset().as_ref()).addr(),
+        character.animator().joint_pose(),
+        character.opacity(),
+    )
 }
 
 fn append_ambient(
@@ -456,10 +434,7 @@ fn append_ambient(
             reach: [0.0; 4],
         });
     }
-    let reach = Vec3::from_array(bounds.max)
-        .distance(Vec3::from_array(bounds.min))
-        .max(0.01)
-        * 1.01;
+    let reach = ambient_reach(&bounds);
     for vertex in output.iter_mut().skip(first) {
         vertex.reach[0] = reach;
     }
@@ -467,13 +442,12 @@ fn append_ambient(
 }
 
 fn append_transformed(
-    cached: &GeometryCache,
+    topology: &Topology,
     transform: Mat4,
     nodes: &mut Vec<Node>,
     triangles: &mut Vec<Triangle>,
 ) -> Result<f32, String> {
-    if !cached
-        .geometry
+    if !topology
         .triangles
         .iter()
         .any(|triangle| triangle.a_solid[3] > 0.0)
@@ -487,7 +461,7 @@ fn append_transformed(
     if node_base >= 16_777_214 {
         return Err("Posed visibility root exceeds exact float indexing".into());
     }
-    for source in &cached.geometry.nodes {
+    for source in &topology.nodes {
         let mut node = *source;
         let bounds = crate::engine::render::common::props::transform_bounds(
             &Aabb {
@@ -506,7 +480,7 @@ fn append_transformed(
         node.escape = node.escape.saturating_add(node_base);
         nodes.push(node);
     }
-    for source in &cached.geometry.triangles {
+    for source in &topology.triangles {
         let point = transform.transform_point3(Vec3::from_slice(&source.a_solid[..3]));
         let edge0 = transform.transform_vector3(Vec3::from_slice(&source.edge0[..3]));
         let edge1 = transform.transform_vector3(Vec3::from_slice(&source.edge1[..3]));

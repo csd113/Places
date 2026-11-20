@@ -1,5 +1,6 @@
 //! Pose-owned scalar accessibility. Direct and residual-direction rays retain
 //! fragment precision; front/back samples never share a sharp vertex seam.
+use crate::engine::lighting::posed_visibility::ambient_needs_reset;
 use wgpu::util::DeviceExt;
 
 #[repr(C)]
@@ -81,8 +82,9 @@ impl Ambient {
         reset: bool,
     ) -> Result<bool, String> {
         self.dirty = false;
-        self.reset |= reset || self.count != u32::try_from(vertices.len()).unwrap_or(u32::MAX);
-        self.count = u32::try_from(vertices.len()).map_err(|error| error.to_string())?;
+        let count = u32::try_from(vertices.len());
+        self.reset = ambient_needs_reset(self.reset, reset, self.count, count.unwrap_or(u32::MAX));
+        self.count = count.map_err(|error| error.to_string())?;
         if self.count == 0 {
             self.dirty = false;
             return Ok(false);
