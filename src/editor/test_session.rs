@@ -141,17 +141,22 @@ impl Session {
         crate::game::companion_tool::clear(renderer);
     }
 
-    pub fn event(&mut self, event: &Event) {
-        if self.game.player_is_dead()
-            && self.game.entities().has_encounter()
-            && pressed_control(event, &self.settings.bindings) == Some(Control::Interact)
-        {
-            if let Err(error) = self.game.respawn_encounter() {
-                self.warning = error;
-            }
-            self.input.clear_gameplay_inputs();
-            return;
+    /// Stage speech over a real encounter death for the native input witness.
+    pub(super) fn verification_respawn_speech(&mut self, modal: bool) -> Result<(), String> {
+        if !self.game.player_is_dead() || !self.game.entities().has_encounter() {
+            return Err("Respawn speech verification needs a dead encounter player".into());
         }
+        self.speech.subtitles.guidance_requested = modal.then_some(());
+        self.enqueue_message(
+            "Respawn input witness".into(),
+            &["Return closes this overlay.".into()],
+            false,
+        );
+        self.speech.finish_commands();
+        Ok(())
+    }
+
+    pub fn event(&mut self, event: &Event) {
         if self.observe_tool_event(event) {
             return;
         }
@@ -164,6 +169,16 @@ impl Session {
         if crate::game::input::pressed_key(event)
             .is_some_and(|key| self.speech.navigate(key, cinematic))
         {
+            return;
+        }
+        if self.game.player_is_dead()
+            && self.game.entities().has_encounter()
+            && pressed_control(event, &self.settings.bindings) == Some(Control::Interact)
+        {
+            if let Err(error) = self.game.respawn_encounter() {
+                self.warning = error;
+            }
+            self.input.clear_gameplay_inputs();
             return;
         }
         if self.gameplay_controls_blocked() {

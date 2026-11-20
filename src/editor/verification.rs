@@ -70,6 +70,12 @@ enum Action {
         shift: bool,
         #[serde(default)]
         pressed: Option<bool>,
+        #[serde(default)]
+        repeat: bool,
+    },
+    /// Places a short subtitle or guidance panel over a real Quick Test death.
+    RespawnSpeech {
+        modal: bool,
     },
     Mouse {
         button: String,
@@ -241,7 +247,9 @@ impl Verification {
                 command,
                 shift,
                 pressed,
-            } => scripted_key(app, window, key, *command, *shift, *pressed)?,
+                repeat,
+            } => scripted_key(app, window, key, *command, *shift, *pressed, *repeat)?,
+            Action::RespawnSpeech { modal } => app.viewport.verification_respawn_speech(*modal)?,
             Action::Text { text } => dispatch(
                 app,
                 window,
@@ -385,6 +393,7 @@ impl Verification {
             ("runtime_preparing", serde_json::json!(app.runtime_preparing())),
             ("runtime_status", serde_json::json!(app.runtime_status())),
             ("runtime", app.viewport.runtime_snapshot()),
+            ("test_player_health", serde_json::json!(app.viewport.runtime_health().map(|(health, _)| health))),
             ("camera_eye",serde_json::json!(app.viewport.play_camera().ok().map(|pose|pose.eye.to_array()))),
             ("play_floor_pick",serde_json::json!(app.play_floor_pick)),
             ("pending_play",serde_json::json!(app.pending_play.as_ref().map(|intent|serde_json::json!({"level":intent.level,"root":intent.root,"pose":intent.pose.map(crate::game::play_spawn::Pose::encode)})))),
@@ -450,6 +459,7 @@ fn scripted_key(
     command: bool,
     shift: bool,
     pressed: Option<bool>,
+    repeat: bool,
 ) -> Result<(), String> {
     let code = Keycode::from_name(key).ok_or("Unknown verification key")?;
     let mut modifiers = Mod::NOMOD;
@@ -460,10 +470,10 @@ fn scripted_key(
         modifiers |= Mod::LSHIFTMOD;
     }
     if pressed.is_none_or(|edge| edge) {
-        key_event(app, window, code, modifiers, true);
+        key_event(app, window, code, modifiers, true, repeat);
     }
     if pressed.is_none_or(|edge| !edge) {
-        key_event(app, window, code, modifiers, false);
+        key_event(app, window, code, modifiers, false, false);
     }
     Ok(())
 }
@@ -507,8 +517,13 @@ fn validate(action: &Action) -> Result<(), String> {
             key,
             command: _,
             shift: _,
-            pressed: _,
-        } => key.len() <= 32 && Keycode::from_name(key).is_some(),
+            pressed,
+            repeat,
+        } => {
+            key.len() <= 32
+                && Keycode::from_name(key).is_some()
+                && (!repeat || *pressed == Some(true))
+        }
         Action::Mouse {
             button,
             pressed: _,
@@ -526,7 +541,8 @@ fn validate(action: &Action) -> Result<(), String> {
                     .bytes()
                     .all(|byte| byte.is_ascii_alphanumeric() || matches!(byte, b'_' | b'-'))
         }
-        Action::WaitIdle
+        Action::RespawnSpeech { modal: _ }
+        | Action::WaitIdle
         | Action::WaitPlay
         | Action::WaitTest
         | Action::FocusLost
@@ -649,7 +665,14 @@ fn move_pointer(
     Ok(())
 }
 
-fn key_event(app: &mut App, window: &Window, code: Keycode, modifiers: Mod, pressed: bool) {
+fn key_event(
+    app: &mut App,
+    window: &Window,
+    code: Keycode,
+    modifiers: Mod,
+    pressed: bool,
+    repeat: bool,
+) {
     let event = if pressed {
         Event::KeyDown {
             timestamp: 0,
@@ -657,7 +680,7 @@ fn key_event(app: &mut App, window: &Window, code: Keycode, modifiers: Mod, pres
             keycode: Some(code),
             scancode: None,
             keymod: modifiers,
-            repeat: false,
+            repeat,
             which: 0,
             raw: 0,
         }

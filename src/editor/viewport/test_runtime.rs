@@ -136,6 +136,16 @@ impl Viewport {
             "policy":"private unsaved snapshot; same editor window; no package, profile or lighting bake"
         })
     }
+    pub(in crate::editor) fn verification_respawn_speech(
+        &mut self,
+        modal: bool,
+    ) -> Result<(), String> {
+        self.testing
+            .session
+            .as_mut()
+            .ok_or("Respawn speech verification needs an active Quick Test")?
+            .verification_respawn_speech(modal)
+    }
     pub fn runtime_event(&mut self, event: &sdl3::event::Event) {
         if let Some(session) = &mut self.testing.session {
             session.event(event);
