@@ -88,6 +88,7 @@ mod surface_cache;
 
 pub use alpha::{TransportAlphaSurface, TransportTextureAddress};
 
+use crate::engine::level::WaterShape;
 use crate::engine::lighting::lightmap::{
     Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind,
 };
@@ -217,7 +218,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 10;
+pub const SOLVER_REVISION: u64 = 11;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -994,11 +995,13 @@ pub struct TransportReceiver {
 ///
 /// Mirrors [`crate::engine::level::WaterVolume`] as plain scene data: the level's own
 /// resolution decides the footprint, surface and bottom, and the solver only
-/// needs the AABB, the surface plane and the extinction to decide how much
+/// needs the footprint, the vertical extent and the extinction to decide how much
 /// light reaches a point below the surface. The corresponding surface
 /// triangles are marked [`TransportTriangle::transmissive`] at build time.
 #[derive(Clone, Copy, Debug, PartialEq)]
 pub struct TransportWaterBody {
+    /// Resolved footprint shape.
+    pub shape: WaterShape,
     /// Footprint minimum X.
     pub x0: f32,
     /// Footprint maximum X.
@@ -1007,6 +1010,8 @@ pub struct TransportWaterBody {
     pub z0: f32,
     /// Footprint maximum Z.
     pub z1: f32,
+    /// Resolved circle radius, or zero for rectangles.
+    pub radius: f32,
     /// World Y of the free surface.
     pub surface_y: f32,
     /// World Y of the resolved bottom.
@@ -1021,10 +1026,12 @@ impl TransportWaterBody {
     #[must_use]
     pub fn from_volume(volume: &crate::engine::level::WaterVolume) -> Self {
         Self {
+            shape: volume.shape,
             x0: volume.x0.min(volume.x1),
             x1: volume.x0.max(volume.x1),
             z0: volume.z0.min(volume.z1),
             z1: volume.z0.max(volume.z1),
+            radius: volume.radius,
             surface_y: volume.surface_y,
             bottom_y: volume.bottom_y,
             extinction: super::tuning::WATER_EXTINCTION_PER_M,
@@ -2069,11 +2076,12 @@ impl TransportScene {
         }
         let mut out = [1.0_f32; 3];
         for body in &self.water {
-            if position[0] < body.x0
-                || position[0] > body.x1
-                || position[2] < body.z0
-                || position[2] > body.z1
-                || position[1] > body.surface_y
+            if position[1] > body.surface_y
+                || !body.shape.contains_footprint(
+                    [body.x0, body.x1, body.z0, body.z1],
+                    body.radius,
+                    [position[0], position[2]],
+                )
             {
                 continue;
             }
@@ -2663,6 +2671,7 @@ impl TransportScene {
                     water.x1,
                     water.z0,
                     water.z1,
+                    water.radius,
                     water.surface_y,
                     water.bottom_y,
                 ]
@@ -2670,6 +2679,7 @@ impl TransportScene {
                 .all(|value| value.is_finite())
                     && water.x0 <= water.x1
                     && water.z0 <= water.z1
+                    && (water.shape == WaterShape::Rect || water.radius > 0.0)
                     && water.bottom_y <= water.surface_y
                     && nonnegative(&water.extinction)
             })

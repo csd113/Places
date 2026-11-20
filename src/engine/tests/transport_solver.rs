@@ -77,10 +77,12 @@ fn fixture() -> Result<(TransportScene, Vec<(LightmapPatch, Chart)>), String> {
             (5, vec![5]),
         ])
         .with_water(vec![TransportWaterBody {
+            shape: WaterShape::Rect,
             x0: 0.0,
             x1: 0.9,
             z0: 0.0,
             z1: 2.0,
+            radius: 0.0,
             surface_y: 0.5,
             bottom_y: 0.0,
             extinction: [0.4, 0.2, 0.1],

@@ -1546,6 +1546,28 @@ pub struct WaterVolume {
     pub motion: WaterMotionDef,
 }
 
+impl WaterShape {
+    /// Tests a resolved footprint shared by collision and light transport.
+    pub(crate) fn contains_footprint(
+        self,
+        [x0, x1, z0, z1]: [f32; 4],
+        radius: f32,
+        [x, z]: [f32; 2],
+    ) -> bool {
+        if !x.is_finite() || !z.is_finite() {
+            return false;
+        }
+        match self {
+            Self::Rect => x >= x0 && x <= x1 && z >= z0 && z <= z1,
+            Self::Circle => {
+                let dx = x - f32::midpoint(x0, x1);
+                let dz = z - f32::midpoint(z0, z1);
+                dx.mul_add(dx, dz * dz) < radius * radius
+            }
+        }
+    }
+}
+
 impl WaterVolume {
     /// Footprint centre `(x, z)`: the bounding box midpoint for a rectangle
     /// and the disc's centre for a circle.
@@ -1564,18 +1586,8 @@ impl WaterVolume {
     /// radius), so its bounding box's axis extremes are not water.
     #[must_use]
     pub fn contains(&self, x: f32, z: f32) -> bool {
-        if !x.is_finite() || !z.is_finite() {
-            return false;
-        }
-        match self.shape {
-            WaterShape::Rect => x >= self.x0 && x <= self.x1 && z >= self.z0 && z <= self.z1,
-            WaterShape::Circle => {
-                let (cx, cz) = self.center();
-                let dx = x - cx;
-                let dz = z - cz;
-                dx.mul_add(dx, dz * dz) < self.radius * self.radius
-            }
-        }
+        self.shape
+            .contains_footprint([self.x0, self.x1, self.z0, self.z1], self.radius, [x, z])
     }
 
     /// True when the whole disc of `radius` around `(x, z)` lies inside this
