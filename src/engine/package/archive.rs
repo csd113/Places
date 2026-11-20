@@ -948,6 +948,65 @@ fn copy_bounded(
     Ok((total, hash::digest_hex(&hasher.finalize())))
 }
 
+/// Atomically renames within a filesystem, refusing any existing destination.
+pub(crate) fn rename_noreplace(source: &Path, target: &Path) -> std::io::Result<()> {
+    #[cfg(any(target_os = "macos", target_os = "linux"))]
+    {
+        use std::os::unix::ffi::OsStrExt as _;
+        let from = std::ffi::CString::new(source.as_os_str().as_bytes())?;
+        let to = std::ffi::CString::new(target.as_os_str().as_bytes())?;
+        #[cfg(target_os = "macos")]
+        // SAFETY: Both owned C strings stay live for this synchronous call.
+        let failed =
+            unsafe { libc::renamex_np(from.as_ptr(), to.as_ptr(), libc::RENAME_EXCL) } != 0;
+        #[cfg(target_os = "linux")]
+        // SAFETY: Both strings and the directory FD constants are valid for the call.
+        let failed = unsafe {
+            libc::renameat2(
+                libc::AT_FDCWD,
+                from.as_ptr(),
+                libc::AT_FDCWD,
+                to.as_ptr(),
+                libc::RENAME_NOREPLACE,
+            )
+        } != 0;
+        if failed {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+    #[cfg(windows)]
+    {
+        use std::os::windows::ffi::OsStrExt as _;
+        #[link(name = "kernel32")]
+        unsafe extern "system" {
+            fn MoveFileW(existing: *const u16, new: *const u16) -> i32;
+        }
+        fn wide(path: &Path) -> std::io::Result<Vec<u16>> {
+            let mut wide: Vec<u16> = path.as_os_str().encode_wide().collect();
+            if wide.contains(&0) {
+                return Err(std::io::ErrorKind::InvalidInput.into());
+            }
+            wide.push(0);
+            Ok(wide)
+        }
+        let from = wide(source)?;
+        let to = wide(target)?;
+        // SAFETY: Both buffers are owned, NUL-terminated strings valid for the call.
+        if unsafe { MoveFileW(from.as_ptr(), to.as_ptr()) } == 0 {
+            Err(std::io::Error::last_os_error())
+        } else {
+            Ok(())
+        }
+    }
+    #[cfg(not(any(target_os = "macos", target_os = "linux", windows)))]
+    {
+        let _ = (source, target);
+        Err(std::io::ErrorKind::Unsupported.into())
+    }
+}
+
 /// Retains the original failure and reports an owned temporary that could not
 /// be removed. Missing temporaries require no cleanup.
 pub(crate) fn cleanup_failed_write(path: &Path, error: String) -> String {

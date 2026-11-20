@@ -706,7 +706,8 @@ pub fn recover(
             return Err("Recovery destination appeared while importing".into());
         }
         crate::engine::progress::stage("publishing recovered source project");
-        publish_directory(&temporary, target)
+        super::archive::rename_noreplace(&temporary, target)
+            .map_err(|error| format!("Could not publish recovered project: {error}"))
     })();
     if result.is_err() {
         fs::remove_dir_all(&temporary).map_err(|e| {
@@ -748,48 +749,4 @@ fn stage_package(
             .map_err(|e| e.to_string())?;
     }
     output.sync_all().map_err(|e| e.to_string())
-}
-
-/// Atomic directory publication with no replacement, including a concurrently created empty folder.
-fn publish_directory(source: &Path, target: &Path) -> Result<(), String> {
-    #[cfg(unix)]
-    {
-        use std::os::unix::ffi::OsStrExt as _;
-        let from =
-            std::ffi::CString::new(source.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
-        let to =
-            std::ffi::CString::new(target.as_os_str().as_bytes()).map_err(|e| e.to_string())?;
-        #[cfg(target_os = "macos")]
-        // SAFETY: both paths are owned NUL-terminated C strings valid for the call;
-        // RENAME_EXCL requests atomic refusal when any destination exists.
-        let status = unsafe { libc::renamex_np(from.as_ptr(), to.as_ptr(), libc::RENAME_EXCL) };
-        #[cfg(target_os = "linux")]
-        // SAFETY: owned NUL-terminated paths and valid AT_FDCWD constants; the kernel
-        // performs an atomic no-replace rename without retaining either pointer.
-        let status = unsafe {
-            libc::renameat2(
-                libc::AT_FDCWD,
-                from.as_ptr(),
-                libc::AT_FDCWD,
-                to.as_ptr(),
-                libc::RENAME_NOREPLACE,
-            )
-        };
-        #[cfg(not(any(target_os = "macos", target_os = "linux")))]
-        return Err("Atomic project recovery is supported on macOS, Linux and Windows".into());
-        #[cfg(any(target_os = "macos", target_os = "linux"))]
-        if status == 0 {
-            Ok(())
-        } else {
-            Err(format!(
-                "Could not publish recovered project: {}",
-                std::io::Error::last_os_error()
-            ))
-        }
-    }
-    #[cfg(not(unix))]
-    {
-        // Windows directory rename refuses an existing destination, including empty folders.
-        fs::rename(source, target).map_err(|e| e.to_string())
-    }
 }

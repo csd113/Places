@@ -16,6 +16,10 @@ use crate::engine::package::archive::{cleanup_failed_write, create_temporary};
 use crate::engine::package::world::OpenedPackage;
 use crate::engine::props::catalog::PropCatalog;
 
+#[cfg(test)]
+#[path = "../tests/import_publication.rs"]
+mod publication_tests;
+
 /// Import transport budget: the project package budget plus generous ZIP
 /// metadata and incompressible-deflate overhead. This bounds staging disk use
 /// even when the source grows while copying or carries unused archive padding.
@@ -953,39 +957,49 @@ fn import_package(
         .map_err(|error| cleanup_failed_write(&temporary, error))?;
     let plan = accept(&temporary).map_err(|error| cleanup_failed_write(&temporary, error))?;
     drop(input);
+    publish_import(&temporary, &plan)?;
+    Ok((staged, plan.target))
+}
+
+fn publish_import(temporary: &Path, plan: &ImportPlan) -> Result<(), String> {
+    let publication_error = |error| {
+        cleanup_failed_write(
+            temporary,
+            format!(
+                "Failed to publish imported map {}: {error}",
+                plan.target.display()
+            ),
+        )
+    };
+    if !plan.unchanged && plan.previous_hash.is_none() {
+        // The directory lock serializes Places imports. The rename also refuses
+        // a destination created independently of that lock.
+        return crate::engine::package::archive::rename_noreplace(temporary, &plan.target)
+            .map_err(publication_error);
+    }
     let current_hash = match fs::symlink_metadata(&plan.target) {
-        Ok(metadata) if metadata.file_type().is_file() => Some(
+        Ok(metadata) if metadata.file_type().is_file() => {
             crate::engine::package::hash::sha256_file(&plan.target)
-                .map_err(|error| cleanup_failed_write(&temporary, error))?,
-        ),
-        Err(error) if error.kind() == std::io::ErrorKind::NotFound => None,
-        Ok(_) | Err(_) => {
+                .map_err(|error| cleanup_failed_write(temporary, error))?
+        }
+        _ => {
             return Err(cleanup_failed_write(
-                &temporary,
+                temporary,
                 "Import destination changed during admission".into(),
             ));
         }
     };
-    if current_hash != plan.previous_hash {
+    if plan.previous_hash.as_deref() != Some(current_hash.as_str()) {
         return Err(cleanup_failed_write(
-            &temporary,
+            temporary,
             "Import destination changed during admission; previous data retained".into(),
         ));
     }
     if plan.unchanged {
-        fs::remove_file(&temporary).map_err(|error| error.to_string())?;
+        fs::remove_file(temporary).map_err(|error| error.to_string())
     } else {
-        fs::rename(&temporary, &plan.target).map_err(|error| {
-            cleanup_failed_write(
-                &temporary,
-                format!(
-                    "Failed to publish imported map {}: {error}",
-                    plan.target.display()
-                ),
-            )
-        })?;
+        fs::rename(temporary, &plan.target).map_err(publication_error)
     }
-    Ok((staged, plan.target))
 }
 
 /// Owns and closes the write handle before validation or temporary cleanup.
