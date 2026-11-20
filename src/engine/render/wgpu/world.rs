@@ -77,6 +77,7 @@ use super::texture::{
     CacheOutcome, GpuTexture, TextureCache, TextureFiltering, TextureKey, TextureSemantic,
     TextureUploadRequest,
 };
+use crate::engine::lighting::entity_receivers::{EntityDirectLight, EntityLightingAnchor};
 use crate::engine::materials::{MaterialTable, ResolvedTexture, TextureOrigin};
 use crate::engine::quality::QualityLevel;
 use crate::engine::render::RenderCamera;
@@ -589,6 +590,56 @@ impl FogRegionUniform {
     }
 }
 
+/// Packed source shared by the practical-light and blacklight uniform arrays.
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable, serde::Serialize)]
+pub struct EntityDirectLightUniform {
+    pub position_range: [f32; 4],
+    pub color_strength: [f32; 4],
+    pub extent_falloff: [f32; 4],
+    pub taps: [[f32; 4]; 4],
+}
+
+impl EntityDirectLightUniform {
+    const ZERO: Self = Self::from_light(EntityDirectLight::ZERO);
+
+    const fn from_light(light: EntityDirectLight) -> Self {
+        Self {
+            position_range: light.position_range,
+            color_strength: light.color_strength,
+            extent_falloff: light.extent_falloff,
+            taps: light.taps,
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable, serde::Serialize)]
+pub struct EntityLightingAnchorUniform {
+    pub irradiance: [f32; 4],
+    pub moment: [f32; 4],
+    pub visibility: [[f32; 4]; 8],
+    pub attenuation: [f32; 4],
+}
+
+impl EntityLightingAnchorUniform {
+    const ZERO: Self = Self {
+        irradiance: [0.0; 4],
+        moment: [0.0; 4],
+        visibility: [[0.0; 4]; 8],
+        attenuation: [1.0, 1.0, 1.0, 0.0],
+    };
+
+    const fn from_anchor(anchor: EntityLightingAnchor) -> Self {
+        Self {
+            irradiance: anchor.irradiance,
+            moment: anchor.moment,
+            visibility: anchor.visibility,
+            attenuation: anchor.attenuation,
+        }
+    }
+}
+
 /// The frame/level environment uniform: the baked-light switch and scale, the
 /// lightmap selection, the fog constants and regional volumes, and the active
 /// planar mirror's projection and plane.
@@ -702,11 +753,11 @@ pub struct EnvironmentUniform {
     /// Model-space interpolation bounds; minimum.w enables spatial lighting.
     pub entity_bounds_min: [f32; 4],
     pub entity_bounds_extent: [f32; 4],
-    pub entity_anchors: [crate::engine::render::common::light_transport::EntityLightingAnchor; 8],
-    pub entity_direct: [crate::engine::render::common::light_transport::EntityDirectLight; 8],
+    pub entity_anchors: [EntityLightingAnchorUniform; 8],
+    pub entity_direct: [EntityDirectLightUniform; 8],
     pub contact_shadows: [crate::engine::render::common::dynamic_lights::ContactShadowUniform; 8],
     pub contact_shadow_count: [u32; 4],
-    pub blacklights: [crate::engine::render::common::light_transport::EntityDirectLight; 4],
+    pub blacklights: [EntityDirectLightUniform; 4],
     pub uv_receiver: crate::engine::render::common::blacklight::BlacklightReceiver,
     /// Self-excluded focused light for a moving receiver.
     pub caustics_receiver: super::caustics::CausticsReceiver,
@@ -725,7 +776,9 @@ impl EnvironmentUniform {
         sources: &crate::engine::render::common::blacklight::BlacklightSet,
         lighting: Option<&crate::engine::lighting::LevelLighting>,
     ) -> Self {
-        self.blacklights = sources.descriptors(lighting);
+        self.blacklights = sources
+            .descriptors(lighting)
+            .map(EntityDirectLightUniform::from_light);
         self
     }
 
@@ -769,15 +822,12 @@ impl EnvironmentUniform {
             entity_moment: [0.0; 4],
             entity_bounds_min: [0.0; 4],
             entity_bounds_extent: [0.0; 4],
-            entity_anchors:
-                [crate::engine::render::common::light_transport::EntityLightingAnchor::ZERO; 8],
-            entity_direct: [crate::engine::render::common::light_transport::EntityDirectLight::ZERO;
-                8],
+            entity_anchors: [EntityLightingAnchorUniform::ZERO; 8],
+            entity_direct: [EntityDirectLightUniform::ZERO; 8],
             contact_shadows:
                 [crate::engine::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8],
             contact_shadow_count: [0; 4],
-            blacklights: [crate::engine::render::common::light_transport::EntityDirectLight::ZERO;
-                4],
+            blacklights: [EntityDirectLightUniform::ZERO; 4],
             uv_receiver: crate::engine::render::common::blacklight::BlacklightReceiver::ZERO,
             caustics_receiver: super::caustics::CausticsReceiver::ZERO,
             storm: crate::engine::render::common::storm::StormUniform {
@@ -815,21 +865,19 @@ impl EnvironmentUniform {
     /// Installs residual probes and selected practical lights together. A
     /// legacy/Low entity explicitly clears the previous spatial payload.
     #[must_use]
-    pub const fn with_spatial_lighting(
+    pub fn with_spatial_lighting(
         mut self,
         spatial: Option<&crate::engine::render::common::light_transport::EntitySpatialLighting>,
     ) -> Self {
         self.entity_bounds_min = [0.0; 4];
         self.entity_bounds_extent = [0.0; 4];
-        self.entity_anchors =
-            [crate::engine::render::common::light_transport::EntityLightingAnchor::ZERO; 8];
-        self.entity_direct =
-            [crate::engine::render::common::light_transport::EntityDirectLight::ZERO; 8];
+        self.entity_anchors = [EntityLightingAnchorUniform::ZERO; 8];
+        self.entity_direct = [EntityDirectLightUniform::ZERO; 8];
         if let Some(value) = spatial {
             self.entity_bounds_min = value.bounds_min;
             self.entity_bounds_extent = value.bounds_extent;
-            self.entity_anchors = value.anchors;
-            self.entity_direct = value.direct;
+            self.entity_anchors = value.anchors.map(EntityLightingAnchorUniform::from_anchor);
+            self.entity_direct = value.direct.map(EntityDirectLightUniform::from_light);
         }
         self
     }

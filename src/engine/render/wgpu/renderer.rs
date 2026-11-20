@@ -5441,64 +5441,68 @@ impl WgpuRenderer {
         [crate::engine::render::common::dynamic_lights::ContactShadowUniform; 8],
         usize,
     ) {
-        let shadows =
-            [crate::engine::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8];
+        use crate::engine::lighting::contact_shadows::{eligible_caster, rank_contact_shadows};
+        use crate::engine::render::common::dynamic_lights::ContactShadowUniform;
+
         let Some(level) = self.installed_level.as_ref() else {
-            return (shadows, 0);
+            return ([ContactShadowUniform::ZERO; 8], 0);
         };
         let surfaces = crate::engine::level::LevelSurfaces::new(level);
-        let dynamic =
-            self.dynamic
-                .objects()
-                .iter()
-                .filter(|object| object.visible())
-                .filter(|object| {
-                    object.mesh().submeshes.iter().any(|submesh| {
-                        submesh.alpha.mode != crate::engine::materials::AlphaMode::Blend
-                    })
-                })
-                .map(|object| {
-                    (
-                        object.world_bounds(),
-                        object.entity_lighting().and_then(|sample| sample.prepared),
-                    )
-                });
-        let characters =
-            self.characters
-                .characters()
-                .iter()
-                .chain(self.characters.runtime_characters())
-                .filter(|character| character.is_visible())
-                .filter(|character| {
-                    character.asset().model.submeshes.iter().any(|submesh| {
-                        submesh.alpha.mode != crate::engine::materials::AlphaMode::Blend
-                    })
-                })
-                .flat_map(|character| {
-                    let sample = character.entity_lighting().prepared;
-                    character
-                        .contact_subject_bounds()
-                        .map(move |bounds| (bounds, sample))
-                });
-        let subjects = dynamic
-            .chain(characters)
-            .filter_map(|(bounds, sample)| {
-                crate::engine::render::common::dynamic_lights::contact_shadow(
-                    bounds,
-                    &surfaces,
-                    sample.map_or([0.0, 1.0, 0.0], |texel| texel.direction),
+        let dynamic = self
+            .dynamic
+            .objects()
+            .iter()
+            .filter(|object| {
+                eligible_caster(
+                    object.visible(),
+                    object
+                        .mesh()
+                        .submeshes
+                        .iter()
+                        .map(|submesh| submesh.alpha.mode),
                 )
             })
-            .filter_map(|shadow| {
-                crate::engine::render::common::dynamic_lights::contact_relevance(
-                    shadow,
-                    frame.eye,
-                    &frame.frustum,
-                    self.dynamic_transport.as_deref(),
+            .map(|object| {
+                (
+                    object.world_bounds(),
+                    object.entity_lighting().and_then(|sample| sample.prepared),
                 )
-                .map(|distance| (shadow, distance))
             });
-        crate::engine::render::common::dynamic_lights::select_contact_shadows(subjects)
+        let characters = self
+            .characters
+            .characters()
+            .iter()
+            .chain(self.characters.runtime_characters())
+            .filter(|character| {
+                eligible_caster(
+                    character.is_visible(),
+                    character
+                        .asset()
+                        .model
+                        .submeshes
+                        .iter()
+                        .map(|submesh| submesh.alpha.mode),
+                )
+            })
+            .flat_map(|character| {
+                let sample = character.entity_lighting().prepared;
+                character
+                    .contact_subject_bounds()
+                    .map(move |bounds| (bounds, sample))
+            });
+        let (ranked, count) = rank_contact_shadows(
+            dynamic.chain(characters),
+            &surfaces,
+            frame.eye,
+            &frame.frustum,
+            self.dynamic_transport.as_deref(),
+        );
+        (
+            ranked.map(|shadow| {
+                shadow.map_or(ContactShadowUniform::ZERO, ContactShadowUniform::from)
+            }),
+            count,
+        )
     }
 
     /// Creates the group-3 environment bindings from the current atlas, probe
@@ -7819,7 +7823,7 @@ impl WgpuRenderer {
                     .dynamic_transport
                     .as_ref()
                     .filter(|_| self.dynamic_visibility_error.is_none())
-                    .map(|_| &self.dynamic_visibility),
+                    .map(|_| self.dynamic_visibility.as_entity_occluders()),
                 receiver,
             },
             None,

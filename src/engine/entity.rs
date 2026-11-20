@@ -36,6 +36,13 @@ use crate::engine::level::{
 };
 use crate::engine::logging;
 
+/// Stable handle to one object inside a [`DynamicScene`](crate::engine::render::common::dynamic::DynamicScene).
+///
+/// Handles are never reused: despawning increments the scene's id counter, so a
+/// stale handle resolves to `None` instead of silently addressing a new object.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct DynamicId(pub(in crate::engine) u32);
+
 /// A finite local joint pose owned by authoritative gameplay.
 #[derive(Clone, Debug, PartialEq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]

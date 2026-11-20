@@ -3,7 +3,7 @@
 //! real shader clipping and cabin aperture behavior have native fixtures.
 use glam::Vec3;
 
-use super::{ContactShadowUniform, contact_relevance, contact_shadow, select_contact_shadows};
+use super::{ContactShadow, contact_relevance, contact_shadow, select_contact_shadows};
 use crate::engine::level::{LevelDef, LevelSurfaces};
 use crate::engine::lighting::transport::{TransportScene, TransportTriangle};
 use crate::engine::spatial::{Aabb, DepthRange, Frustum};
@@ -66,7 +66,7 @@ fn hidden_insertions_cannot_displace_nearby_contact_and_ties_are_stable() -> Res
     let frustum =
         Frustum::from_view_projection(&glam::Mat4::IDENTITY, DepthRange::NegativeOneToOne);
     let eye = Vec3::new(0.8, 0.8, 0.8);
-    let make = |x: f32| ContactShadowUniform {
+    let make = |x: f32| ContactShadow {
         position_floor: [x, 0.2, 0.0, 0.0],
         half_height: [0.1, 0.1, 0.0, 0.4],
         incoming: [0.0, 1.0, 0.0, 1.0],
@@ -81,7 +81,7 @@ fn hidden_insertions_cannot_displace_nearby_contact_and_ties_are_stable() -> Res
     let distance =
         contact_relevance(local, eye, &frustum, Some(&scene)).ok_or("local relevance")?;
     let selected =
-        select_contact_shadows(std::iter::repeat_n(hidden, 8).chain([local]).filter_map(
+        select_contact_shadows::<8>(std::iter::repeat_n(hidden, 8).chain([local]).filter_map(
             |shadow| {
                 contact_relevance(shadow, eye, &frustum, Some(&scene)).map(|score| (shadow, score))
             },
@@ -91,12 +91,13 @@ fn hidden_insertions_cannot_displace_nearby_contact_and_ties_are_stable() -> Res
         "hidden insertions cannot consume the eight slots"
     );
     assert_eq!(
-        selected.0[0], local,
+        selected.0[0],
+        Some(local),
         "visible local shadow must remain selected"
     );
     let candidates: Vec<_> = (0_u8..12).map(|i| (make(f32::from(i)), distance)).collect();
-    let forward = select_contact_shadows(candidates.iter().copied());
-    let reversed = select_contact_shadows(candidates.iter().rev().copied());
+    let forward = select_contact_shadows::<8>(candidates.iter().copied());
+    let reversed = select_contact_shadows::<8>(candidates.iter().rev().copied());
     assert_eq!(forward, reversed, "ties must be independent of spawn order");
     assert_eq!(forward.1, 8, "retain the original fixed budget");
     Ok(())

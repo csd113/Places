@@ -4,8 +4,8 @@
 
 use super::{Character, CharacterAnimator, CharacterScene, EntityFrame, PoseCue};
 use crate::engine::gltf::{PropAnimation, PropModel, PropNode, PropSkin};
+use crate::engine::lighting::entity_receivers::{EntityLighting, EntityLightingSource};
 use crate::engine::props::LoadedPropAsset;
-use crate::engine::render::common::light_transport::{EntityLighting, EntityLightingSource};
 use crate::engine::scene::{LocomotionSnapshot, LocomotionState};
 use crate::engine::spatial::Aabb;
 use glam::{Mat4, Quat, Vec3};

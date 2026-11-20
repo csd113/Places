@@ -2515,7 +2515,10 @@ impl CharacterScene {
     ) {
         const PARALLEL_LIGHTING_MIN_RECEIVERS: usize = 8;
         let spatial = super::light_transport::EntitySpatialLightingContext::new(
-            lighting, irradiance, scene, visibility,
+            lighting,
+            irradiance,
+            scene,
+            visibility.map(super::dynamic_visibility::DynamicVisibility::as_entity_occluders),
         );
         let refresh_context = super::dynamic::EntityLightingRefreshContext::new(
             lighting,

@@ -57,9 +57,10 @@ use glam::{Mat4, Quat, Vec3};
 
 use super::mesh::LIGHTMAP_NONE;
 use super::{LevelDef, Vertex};
+pub use crate::engine::entity::DynamicId;
 use crate::engine::gltf::PropModel;
 use crate::engine::level::{LevelSurfaces, WaterVolumes};
-use crate::engine::lighting::LevelLighting;
+use crate::engine::lighting::{LevelLighting, entity_receivers};
 use crate::engine::materials::{MaterialAlpha, MaterialEmission};
 use crate::engine::props::{LoadedPropAsset, PropAssets};
 use crate::engine::spatial::Aabb;
@@ -275,7 +276,9 @@ impl<'a> EntityLightingRefreshContext<'a> {
                         .changed_regions_since(cached.observed_dynamic_revision)
                         .is_some_and(|regions| {
                             regions.iter().all(|dirty| {
-                                !self.visibility_affects(
+                                !entity_receivers::visibility_affects(
+                                    self.lighting,
+                                    self.field,
                                     super::props::transform_bounds(&bounds, &model),
                                     *dirty,
                                 ) || rays.is_some_and(|cache| !cache.visibility_affected(*dirty))
@@ -287,58 +290,6 @@ impl<'a> EntityLightingRefreshContext<'a> {
             }
         }
         Some(key)
-    }
-
-    /// Old and new caster bounds are a conservative visibility dependency.
-    /// Missed revisions use the complete scene; unchanging receivers elsewhere
-    /// retain their exact eight-anchor payload without enumerating ray samples.
-    fn visibility_affects(self, receivers: Aabb, dirty: Aabb) -> bool {
-        use crate::engine::spatial::{
-            directional_light_region_overlaps, finite_light_region_overlaps,
-        };
-        if dirty.is_empty() {
-            return false;
-        }
-        if self.field.is_some_and(|field| {
-            // Probe candidates lie within two lattice cells of each anchor.
-            // This also encloses anchor-to-anchor fallback connections.
-            let reach = field.cell_m.mul_add(2.0, 0.000_1);
-            !reach.is_finite()
-                || receivers
-                    .min
-                    .into_iter()
-                    .zip(receivers.max)
-                    .zip(dirty.min)
-                    .zip(dirty.max)
-                    .all(|(((low, high), dirty_low), dirty_high)| {
-                        dirty_high >= low - reach && dirty_low <= high + reach
-                    })
-        }) {
-            return true;
-        }
-        self.lighting
-            .lights()
-            .iter()
-            .filter(|light| light.is_active())
-            .any(|light| {
-                let source = Aabb {
-                    min: [
-                        light.x() - light.half_w(),
-                        light.y(),
-                        light.z() - light.half_d(),
-                    ],
-                    max: [
-                        light.x() + light.half_w(),
-                        light.y(),
-                        light.z() + light.half_d(),
-                    ],
-                };
-                finite_light_region_overlaps(source, receivers, dirty)
-            })
-            || self.lighting.global_lights().iter().any(|light| {
-                light.angular_radius > 0.0
-                    || directional_light_region_overlaps(light.incoming, receivers, dirty)
-            })
     }
 }
 
@@ -403,13 +354,6 @@ pub const WASHER_DRUM_PORTHOLE_CLEARANCE: f32 = 0.005;
 /// How far the drum's mouth sits behind the machine's front panel, in model
 /// space: the drum is inside the body, never protruding past its surface.
 pub const WASHER_DRUM_MOUTH_RECESS: f32 = 0.02;
-
-/// Stable handle to one object inside a [`DynamicScene`].
-///
-/// Handles are never reused: despawning increments the scene's id counter, so a
-/// stale handle resolves to `None` instead of silently addressing a new object.
-#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct DynamicId(u32);
 
 /// One primitive of a dynamic mesh: a texture slot, its emission, its alpha
 /// contract and its slice of the model's index list.
@@ -940,7 +884,10 @@ impl DynamicObject {
         visibility: Option<&super::dynamic_visibility::DynamicVisibility>,
     ) -> Option<Box<super::light_transport::EntitySpatialLighting>> {
         let context = super::light_transport::EntitySpatialLightingContext::new(
-            lighting, field, scene, visibility,
+            lighting,
+            field,
+            scene,
+            visibility.map(super::dynamic_visibility::DynamicVisibility::as_entity_occluders),
         );
         let model = self.transform();
         let receiver = Some(self.id);
@@ -2163,7 +2110,7 @@ impl DynamicScene {
             level_lighting,
             irradiance,
             scene,
-            visibility,
+            visibility.map(super::dynamic_visibility::DynamicVisibility::as_entity_occluders),
         );
         let refreshed = std::sync::atomic::AtomicUsize::new(0);
         crate::engine::runtime_work::for_each_mut(&mut self.objects, min_receivers, |object| {

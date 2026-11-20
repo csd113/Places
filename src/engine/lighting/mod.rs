@@ -138,8 +138,10 @@
 mod bake;
 pub(crate) mod character_cavity;
 mod color;
+pub(in crate::engine) mod contact_shadows;
 pub mod directional;
 mod directional_index;
+pub(in crate::engine) mod entity_receivers;
 mod floor_recovery;
 mod light;
 pub mod lightmap;

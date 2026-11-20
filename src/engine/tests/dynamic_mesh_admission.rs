@@ -128,7 +128,10 @@ fn assert_probe_path_dependency(
     bounds: crate::engine::spatial::Aabb,
 ) {
     use crate::engine::{
-        lighting::probes::{ProbeField, ProbeSample},
+        lighting::{
+            entity_receivers::visibility_affects,
+            probes::{ProbeField, ProbeSample},
+        },
         spatial::Aabb,
     };
     let field = ProbeField {
@@ -147,15 +150,12 @@ fn assert_probe_path_dependency(
         min: [0.9, 0.0, -0.05],
         max: [1.1, 0.1, 0.05],
     };
-    let direct = super::EntityLightingRefreshContext::new(lighting, None, None, None, Some(1));
     assert!(
-        !direct.visibility_affects(bounds, dirty),
+        !visibility_affects(lighting, None, bounds, dirty),
         "the blocker misses direct source paths"
     );
-    let indirect =
-        super::EntityLightingRefreshContext::new(lighting, Some(&field), None, None, Some(1));
     assert!(
-        indirect.visibility_affects(bounds, dirty),
+        visibility_affects(lighting, Some(&field), bounds, dirty),
         "probe-to-anchor support remains a visibility dependency"
     );
 }

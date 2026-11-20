@@ -8,6 +8,7 @@ use std::sync::Arc;
 use glam::{Mat4, Vec3};
 
 use super::dynamic::{DynamicId, DynamicMesh, DynamicScene};
+use crate::engine::lighting::entity_receivers::MovableOccluders;
 use crate::engine::lighting::transport::TransportScene;
 use crate::engine::spatial::{
     Aabb, directional_light_region_overlaps, finite_light_region_overlaps,
@@ -162,7 +163,21 @@ pub struct DynamicVisibility {
     preparation_millis: f64,
 }
 
+impl MovableOccluders for DynamicVisibility {
+    fn revision(&self) -> u64 {
+        self.revision()
+    }
+
+    fn transmittance(&self, from: [f32; 3], to: [f32; 3], receiver: Option<DynamicId>) -> f32 {
+        self.transmittance(from, to, receiver)
+    }
+}
+
 impl DynamicVisibility {
+    pub(in crate::engine::render) const fn as_entity_occluders(&self) -> &dyn MovableOccluders {
+        self
+    }
+
     #[must_use]
     pub fn new() -> Self {
         Self::default()
