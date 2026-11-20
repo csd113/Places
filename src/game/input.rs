@@ -182,9 +182,9 @@ pub struct InputState {
 }
 
 impl InputState {
-    /// The control the binding called `name` holds, or `None` when `name` is
-    /// not one of the gameplay bindings (Console belongs to the shell).
-    fn binding_control(bindings: &KeyBindings, name: &str) -> Option<Control> {
+    /// Resolves an SDL key against the active gameplay bindings.
+    fn binding_control(bindings: &KeyBindings, key: Keycode) -> Option<Control> {
+        let name = keycode_to_str(key);
         if name == bindings.forward {
             Some(Control::MoveForward)
         } else if name == bindings.backward {
@@ -445,11 +445,8 @@ impl InputHandler {
             self.state.quit_requested = true;
             return;
         }
-        if let Some(key) = pressed_key(event) {
-            let name = keycode_to_str(key);
-            if let Some(button) = InputState::binding_control(bindings, &name) {
-                self.state.set_held(button, true);
-            }
+        if let Some(button) = pressed_control(event, bindings) {
+            self.state.set_held(button, true);
             return;
         }
         if let Event::KeyUp {
@@ -462,11 +459,9 @@ impl InputHandler {
             which: _,
             raw: _,
         } = event
+            && let Some(button) = InputState::binding_control(bindings, *key)
         {
-            let name = keycode_to_str(*key);
-            if let Some(button) = InputState::binding_control(bindings, &name) {
-                self.state.set_held(button, false);
-            }
+            self.state.set_held(button, false);
         }
     }
 
@@ -482,6 +477,12 @@ impl InputHandler {
             .find(|(candidate, _)| *candidate == key)
             .map(|(_, nav)| *nav)
     }
+}
+
+/// The active gameplay control selected by a fresh key press.
+#[must_use]
+pub fn pressed_control(event: &Event, bindings: &KeyBindings) -> Option<Control> {
+    InputState::binding_control(bindings, pressed_key(event)?)
 }
 
 /// A fresh key press, shared by gameplay, menu navigation, console and rebinding.

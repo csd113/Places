@@ -62,7 +62,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -
         } else if app.viewport.runtime_cinematic() {
             "Cinematic camera | Player controls suspended | Stop test returns to editing"
         } else {
-            "WASD move | E use/pickup/drop | F light | F1 hint | Space jump | Ctrl crouch | Stop test returns"
+            "Use your game bindings | F1 hint | Stop test returns"
         },
         7.0,
         258.0,

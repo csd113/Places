@@ -13,7 +13,7 @@ use sdl3::mouse::MouseButton;
 
 use crate::engine::audio::{AudioSettings, AudioSystem, Listener};
 use crate::engine::render::{RenderCamera, Renderer};
-use crate::game::input::{Control, InputHandler};
+use crate::game::input::{Control, InputHandler, pressed_control};
 use crate::game::play_spawn::Pose;
 use crate::game::settings::Settings;
 use crate::game::{AppState, Game};
@@ -103,16 +103,16 @@ impl Session {
         ));
         game.set_app_state(AppState::Playing);
         game.reset_timing();
+        // Read appearance and controls without repairing the player's profile.
+        let profile = Settings::load_or_default_from_path(Settings::default_path()?);
         let mut session = Self {
             game,
             player_model: crate::game::player_model::PlayerModel::default(),
             physics: prepared.physics,
             input: InputHandler::new(),
             settings: Settings {
-                // Quick testing may read appearance but must not repair or
-                // rename files in the player's persistent profile.
-                player_colour: Settings::load_or_default_from_path(Settings::default_path()?)
-                    .player_colour,
+                player_colour: profile.player_colour,
+                bindings: profile.bindings,
                 ..Settings::default()
             },
             warning: prepared.warning,
@@ -144,10 +144,7 @@ impl Session {
     pub fn event(&mut self, event: &Event) {
         if self.game.player_is_dead()
             && self.game.entities().has_encounter()
-            && crate::game::input::pressed_key(event).is_some_and(|key| {
-                key.name()
-                    .eq_ignore_ascii_case(&self.settings.bindings.interact)
-            })
+            && pressed_control(event, &self.settings.bindings) == Some(Control::Interact)
         {
             if let Err(error) = self.game.respawn_encounter() {
                 self.warning = error;

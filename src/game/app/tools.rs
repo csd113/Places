@@ -1,5 +1,6 @@
 //! Native input and physics adapters over the shared map tool state.
 use super::{AppState, FrameLoop};
+use crate::game::input::{Control, pressed_control};
 
 impl FrameLoop<'_> {
     pub(super) fn handle_encounter_respawn(&mut self, event: &sdl3::event::Event) -> bool {
@@ -10,10 +11,7 @@ impl FrameLoop<'_> {
         {
             return false;
         }
-        if crate::game::input::pressed_key(event).is_some_and(|key| {
-            key.name()
-                .eq_ignore_ascii_case(&self.settings.bindings.interact)
-        }) {
+        if pressed_control(event, &self.settings.bindings) == Some(Control::Interact) {
             if let Err(problem) = self.game.respawn_encounter() {
                 self.console.write(problem);
             }

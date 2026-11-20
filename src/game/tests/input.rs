@@ -2,7 +2,7 @@
 //! actions/rebinds and cleared focus/menu state. No assets or native device.
 use crate::game::{
     console,
-    input::{Control, InputHandler, MenuNavEvent, pressed_key},
+    input::{Control, InputHandler, MenuNavEvent, pressed_control, pressed_key},
     settings::KeyBindings,
 };
 use sdl3::{
@@ -104,4 +104,30 @@ fn taps_repeats_and_screen_resets_share_one_press_contract() {
         (0.0, 0.0),
         "transitions must discard stale look motion"
     );
+}
+
+/// Synthetic SDL events cover the binding lookup used by both respawn paths
+/// when SDL Return and the saved binding have different names. No native setup.
+#[test]
+fn encounter_respawn_uses_the_active_interact_binding() -> Result<(), String> {
+    let mut bindings = KeyBindings::default();
+    let enter = key_event(Keycode::Return, true, false);
+    let default = key_event(Keycode::E, true, false);
+    assert_eq!(
+        pressed_control(&default, &bindings),
+        Some(Control::Interact)
+    );
+    assert_eq!(pressed_control(&enter, &bindings), None);
+
+    bindings.set_key("interact", "ENTER")?;
+    assert_eq!(pressed_control(&enter, &bindings), Some(Control::Interact));
+    for event in [
+        default,
+        key_event(Keycode::Q, true, false),
+        key_event(Keycode::Return, true, true),
+        key_event(Keycode::Return, false, false),
+    ] {
+        assert_eq!(pressed_control(&event, &bindings), None);
+    }
+    Ok(())
 }

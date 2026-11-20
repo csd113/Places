@@ -80,11 +80,13 @@ impl Session {
                     self.game.player_yaw,
                 );
                 self.status = if picked {
-                    "Picked up item. E drops; left click throws."
+                    format!(
+                        "Picked up item. {} drops. Left click throws.",
+                        self.settings.bindings.interact
+                    )
                 } else {
-                    "Pickup blocked"
-                }
-                .into();
+                    "Pickup blocked".into()
+                };
             }
             Some(Target::Activate(key)) => {
                 self.status = if self.physics.world.activate(key) {
