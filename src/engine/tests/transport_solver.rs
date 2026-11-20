@@ -52,20 +52,23 @@ fn fixture() -> Result<(TransportScene, Vec<(LightmapPatch, Chart)>), String> {
         ));
     }
     let emitters = (0..6_u16)
-        .map(|index| TransportEmitter {
-            position: [0.3 + f32::from(index) * 0.4, 1.7, 0.8],
-            shape: EmitterShape::Point,
-            color: if index.is_multiple_of(2) {
-                [0.8, 0.4, 0.2]
-            } else {
-                [0.2, 0.5, 0.9]
-            },
-            intensity: 1.0,
-            range: 6.0,
-            falloff: LightFalloff::Smooth,
-            height_factor: 1.0,
-            directional: false,
-            switchable: (index > 0).then_some(usize::from(index)),
+        .map(|index| {
+            let offset = f32::from(index) * 0.4;
+            TransportEmitter {
+                position: [0.3 + offset, 1.7, 0.8],
+                shape: EmitterShape::Point,
+                color: if index.is_multiple_of(2) {
+                    [0.8, 0.4, 0.2]
+                } else {
+                    [0.2, 0.5, 0.9]
+                },
+                intensity: 1.0,
+                range: 6.0,
+                falloff: LightFalloff::Smooth,
+                height_factor: 1.0,
+                directional: false,
+                switchable: (index > 0).then_some(usize::from(index)),
+            }
         })
         .collect();
     let scene = TransportScene::new(triangles, emitters)
@@ -412,7 +415,8 @@ fn fallback_cache_retains_maximal_receivers_in_one_cell_and_at_the_axis_cap() ->
             None,
             "the query lattice still rejects an index at its open upper bound"
         );
-        let outside = [span + 4.0 * cache.cell, 0.0, 0.0];
+        let offset = 4.0 * cache.cell;
+        let outside = [span + offset, 0.0, 0.0];
         assert_eq!(
             cache_insertion_cell(outside, cache.min, edge, cache.cell, cache.dims),
             None,
@@ -548,13 +552,15 @@ fn check_cache_normal_bins() -> Result<(), String> {
 
     for edge in [-0.5_f32, 0.5] {
         for step in -20_i16..=20 {
-            let value = edge + f32::from(step) * f32::EPSILON;
+            let step_offset = f32::from(step) * f32::EPSILON;
+            let value = edge + step_offset;
             for delta in -8_i16..=8 {
                 for axis in 0..3 {
                     let mut left = [0.0, 1.0, 0.0];
                     let mut right = left;
                     *left.get_mut(axis).ok_or("axis")? = value;
-                    *right.get_mut(axis).ok_or("axis")? = value + f32::from(delta) * f32::EPSILON;
+                    let delta_offset = f32::from(delta) * f32::EPSILON;
+                    *right.get_mut(axis).ok_or("axis")? = value + delta_offset;
                     let query = cache_normal_query(left);
                     assert_eq!(
                         cache_normal_mask(right) & query,
@@ -590,7 +596,8 @@ fn cache_filter_selections(
 fn diffuse_wall_end_charts() -> Result<Vec<(LightmapPatch, Chart)>, String> {
     let mut charts = Vec::new();
     for index in 0..17_u16 {
-        let theta = -1.2 + f32::from(index) * 0.15;
+        let angle_offset = f32::from(index) * 0.15;
+        let theta = -1.2 + angle_offset;
         let (sin, cos) = theta.sin_cos();
         let origin = [-0.5 * cos, 3.0, 0.5 * sin];
         let u = [-3.0 * cos, 0.0, 3.0 * sin];

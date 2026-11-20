@@ -72,7 +72,10 @@ fn finite_filter_preserves_affine_energy_at_edges_and_across_chart_splits() -> R
             let values: Vec<_> = receivers
                 .iter()
                 .map(|r| {
-                    let energy = 1.0 + slope * r.position[0] + 2.0 * slope * r.position[2];
+                    let x_term = slope * r.position[0];
+                    let base = 1.0 + x_term;
+                    let z_term = 2.0 * slope * r.position[2];
+                    let energy = base + z_term;
                     Accumulator {
                         irradiance: [energy; 3],
                         surface_light: [energy; 3],

@@ -19,7 +19,8 @@ impl TransportScene {
         cancel: Option<&AtomicBool>,
         bake_probes: bool,
     ) -> Result<TransportSolve, LightmapFailure> {
-        let (light_index, emitter) = circuits.first().ok_or(LightmapFailure::FillSize)?;
+        let ((light_index, emitter), remaining) =
+            circuits.split_first().ok_or(LightmapFailure::FillSize)?;
         let prepared = ReceiverSet::new(self, charts)?;
         let mut solved = self.solve_pair(
             charts,
@@ -33,8 +34,8 @@ impl TransportScene {
             bake_probes,
         )?;
         // Two live energy layers at a time, independent of circuit count.
-        for group in circuits[1..].chunks(2) {
-            let (first_light, first_emitters) = &group[0];
+        for group in remaining.chunks(2) {
+            let (first_light, first_emitters) = group.first().ok_or(LightmapFailure::FillSize)?;
             if let Some((second_light, second_emitters)) = group.get(1) {
                 let next = self.solve_pair(
                     charts,
@@ -72,6 +73,14 @@ impl TransportScene {
         Ok(solved)
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Paired solves share receivers and coordinates, with explicit independent emitter lists and probe policy."
+    )]
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "The timing array has one slot for each of the two enumerated emitter lists."
+    )]
     pub(super) fn solve_pair(
         &self,
         charts: &[(LightmapPatch, Chart)],
@@ -193,6 +202,10 @@ impl TransportScene {
                 || self.sky_radiance.iter().any(|channel| *channel > 0.0))
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The paired order loop owns both light layers and borrows their immutable shared geometry and cancellation."
+    )]
     fn bounce_pair_orders(
         &self,
         charts: &[(LightmapPatch, Chart)],
@@ -238,21 +251,31 @@ impl TransportScene {
             )?;
             let gather_ms = order_started.elapsed().as_secs_f64() * 1_000.0_f64;
             let accumulation_started = std::time::Instant::now();
-            for channel in 0..2 {
-                if !active[channel] {
+            for (channel, ((combined_layer, prior_layer), enabled)) in combined
+                .iter_mut()
+                .zip(&mut previous)
+                .zip(active)
+                .enumerate()
+            {
+                if !enabled {
                     continue;
                 }
-                for ((total, prior_gain), gain) in combined[channel]
+                #[allow(
+                    clippy::indexing_slicing,
+                    reason = "The zip enumerates two layers and every per-receiver gain contains exactly those two lanes."
+                )]
+                let layer_gains = || gained.iter().map(|gain| &gain[channel]);
+                for ((total, prior_gain), gain) in combined_layer
                     .iter_mut()
-                    .zip(&mut previous[channel])
-                    .zip(&gained)
+                    .zip(prior_layer)
+                    .zip(layer_gains())
                 {
-                    add_scaled(total, &gain[channel], 1.0);
-                    *prior_gain = gain[channel].surface_light;
+                    add_scaled(total, gain, 1.0);
+                    *prior_gain = gain.surface_light;
                 }
-                if combined[channel]
+                if combined_layer
                     .iter()
-                    .chain(gained.iter().map(|gain| &gain[channel]))
+                    .chain(layer_gains())
                     .any(|value| !value.is_finite())
                 {
                     return Err(LightmapFailure::FillNonFinite);
@@ -279,6 +302,14 @@ impl TransportScene {
         Ok((combined, logical_samples, cache.occupied_cells()))
     }
 
+    #[expect(
+        clippy::too_many_arguments,
+        reason = "Two previous fields and their independent emitter lists share one geometry pass and cancellation boundary."
+    )]
+    #[expect(
+        clippy::indexing_slicing,
+        reason = "The worker index comes from the receiver count, hits carry valid triangle IDs, and the per-hit loop indexes two fixed lanes with 0..2."
+    )]
     fn bounce_pair_pass(
         &self,
         receivers: &[TransportReceiver],
@@ -416,6 +447,10 @@ impl SurfaceStencil {
     pub(super) fn retain(&mut self, mut accept: impl FnMut(usize) -> bool) {
         let mut kept = 0_usize;
         let mut weight_sum = 0.0;
+        #[allow(
+            clippy::indexing_slicing,
+            reason = "The populated stencil prefix fits the backing array, and in-place stable compaction never writes ahead of the read index."
+        )]
         for index in 0..self.len {
             let (receiver, weight) = self.entries[index];
             if accept(receiver) {
@@ -444,12 +479,12 @@ impl SurfaceStencil {
             return values.get(self.entries[0].0).copied().unwrap_or([0.0; 3]);
         }
         let mut light = [0.0; 3];
-        for (index, weight) in &self.entries[..self.len] {
+        for (index, weight) in self.entries.iter().take(self.len) {
             let Some(value) = values.get(*index) else {
                 continue;
             };
-            for channel in 0..3 {
-                light[channel] += value[channel] * weight;
+            for (slot, channel) in light.iter_mut().zip(value) {
+                *slot += channel * weight;
             }
         }
         for channel in &mut light {
@@ -460,7 +495,7 @@ impl SurfaceStencil {
 
     pub(super) fn sample_accumulators(&self, values: &[Accumulator]) -> Accumulator {
         let mut total = Accumulator::default();
-        for &(index, weight) in &self.entries[..self.len] {
+        for &(index, weight) in self.entries.iter().take(self.len) {
             if let Some(value) = values.get(index) {
                 add_scaled(&mut total, value, weight * self.inverse);
             }
@@ -509,11 +544,18 @@ impl RadianceCache {
         let Some(target) = SurfaceCacheTarget::new(scene, surface, point) else {
             return stencil;
         };
-        let coords =
-            std::array::from_fn::<_, 3, _>(|axis| (point[axis] - self.min[axis]) / self.cell - 0.5);
+        let coordinate = |point_axis, min_axis| (point_axis - min_axis) / self.cell - 0.5;
+        let coords = [
+            coordinate(point[0], self.min[0]),
+            coordinate(point[1], self.min[1]),
+            coordinate(point[2], self.min[2]),
+        ];
         let base = coords.map(f32::floor);
-        let frac =
-            std::array::from_fn::<_, 3, _>(|axis| (coords[axis] - base[axis]).clamp(0.0, 1.0));
+        let frac = [
+            (coords[0] - base[0]).clamp(0.0, 1.0),
+            (coords[1] - base[1]).clamp(0.0, 1.0),
+            (coords[2] - base[2]).clamp(0.0, 1.0),
+        ];
         let mut weight_sum = 0.0;
         for dz in 0_i16..2_i16 {
             for dy in 0_i16..2_i16 {
@@ -540,10 +582,7 @@ impl RadianceCache {
                         continue;
                     };
                     weight_sum += weight;
-                    // The 2x2x2 loop inserts at most eight entries; len is
-                    // therefore 0..7 before each write to this eight-slot array.
-                    stencil.entries[stencil.len] = (receiver, weight);
-                    stencil.len = stencil.len.saturating_add(1);
+                    stencil.push(receiver, weight);
                 }
             }
         }

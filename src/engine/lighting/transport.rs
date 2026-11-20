@@ -54,30 +54,6 @@
 //! pages and samples them; the probe field the renderer interpolates for moving
 //! objects is solved here too, offline.
 
-// Preserve the solver's floating-point evaluation order and cohesive stages.
-// Fixed vector indices are 0..3; variable scene/receiver indices come from the
-// validated private scene and matching solve arrays. Numeric conversions and
-// integer arithmetic exceptions are justified locally.
-#![allow(
-    clippy::collapsible_if,
-    clippy::derive_partial_eq_without_eq,
-    clippy::doc_markdown,
-    clippy::imprecise_flops,
-    clippy::indexing_slicing,
-    clippy::missing_const_for_fn,
-    clippy::missing_fields_in_debug,
-    clippy::needless_range_loop,
-    clippy::question_mark,
-    clippy::redundant_locals,
-    clippy::single_match_else,
-    clippy::suboptimal_flops,
-    clippy::too_long_first_doc_paragraph,
-    clippy::too_many_arguments,
-    clippy::unnecessary_wraps,
-    clippy::while_let_loop,
-    reason = "Preserve floating-point evaluation order, cohesive solver stages and diagnostic formatting. Fixed vector indices are 0..3; variable scene/receiver indices refer to validated private scene records and matching solve arrays. Numeric conversions and integer arithmetic exceptions are local."
-)]
-
 use std::sync::atomic::{AtomicBool, Ordering};
 
 mod alpha;
@@ -98,7 +74,9 @@ use crate::engine::lighting::probes::{
 use crate::engine::lighting::{AMBIENT_LEVEL, LevelLighting, LightFalloff, LightShape};
 
 /// Minimum normal offset, equal to four single-precision rounding steps at
-/// unit scale. Actual receivers scale this bound with their world coordinates.
+/// unit scale.
+///
+/// Actual receivers scale this bound with their world coordinates.
 /// This is numerical separation, not a geometric centimetre-sized displacement.
 pub const SURFACE_OFFSET_M: f32 = 4.0 * f32::EPSILON;
 
@@ -119,6 +97,13 @@ const BVH_LEAF_TRIANGLES: usize = 4;
 /// Depth cap of the BVH recursion, so a pathological triangle soup cannot
 /// recurse without bound.
 const BVH_MAX_DEPTH: u32 = 40;
+
+/// Minimum dot product for compatible geometric or shading normals.
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Keep the existing expression for the shared surface-normal tolerance as a compile-time value."
+)]
+const SHARED_NORMAL_DOT: f32 = 1.0 - 8.0 * f32::EPSILON;
 
 /// Calibration of the bounce estimator.
 ///
@@ -146,8 +131,9 @@ const CACHE_CELL_M: f32 = 0.75;
 const MAX_CACHE_CELLS: usize = 96;
 
 /// HDR values at or below this pass through the display tone map unchanged, so
-/// the calibrated look of the shipped light levels is preserved exactly and
-/// only genuine highlights compress. The shader uses the same value.
+/// only genuine highlights compress.
+///
+/// The shader uses the same value to preserve the calibrated look of shipped lights.
 pub const SOFT_KNEE: f32 = 0.8;
 
 /// The display conversion the renderer applies to reconstructed HDR light.
@@ -159,16 +145,15 @@ pub const SOFT_KNEE: f32 = 0.8;
 /// unchanged by the conversion.
 #[must_use]
 pub fn soft_clip(color: [f32; 3]) -> [f32; 3] {
-    let mut out = [0.0_f32; 3];
-    for channel in 0..3 {
-        let value = color.get(channel).copied().unwrap_or(0.0);
-        out[channel] = soft_clip_channel(value);
-    }
-    out
+    color.map(soft_clip_channel)
 }
 
 /// One channel of [`soft_clip`], as a scalar.
 #[must_use]
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "The calibrated shoulder uses separate multiply and add rounding, matching the display tone map."
+)]
 pub fn soft_clip_channel(value: f32) -> f32 {
     if !value.is_finite() {
         return 0.0;
@@ -316,9 +301,16 @@ impl TransportTriangle {
     )]
     pub fn shading_normal_at(&self, point: [f32; 3]) -> [f32; 3] {
         let origin = self.p0.map(f64::from);
-        let edge_u = std::array::from_fn::<_, 3, _>(|axis| f64::from(self.p1[axis]) - origin[axis]);
-        let edge_v = std::array::from_fn::<_, 3, _>(|axis| f64::from(self.p2[axis]) - origin[axis]);
-        let delta = std::array::from_fn::<_, 3, _>(|axis| f64::from(point[axis]) - origin[axis]);
+        let difference = |endpoint: [f32; 3]| {
+            [
+                f64::from(endpoint[0]) - origin[0],
+                f64::from(endpoint[1]) - origin[1],
+                f64::from(endpoint[2]) - origin[2],
+            ]
+        };
+        let edge_u = difference(self.p1);
+        let edge_v = difference(self.p2);
+        let delta = difference(point);
         let product = |left: [f64; 3], right: [f64; 3]| {
             left.iter().zip(right).map(|(a, b)| a * b).sum::<f64>()
         };
@@ -339,13 +331,19 @@ impl TransportTriangle {
             weight_u / sum,
             weight_v / sum,
         ];
-        let interpolated = std::array::from_fn(|axis| {
-            self.shading_normals
-                .iter()
+        let interpolate = |components: [f32; 3]| {
+            components
+                .into_iter()
                 .zip(barycentric)
-                .map(|(normal, weight)| normal[axis] * weight)
+                .map(|(component, weight)| component * weight)
                 .sum()
-        });
+        };
+        let [[ax, ay, az], [bx, by, bz], [cx, cy, cz]] = self.shading_normals;
+        let interpolated = [
+            interpolate([ax, bx, cx]),
+            interpolate([ay, by, cy]),
+            interpolate([az, bz, cz]),
+        ];
         normalize_or(interpolated, self.normal)
     }
 
@@ -523,6 +521,10 @@ impl PreparedEmitter {
         }
     }
 
+    #[allow(
+        clippy::imprecise_flops,
+        reason = "The fixture falloff and reach check use the existing squared sum and square root rounding."
+    )]
     fn horizontal_distance(&self, emitter: &TransportEmitter, point: [f32; 3]) -> f32 {
         let (half_w, half_d) = self.horizontal_extents;
         let dx = ((point[0] - emitter.position[0]).abs() - half_w).max(0.0);
@@ -565,7 +567,7 @@ impl TransportEmitter {
     /// Projected emission of a ceiling face, independently of receiver angle.
     /// `incoming` points from the receiver towards a source tap; the source's
     /// downward normal therefore gives this positive vertical cosine.
-    fn emission_factor(&self, incoming: [f32; 3]) -> f32 {
+    const fn emission_factor(&self, incoming: [f32; 3]) -> f32 {
         if self.directional {
             incoming[1].max(0.0)
         } else {
@@ -675,6 +677,10 @@ impl TransportEmitter {
     }
 
     /// Distance from `point` to the emitter's horizontal footprint, in metres.
+    #[allow(
+        clippy::imprecise_flops,
+        reason = "The fixture falloff and reach check use the existing squared sum and square root rounding."
+    )]
     fn horizontal_distance(&self, point: [f32; 3]) -> f32 {
         let (half_w, half_d) = self.horizontal_extents();
         let dx = ((point[0] - self.position[0]).abs() - half_w).max(0.0);
@@ -739,7 +745,9 @@ impl TransportEmitter {
         if !falloff.is_finite() || falloff <= 0.0 {
             return None;
         }
-        let samples = &prepared.samples[usize::from(taps.clamp(1, 3).saturating_sub(1))];
+        let samples = prepared
+            .samples
+            .get(usize::from(taps.clamp(1, 3).saturating_sub(1)))?;
         Some((samples, prepared.strength * falloff))
     }
 
@@ -761,6 +769,10 @@ impl TransportEmitter {
     /// Integrate actual incoming directions instead of normalizing their sum.
     /// The calibrated fixture falloff remains one source-wide scalar; only the
     /// per-tap visibility, coverage and cosine are integrated independently.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Surface and probe callers provide distinct receiver positions, ray origins, optional normals, transmission and tap budgets to this shared integration."
+    )]
     fn accumulate_direct(
         &self,
         prepared: &PreparedEmitter,
@@ -1024,7 +1036,7 @@ impl TransportWaterBody {
     /// One body from a resolved level water volume, with the solver's
     /// calibrated extinction.
     #[must_use]
-    pub fn from_volume(volume: &crate::engine::level::WaterVolume) -> Self {
+    pub const fn from_volume(volume: &crate::engine::level::WaterVolume) -> Self {
         Self {
             shape: volume.shape,
             x0: volume.x0.min(volume.x1),
@@ -1070,10 +1082,19 @@ impl ProbeLattice {
             .fold(1_usize, |count, dim| count.saturating_mul(*dim))
     }
 
+    #[allow(
+        clippy::suboptimal_flops,
+        reason = "Probe lattice centres retain separate multiply and add rounding used to assign probe rooms."
+    )]
     fn position(self, index: usize) -> [f32; 3] {
         let indices = <[usize; 3]>::from(lattice_from_index(index, self.dims))
             .map(|value| f32::from(u16::try_from(value).unwrap_or(u16::MAX)));
-        std::array::from_fn(|axis| self.min[axis] + (indices[axis] + 0.5) * self.cell)
+        let centre = |axis_index, min| min + (axis_index + 0.5) * self.cell;
+        [
+            centre(indices[0], self.min[0]),
+            centre(indices[1], self.min[1]),
+            centre(indices[2], self.min[2]),
+        ]
     }
 }
 
@@ -1113,7 +1134,7 @@ pub struct TransportSolve {
 }
 
 /// Solver budget and quality selection.
-#[derive(Clone, Copy, Debug, PartialEq)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub struct SolveOptions {
     /// Emitter taps per axis, clamped to `1..=3`.
     pub taps_per_axis: u8,
@@ -1196,7 +1217,7 @@ impl std::fmt::Debug for TransportScene {
             .field("water", &self.water.len())
             .field("receiver_target", &self.receiver_target.len())
             .field("probe_target", &self.probe_target.len())
-            .finish()
+            .finish_non_exhaustive()
     }
 }
 
@@ -1346,16 +1367,14 @@ fn triangle_receiver_uv(patch: &LightmapPatch, u: f32, v: f32, inset: f32) -> (f
 /// exactly zero and deliberate darkness is preserved.
 fn target_in_room(lighting: &LevelLighting, room: usize, x: f32, z: f32) -> [f32; 3] {
     let baseline = lighting.baseline_in_room(room, x, z).to_array();
-    let mut out = [0.0_f32; 3];
-    for channel in 0..3 {
-        let value = baseline.get(channel).copied().unwrap_or(AMBIENT_LEVEL) - AMBIENT_LEVEL;
-        out[channel] = if value.is_finite() {
+    baseline.map(|channel| {
+        let value = channel - AMBIENT_LEVEL;
+        if value.is_finite() {
             value.max(0.0)
         } else {
             0.0
-        };
-    }
-    out
+        }
+    })
 }
 
 /// The authored baseline target and resolved room at one world position: the
@@ -1395,6 +1414,10 @@ fn chart_fill_eligibility(charts: &[(LightmapPatch, Chart)]) -> impl Iterator<It
 /// joins the unchanged physical solve with a continuous first derivative.
 /// The output slope is always at least one half, unlike a hard minimum which
 /// erases every gradient below its threshold. Zero targets preserve darkness.
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "The authored fill curve retains its rounded cutoff and separates the multiply from subtraction."
+)]
 fn baseline_fill(current: f32, target: f32) -> f32 {
     if !target.is_finite() || target <= 0.0 || !current.is_finite() {
         return 0.0;
@@ -1408,16 +1431,19 @@ fn baseline_fill(current: f32, target: f32) -> f32 {
 /// makes the requested lift exact, even for coloured directional light.
 fn fill_texel(texel: &mut LightmapTexel, normal: [f32; 3], target: [f32; 3]) {
     let current = texel.light_at(normal);
-    let fill =
-        std::array::from_fn::<_, 3, _>(|channel| baseline_fill(current[channel], target[channel]));
+    let fill = [
+        baseline_fill(current[0], target[0]),
+        baseline_fill(current[1], target[1]),
+        baseline_fill(current[2], target[2]),
+    ];
     let added: f32 = fill.iter().sum();
     if added <= 0.0 {
         return;
     }
     let new_mean = texel.irradiance.iter().sum::<f32>() + added;
     let new_light = current.iter().sum::<f32>() + added;
-    for channel in 0..3 {
-        texel.irradiance[channel] = (current[channel] + fill[channel]) * (new_mean / new_light);
+    for ((slot, current_light), added_light) in texel.irradiance.iter_mut().zip(current).zip(fill) {
+        *slot = (current_light + added_light) * (new_mean / new_light);
     }
 }
 
@@ -1564,6 +1590,10 @@ fn probe_room_counts(
     counts
 }
 
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Rounding the phase shift before addition preserves probe positions and room-coverage ties."
+)]
 fn choose_probe_phase(
     original: ProbeLattice,
     room_count: usize,
@@ -1587,11 +1617,12 @@ fn choose_probe_phase(
                 if x == 0.0 && y == 0.0 && z == 0.0 {
                     continue;
                 }
-                let shift = [x, y, z];
                 let candidate = ProbeLattice {
-                    min: std::array::from_fn(|axis| {
-                        original.min[axis] + shift[axis] * original.cell
-                    }),
+                    min: [
+                        original.min[0] + x * original.cell,
+                        original.min[1] + y * original.cell,
+                        original.min[2] + z * original.cell,
+                    ],
                     ..original
                 };
                 let mut counts = probe_room_counts(candidate, room_count, &owner, &valid_air);
@@ -1633,6 +1664,10 @@ fn choose_probe_phase(
     clippy::as_conversions,
     reason = "Finite extents and positive spacing yield axis counts clamped to 1..=64 before truncation; the resulting small counts convert exactly back to f32 for centering."
 )]
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Centre placement retains separately rounded products and subtraction to preserve exact probe locations."
+)]
 fn probe_lattice<'a>(
     positions: impl IntoIterator<Item = &'a [f32; 3]>,
 ) -> Option<([f32; 3], f32, [usize; 3])> {
@@ -1660,12 +1695,12 @@ fn probe_lattice<'a>(
     let cap = f32::from(
         u16::try_from(crate::engine::lighting::probes::MAX_PROBE_CELLS).unwrap_or(u16::MAX),
     );
-    for axis in 0..3 {
-        if max[axis] - min[axis] < crate::engine::lighting::probes::PROBE_SPACING_M {
-            max[axis] = min[axis] + crate::engine::lighting::probes::PROBE_SPACING_M;
+    for (high, low) in max.iter_mut().zip(min) {
+        if *high - low < crate::engine::lighting::probes::PROBE_SPACING_M {
+            *high = low + crate::engine::lighting::probes::PROBE_SPACING_M;
         }
     }
-    let extent = std::array::from_fn::<_, 3, _>(|axis| max[axis] - min[axis]);
+    let extent = sub(max, min);
     if !extent
         .iter()
         .all(|value| value.is_finite() && *value >= 0.0)
@@ -1676,11 +1711,11 @@ fn probe_lattice<'a>(
         crate::engine::lighting::probes::PROBE_SPACING_M,
         |cell, current_cell| cell.max(current_cell / cap),
     );
-    let dims = std::array::from_fn(|axis| (extent[axis] / cell).ceil().clamp(1.0, cap) as usize);
+    let dims = extent.map(|size| (size / cell).ceil().clamp(1.0, cap) as usize);
     // Keep every axis centered in the authored bounds, including an axis
     // smaller than a cell after a large world forces coarser spacing.
-    for axis in 0..3 {
-        min[axis] = f32::midpoint(min[axis], max[axis]) - 0.5 * dims[axis] as f32 * cell;
+    for ((low, high), count) in min.iter_mut().zip(max).zip(dims) {
+        *low = f32::midpoint(*low, high) - 0.5 * count as f32 * cell;
     }
     Some((min, cell, dims))
 }
@@ -1739,11 +1774,12 @@ impl TransportScene {
             indices
                 .iter()
                 .map(|index| {
-                    let triangle = &triangles[usize::try_from(*index).ok()?];
+                    let slot = usize::try_from(*index).ok()?;
+                    let triangle = triangles.get(slot)?;
                     Some(RayTriangle {
                         corners: [triangle.p0, triangle.p1, triangle.p2],
                         surface: *index,
-                        canonical_leaf: canonical_leaves[usize::try_from(*index).ok()?],
+                        canonical_leaf: *canonical_leaves.get(slot)?,
                         transmissive: triangle.transmissive,
                     })
                 })
@@ -1912,11 +1948,21 @@ impl TransportScene {
     ) -> (u64, usize) {
         let mut signature = 0_u64;
         let mut rays = 0_usize;
-        for (index, light) in self.global_lights.iter().enumerate() {
-            let tap_index = usize::from(taps.clamp(1, 3).saturating_sub(1));
-            let prepared = &self.prepared_global_lights[index];
-            let weight = attenuate(prepared.weights[tap_index], attenuation);
-            for (sample, direction) in prepared.directions[tap_index].iter().copied().enumerate() {
+        let tap_index = usize::from(taps.clamp(1, 3).saturating_sub(1));
+        for (index, (light, prepared)) in self
+            .global_lights
+            .iter()
+            .zip(&self.prepared_global_lights)
+            .enumerate()
+        {
+            let (Some(weight), Some(directions)) = (
+                prepared.weights.get(tap_index),
+                prepared.directions.get(tap_index),
+            ) else {
+                continue;
+            };
+            let transmitted_weight = attenuate(*weight, attenuation);
+            for (sample, direction) in directions.iter().copied().enumerate() {
                 if light.cast_shadows {
                     rays = rays.saturating_add(1);
                 }
@@ -1934,7 +1980,7 @@ impl TransportScene {
                 if throughput <= 0.0 {
                     continue;
                 }
-                let transmitted = scale(weight, throughput);
+                let transmitted = scale(transmitted_weight, throughput);
                 if let Some(surface_normal) = normal {
                     accumulate_surface_lobe(accumulator, transmitted, direction, surface_normal);
                 } else {
@@ -1956,11 +2002,14 @@ impl TransportScene {
     ) -> DirectLightingSample {
         let mut result = DirectLightingSample::default();
         for index in emitters {
-            let Some(emitter) = self.emitters.get(*index) else {
+            let (Some(emitter), Some(prepared)) = (
+                self.emitters.get(*index),
+                self.prepared_emitters.get(*index),
+            ) else {
                 continue;
             };
             let (signature, rays) = emitter.accumulate_direct(
-                &self.prepared_emitters[*index],
+                prepared,
                 self,
                 &mut result.light,
                 receiver.position,
@@ -2067,7 +2116,7 @@ impl TransportScene {
     /// Zero (the default) preserves the historical "an interior has no sky"
     /// behaviour exactly; a level's `sky.ambient` is the only producer.
     #[must_use]
-    pub fn with_sky(mut self, radiance: [f32; 3]) -> Self {
+    pub const fn with_sky(mut self, radiance: [f32; 3]) -> Self {
         self.sky_radiance = radiance;
         self
     }
@@ -2117,13 +2166,13 @@ impl TransportScene {
 
     /// Number of triangles in the scene.
     #[must_use]
-    pub fn triangle_count(&self) -> usize {
+    pub const fn triangle_count(&self) -> usize {
         self.triangles.len()
     }
 
     /// Number of emitters in the scene.
     #[must_use]
-    pub fn emitter_count(&self) -> usize {
+    pub const fn emitter_count(&self) -> usize {
         self.emitters.len()
     }
 
@@ -2139,6 +2188,10 @@ impl TransportScene {
     /// endpoint has a floating-point reconstruction allowance, so an emitter
     /// lying on its own face does not shadow itself after ray normalization.
     #[must_use]
+    #[allow(
+        clippy::suboptimal_flops,
+        reason = "The endpoint guard rounds the offset before subtraction to preserve ray acceptance at the segment end."
+    )]
     pub fn occluded(&self, a: [f32; 3], b: [f32; 3]) -> bool {
         let direction = sub(b, a);
         let distance = length(direction);
@@ -2179,13 +2232,10 @@ impl TransportScene {
             return false;
         }
         let mut node_index = 0_u32;
-        loop {
-            let Some(node) = self
-                .ray_nodes
-                .get(usize::try_from(node_index).unwrap_or(usize::MAX))
-            else {
-                break;
-            };
+        while let Some(node) = self
+            .ray_nodes
+            .get(usize::try_from(node_index).unwrap_or(usize::MAX))
+        {
             if node.count > 0 {
                 let start = usize::try_from(node.first).unwrap_or(usize::MAX);
                 let end = start.saturating_add(usize::try_from(node.count).unwrap_or(usize::MAX));
@@ -2325,10 +2375,7 @@ impl TransportScene {
         else {
             return (None, false);
         };
-        loop {
-            let Some(node) = nodes.get(usize::try_from(node_index).unwrap_or(usize::MAX)) else {
-                break;
-            };
+        while let Some(node) = nodes.get(usize::try_from(node_index).unwrap_or(usize::MAX)) {
             let limit = best.map_or(f32::INFINITY, |(distance, _)| {
                 if FIND_TIES {
                     // Slabs round subtraction/reciprocal/multiplication in f32;
@@ -2471,13 +2518,10 @@ impl TransportScene {
         let mut stack: [u32; 64] = [0; 64];
         let mut depth = 0_usize;
         let mut node_index = 0_u32;
-        loop {
-            let Some(node) = self
-                .nodes
-                .get(usize::try_from(node_index).unwrap_or(usize::MAX))
-            else {
-                break;
-            };
+        while let Some(node) = self
+            .nodes
+            .get(usize::try_from(node_index).unwrap_or(usize::MAX))
+        {
             if point_box_distance_squared(point, node.min, node.max) <= radius_sq {
                 if node.count > 0 {
                     let start = usize::try_from(node.first).unwrap_or(usize::MAX);
@@ -2512,7 +2556,7 @@ impl TransportScene {
                         // it here clips coverage against the neighbour while
                         // tracing from this patch, shadowing half the footprint.
                         if normal.is_some_and(|surface_normal| {
-                            dot(surface_normal, triangle.normal) < 1.0 - 8.0 * f32::EPSILON
+                            dot(surface_normal, triangle.normal) < SHARED_NORMAL_DOT
                         }) {
                             continue;
                         }
@@ -2657,10 +2701,11 @@ impl TransportScene {
                     .get(*slot)
                     .is_some_and(|emitter| emitter.switchable.is_none() && emitter.intensity > 0.0)
             })
-            && self
-                .runtime_direct_lights
-                .windows(2)
-                .all(|pair| pair[0].0 < pair[1].0 && pair[0].1 < pair[1].1)
+            && self.runtime_direct_lights.array_windows::<2>().all(
+                |[(prev_slot, prev_id), (next_slot, next_id)]| {
+                    prev_slot < next_slot && prev_id < next_id
+                },
+            )
             && self.global_lights.len() <= crate::engine::level::MAX_GLOBAL_ILLUMINATORS
             && self
                 .global_lights
@@ -2850,6 +2895,10 @@ impl TransportScene {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The solve stage receives existing per-pass buffers, counters and cancellation by reference so its caller owns their lifetimes across passes."
+    )]
     fn solve_prepared_pass(
         &self,
         charts: &[(LightmapPatch, Chart)],
@@ -2942,6 +2991,10 @@ impl TransportScene {
         )
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Finish owns the final field while borrowing the aligned direct field, receivers and optional probe publication slot."
+    )]
     fn finish_pass(
         &self,
         charts: &[(LightmapPatch, Chart)],
@@ -2968,12 +3021,13 @@ impl TransportScene {
             receivers,
             dump: apply_fill,
         };
-        if probes.is_some() && apply_fill && probe_audit::enabled() {
-            if let Err(error) =
+        if probes.is_some()
+            && apply_fill
+            && probe_audit::enabled()
+            && let Err(error) =
                 probe_audit::dump_receivers(self, charts, receivers, &accumulators, bounces)
-            {
-                crate::engine::logging::warn(format_args!("[probe-diagnostics] {error}"));
-            }
+        {
+            crate::engine::logging::warn(format_args!("[probe-diagnostics] {error}"));
         }
         let mut indirect = accumulators;
         for (value, direct_term) in indirect.iter_mut().zip(direct) {
@@ -3048,6 +3102,10 @@ impl TransportScene {
         }
     }
 
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "Each bounce sequence works from borrowed receivers and cache plus an owned accumulator field and explicit cancellation."
+    )]
     fn bounce_orders(
         &self,
         receivers: &[TransportReceiver],
@@ -3251,6 +3309,10 @@ impl TransportScene {
         // Visibility-supported fill is independent per texel. Share the
         // immutable scene and preserve each texel's exact arithmetic order.
         crate::engine::progress::stage("receiver recovery");
+        #[allow(
+            clippy::indexing_slicing,
+            reason = "The parallel map emits only indices below texels.len(); the checks above require all four arrays to have exactly that length."
+        )]
         parallel_map(texels.len(), workers, cancel, |index| {
             let mut texel = texels[index];
             let receiver = &receivers[index];
@@ -3294,12 +3356,13 @@ impl TransportScene {
                 continue;
             }
             let support = self.baseline_support(target.position);
-            for channel in 0..3 {
-                let current = probe.irradiance[channel];
-                probe.irradiance[channel] += baseline_fill(
-                    current,
-                    target.target[channel] * attenuation[channel] * support,
-                );
+            for ((slot, target_channel), transmission) in probe
+                .irradiance
+                .iter_mut()
+                .zip(target.target)
+                .zip(*attenuation)
+            {
+                *slot += baseline_fill(*slot, target_channel * transmission * support);
             }
         }
     }
@@ -3313,6 +3376,10 @@ impl TransportScene {
     /// which is the historical "an interior has no sky" behaviour — and a ray
     /// that hits a surface contributes that surface's solved outgoing radiance
     /// times its albedo, weighted by the sample's solid angle.
+    #[allow(
+        clippy::too_many_arguments,
+        reason = "The per-order gather explicitly shares aligned receivers, previous values and cache with workers and cancellation."
+    )]
     fn bounce_pass(
         &self,
         receivers: &[TransportReceiver],
@@ -3498,10 +3565,11 @@ impl TransportScene {
             && receiver.attenuation.iter().all(|value| value.is_finite());
         let mut light = Accumulator::default();
         for &index in emitters {
-            let Some(emitter) = self.emitters.get(index) else {
+            let (Some(emitter), Some(prepared)) =
+                (self.emitters.get(index), self.prepared_emitters.get(index))
+            else {
                 continue;
             };
-            let prepared = &self.prepared_emitters[index];
             if can_skip_zero && matches!(emitter.shape, EmitterShape::Rect { u: _, v: _ }) {
                 emitter.accumulate_reflected_rect(
                     prepared,
@@ -3614,6 +3682,10 @@ fn audit_stage(
 
 /// Opt-in stage measurements before display compression, grouped by room and
 /// architectural family. Area weighting prevents tiny charts dominating a report.
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Multiply and accumulation remain separate so audited room totals preserve their existing rounding."
+)]
 fn audit_stage_metrics(
     stage: &str,
     charts: &[(LightmapPatch, Chart)],
@@ -3923,9 +3995,13 @@ fn accumulate_surface_lobe(
     accumulate_surface_energy(&mut accumulator.surface_light, weight, cosine);
 }
 
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Per-channel products are rounded before they enter the existing irradiance sum."
+)]
 fn accumulate_surface_energy(surface_light: &mut [f32; 3], weight: [f32; 3], cosine: f32) {
-    for channel in 0..3 {
-        surface_light[channel] += weight[channel] * cosine;
+    for (slot, channel) in surface_light.iter_mut().zip(weight) {
+        *slot += channel * cosine;
     }
 }
 
@@ -3967,6 +4043,10 @@ fn compress_surface(accumulator: &Accumulator, normal: [f32; 3]) -> LightmapTexe
 }
 
 /// Floating-point encoding tolerance, independent of artistic brightness.
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Keep the original rounding of the absolute-plus-relative energy tolerance."
+)]
 fn surface_energy_matches(texel: LightmapTexel, normal: [f32; 3], expected: [f32; 3]) -> bool {
     texel.is_finite()
         && texel
@@ -3999,15 +4079,9 @@ fn attenuate(weight: [f32; 3], attenuation: [f32; 3]) -> [f32; 3] {
 /// instead of picking one dominant lobe.
 fn compress(accumulator: &Accumulator) -> LightmapTexel {
     let mut direction = [0.0_f32; 3];
-    for channel in 0..3 {
-        if let Some(moment) = accumulator.moment.get(channel) {
-            for axis in 0..3 {
-                if let Some(value) = moment.get(axis) {
-                    if let Some(slot) = direction.get_mut(axis) {
-                        *slot += value;
-                    }
-                }
-            }
+    for moment in &accumulator.moment {
+        for (slot, value) in direction.iter_mut().zip(moment) {
+            *slot += value;
         }
     }
     LightmapTexel {
@@ -4020,6 +4094,10 @@ fn compress(accumulator: &Accumulator) -> LightmapTexel {
 /// Per-channel luminance weights used only for thresholds and filtering.
 const LUMA: [f32; 3] = [0.2126, 0.7152, 0.0722];
 
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "The ordered channel products and additions retain their current rounding for energy comparisons."
+)]
 fn channel_luminance(color: [f32; 3]) -> f32 {
     color[0] * LUMA[0] + color[1] * LUMA[1] + color[2] * LUMA[2]
 }
@@ -4041,6 +4119,10 @@ fn channel_luminance(color: [f32; 3]) -> f32 {
 /// Returns [`LightmapFailure::InvalidConfig`] for an empty or unaddressable
 /// receiver set and propagates cancellation as a fill failure.
 // one bake, every input explicit
+#[allow(
+    clippy::too_many_arguments,
+    reason = "Probe baking borrows the aligned surface/cache inputs and keeps bake budget, cancellation and base-field policy explicit."
+)]
 fn bake_probe_field(
     scene: &TransportScene,
     receivers: &[TransportReceiver],
@@ -4191,13 +4273,18 @@ fn accumulate_probe_emitters(
     audit: bool,
 ) -> Vec<usize> {
     let mut visible_emitters = Vec::new();
-    for (emitter_index, emitter) in scene.emitters.iter().enumerate() {
+    for (emitter_index, (emitter, prepared)) in scene
+        .emitters
+        .iter()
+        .zip(&scene.prepared_emitters)
+        .enumerate()
+    {
         if emitter.switchable.is_some() || emitter.intensity <= 0.0 {
             continue;
         }
         let previous = accumulator.irradiance;
         let _emitter_sample_status = emitter.accumulate_direct(
-            &scene.prepared_emitters[emitter_index],
+            prepared,
             scene,
             accumulator,
             position,
@@ -4227,9 +4314,12 @@ fn selected_probe_direct(
 ) -> LightmapTexel {
     let mut local = Accumulator::default();
     for (slot, _) in &scene.runtime_direct_lights {
-        if let Some(emitter) = scene.emitters.get(*slot) {
+        if let (Some(emitter), Some(prepared)) = (
+            scene.emitters.get(*slot),
+            scene.prepared_emitters.get(*slot),
+        ) {
             let _sample = emitter.accumulate_direct(
-                &scene.prepared_emitters[*slot],
+                prepared,
                 scene,
                 &mut local,
                 position,
@@ -4415,6 +4505,10 @@ pub const PROBE_CLEARANCE_M: f32 = 0.05;
     clippy::as_conversions,
     reason = "The private caller enumerates 512 probe rays, so pair is 0..255 and half is 256; their f32 conversions are exact."
 )]
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Round the squared vertical component before computing the existing sampling radius."
+)]
 fn probe_direction(ray: usize) -> [f32; 3] {
     let pair = ray / 2;
     let half = PROBE_BAKE_RAYS / 2;
@@ -4533,6 +4627,10 @@ impl<'a> SurfaceCacheTarget<'a> {
 }
 
 impl RadianceCache {
+    #[allow(
+        clippy::suboptimal_flops,
+        reason = "Cache representative selection depends on the existing rounding of the ordered sum of squared distances."
+    )]
     fn build(receivers: &[TransportReceiver], triangles: &[TransportTriangle]) -> Self {
         let mut min = [f32::INFINITY; 3];
         let mut max = [f32::NEG_INFINITY; 3];
@@ -4564,8 +4662,8 @@ impl RadianceCache {
         ];
         let mut dims = [1usize; 3];
         let mut cell = CACHE_CELL_M;
-        for axis in 0..3 {
-            let requested = (extent[axis] / CACHE_CELL_M).ceil().max(1.0);
+        for (dim, size) in dims.iter_mut().zip(extent) {
+            let requested = (size / CACHE_CELL_M).ceil().max(1.0);
             let cap = f32::from(u16::try_from(MAX_CACHE_CELLS).unwrap_or(u16::MAX)).max(1.0);
             let capped = requested.min(cap);
             #[expect(
@@ -4576,10 +4674,10 @@ impl RadianceCache {
             )]
             // Bounded by MAX_CACHE_CELLS (96), so the cast is exact.
             let count = capped as usize;
-            dims[axis] = count.max(1);
+            *dim = count.max(1);
             // The cell size is the largest one that keeps every receiver
             // inside the grid, so the cache is both bounded and complete.
-            cell = cell.max(extent[axis] / f32::from(u16::try_from(count.max(1)).unwrap_or(1)));
+            cell = cell.max(size / f32::from(u16::try_from(count.max(1)).unwrap_or(1)));
         }
         let cell_m = if cell.is_finite() && cell > 1.0e-4 {
             cell
@@ -4790,17 +4888,16 @@ impl RadianceCache {
             return self.nearest_visible_surface(scene, point, surface, base, receivers, values);
         }
         let inverse = 1.0 / weight_sum;
-        for channel in 0..3 {
-            total.surface_light[channel] *= inverse;
-            if let Some(slot) = total.irradiance.get_mut(channel) {
+        for ((surface_light, irradiance), moment) in total
+            .surface_light
+            .iter_mut()
+            .zip(&mut total.irradiance)
+            .zip(&mut total.moment)
+        {
+            *surface_light *= inverse;
+            *irradiance *= inverse;
+            for slot in moment {
                 *slot *= inverse;
-            }
-            if let Some(moment) = total.moment.get_mut(channel) {
-                for axis in 0..3 {
-                    if let Some(slot) = moment.get_mut(axis) {
-                        *slot *= inverse;
-                    }
-                }
             }
         }
         total
@@ -4871,17 +4968,17 @@ fn cache_representatives(
             let centre = cell_centre(index, min, cell, dims);
             entries
                 .into_iter()
-                .map(|receiver_index| {
-                    let delta = sub(receivers[receiver_index].position, centre);
-                    CacheRepresentative {
+                .filter_map(|receiver_index| {
+                    let receiver = receivers.get(receiver_index)?;
+                    let delta = sub(receiver.position, centre);
+                    Some(CacheRepresentative {
                         receiver: receiver_index,
                         distance: dot(delta, delta),
-                        normal_mask: receivers
-                            .get(receiver_index)
-                            .and_then(|receiver| usize::try_from(receiver.surface).ok())
+                        normal_mask: usize::try_from(receiver.surface)
+                            .ok()
                             .and_then(|surface| triangles.get(surface))
                             .map_or(u32::MAX, |triangle| cache_normal_mask(triangle.normal)),
-                    }
+                    })
                 })
                 .collect()
         })
@@ -4932,9 +5029,18 @@ fn same_lighting_plane(left: &TransportTriangle, right: &TransportTriangle) -> b
 }
 
 /// Adds one accumulator scaled by `weight` into `total`.
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Each accumulator preserves separate multiplication and addition and its existing channel order."
+)]
 fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
-    for channel in 0..3 {
-        total.surface_light[channel] += weight * value.surface_light[channel];
+    for (channel, (surface_light, source_light)) in total
+        .surface_light
+        .iter_mut()
+        .zip(value.surface_light)
+        .enumerate()
+    {
+        *surface_light += weight * source_light;
         if let (Some(slot), Some(source)) = (
             total.irradiance.get_mut(channel),
             value.irradiance.get(channel),
@@ -4961,6 +5067,10 @@ fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
     clippy::as_conversions,
     clippy::arithmetic_side_effects,
     reason = "Private callers enumerate the radiance cache capped at 96 cells per axis, so coordinates convert exactly to f32; max(1) makes every decomposition divisor nonzero."
+)]
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Cell centres retain separate multiplication and addition rounding for spatial cache selection."
 )]
 fn cell_centre(index: usize, min: [f32; 3], cell: f32, dims: [usize; 3]) -> [f32; 3] {
     let mut remaining = index;
@@ -5044,7 +5154,7 @@ fn ray_seed(receiver: usize, pass: u8) -> u64 {
         | 1
 }
 
-/// One `0..1` value from a SplitMix64 sequence.
+/// One `0..1` value from a `SplitMix64` sequence.
 fn next_unit(state: &mut u64) -> f32 {
     *state = state.wrapping_add(0x9E37_79B9_7F4A_7C15);
     let mut z = *state;
@@ -5068,6 +5178,10 @@ fn next_unit(state: &mut u64) -> f32 {
 /// The Duff et al. branchless orthonormal basis keeps the sampling frame
 /// continuous across the normal's sign changes, so a chart boundary cannot
 /// produce a visible seam from the ray directions alone.
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "The signed basis keeps each multiply and add rounded separately."
+)]
 fn hemisphere_axes(normal: [f32; 3]) -> ([f32; 3], [f32; 3]) {
     let sign = if normal[2] >= 0.0 { 1.0 } else { -1.0 };
     let a = -1.0 / (sign + normal[2]);
@@ -5101,6 +5215,10 @@ fn surface_gather_rotation(point: [f32; 3], pass: u8) -> (f32, f32) {
     (std::f32::consts::TAU * next_unit(&mut state)).sin_cos()
 }
 
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Preserve the existing rounding of the two terms in the tangent-space rotation."
+)]
 fn gather_direction(
     normal: [f32; 3],
     axes: ([f32; 3], [f32; 3]),
@@ -5132,6 +5250,10 @@ fn hemisphere_sequence(count: usize, pass: u8) -> Vec<[f32; 3]> {
         .collect()
 }
 
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Round the squared cosine before deriving the original sample radius."
+)]
 fn hemisphere_local(u1: f32, u2: f32) -> [f32; 3] {
     let phi = 2.0 * std::f32::consts::PI * u1;
     let cos_theta = u2.clamp(0.0, 1.0);
@@ -5142,6 +5264,10 @@ fn hemisphere_local(u1: f32, u2: f32) -> [f32; 3] {
     [x, y, cos_theta]
 }
 
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Keep the existing order and separate rounding of the tangential and normal terms."
+)]
 fn hemisphere_from_local(
     normal: [f32; 3],
     t1: [f32; 3],
@@ -5185,23 +5311,16 @@ fn build_node(
             continue;
         };
         for point in [triangle.p0, triangle.p1, triangle.p2] {
-            for axis in 0..3 {
-                if let Some(slot) = min.get_mut(axis) {
-                    *slot = slot.min(point[axis]);
-                }
-                if let Some(slot) = max.get_mut(axis) {
-                    *slot = slot.max(point[axis]);
-                }
+            for ((low, high), value) in min.iter_mut().zip(&mut max).zip(point) {
+                *low = low.min(value);
+                *high = high.max(value);
             }
         }
         if let Some(centroid) = centroids.get(usize::try_from(index).unwrap_or(usize::MAX)) {
-            for axis in 0..3 {
-                if let Some(slot) = centroid_min.get_mut(axis) {
-                    *slot = slot.min(centroid[axis]);
-                }
-                if let Some(slot) = centroid_max.get_mut(axis) {
-                    *slot = slot.max(centroid[axis]);
-                }
+            for ((low, high), value) in centroid_min.iter_mut().zip(&mut centroid_max).zip(centroid)
+            {
+                *low = low.min(*value);
+                *high = high.max(*value);
             }
         }
     }
@@ -5230,10 +5349,14 @@ fn build_node(
             slice.select_nth_unstable_by(mid.saturating_sub(start), |a, b| {
                 let ca = centroids
                     .get(usize::try_from(*a).unwrap_or(usize::MAX))
-                    .map_or(0.0, |value| value[axis]);
+                    .and_then(|value| value.get(axis))
+                    .copied()
+                    .unwrap_or(0.0);
                 let cb = centroids
                     .get(usize::try_from(*b).unwrap_or(usize::MAX))
-                    .map_or(0.0, |value| value[axis]);
+                    .and_then(|value| value.get(axis))
+                    .copied()
+                    .unwrap_or(0.0);
                 ca.partial_cmp(&cb).unwrap_or(std::cmp::Ordering::Equal)
             });
     }
@@ -5284,6 +5407,10 @@ fn ray_slab_entry(
     slab_entry_rounded(node, origin, inverse, max_t, true, parallel)
 }
 
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Conservative slab padding retains the existing separately rounded extent and endpoint."
+)]
 fn slab_entry_rounded(
     node: &BvhNode,
     origin: [f32; 3],
@@ -5298,20 +5425,14 @@ fn slab_entry_rounded(
     } else {
         max_t
     };
-    for axis in 0..3 {
-        let Some(o) = origin.get(axis) else {
-            return None;
-        };
-        let Some(inv) = inverse.get(axis) else {
-            return None;
-        };
-        let Some(min) = node.min.get(axis) else {
-            return None;
-        };
-        let Some(max) = node.max.get(axis) else {
-            return None;
-        };
-        if parallel[axis] {
+    for ((((o, inv), min), max), is_parallel) in origin
+        .into_iter()
+        .zip(inverse)
+        .zip(node.min)
+        .zip(node.max)
+        .zip(parallel)
+    {
+        if is_parallel {
             if o < min || o > max {
                 return None;
             }
@@ -5335,6 +5456,10 @@ fn slab_entry_rounded(
 }
 
 /// Squared distance from a point to an axis-aligned box (zero inside it).
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Keep squared offsets and their ordered sum separately rounded for the radius test."
+)]
 fn point_box_distance_squared(point: [f32; 3], min: [f32; 3], max: [f32; 3]) -> f32 {
     let mut sum = 0.0_f32;
     for axis in 0..3 {
@@ -5402,7 +5527,7 @@ impl PreparedRay {
         } else {
             2
         };
-        let depth = f64::from(direction[dominant]);
+        let depth = f64::from(*direction.get(dominant)?);
         if depth.abs() <= f64::MIN_POSITIVE || !depth.is_finite() {
             return None;
         }
@@ -5416,8 +5541,8 @@ impl PreparedRay {
             horizontal,
             vertical,
             depth,
-            shear_x: f64::from(direction[horizontal]) / depth,
-            shear_y: f64::from(direction[vertical]) / depth,
+            shear_x: f64::from(*direction.get(horizontal)?) / depth,
+            shear_y: f64::from(*direction.get(vertical)?) / depth,
         })
     }
 
@@ -5431,11 +5556,23 @@ impl PreparedRay {
         reason = "Validated ray positions intentionally return to the f32 geometry domain for coverage interpolation."
     )]
     fn point_at(&self, distance: f32) -> [f32; 3] {
-        std::array::from_fn(|axis| {
-            f64::from(self.direction[axis]).mul_add(f64::from(distance), self.origin[axis]) as f32
-        })
+        let advance =
+            |direction, origin| f64::from(direction).mul_add(f64::from(distance), origin) as f32;
+        [
+            advance(self.direction[0], self.origin[0]),
+            advance(self.direction[1], self.origin[1]),
+            advance(self.direction[2], self.origin[2]),
+        ]
     }
 
+    #[allow(
+        clippy::suboptimal_flops,
+        reason = "Watertight edge and distance tests depend on separate rounding of products and their ordered sums."
+    )]
+    #[allow(
+        clippy::indexing_slicing,
+        reason = "The private ray constructor chooses a dominant axis in 0..3 and derives the two other axes modulo 3; these select the same three components on every triangle."
+    )]
     fn corners(&self, corners: [[f32; 3]; 3]) -> Option<f32> {
         let project = |point: [f32; 3]| {
             let translated = [
@@ -5665,13 +5802,11 @@ fn parallel_map_init<T: Send, S>(
                     }
                     (completed, started.elapsed())
                 });
-            match handle {
-                Ok(worker_handle) => handles.push(worker_handle),
-                Err(_) => {
-                    failed = true;
-                    break;
-                }
-            }
+            let Ok(worker_handle) = handle else {
+                failed = true;
+                break;
+            };
+            handles.push(worker_handle);
         }
         for handle in handles {
             match handle.join() {
@@ -5680,7 +5815,11 @@ fn parallel_map_init<T: Send, S>(
                         report_worker(count, batch, &completed, elapsed);
                     }
                     for (job, values) in completed {
-                        slots[job] = Some(values);
+                        if let Some(slot) = slots.get_mut(job) {
+                            *slot = Some(values);
+                        } else {
+                            failed = true;
+                        }
                     }
                 }
                 Err(_) => {

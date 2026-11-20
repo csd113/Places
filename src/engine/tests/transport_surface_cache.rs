@@ -37,7 +37,11 @@ fn cached_surface_preserves_hit_coordinates_at_boundaries() -> Result<(), String
     let values: Vec<_> = prepared
         .receivers
         .iter()
-        .map(|receiver| [1.0 + receiver.position[0] + 2.0 * receiver.position[2]; 3])
+        .map(|receiver| {
+            let x_term = 1.0 + receiver.position[0];
+            let z_term = 2.0 * receiver.position[2];
+            [x_term + z_term; 3]
+        })
         .collect();
     let cache = prepared.cache(&scene, &charts);
     for point in [
@@ -53,7 +57,9 @@ fn cached_surface_preserves_hit_coordinates_at_boundaries() -> Result<(), String
         let sampled = cache
             .surface_stencil(&scene, point, surface, &prepared.receivers, None)
             .sample(&values);
-        let expected = 1.0 + point[0] + 2.0 * point[2];
+        let x_term = 1.0 + point[0];
+        let z_term = 2.0 * point[2];
+        let expected = x_term + z_term;
         for actual in sampled {
             assert!(
                 (actual - expected).abs() < 1.0e-5,

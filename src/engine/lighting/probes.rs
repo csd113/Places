@@ -20,16 +20,12 @@
 //! brightness, colour and directional character reach a character exactly as
 //! they reach the walls.
 
-// Fixed three-channel arrays use constant or 0..3 indices; variable probe
-// addresses are checked. Preserve the established floating-point evaluation
-// order, with numeric conversion exceptions documented at their expressions.
 #![allow(
-    clippy::indexing_slicing,
     clippy::missing_const_for_fn,
     clippy::option_if_let_else,
     clippy::suboptimal_flops,
     clippy::too_many_lines,
-    reason = "Fixed three-channel arrays use constant or 0..3 indices; variable probe addresses are checked. Preserve floating-point evaluation order and cohesive runtime sampling routines."
+    reason = "Preserve floating-point evaluation order and cohesive runtime sampling routines."
 )]
 
 use crate::engine::lighting::lightmap::LightmapTexel;
@@ -318,9 +314,13 @@ impl ProbeField {
         let mut energy = [0.0_f64; 3];
         let mut moment = [0.0_f64; 3];
         let sum = self.visit_candidates(position, room, accept, |_, _, probe, weight| {
-            for channel in 0..3 {
-                energy[channel] += weight * f64::from(probe.irradiance[channel]);
-                moment[channel] += weight * f64::from(probe.direction[channel]);
+            for ((energy_slot, moment_slot), (irradiance, direction)) in energy
+                .iter_mut()
+                .zip(&mut moment)
+                .zip(probe.irradiance.into_iter().zip(probe.direction))
+            {
+                *energy_slot += weight * f64::from(irradiance);
+                *moment_slot += weight * f64::from(direction);
             }
         })?;
         if sum <= 0.0_f64 {
@@ -364,13 +364,17 @@ impl ProbeField {
         let mut moment = [0.0_f64; 3];
         let sum = self.visit_candidates(position, room, accept, |id, _, probe, weight| {
             if let Some(local) = direct.probes.get(id) {
-                for channel in 0..3 {
-                    energy[channel] += weight
-                        * (f64::from(probe.irradiance[channel])
-                            - f64::from(local.irradiance[channel]));
-                    moment[channel] += weight
-                        * (f64::from(probe.direction[channel])
-                            - f64::from(local.direction[channel]));
+                for (
+                    ((energy_slot, moment_slot), (irradiance, direction)),
+                    (direct_energy, direct_moment),
+                ) in energy
+                    .iter_mut()
+                    .zip(&mut moment)
+                    .zip(probe.irradiance.into_iter().zip(probe.direction))
+                    .zip(local.irradiance.into_iter().zip(local.direction))
+                {
+                    *energy_slot += weight * (f64::from(irradiance) - f64::from(direct_energy));
+                    *moment_slot += weight * (f64::from(direction) - f64::from(direct_moment));
                 }
             }
         })?;
@@ -451,21 +455,31 @@ impl ProbeField {
                 .as_ref()
                 .filter(|_| replace_local_direct)
                 .and_then(|direct| direct.probes.get(id));
-            for channel in 0..3 {
-                energy[channel] += weight
-                    * (f64::from(probe.irradiance[channel])
-                        - local.map_or(0.0_f64, |value| f64::from(value.irradiance[channel])));
-                moment[channel] += weight
-                    * (f64::from(probe.direction[channel])
-                        - local.map_or(0.0_f64, |value| f64::from(value.direction[channel])));
+            let local_energy = local.map_or([0.0; 3], |value| value.irradiance);
+            let local_moment = local.map_or([0.0; 3], |value| value.direction);
+            for (
+                ((energy_slot, moment_slot), (irradiance, direction)),
+                (direct_energy, direct_moment),
+            ) in energy
+                .iter_mut()
+                .zip(&mut moment)
+                .zip(probe.irradiance.into_iter().zip(probe.direction))
+                .zip(local_energy.into_iter().zip(local_moment))
+            {
+                *energy_slot += weight * (f64::from(irradiance) - f64::from(direct_energy));
+                *moment_slot += weight * (f64::from(direction) - f64::from(direct_moment));
             }
             for plane in &self.switchable_indirect {
                 if enabled(plane.light_index)
                     && let Some(value) = plane.probes.get(id)
                 {
-                    for channel in 0..3 {
-                        energy[channel] += weight * f64::from(value.irradiance[channel]);
-                        moment[channel] += weight * f64::from(value.direction[channel]);
+                    for ((energy_slot, moment_slot), (irradiance, direction)) in energy
+                        .iter_mut()
+                        .zip(&mut moment)
+                        .zip(value.irradiance.into_iter().zip(value.direction))
+                    {
+                        *energy_slot += weight * f64::from(irradiance);
+                        *moment_slot += weight * f64::from(direction);
                     }
                 }
             }
@@ -576,10 +590,15 @@ impl ProbeField {
             return None;
         }
         let room_label = room.map(i32::try_from).transpose().ok()?;
-        let coords: [f64; 3] = std::array::from_fn(|axis| {
-            (f64::from(position[axis]) - f64::from(self.min[axis])) / f64::from(self.cell_m)
-                - 0.5_f64
-        });
+        let [pos_x, pos_y, pos_z] = position;
+        let [min_x, min_y, min_z] = self.min;
+        let coordinate =
+            |value, min| (f64::from(value) - f64::from(min)) / f64::from(self.cell_m) - 0.5_f64;
+        let coords = [
+            coordinate(pos_x, min_x),
+            coordinate(pos_y, min_y),
+            coordinate(pos_z, min_z),
+        ];
         let dims = self.dims_usize();
         if coords
             .iter()
@@ -589,7 +608,7 @@ impl ProbeField {
             return None;
         }
         let mut ranges = [(0usize, 0usize); 3];
-        for axis in 0..3 {
+        for ((range, coord), dim) in ranges.iter_mut().zip(coords).zip(dims) {
             // Coordinates are finite and bounded to the grid's small support.
             #[expect(
                 clippy::as_conversions,
@@ -597,15 +616,15 @@ impl ProbeField {
                 clippy::cast_sign_loss,
                 reason = "Coordinates are finite and bounded to the grid's small support."
             )]
-            let low = (coords[axis] - 2.0).ceil().max(0.0) as usize;
+            let low = (coord - 2.0).ceil().max(0.0) as usize;
             #[expect(
                 clippy::as_conversions,
                 clippy::cast_possible_truncation,
                 clippy::cast_sign_loss,
                 reason = "Coordinates are finite and checked within the grid support; the resulting integer index is capped to its axis dimension."
             )]
-            let high = (coords[axis] + 2.0).floor().max(0.0) as usize;
-            ranges[axis] = (low, high.min(dims[axis].saturating_sub(1)));
+            let high = (coord + 2.0).floor().max(0.0) as usize;
+            *range = (low, high.min(dim.saturating_sub(1)));
         }
         // Exact lookup is checked first so no previously visited candidate
         // survives when the sample coincides with a valid probe centre.
@@ -634,15 +653,14 @@ impl ProbeField {
                             .zip(coords)
                             .map(|(a, b)| (*a as f64 - b).powi(2))
                             .sum::<f64>();
-                        let lattice = [x, y, z];
                         #[expect(
                             clippy::cast_precision_loss,
                             clippy::as_conversions,
                             reason = "Serialized lattice axes are capped at 64; larger in-memory u32 axes retain the same rounded f32 coordinates used by assign_rooms."
                         )]
-                        let world_position = std::array::from_fn(|axis| {
-                            self.min[axis] + (lattice[axis] as f32 + 0.5) * self.cell_m
-                        });
+                        let centre =
+                            |index: usize, min: f32| min + (index as f32 + 0.5) * self.cell_m;
+                        let world_position = [centre(x, min_x), centre(y, min_y), centre(z, min_z)];
                         if d2 >= 4.0_f64
                             || (pass == 0_i32
                                 && d2 > 1.0e-20_f64
@@ -925,7 +943,9 @@ impl ProbeField {
             probe.validate()?;
             probes.push(probe);
         }
-        let has_local_direct = cursor.take(1)?[0];
+        let &[has_local_direct] = cursor.take(1)? else {
+            return Err("probe field is truncated".to_string());
+        };
         if has_local_direct > 1 {
             return Err("probe field direct presence is invalid".to_string());
         }
@@ -1054,8 +1074,8 @@ impl ProbeField {
         if direct.light_indices.len() > MAX_RUNTIME_PROBE_LIGHTS
             || direct
                 .light_indices
-                .windows(2)
-                .any(|pair| pair[0] >= pair[1])
+                .array_windows::<2>()
+                .any(|[left, right]| left >= right)
             || direct.probes.len() != self.probes.len()
         {
             return Err(
@@ -1167,34 +1187,25 @@ impl ProbeSample {
     /// non-negative, the signed moment kept with its sign, and the reserved
     /// axis folded into `0..=1`.
     #[must_use]
-    pub fn normalized(self) -> Self {
-        let mut out = Self {
-            room: self.room,
-            ..Self::default()
-        };
-        for channel in 0..3 {
-            let irradiance = self.irradiance.get(channel).copied().unwrap_or(0.0);
-            let direction = self.direction.get(channel).copied().unwrap_or(0.0);
-            out.irradiance[channel] = if irradiance.is_finite() {
+    pub fn normalized(mut self) -> Self {
+        for (irradiance, direction) in self.irradiance.iter_mut().zip(&mut self.direction) {
+            *irradiance = if irradiance.is_finite() {
                 irradiance.max(0.0)
             } else {
                 0.0
             };
-            out.direction[channel] = if direction.is_finite() {
-                direction
-            } else {
-                0.0
-            };
+            if !direction.is_finite() {
+                *direction = 0.0;
+            }
         }
-        for (index, value) in self.axis.iter().enumerate() {
-            let unit_value = if value.is_finite() {
+        self.axis = self.axis.map(|value| {
+            if value.is_finite() {
                 value.clamp(0.0, 1.0)
             } else {
                 0.5
-            };
-            out.axis[index] = unit_value;
-        }
-        out
+            }
+        });
+        self
     }
 }
 

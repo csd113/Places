@@ -52,13 +52,19 @@ impl TransportAlphaSurface {
 
     fn coverage(&self, corners: [[f32; 3]; 3], point: [f32; 3]) -> f32 {
         let weights = barycentric(corners, point);
-        let uv = std::array::from_fn(|axis| {
-            self.uv
-                .iter()
-                .zip(weights)
-                .map(|(coordinate, weight)| coordinate[axis] * weight)
-                .sum()
-        });
+        let u = self
+            .uv
+            .iter()
+            .zip(weights)
+            .map(|([u, _], weight)| u * weight)
+            .sum();
+        let v = self
+            .uv
+            .iter()
+            .zip(weights)
+            .map(|([_, v], weight)| v * weight)
+            .sum();
+        let uv = [u, v];
         let vertex = self
             .vertex_alpha
             .iter()
@@ -80,8 +86,13 @@ impl TransportAlphaSurface {
     reason = "Normalized, clamped barycentric weights intentionally round to the shader's f32 domain."
 )]
 fn barycentric(corners: [[f32; 3]; 3], point: [f32; 3]) -> [f32; 3] {
+    let origin = corners[0].map(f64::from);
     let edge = |corner: [f32; 3]| {
-        std::array::from_fn::<_, 3, _>(|axis| f64::from(corner[axis]) - f64::from(corners[0][axis]))
+        [
+            f64::from(corner[0]) - origin[0],
+            f64::from(corner[1]) - origin[1],
+            f64::from(corner[2]) - origin[2],
+        ]
     };
     let u = edge(corners[1]);
     let v = edge(corners[2]);
@@ -113,6 +124,10 @@ fn barycentric(corners: [[f32; 3]; 3], point: [f32; 3]) -> [f32; 3] {
     clippy::as_conversions,
     clippy::cast_possible_truncation,
     reason = "Validated source image dimensions fit i64; bounded texel indices and unit interpolation fractions intentionally round to the GPU sampling domain."
+)]
+#[allow(
+    clippy::suboptimal_flops,
+    reason = "Bilinear alpha keeps the existing rounding and texel order at shadow mask cutoffs."
 )]
 fn sample_alpha(image: &RawImage, uv: [f32; 2], address: TransportTextureAddress) -> f32 {
     let coordinate = |value: f32, extent: u32| {
@@ -196,9 +211,8 @@ impl TransportScene {
                     .all(|coordinate| coordinate.abs() <= f32::MAX / 4.0)
         });
         self.blend_nodes = vec![false; self.ray_nodes.len()];
-        for index in (0..self.ray_nodes.len()).rev() {
-            let node = &self.ray_nodes[index];
-            self.blend_nodes[index] = if node.count > 0 {
+        for (index, node) in self.ray_nodes.iter().enumerate().rev() {
+            let blended = if node.count > 0 {
                 let start = usize::try_from(node.first).ok()?;
                 let end = start.checked_add(usize::try_from(node.count).ok()?)?;
                 self.ray_triangles.get(start..end)?.iter().any(|triangle| {
@@ -219,6 +233,7 @@ impl TransportScene {
                         .copied()
                         .unwrap_or(false)
             };
+            *self.blend_nodes.get_mut(index)? = blended;
         }
         self.surface_alpha = surfaces;
         Some(self)
@@ -226,6 +241,10 @@ impl TransportScene {
 
     /// Straight scalar transmission, including authored MASK/BLEND coverage.
     /// Cache-connectivity queries retain their opaque/MASK obstruction meaning.
+    #[allow(
+        clippy::suboptimal_flops,
+        reason = "Round the segment endpoint offset before subtraction to preserve the visibility boundary."
+    )]
     pub(crate) fn transmittance(&self, a: [f32; 3], b: [f32; 3]) -> f32 {
         if self.occluded(a, b) {
             return 0.0;
@@ -276,7 +295,10 @@ impl TransportScene {
         let mut hits = Vec::new();
         while depth > 0 {
             depth = depth.saturating_sub(1);
-            let index = usize::try_from(stack[depth]).unwrap_or(usize::MAX);
+            let index = stack
+                .get(depth)
+                .and_then(|slot| usize::try_from(*slot).ok())
+                .unwrap_or(usize::MAX);
             if !self.blend_nodes.get(index).copied().unwrap_or(false) {
                 continue;
             }
@@ -291,9 +313,12 @@ impl TransportScene {
             }
             if node.count == 0 {
                 // The hierarchy depth is capped at 40, below the 64-slot walk.
-                stack[depth] = node.first;
-                stack[depth.saturating_add(1)] = node.right;
-                depth = depth.saturating_add(2);
+                let next_depth = depth.saturating_add(2);
+                let Some(children) = stack.get_mut(depth..next_depth) else {
+                    continue;
+                };
+                children.copy_from_slice(&[node.first, node.right]);
+                depth = next_depth;
                 continue;
             }
             let first = usize::try_from(node.first).unwrap_or(usize::MAX);

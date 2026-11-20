@@ -16,25 +16,38 @@ impl Bounds {
         max: [f32::NEG_INFINITY; 3],
     };
 
-    fn include(self, other: Self) -> Self {
+    const fn include(self, other: Self) -> Self {
         Self {
-            min: std::array::from_fn(|axis| self.min[axis].min(other.min[axis])),
-            max: std::array::from_fn(|axis| self.max[axis].max(other.max[axis])),
+            min: [
+                self.min[0].min(other.min[0]),
+                self.min[1].min(other.min[1]),
+                self.min[2].min(other.min[2]),
+            ],
+            max: [
+                self.max[0].max(other.max[0]),
+                self.max[1].max(other.max[1]),
+                self.max[2].max(other.max[2]),
+            ],
         }
     }
 
+    #[allow(
+        clippy::suboptimal_flops,
+        reason = "Surface-area comparisons use the existing rounding of the three ordered pairwise products."
+    )]
     fn area(self) -> f64 {
-        let extent: [f64; 3] = std::array::from_fn(|axis| {
-            (f64::from(self.max[axis]) - f64::from(self.min[axis])).max(0.0)
-        });
-        2.0 * (extent[0] * extent[1] + extent[0] * extent[2] + extent[1] * extent[2])
+        let extent = |low, high| (f64::from(high) - f64::from(low)).max(0.0);
+        let x = extent(self.min[0], self.max[0]);
+        let y = extent(self.min[1], self.max[1]);
+        let z = extent(self.min[2], self.max[2]);
+        2.0 * (x * y + x * z + y * z)
     }
 }
 
 #[derive(Clone, Copy)]
 struct Bin {
     bounds: Bounds,
-    /// The validated scene contains fewer than u32::MAX triangles.
+    /// The validated scene contains fewer than `u32::MAX` triangles.
     count: u32,
 }
 
@@ -43,7 +56,7 @@ impl Bin {
         bounds: Bounds::EMPTY,
         count: 0,
     };
-    fn include(self, other: Self) -> Self {
+    const fn include(self, other: Self) -> Self {
         Self {
             bounds: self.bounds.include(other.bounds),
             count: self.count.saturating_add(other.count),
@@ -106,15 +119,19 @@ fn split(
 ) -> Option<(usize, usize)> {
     let mut best = None;
     let mut best_cost = f64::INFINITY;
-    for axis in 0..3 {
-        let extent = range.max[axis] - range.min[axis];
+    for (axis, (low, high)) in range.min.into_iter().zip(range.max).enumerate() {
+        let extent = high - low;
         if extent <= 0.0 || !extent.is_finite() {
             continue;
         }
         let mut bins = [Bin::EMPTY; BINS];
+        #[allow(
+            clippy::indexing_slicing,
+            reason = "Order is a permutation of the validated triangle IDs, centroids match bounds, axis is below three and bin clamps to the fixed bin count."
+        )]
         for index in order {
             let triangle_index = usize::try_from(*index).unwrap_or(usize::MAX);
-            let slot = bin(centroids[triangle_index][axis], range.min[axis], extent);
+            let slot = bin(centroids[triangle_index][axis], low, extent);
             bins[slot] = bins[slot].include(Bin {
                 bounds: bounds[triangle_index],
                 count: 1,
@@ -122,9 +139,9 @@ fn split(
         }
         let mut suffix = [Bin::EMPTY; BINS];
         let mut right = Bin::EMPTY;
-        for slot in (0..BINS).rev() {
-            right = right.include(bins[slot]);
-            suffix[slot] = right;
+        for (slot, bin) in suffix.iter_mut().zip(bins).rev() {
+            right = right.include(bin);
+            *slot = right;
         }
         let mut left = Bin::EMPTY;
         for (slot, (left_bin, right_bin)) in bins.iter().zip(suffix.iter().skip(1)).enumerate() {
@@ -132,6 +149,10 @@ fn split(
             if left.count == 0 || right_bin.count == 0 {
                 continue;
             }
+            #[allow(
+                clippy::suboptimal_flops,
+                reason = "Separately rounded left and right costs preserve the winning split when costs tie."
+            )]
             let cost = left.bounds.area() * f64::from(left.count)
                 + right_bin.bounds.area() * f64::from(right_bin.count);
             if cost < best_cost {
@@ -143,6 +164,10 @@ fn split(
     best
 }
 
+#[allow(
+    clippy::indexing_slicing,
+    reason = "Split selects an axis below three; order is a permutation of valid centroid IDs and left is below right, which starts at order.len()."
+)]
 fn partition(
     order: &mut [u32],
     centroids: &[[f32; 3]],
@@ -150,12 +175,13 @@ fn partition(
     axis: usize,
     split: usize,
 ) -> usize {
-    let extent = range.max[axis] - range.min[axis];
+    let low = range.min[axis];
+    let extent = range.max[axis] - low;
     let mut left = 0usize;
     let mut right = order.len();
     while left < right {
         let index = usize::try_from(order[left]).unwrap_or(usize::MAX);
-        if bin(centroids[index][axis], range.min[axis], extent) <= split {
+        if bin(centroids[index][axis], low, extent) <= split {
             left = left.saturating_add(1);
         } else {
             right = right.saturating_sub(1);
@@ -165,6 +191,10 @@ fn partition(
     left
 }
 
+#[allow(
+    clippy::indexing_slicing,
+    reason = "Recursive split points are strictly inside the parent order range, and its permuted IDs stay valid in both geometry arrays."
+)]
 fn build_node(
     bounds: &[Bounds],
     centroids: &[[f32; 3]],

@@ -80,7 +80,7 @@ impl SurfaceCache {
         let target_origin = receiver_position(point, hit.normal);
         for &index in self.by_surface.get(surface)? {
             let (patch, chart, first) = self.charts.get(index)?;
-            if dot(patch_normal(patch), hit.normal) < 1.0 - 8.0 * f32::EPSILON {
+            if dot(patch_normal(patch), hit.normal) < super::SHARED_NORMAL_DOT {
                 continue;
             }
             let (u, v) = patch.local_of(point);

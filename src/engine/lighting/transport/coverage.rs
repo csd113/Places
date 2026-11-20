@@ -107,7 +107,7 @@ fn compatible_surface(
             receiver.albedo,
             candidate.albedo,
         )
-        && dot(receiver.normal, candidate.shading_normal_at(point)) >= 1.0 - 8.0 * f32::EPSILON
+        && dot(receiver.normal, candidate.shading_normal_at(point)) >= super::SHARED_NORMAL_DOT
 }
 
 /// Clip the footprint to contiguous compatible geometric support, including
@@ -133,8 +133,16 @@ pub(super) fn supported_point(
         .chain(&to)
         .fold(1.0_f32, |current, coordinate| current.max(coordinate.abs()));
     let tolerance = 8.0 * SURFACE_OFFSET_M * magnitude;
-    let minimum = std::array::from_fn::<_, 3, _>(|axis| from[axis].min(to[axis]) - tolerance);
-    let maximum = std::array::from_fn::<_, 3, _>(|axis| from[axis].max(to[axis]) + tolerance);
+    let minimum = [
+        from[0].min(to[0]) - tolerance,
+        from[1].min(to[1]) - tolerance,
+        from[2].min(to[2]) - tolerance,
+    ];
+    let maximum = [
+        from[0].max(to[0]) + tolerance,
+        from[1].max(to[1]) + tolerance,
+        from[2].max(to[2]) + tolerance,
+    ];
     intervals.clear();
     let mut stack = [0_u32; 64];
     let mut depth = 1_usize;
@@ -146,7 +154,15 @@ pub(super) fn supported_point(
         else {
             continue;
         };
-        if (0..3).any(|axis| node.max[axis] < minimum[axis] || node.min[axis] > maximum[axis]) {
+        if node
+            .max
+            .into_iter()
+            .zip(minimum)
+            .zip(node.min.into_iter().zip(maximum))
+            .any(|((box_high, query_low), (box_low, query_high))| {
+                box_high < query_low || box_low > query_high
+            })
+        {
             continue;
         }
         if node.count == 0 {
@@ -402,6 +418,10 @@ impl FootprintPass<'_> {
         // bound the entire stencil plus reconstruction offsets before doing its
         // repeated geometric support queries. Only an exactly zero local-light
         // integral is skipped; global sources always retain the complete rule.
+        #[allow(
+            clippy::suboptimal_flops,
+            reason = "Keep the separately rounded coordinate and footprint guard used by the zero-light admission test."
+        )]
         let margin = point.iter().fold(1.0_f32, |v, x| v.max(x.abs())) * (64.0 * f32::EPSILON)
             + domain.pitch * 2.0;
         if (!self.global || self.scene.global_lights.is_empty())

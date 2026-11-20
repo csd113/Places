@@ -89,7 +89,7 @@ impl<'a> SurfaceFilter<'a> {
         for candidate in self.surfaces.get(&surface_id)? {
             let (other, chart) = self.charts.get(*candidate)?;
             if other.kind != patch.kind
-                || dot(normal, patch_normal(other)) < 1.0 - 8.0 * f32::EPSILON
+                || dot(normal, patch_normal(other)) < super::SHARED_NORMAL_DOT
             {
                 continue;
             }
@@ -118,7 +118,7 @@ impl<'a> SurfaceFilter<'a> {
                 receiver.surface,
                 centre.albedo,
                 receiver.albedo,
-            ) || dot(centre.normal, receiver.normal) < 1.0 - 8.0 * f32::EPSILON
+            ) || dot(centre.normal, receiver.normal) < super::SHARED_NORMAL_DOT
             {
                 continue;
             }
@@ -293,8 +293,18 @@ pub(super) fn filter_accumulators(
                 let diff = (channel_luminance(positive.irradiance) - centre_luminance)
                     .abs()
                     .max((channel_luminance(negative.irradiance) - centre_luminance).abs());
+                #[allow(
+                    clippy::suboptimal_flops,
+                    reason = "Bilateral tap weights retain the rounded product in their denominator."
+                )]
                 let weight = 1.0 / (1.0 + 8.0 * diff);
-                weight_sum += 2.0 * weight;
+                #[allow(
+                    clippy::suboptimal_flops,
+                    reason = "The doubled tap weight keeps its existing rounding before adding it to the sum."
+                )]
+                {
+                    weight_sum += 2.0 * weight;
+                }
                 add_scaled(&mut total, &positive, weight);
                 add_scaled(&mut total, &negative, weight);
             }

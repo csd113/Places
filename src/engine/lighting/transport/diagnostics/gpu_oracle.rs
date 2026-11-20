@@ -1,4 +1,5 @@
 //! Exact CPU certificates for the explicit opaque any-hit GPU experiment.
+//!
 //! No solver query calls this module. A GPU miss is never a certificate.
 use super::super::{
     PreparedRay, TransportScene, TransportTriangle, parallel_map, ray_slab_entry, safe_inverse,
@@ -301,6 +302,10 @@ impl Oracle {
             return Err("candidate count mismatch".into());
         }
         parallel_map(self.snapshot.rays.len(), workers, None, |index| {
+            #[allow(
+                clippy::indexing_slicing,
+                reason = "The worker only visits indices below the ray count passed to the parallel map."
+            )]
             let ray = self.snapshot.rays[index];
             let (id, ambiguous) = candidates
                 .and_then(|values| values.get(index))
