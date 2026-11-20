@@ -1,7 +1,7 @@
 //! Opt-in, blind acoustic hunter. Sensing owns observations; motion and audio
 //! consume their sampled evidence, never a live hidden target transform.
 pub mod audio_fence;
-mod body;
+mod body_colliders;
 mod capture;
 pub(crate) use capture::Tick as CaptureTick;
 mod checkpoint;
@@ -353,7 +353,7 @@ pub struct Guest {
     animator: CharacterAnimator,
     vertices: Vec<Vec3>,
     body_bounds: (Vec3, Vec3),
-    body_clusters: body::Clusters,
+    body_clusters: body_colliders::Clusters,
     ceiling: crate::engine::level::WalkableCeiling,
     path: Path,
     scratch: NavScratch,
@@ -599,7 +599,7 @@ impl Guest {
             audio_epoch: 0,
             vertices: vec![Vec3::ZERO; asset.model.vertices.len()],
             body_bounds: (Vec3::ZERO, Vec3::ZERO),
-            body_clusters: body::Clusters::new(&asset.model),
+            body_clusters: body_colliders::Clusters::new(&asset.model),
             ceiling,
             stages: Vec::new(),
             definition,
