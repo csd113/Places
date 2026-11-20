@@ -350,16 +350,11 @@ fn prepare(
     reuse: &mut reuse::Reuse,
     scope: Option<[f32; 4]>,
 ) -> Result<PreparedPreview, String> {
-    // The edit viewport has no item simulation. Draw opted-in catalog items at
-    // their authored pose in this private snapshot, outside local light bakes.
+    // The edit viewport has no item simulation. Draw movable props at their
+    // authored pose in this private snapshot, outside local light bakes.
     if scope.is_none() {
         for prop in &mut level.props {
-            if prop.is_physics_movable()
-                && catalog
-                    .assets()
-                    .placeable(&prop.model)
-                    .is_some_and(|entry| entry.editor_placement_physics.is_some())
-            {
+            if prop.is_physics_movable() {
                 prop.physics = None;
                 prop.solid = false;
                 prop.occludes = false;
