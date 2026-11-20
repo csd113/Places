@@ -218,7 +218,7 @@ pub fn solver_fingerprint() -> u64 {
 }
 
 /// Current pre-release solver revision; superseded layouts require recompilation.
-pub const SOLVER_REVISION: u64 = 11;
+pub const SOLVER_REVISION: u64 = 12;
 
 /// Largest worker count the solver will start.
 pub const MAX_TRANSPORT_WORKERS: usize = 12;
@@ -4575,7 +4575,8 @@ impl RadianceCache {
         let total = dims[0].saturating_mul(dims[1]).saturating_mul(dims[2]);
         let mut cells: Vec<Vec<usize>> = vec![Vec::new(); total];
         for (index, receiver) in receivers.iter().enumerate() {
-            let Some(cell_index) = cache_cell(receiver.position, min, cell_m, dims) else {
+            let Some(cell_index) = cache_insertion_cell(receiver.position, min, max, cell_m, dims)
+            else {
                 continue;
             };
             let centre = cell_centre(cell_index, min, cell_m, dims);
@@ -4964,13 +4965,31 @@ fn cell_centre(index: usize, min: [f32; 3], cell: f32, dims: [usize; 3]) -> [f32
     ]
 }
 
-/// The flat grid index of a world position, or `None` when outside the grid.
-fn cache_cell(position: [f32; 3], min: [f32; 3], cell: f32, dims: [usize; 3]) -> Option<usize> {
-    let lattice = [
-        (position[0] - min[0]) / cell,
-        (position[1] - min[1]) / cell,
-        (position[2] - min[2]) / cell,
-    ];
+/// Insert a sample within the measured receiver bounds. The upper edge
+/// belongs to the last cell even when its normalized coordinate rounds up to
+/// the cell count. Query indices still use the open upper lattice bound.
+fn cache_insertion_cell(
+    position: [f32; 3],
+    min: [f32; 3],
+    max: [f32; 3],
+    cell: f32,
+    dims: [usize; 3],
+) -> Option<usize> {
+    let mut lattice = [0.0; 3];
+    for (axis, (coordinate, count)) in lattice.iter_mut().zip(dims).enumerate() {
+        let value = *position.get(axis)?;
+        let low = *min.get(axis)?;
+        let high = *max.get(axis)?;
+        if !(low..=high).contains(&value) {
+            return None;
+        }
+        let grid = (value - low) / cell;
+        if !grid.is_finite() {
+            return None;
+        }
+        let last = u16::try_from(count.checked_sub(1)?).ok()?;
+        *coordinate = grid.min(f32::from(last));
+    }
     lattice_cell(lattice, dims)
 }
 

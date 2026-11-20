@@ -364,6 +364,74 @@ fn local_receiver_scope_keeps_full_scene_direct_shadow_bits() -> Result<(), Stri
     Ok(())
 }
 
+// Two receivers per case exercise both fallback readers with the only compatible
+// sample on the upper edge. Existing tests seed cache cells or use surface charts
+// and do not catch missing insertion. No files, assets, GPU or bake.
+#[test]
+fn fallback_cache_retains_maximal_receivers_in_one_cell_and_at_the_axis_cap() -> Result<(), String>
+{
+    for (span, count) in [(CACHE_CELL_M, 1), (96.0, MAX_CACHE_CELLS)] {
+        let edge = [span, 0.0, 0.0];
+        let floor =
+            TransportTriangle::new([0.0; 3], [0.0, 0.0, 1.0], edge, [0.5; 3]).ok_or("floor")?;
+        let scene = TransportScene::new(vec![floor], Vec::new()).ok_or("scene")?;
+        let receivers =
+            [([0.0; 3], u32::MAX), (edge, 0)].map(|(position, surface)| TransportReceiver {
+                position,
+                ray_origin: receiver_position(position, floor.normal),
+                normal: floor.normal,
+                albedo: [0.5; 3],
+                area: 0.1,
+                surface,
+                attenuation: [1.0; 3],
+            });
+        let cache = RadianceCache::build(&receivers, &scene.triangles);
+        let lit = Accumulator {
+            surface_light: [0.25, 0.5, 0.75],
+            ..Accumulator::default()
+        };
+        let values = [Accumulator::default(), lit];
+        assert_eq!(
+            cache.dims,
+            [count, 1, 1],
+            "exercise the requested grid shape"
+        );
+        assert_eq!(
+            cache.sample_surface(&scene, edge, 0, &receivers, &values),
+            lit,
+            "the upper receiver is available to the scalar lookup"
+        );
+        let stencil = |point| cache.surface_stencil(&scene, point, 0, &receivers, None);
+        assert_eq!(
+            stencil(edge).sample_accumulators(&values),
+            lit,
+            "the upper receiver is available to the batched lookup"
+        );
+        assert_eq!(
+            lattice_cell([span / cache.cell, 0.0, 0.0], cache.dims),
+            None,
+            "the query lattice still rejects an index at its open upper bound"
+        );
+        let outside = [span + 4.0 * cache.cell, 0.0, 0.0];
+        assert_eq!(
+            cache_insertion_cell(outside, cache.min, edge, cache.cell, cache.dims),
+            None,
+            "insertion does not clamp samples beyond the measured bounds"
+        );
+        assert_eq!(
+            cache.sample_surface(&scene, outside, 0, &receivers, &values),
+            Accumulator::default(),
+            "the scalar lookup keeps its bounded search"
+        );
+        assert_eq!(
+            stencil(outside).sample_accumulators(&values),
+            Accumulator::default(),
+            "the batched lookup keeps its bounded search"
+        );
+    }
+    Ok(())
+}
+
 // Protects conservative filtering at normal-bin and approximate-plane edges,
 // plus exact representative identity (including ties and blocked fallback).
 // One tiny synthetic scene, no assets/files/GPU/bake; under 1 MiB, milliseconds.
