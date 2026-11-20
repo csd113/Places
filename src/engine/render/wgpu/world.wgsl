@@ -752,13 +752,8 @@ fn surface_normals(in: VsOut, front_facing: bool, selected_water: u32) -> Surfac
         let selected = selected_water;
         if (selected > 0u) {
             let motion = caustics.nodes[selected - 1u].motion;
-            let point = in.world_position.xz - motion.zw * caustics.seconds;
-            let phase = caustics.seconds * motion.x;
-            // Analytic wave slopes perturb the existing surface frame; imagery
-            // continues to come exclusively from the authored PNG.
-            let a = dot(point, vec2<f32>(2.8, 1.1)) - phase * 1.7;
-            let b = dot(point, vec2<f32>(-1.3, 3.2)) - phase * 1.1;
-            let slope = (vec2<f32>(2.8, 1.1) * cos(a) + vec2<f32>(-1.3, 3.2) * cos(b) * 0.45) * motion.y * 0.07 + water_local_slope(in.world_position, caustics.nodes[selected - 1u].links.z);
+            let slope = water_wave_slope(in.world_position.xz, motion, caustics.seconds)
+                + water_local_slope(in.world_position, caustics.nodes[selected - 1u].links.z);
             let facing = select(-1.0, 1.0, front_facing);
             normal = normalize(normal + vec3<f32>(-slope.x, 0.0, -slope.y) * facing);
         }

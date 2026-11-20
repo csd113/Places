@@ -29,6 +29,7 @@
 //! mod.rs     the frozen types shared by the emitter, the solver and the renderer
 //! atlas.rs   the deterministic MAXRECTS packer, HDR pages and PNG debugging
 //! plan.rs    the per-level plan built while the mesh is emitted
+//! prop_charts.rs  shared chart domains for placed model primitives
 //! cache.rs   the deterministic content key and the level lightmap cache
 //! tests.rs   unit tests for the whole tree
 //! ```
@@ -38,12 +39,15 @@ use std::sync::atomic::{AtomicBool, Ordering};
 mod atlas;
 mod cache;
 mod plan;
+mod prop_charts;
 
 pub use atlas::{
     ChartAllocator, LightmapAtlas, LightmapPage, page_png_bytes, read_page_texel, write_page_png,
 };
 pub use cache::{LIGHTMAP_FORMAT_VERSION, LightmapCache, content_key, content_key_with_extra};
 pub use plan::{LevelLightmaps, LightmapMode, LightmapPlan, LightmapStats, SwitchableLightmaps};
+
+pub(crate) use prop_charts::lightmap_prop_triangles;
 
 /// The two stored linear HDR terms of one lightmap texel.
 ///

@@ -91,7 +91,7 @@ use crate::engine::render::common::{DynamicLightSet, MAX_DYNAMIC_LIGHTS};
 use crate::engine::render::common::{MeshChunk, MeshPacker};
 use crate::engine::spatial::{Aabb, Frustum};
 
-/// The world shader, from the file next to this module.
+/// The assembled world shader, including lighting-owned surface optics.
 pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("storm.wgsl"),
     "\n",
@@ -102,7 +102,9 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("atmosphere.wgsl"),
     "\n",
     include_str!("caustics.wgsl"),
-    include_str!("water.wgsl")
+    include_str!("water.wgsl"),
+    "\n",
+    include_str!("../../lighting/water_optics.wgsl")
 );
 
 // Group declarations are validated against device limits even if an entry point

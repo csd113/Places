@@ -63,7 +63,7 @@ use crate::engine::entities::balloon::{BalloonPose, STRING_NODE_NAMES};
 use crate::engine::entity::GlowCue;
 use crate::engine::gltf::{AnimationInterpolation, PropAnimation, PropNode, PropSkin};
 use crate::engine::level::LevelSurfaces;
-use crate::engine::lighting::LevelLighting;
+use crate::engine::lighting::{LevelLighting, character_cavity::CharacterCavity};
 use crate::engine::props::{LoadedPropAsset, PropAssets};
 use crate::engine::scene::{LocomotionSnapshot, LocomotionState};
 use crate::engine::spatial::Aabb;
@@ -1149,28 +1149,13 @@ fn tail_index(name: &str) -> u8 {
         .unwrap_or(1)
 }
 
-/// Fixed cavity accessibility for the exact reviewed Tall Guest.
-/// The model loader already enforces its accepted export hash.
-#[must_use]
-pub(in crate::engine::render) fn baked_cavity(asset: &LoadedPropAsset) -> Option<&'static [u8]> {
-    const DATA: &[u8] =
-        include_bytes!("../../../../assets/entities/tall_guest/model/cavity_visibility.bin");
-    (asset.model_path == "entities/tall_guest/model/tall_guest.glb"
-        && crate::engine::props::reviewed_source_matches(
-            &asset.model_path,
-            crate::engine::tall_guest::prey::HUNTER_SHA256,
-        )
-        && asset.model.vertices.len() == DATA.len())
-    .then_some(DATA)
-}
-
 /// Preserve texture/alpha/response while applying an installed albedo preset.
 fn tinted_albedo(
     asset: &LoadedPropAsset,
     tint: [f32; 3],
     real_self_shadows: bool,
 ) -> Vec<[f32; 4]> {
-    let cavity_values = (!real_self_shadows).then(|| baked_cavity(asset)).flatten();
+    let cavity = CharacterCavity::new(asset, real_self_shadows);
     asset
         .model
         .vertices
@@ -1179,15 +1164,7 @@ fn tinted_albedo(
         .map(|(index, vertex)| {
             let [red, green, blue, alpha] = vertex.color;
             let [tr, tg, tb] = tint;
-            let cavity = cavity_values
-                .and_then(|values| values.get(index))
-                .map_or(1.0, |value| f32::from(*value) / 255.0);
-            [
-                red * tr * cavity,
-                green * tg * cavity,
-                blue * tb * cavity,
-                alpha,
-            ]
+            cavity.attenuate(index, [red * tr, green * tg, blue * tb, alpha])
         })
         .collect()
 }
@@ -1701,7 +1678,7 @@ impl CharacterScene {
         }
         self.real_self_shadows = enabled;
         for character in self.characters.iter_mut().chain(&mut self.runtime) {
-            if baked_cavity(&character.asset).is_some() {
+            if CharacterCavity::supports(&character.asset) {
                 character.albedo = tinted_albedo(&character.asset, character.albedo_tint, enabled);
                 character.albedo_revision = character.albedo_revision.wrapping_add(1);
             }

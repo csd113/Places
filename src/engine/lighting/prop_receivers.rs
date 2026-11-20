@@ -1,10 +1,42 @@
-//! Prepared diffuse lighting for uncharted static props.
+//! Static prop receiver selection and prepared irradiance for uncharted props.
 
 use super::{
     LevelLighting,
     probes::{ProbeField, probe_light_enabled},
 };
+use crate::engine::gltf::PropModel;
 use crate::engine::render::{LIGHTMAP_NONE, PropMeshBatch};
+use crate::engine::spatial::Aabb;
+
+#[derive(Clone, Copy, PartialEq, Eq)]
+pub enum StaticPropReceiver {
+    Vertex,
+    Chart,
+    Probe,
+}
+
+impl StaticPropReceiver {
+    pub fn select(model: &PropModel, bounds: &Aabb, lightmapped: bool) -> Self {
+        if !lightmapped || model.is_animatable() {
+            Self::Vertex
+        } else if model.triangles > crate::engine::level::PROP_TRIANGLE_BUDGET && large_prop(bounds)
+        {
+            // Oversized reviewed scenery retains its indexed draw geometry
+            // and uses prepared irradiance instead of padding every tiny face.
+            Self::Probe
+        } else {
+            Self::Chart
+        }
+    }
+}
+
+pub fn large_prop(bounds: &Aabb) -> bool {
+    bounds
+        .max
+        .iter()
+        .zip(bounds.min)
+        .any(|(high, low)| high - low > 3.0)
+}
 
 /// Light the deferred, uncharted static scenery after transport has consumed
 /// its original albedo. Valid dark probes stay dark; missing fields use the

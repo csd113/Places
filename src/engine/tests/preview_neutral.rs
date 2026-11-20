@@ -4,7 +4,7 @@
 use super::BatchBuilder;
 use crate::engine::{
     gltf::{PropModel, PropSubmesh, PropVertex},
-    lighting::LevelLighting,
+    lighting::{LevelLighting, studio_preview::illuminate_preview_vertices},
     materials::{MaterialAlpha, MaterialEmission, MaterialResponse},
     props::LoadedPropAsset,
     spatial::Aabb,
@@ -31,9 +31,7 @@ fn inspect_skips_discarded_lighting_without_changing_vertices() {
                 &Aabb::EMPTY,
                 (false, neutral, Some([0.8_f32, 0.7_f32, 0.6_f32])),
             );
-            crate::engine::render::common::level_build::illuminate_preview_vertices(
-                &mut target.vertices,
-            );
+            illuminate_preview_vertices(&mut target.vertices);
         }
         assert_eq!(
             format!("{:?}", reference.finish()),

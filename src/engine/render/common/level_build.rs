@@ -22,6 +22,7 @@ use crate::engine::lighting::lightmap::{
     content_key_with_extra, write_page_png,
 };
 use crate::engine::lighting::probes::ProbeField;
+use crate::engine::lighting::studio_preview::illuminate_preview_vertices;
 use crate::engine::lighting::transport::{MAX_TRANSPORT_WORKERS, SolveOptions};
 
 /// Builds the level mesh with real prop geometry where possible, plus one
@@ -696,21 +697,6 @@ fn finish_authoring_preview(
         super::canonical_props::share_canonical_props(batches, level, catalog, assets, lighting)
     {
         crate::engine::logging::info(format_args!("[props] preview sharing interrupted: {error}"));
-    }
-}
-
-pub(super) fn illuminate_preview_vertices(vertices: &mut [super::Vertex]) {
-    let direction = glam::Vec3::new(-0.35, 0.8, 0.45).normalize();
-    for vertex in vertices {
-        let shade = 0.4_f32.mul_add(
-            glam::Vec3::from_array(vertex.normal)
-                .dot(direction)
-                .max(0.0),
-            0.55,
-        );
-        for (channel, albedo) in vertex.color.iter_mut().zip(vertex.caustics_albedo) {
-            *channel = albedo * shade;
-        }
     }
 }
 

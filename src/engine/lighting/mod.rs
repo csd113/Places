@@ -136,6 +136,7 @@
 //! ```
 
 mod bake;
+pub(crate) mod character_cavity;
 mod color;
 pub mod directional;
 mod directional_index;
@@ -146,6 +147,7 @@ pub(crate) mod prepared_source;
 pub(crate) mod probe_placement;
 pub mod probes;
 pub(crate) mod prop_receivers;
+pub(crate) mod studio_preview;
 pub mod transport;
 
 /// Compiled lighting record version, for the package codec and fingerprints.

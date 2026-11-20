@@ -103,6 +103,22 @@ backend module that names it.
 
 ## 2. Module map
 
+### Lighting ownership at renderer boundaries
+
+| Lighting policy | Renderer integration |
+|---|---|
+| `lighting/studio_preview.rs` evaluates neutral Inspect fill from vertex albedo and normals. | `render/common/level_build.rs` prepares or reuses editor geometry and applies the fill only to the eligible mutable ranges and batches. Environment preview and compiled play use their own lighting paths. |
+| `lighting/prop_receivers.rs` selects Full atlas versus dense indexed irradiance receivers and applies the prepared field to uncharted vertices. `lighting/lightmap/prop_charts.rs` owns shared chart domains and triangle fallback. | `render/common/props.rs` admits placements, transforms source triangle frames, appends vertices and indices, and keeps material ranges. The compiler owns solve scheduling and publication. |
+| `lighting/character_cavity.rs` owns the reviewed Tall Guest asset gate, fixed interior RGB attenuation and matte inner-mouth response for the default self-shadow setting. | `render/common/character.rs` owns tint, pose data and albedo revisions. `render/wgpu/character.rs` uploads the selected response with the ordinary material layout. |
+| `lighting/water_optics.wgsl` evaluates water Fresnel, analytic wave and ripple slopes, and colored transmission and in-scattering. | `render/wgpu/world.rs` assembles the fragment into the world shader. The renderer owns surface selection and normal application, the water bindings, depth reconstruction, refraction sampling and transparent compositing. |
+
+These CPU paths exchange neutral mesh and material values. The water fragment
+uses the renderer's existing shader bindings for ripple data. The renderer also
+still contains atlas and probe reconstruction, practical-light and posed-shadow
+evaluation, caustics and other appearance algorithms outside this boundary audit.
+
+### Source modules
+
 | Path | Role | Layer |
 |---|---|---|
 | `src/engine/render/mod.rs` | Module root and public facade surface; no GPU API | preparation |
@@ -110,7 +126,7 @@ backend module that names it.
 | `src/engine/render/font.rs` | Shared bitmap font atlas access and UI glyph coordinates | preparation |
 | `src/engine/render/weather.rs` | Authored weather definitions, validation and playback state | preparation |
 | `src/engine/render/common/mod.rs` | Emitters and level-build helpers (`tiled_uv`, wall/floor emitters, decal quads, `MaterialLookup`) | preparation |
-| `src/engine/render/common/level_build.rs` | `build_level_geometry*` entry points and lighting/atlas build | preparation |
+| `src/engine/render/common/level_build.rs` | `build_level_geometry*` entry points, immutable preview reuse and geometry/lighting preparation handoff | preparation |
 | `src/engine/render/common/mesh.rs` | `Vertex`, `LevelMesh`, chunk packing, unit quantisation | preparation (CPU layout) |
 | `src/engine/render/common/geometry.rs`, `architecture.rs`, `fixtures.rs`, `props.rs`, `character.rs`, `water.rs`, `decals.rs`, `dynamic.rs`, `doors.rs`, `effects.rs`, `animation.rs`, `atmosphere.rs` | Geometry emission, prop instancing, skinned-character posing, water surfaces, decals, dynamic objects, code-built door models, the bounded steam plume model, emission animation, fog; the shared decal constants | preparation |
 | `src/engine/render/common/view.rs` | `DrawableSize`, `UiViewport`, FOV and viewport maths, value-only budgets | preparation |
