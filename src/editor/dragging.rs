@@ -1,9 +1,9 @@
 //! Axis-constrained viewport translation: private previews, one history commit.
 use super::{
     App,
-    document::{ObjectId, Transform},
+    document::{Document, ObjectId, Transform},
 };
-use crate::engine::render::DrawableSize;
+use crate::engine::{assets::AssetCatalog, render::DrawableSize};
 use glam::{Vec2, Vec3};
 use sdl3::{
     event::{Event, WindowEvent},
@@ -21,7 +21,37 @@ pub(super) struct Translation {
     start: Vec2,
     direction: Vec2,
 }
+
+impl Translation {
+    fn raw_candidate(
+        &self,
+        doc: &Document,
+        catalog: &AssetCatalog,
+    ) -> Result<serde_json::Value, String> {
+        let Some(edge) = self.edge else {
+            return doc.drag_raw(self.id, self.proposed, catalog);
+        };
+        let axis = edge.axis();
+        let position = |pose: Transform| pose.position.get(axis).copied().unwrap_or_default();
+        doc.room_edge_raw(
+            self.id,
+            edge,
+            position(self.proposed) - position(self.original),
+        )
+    }
+}
+
 impl App {
+    fn commit_drag(&mut self, drag: &Translation) -> Result<(), String> {
+        let doc = self.document.as_ref().ok_or("Open a project first")?;
+        let raw = drag.raw_candidate(doc, &self.catalog)?;
+        self.check_focused_edit(&raw)?;
+        self.document
+            .as_mut()
+            .ok_or("Open a project first")?
+            .accept_edit(raw)
+    }
+
     #[expect(
         clippy::wildcard_enum_match_arm,
         clippy::rest_pattern_accessible_field,
@@ -60,29 +90,7 @@ impl App {
                     if matches!(event, Event::MouseButtonUp { .. })
                         && let Some(drag) = self.translation.take()
                     {
-                        let result = self
-                            .document
-                            .as_mut()
-                            .ok_or_else(|| "Open a project first".to_string())
-                            .and_then(|doc| {
-                                if let Some(edge) = drag.edge {
-                                    let delta = drag
-                                        .proposed
-                                        .position
-                                        .get(drag.axis)
-                                        .copied()
-                                        .unwrap_or(0.0)
-                                        - drag
-                                            .original
-                                            .position
-                                            .get(drag.axis)
-                                            .copied()
-                                            .unwrap_or(0.0);
-                                    doc.resize_room_edge(drag.id, edge, delta)
-                                } else {
-                                    doc.apply_drag(drag.id, drag.proposed, &self.catalog)
-                                }
-                            });
+                        let result = self.commit_drag(&drag);
                         self.changed();
                         if result.is_ok() {
                             self.status = "Drag applied as one undo step.".into();
@@ -156,7 +164,8 @@ impl App {
                     return false;
                 };
                 match doc.transform(id).and_then(|pose| {
-                    let _candidate = doc.drag_candidate(id, pose, &self.catalog)?;
+                    let candidate = doc.drag_raw(id, pose, &self.catalog)?;
+                    let _level = doc.validate_candidate(&candidate)?;
                     Ok(pose)
                 }) {
                     Ok(original) => {
@@ -250,17 +259,11 @@ impl App {
             return;
         }
         drag.proposed = proposed;
-        let drag_id = drag.id;
-        let drag_edge = drag.edge;
         if let Some(doc) = &self.document {
-            let candidate = if let Some(edge) = drag_edge {
-                doc.room_edge_candidate(drag_id, edge, delta)
-            } else {
-                doc.drag_candidate(drag_id, proposed, &self.catalog)
-            };
-            let checked_candidate = candidate.and_then(|(raw, level)| {
+            let drag_id = drag.id;
+            let checked_candidate = drag.raw_candidate(doc, &self.catalog).and_then(|raw| {
                 self.check_focused_edit(&raw)?;
-                Ok(level)
+                doc.validate_candidate(&raw)
             });
             match checked_candidate {
                 Ok(level) => {

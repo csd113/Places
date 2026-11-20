@@ -494,7 +494,7 @@ impl Document {
         timing.step("dirty-enumerate");
     }
 
-    fn accept_edit(&mut self, edited: Value) -> Result<(), String> {
+    pub(super) fn accept_edit(&mut self, edited: Value) -> Result<(), String> {
         if edited != self.selected.raw {
             let (level, byte_count) = self.prepare_edit(&edited)?;
             self.install_edit(edited, level, byte_count);

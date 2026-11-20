@@ -303,16 +303,7 @@ fn check_crossing_objects(
 }
 
 impl Document {
-    pub(in crate::editor) fn drag_candidate(
-        &self,
-        id: ObjectId,
-        pose: Transform,
-        catalog: &crate::engine::assets::AssetCatalog,
-    ) -> Result<(Value, crate::engine::level::LevelDef), String> {
-        self.validated_preview(self.drag_raw(id, pose, catalog)?)
-    }
-
-    fn drag_raw(
+    pub(in crate::editor) fn drag_raw(
         &self,
         id: ObjectId,
         pose: Transform,
@@ -395,6 +386,7 @@ impl Document {
         objects::set_transform(&mut raw, self.level(), id, pose)?;
         Ok(raw)
     }
+    #[cfg(test)]
     pub(in crate::editor) fn apply_drag(
         &mut self,
         id: ObjectId,

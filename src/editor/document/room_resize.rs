@@ -50,7 +50,12 @@ impl Document {
         self.validated_preview(self.room_edge_raw(id, edge, delta)?)
     }
 
-    fn room_edge_raw(&self, id: ObjectId, edge: Edge, delta: f32) -> Result<Value, String> {
+    pub(in crate::editor) fn room_edge_raw(
+        &self,
+        id: ObjectId,
+        edge: Edge,
+        delta: f32,
+    ) -> Result<Value, String> {
         let ObjectId::Room(index) = id else {
             return Err("Select a room to resize".into());
         };
@@ -126,6 +131,7 @@ impl Document {
         resize_walls(&mut raw, self.level(), old, edge, old_edge, delta)?;
         Ok(raw)
     }
+    #[cfg(test)]
     pub(crate) fn resize_room_edge(
         &mut self,
         id: ObjectId,
