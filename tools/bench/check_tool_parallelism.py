@@ -79,7 +79,6 @@ def main():
         ('geometry', ['tools/props/repair_geometry.py', '--apply', '--report', 'output.json'], 'assets/**/*.glb'),
     ]
     jobs += [
-        ('rat', ['tools/entities/build_rat.py', '--out', 'output/rat.glb'], 'output/*.glb'),
         ('contact', ['tools/entities/render_contact_sheets.py', '--workers', '1', '--blender-threads', '1', '--samples', '4', '--cell', '64', '--frames-per-clip', '1', '--out', 'output'], 'output/*.png'),
         ('entities', ['tools/entities/validate_entities.py', '--json'], 'entity-report.json'),
         ('zoo', ['tools/levels/build_model_zoo.py', '--no-cache', '--out', 'output.json'], 'output.json'),

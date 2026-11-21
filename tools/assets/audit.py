@@ -25,7 +25,6 @@ sys.path.insert(0, str(ROOT / "tools"))
 import glb
 import geometry
 import rig
-from build_rat import _slerp
 import validate as asset_validation
 from tex import decode_png
 from execution import atomic_write, ordered_map, worker_count
@@ -174,7 +173,7 @@ def inspect_rigid_frames(document, binary, animation, duration):
             else:
                 t = 0 if right == left else (time_-times[left])/(times[right]-times[left])
                 if target["path"] == "rotation":
-                    value = _slerp(values[left], values[right], t)
+                    value = rig.quat_slerp(values[left], values[right], t)
                 else:
                     value = tuple(a+(b-a)*t for a, b in zip(values[left], values[right]))
             nodes[target["node"]][target["path"]] = value

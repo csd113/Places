@@ -123,6 +123,26 @@ def quat_normalize(quat: Tuple[float, float, float, float]) -> Tuple[float, floa
     return tuple(component / length for component in quat)  # type: ignore[return-value]
 
 
+def quat_slerp(a: Sequence[float], b: Sequence[float], t: float) -> Tuple[float, float, float, float]:
+    """Interpolate glTF rotation keys along the shortest arc."""
+    dot = sum(x * y for x, y in zip(a, b))
+    if dot < 0.0:
+        b = tuple(-component for component in b)
+        dot = -dot
+    if dot > 0.9995:
+        blended = tuple(a[i] + (b[i] - a[i]) * t for i in range(4))
+    else:
+        theta = math.acos(min(1.0, max(-1.0, dot)))
+        sin_theta = math.sin(theta)
+        if abs(sin_theta) < 1.0e-9:
+            return tuple(a)  # type: ignore[return-value]
+        start_weight = math.sin((1.0 - t) * theta) / sin_theta
+        end_weight = math.sin(t * theta) / sin_theta
+        blended = tuple(a[i] * start_weight + b[i] * end_weight for i in range(4))
+    length = math.sqrt(sum(component * component for component in blended))
+    return tuple(component / length for component in blended)  # type: ignore[return-value]
+
+
 def _mat_identity() -> List[float]:
     return [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0]
 
