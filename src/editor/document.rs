@@ -14,6 +14,7 @@ mod gameplay;
 mod geometry;
 mod history;
 mod local_floor;
+mod member_publication;
 pub(crate) mod room_resize;
 pub(crate) mod wall_edit;
 pub(super) use objects::array_mut as record_array_mut;
@@ -100,8 +101,7 @@ impl Document {
     }
 
     fn open_with_budget(path: &Path, heap_budget: usize) -> Result<Self, String> {
-        let project = ProjectFolder::open(path)?;
-        let manifest_bytes = persistence::read_manifest(&project)?;
+        let (project, manifest_bytes) = ProjectFolder::open_snapshot(path)?;
         let selected = LevelDocument::open(&project, None, |charge| {
             if charge > heap_budget {
                 Err(document_memory_error())

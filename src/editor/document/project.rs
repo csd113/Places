@@ -1,6 +1,8 @@
 //! Explicit project metadata operations, guarded by ordinary saves/conflict checks.
-use super::{Document, persistence};
-use crate::engine::project::{MANIFEST_NAME, ProjectFolder, ProjectLevel, ProjectPath};
+use super::{Document, member_publication, persistence};
+use crate::engine::project::{
+    MANIFEST_NAME, ProjectFolder, ProjectLevel, ProjectManifest, ProjectPath,
+};
 use std::io::Write as _;
 
 impl Document {
@@ -10,7 +12,7 @@ impl Document {
     ///
     /// # Errors
     /// Refuses duplicate IDs/files, invalid source, undeclared destinations and
-    /// external script dependencies. It never guesses IDs or copies scripts.
+    /// external script dependencies. A selection error can follow a successful commit.
     pub fn import_level(&mut self, source: &std::path::Path) -> Result<String, String> {
         let bytes = crate::engine::project::read_bounded_file(
             source,
@@ -41,35 +43,9 @@ impl Document {
         for destination in &level.transitions {
             let _declared = manifest.level(Some(destination))?;
         }
-        let levels = self.root().join("levels");
-        if std::fs::symlink_metadata(&levels)
-            .map_err(|error| error.to_string())?
-            .file_type()
-            .is_symlink()
-            || std::fs::canonicalize(&levels).map_err(|error| error.to_string())? != levels
-        {
-            return Err("Levels directory must be a real directory inside this project".into());
-        }
         self.save_all()?;
-        let path = self.root().join(target.as_str());
-        super::game_modes::publish_copy(self.root(), &level)?;
-        persistence::atomic_create(&path, &bytes)?;
-        if let Err(error) = self.publish_manifest(&manifest) {
-            // Delete only the exact source this operation published. A source
-            // changed concurrently stays available for explicit recovery.
-            if crate::engine::project::read_bounded_file(
-                &path,
-                crate::engine::level::MAX_LEVEL_JSON_BYTES,
-            )
-            .is_ok_and(|current| current == bytes)
-            {
-                std::fs::remove_file(&path).map_err(|cleanup| {
-                    format!("{error}; imported source cleanup failed: {cleanup}")
-                })?;
-            }
-            return Err(error);
-        }
-        self.select_level(id)?;
+        self.publish_member(&manifest, &target, &bytes, Some(&level))?;
+        self.select_published_level(id)?;
         Ok(id.into())
     }
 
@@ -221,7 +197,7 @@ impl Document {
 
     /// Creates one new starter level with an explicit stable ID.
     /// # Errors
-    /// Refuses existing files/IDs and retains the old project on failure.
+    /// Refuses existing files/IDs. A late failure preserves the unlisted source.
     pub fn add_level(&mut self, id: &str) -> Result<(), String> {
         self.save_all()?;
         let mut manifest = self.manifest().clone();
@@ -234,48 +210,96 @@ impl Document {
             thumbnail: None,
             scripts: Vec::new(),
         });
-        manifest.validate()?;
-        let levels_directory = self.root().join("levels");
-        if levels_directory
-            .symlink_metadata()
-            .map_err(|e| e.to_string())?
-            .file_type()
-            .is_symlink()
-        {
-            return Err("Levels directory must not be a symlink".into());
-        }
-        let path = self.root().join(source.as_str());
-        let bytes = serde_json::to_vec_pretty(&persistence::starter_scene(id, id))
-            .map_err(|e| e.to_string())?;
-        let mut file = std::fs::OpenOptions::new()
-            .create_new(true)
-            .write(true)
-            .open(&path)
-            .map_err(|e| e.to_string())?;
-        let result = file
-            .write_all(&bytes)
-            .and_then(|()| file.sync_all())
-            .map_err(|e| e.to_string())
-            .and_then(|()| self.publish_manifest(&manifest));
-        drop(file);
-        if result.is_err() {
-            std::fs::remove_file(&path).map_err(|e| e.to_string())?;
-        }
-        result?;
-        self.select_level(id)
+        let starter = persistence::starter_scene(id, id);
+        drop(persistence::validate_raw(&starter, id)?);
+        let bytes = serde_json::to_vec_pretty(&starter).map_err(|error| error.to_string())?;
+        self.publish_member(&manifest, &source, &bytes, None)?;
+        self.select_published_level(id)
     }
 
-    fn publish_manifest(
+    fn publish_member(
         &mut self,
-        manifest: &crate::engine::project::ProjectManifest,
+        manifest: &ProjectManifest,
+        source: &ProjectPath,
+        bytes: &[u8],
+        imported: Option<&crate::engine::level::LevelDef>,
     ) -> Result<(), String> {
-        manifest.validate()?;
-        let bytes = serde_json::to_vec_pretty(manifest).map_err(|e| e.to_string())?;
+        let root = self.root().to_path_buf();
+        let _writer = member_publication::lock(&root)?;
+        let levels = root.join("levels");
+        if !levels
+            .symlink_metadata()
+            .map_err(|error| error.to_string())?
+            .is_dir()
+            || std::fs::canonicalize(&levels).map_err(|error| error.to_string())? != levels
+        {
+            return Err("Levels directory must be a real directory inside this project".into());
+        }
+        let size = u64::try_from(bytes.len()).map_err(|error| error.to_string())?;
+        let (candidate, manifest_bytes) = self.prepare_manifest(manifest, Some((source, size)))?;
+        let path = root.join(source.as_str());
+        match path.symlink_metadata() {
+            Ok(_) => return Err(format!("Level source already exists: {}", path.display())),
+            Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
+            Err(error) => return Err(format!("Could not inspect {}: {error}", path.display())),
+        }
+        if let Some(level) = imported {
+            super::game_modes::publish_copy(&root, level)?;
+            persistence::atomic_create(&path, bytes)?;
+        } else {
+            persistence::write_unlisted_member(&path, bytes)?;
+        }
+        // A late failure leaves the exact source available for explicit
+        // recovery. A later operation still refuses an occupied destination.
+        self.commit_manifest(candidate, manifest_bytes).map_err(|error| {
+            format!("{error}; level was not added to the project. Inspect the unlisted source at {} before retrying", path.display())
+        })
+    }
+
+    fn select_published_level(&mut self, id: &str) -> Result<(), String> {
+        self.select_level(id).map_err(|error| {
+            format!("Level '{id}' was published, but could not be selected: {error}")
+        })
+    }
+
+    fn publish_manifest(&mut self, manifest: &ProjectManifest) -> Result<(), String> {
+        let _writer = member_publication::lock(self.root())?;
+        let (candidate, bytes) = self.prepare_manifest(manifest, None)?;
+        self.commit_manifest(candidate, bytes)
+    }
+
+    fn prepare_manifest(
+        &self,
+        manifest: &ProjectManifest,
+        new_level: Option<(&ProjectPath, u64)>,
+    ) -> Result<(ProjectFolder, Vec<u8>), String> {
+        self.check_manifest()?;
+        let bytes = serde_json::to_vec_pretty(manifest).map_err(|error| error.to_string())?;
+        let candidate = self.project.with_manifest(&bytes, new_level)?;
+        Ok((candidate, bytes))
+    }
+
+    fn check_manifest(&self) -> Result<(), String> {
+        if !self
+            .root()
+            .join(MANIFEST_NAME)
+            .symlink_metadata()
+            .map_err(|error| error.to_string())?
+            .is_file()
+        {
+            return Err("Project manifest must be a regular file".into());
+        }
         if persistence::read_manifest(&self.project)? != self.manifest_bytes {
             return Err("Manifest changed outside the editor; reopen first".into());
         }
+        Ok(())
+    }
+
+    fn commit_manifest(&mut self, candidate: ProjectFolder, bytes: Vec<u8>) -> Result<(), String> {
+        candidate.validate_files(None)?;
+        self.check_manifest()?;
         persistence::atomic_replace(&self.root().join(MANIFEST_NAME), &bytes)?;
-        self.project = ProjectFolder::open(self.root())?;
+        self.project = candidate;
         self.manifest_bytes = bytes;
         Ok(())
     }

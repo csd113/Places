@@ -23,6 +23,11 @@ impl ProjectFolder {
     /// # Errors
     /// Reports missing/unsupported metadata, unsafe symbolic links or bad files.
     pub fn open(input: &Path) -> Result<Self, String> {
+        Self::open_snapshot(input).map(|(project, _)| project)
+    }
+
+    /// Returns the bytes used for both the parsed manifest and editor conflicts.
+    pub(crate) fn open_snapshot(input: &Path) -> Result<(Self, Vec<u8>), String> {
         let path = if input.is_dir() {
             input.join(MANIFEST_NAME)
         } else {
@@ -49,11 +54,27 @@ impl ProjectFolder {
         if !canonical.starts_with(&root) {
             return Err("project manifest symlink escapes project root".into());
         }
-        let manifest =
-            ProjectManifest::from_json(&read_bounded_file(&canonical, MAX_MANIFEST_BYTES)?)?;
+        let bytes = read_bounded_file(&canonical, MAX_MANIFEST_BYTES)?;
+        let manifest = ProjectManifest::from_json(&bytes)?;
         let project = Self { root, manifest };
-        project.validate_files()?;
-        Ok(project)
+        project.validate_files(None)?;
+        Ok((project, bytes))
+    }
+
+    /// Preflights a manifest using the current root and the staged size of a
+    /// single new member that has not been published yet.
+    pub(crate) fn with_manifest(
+        &self,
+        bytes: &[u8],
+        new_level: Option<(&ProjectPath, u64)>,
+    ) -> Result<Self, String> {
+        let manifest = ProjectManifest::from_json(bytes)?;
+        let candidate = Self {
+            root: self.root.clone(),
+            manifest,
+        };
+        candidate.validate_files(new_level)?;
+        Ok(candidate)
     }
 
     #[must_use]
@@ -191,10 +212,22 @@ impl ProjectFolder {
         Ok(())
     }
 
-    fn validate_files(&self) -> Result<(), String> {
+    pub(crate) fn validate_files(
+        &self,
+        new_level: Option<(&ProjectPath, u64)>,
+    ) -> Result<(), String> {
         let mut files = Vec::new();
+        let mut staged = new_level;
         for level in &self.manifest.levels {
-            files.push((&level.source, crate::engine::level::MAX_LEVEL_JSON_BYTES));
+            let limit = crate::engine::level::MAX_LEVEL_JSON_BYTES;
+            if let Some((path, size)) = staged
+                && path == &level.source
+            {
+                validate_size(path, size, limit)?;
+                staged = None;
+            } else {
+                files.push((&level.source, limit));
+            }
             files.extend(level.scripts.iter().map(|path| (path, MAX_SCRIPT_BYTES)));
             files.extend(
                 level
@@ -215,18 +248,46 @@ impl ProjectFolder {
                 .iter()
                 .map(|path| (path, MAX_THUMBNAIL_BYTES)),
         );
+        if staged.is_some() {
+            return Err("Staged level is missing from the candidate manifest".into());
+        }
         for (path, limit) in files {
-            let resolved = self.resolve(path)?;
-            let metadata = fs::metadata(&resolved).map_err(|error| error.to_string())?;
-            if metadata.len() == 0 || metadata.len() > limit {
+            let resolved = self
+                .resolve(path)
+                .map_err(|error| format!("Project file '{}': {error}", path.as_str()))?;
+            let unreadable =
+                |error| format!("Could not read project file '{}': {error}", path.as_str());
+            let mut options = fs::OpenOptions::new();
+            let _read = options.read(true);
+            #[cfg(unix)]
+            {
+                use std::os::unix::fs::OpenOptionsExt as _;
+                let _flags = options.custom_flags(libc::O_NOFOLLOW | libc::O_NONBLOCK);
+            }
+            let mut file = options.open(&resolved).map_err(unreadable)?;
+            let metadata = file.metadata().map_err(unreadable)?;
+            if !metadata.is_file() {
                 return Err(format!(
-                    "project file '{}' must contain 1..={limit} bytes",
+                    "Project file '{}' is no longer a regular file",
                     path.as_str()
                 ));
             }
+            validate_size(path, metadata.len(), limit)?;
+            let mut first_byte = [0_u8];
+            file.read_exact(&mut first_byte).map_err(unreadable)?;
         }
         Ok(())
     }
+}
+
+fn validate_size(path: &ProjectPath, size: u64, limit: u64) -> Result<(), String> {
+    if size == 0 || size > limit {
+        return Err(format!(
+            "project file '{}' must contain 1..={limit} bytes",
+            path.as_str()
+        ));
+    }
+    Ok(())
 }
 
 /// Reads a regular file through a hard byte cap, including if it grows after

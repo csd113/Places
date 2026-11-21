@@ -215,6 +215,16 @@ fn write_contents(file: &mut File, path: &Path, bytes: &[u8]) -> Result<(), Stri
         .map_err(|error| format!("{}: {error}", path.display()))
 }
 
+pub(super) fn write_unlisted_member(path: &Path, bytes: &[u8]) -> Result<(), String> {
+    let mut file = open_new(path)?;
+    write_contents(&mut file, path, bytes).map_err(|error| {
+        format!(
+            "{error}; inspect the unlisted source at {} before retrying",
+            path.display()
+        )
+    })
+}
+
 pub(in crate::editor) fn atomic_replace(path: &Path, bytes: &[u8]) -> Result<(), String> {
     let parent = path.parent().ok_or("Source has no parent folder")?;
     let (temporary, mut file) = reserve_temporary(parent)?;

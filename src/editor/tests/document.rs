@@ -555,6 +555,191 @@ fn standalone_import_refuses_invalid_dependencies_and_existing_destinations() ->
     Ok(())
 }
 
+// The entry-only open must still validate the unvisited member before a
+// manifest or starter write. This reuses the existing two tiny level fixture.
+#[test]
+fn add_level_preflights_unvisited_member_and_can_retry_the_same_id() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut document = Document::open(&fixture.0)?;
+    assert_eq!(document.level_id(), "entry");
+    let manifest_path = fixture.0.join(crate::engine::project::MANIFEST_NAME);
+    let before = fs::read(&manifest_path).map_err(|error| error.to_string())?;
+    let incoming = fixture.0.join("third-incoming.json");
+    write_json(&incoming, &scene("third"))?;
+    #[cfg(windows)]
+    {
+        use std::os::windows::fs::OpenOptionsExt as _;
+        let unreadable = fs::OpenOptions::new()
+            .read(true)
+            .share_mode(0)
+            .open(fixture.source("second"))
+            .map_err(|error| error.to_string())?;
+        let refused = document
+            .import_level(&incoming)
+            .err()
+            .ok_or("Unreadable member was admitted")?;
+        assert!(refused.contains("levels/second.json"), "{refused}");
+        drop(unreadable);
+    }
+    let backup = fixture.0.join("second-aside.json");
+    fs::rename(fixture.source("second"), &backup).map_err(|error| error.to_string())?;
+    let add_error = document
+        .add_level("third")
+        .err()
+        .ok_or("Missing member was admitted")?;
+    assert!(add_error.contains("levels/second.json"), "{add_error}");
+    let import_error = document
+        .import_level(&incoming)
+        .err()
+        .ok_or("Import admitted a missing member")?;
+    assert!(
+        import_error.contains("levels/second.json"),
+        "{import_error}"
+    );
+    assert_eq!(
+        fs::read(&manifest_path).map_err(|error| error.to_string())?,
+        before
+    );
+    assert!(
+        !fixture.source("third").exists(),
+        "preflight must precede source publication"
+    );
+    assert_eq!(document.level_id(), "entry");
+    fs::rename(backup, fixture.source("second")).map_err(|error| error.to_string())?;
+    document.add_level("third")?;
+    assert_eq!(document.level_id(), "third");
+    assert_eq!(
+        Document::open(&fixture.0)?.level_ids().collect::<Vec<_>>(),
+        ["entry", "second", "third"]
+    );
+    Ok(())
+}
+
+// A second editor actually publishes a replacement. Stale Add and Import
+// both refuse to replace it or publish a source, using only tiny files.
+#[test]
+fn stale_editor_cannot_replace_another_editors_manifest() -> Result<(), String> {
+    let fixture = Fixture::new()?;
+    let mut stale = Document::open(&fixture.0)?;
+    let mut competing = Document::open(&fixture.0)?;
+    competing.add_level("competing")?;
+    let manifest = fixture.0.join(crate::engine::project::MANIFEST_NAME);
+    let committed = fs::read(&manifest).map_err(|error| error.to_string())?;
+    let incoming = fixture.0.join("incoming.json");
+    write_json(&incoming, &scene("imported"))?;
+    assert!(
+        stale
+            .add_level("third")
+            .err()
+            .is_some_and(|problem| problem.contains("Manifest") || problem.contains("manifest")),
+        "stale Add must report a manifest conflict"
+    );
+    assert!(
+        stale
+            .import_level(&incoming)
+            .err()
+            .is_some_and(|problem| problem.contains("Manifest") || problem.contains("manifest")),
+        "stale Import must report a manifest conflict"
+    );
+    assert!(
+        !fixture.source("third").exists(),
+        "stale Add published a source"
+    );
+    assert!(
+        !fixture.source("imported").exists(),
+        "stale Import published a source"
+    );
+    assert_eq!(
+        fs::read(&manifest).map_err(|error| error.to_string())?,
+        committed,
+        "competing manifest bytes"
+    );
+    assert_eq!(
+        Document::open(&fixture.0)?.level_ids().collect::<Vec<_>>(),
+        ["entry", "second", "competing"],
+        "competing membership"
+    );
+    Ok(())
+}
+
+// Force the actual Windows replacement to fail. Add and Import must keep
+// the unlisted bytes, refuse the same ID on reopen, and allow a fresh attempt
+// after the owner has moved the unlisted file aside. The fixture has two rooms.
+#[cfg(windows)]
+#[test]
+fn late_add_and_import_failure_preserve_unlisted_sources_for_manual_retry() -> Result<(), String> {
+    check_manual_retry(false)?;
+    check_manual_retry(true)
+}
+
+#[cfg(windows)]
+fn check_manual_retry(import: bool) -> Result<(), String> {
+    use std::os::windows::fs::OpenOptionsExt as _;
+    let fixture = Fixture::new()?;
+    let manifest = fixture.0.join(crate::engine::project::MANIFEST_NAME);
+    let incoming = fixture.0.join("incoming.json");
+    write_json(&incoming, &scene("third"))?;
+    let publish = |document: &mut Document| {
+        if import {
+            document.import_level(&incoming).map(drop)
+        } else {
+            document.add_level("third")
+        }
+    };
+    let before = fs::read(&manifest).map_err(|error| error.to_string())?;
+    let mut editor = Document::open(&fixture.0)?;
+    let blocker = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(1)
+        .open(&manifest)
+        .map_err(|error| error.to_string())?;
+    let failed = publish(&mut editor)
+        .err()
+        .ok_or("Held manifest was replaced")?;
+    assert!(failed.contains("unlisted source"), "{failed}");
+    drop(blocker);
+    drop(editor);
+    assert_eq!(
+        fs::read(&manifest).map_err(|error| error.to_string())?,
+        before,
+        "failed publication changed membership"
+    );
+    let source = fixture.source("third");
+    let original = fs::read(&source).map_err(|error| error.to_string())?;
+    let mut reopened = Document::open(&fixture.0)?;
+    let refused = publish(&mut reopened)
+        .err()
+        .ok_or("Retry claimed an occupied source")?;
+    assert!(refused.contains("already exists"), "{refused}");
+    assert_eq!(
+        fs::read(&source).map_err(|error| error.to_string())?,
+        original,
+        "retry altered unlisted bytes"
+    );
+
+    let saved = fixture.0.join("preserved-third.json");
+    fs::rename(&source, &saved).map_err(|error| error.to_string())?;
+    publish(&mut reopened)?;
+    assert_eq!(
+        reopened.level_id(),
+        "third",
+        "fresh retry did not select the committed member"
+    );
+    assert_eq!(
+        fs::read(saved).map_err(|error| error.to_string())?,
+        original,
+        "fresh retry removed recovery data"
+    );
+    if import {
+        assert_eq!(
+            fs::read(source).map_err(|error| error.to_string())?,
+            fs::read(incoming).map_err(|error| error.to_string())?,
+            "Import changed source bytes"
+        );
+    }
+    Ok(())
+}
+
 // Unique regression: new acoustic records survive the real document history and save path.
 #[test]
 fn acoustic_authoring_save_undo_and_reopen_preserve_exact_coefficients() -> Result<(), String> {

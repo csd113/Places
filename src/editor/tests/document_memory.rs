@@ -72,3 +72,68 @@ fn initial_and_selected_map_admission_preserve_unknown_fields_and_current_work()
     std::fs::remove_dir_all(&path).map_err(|e| e.to_string())?;
     result
 }
+
+// Exercise real editor selection refusal after committed membership changes.
+// Add and Import share one disposable two-level project and the writer lock.
+#[test]
+fn add_and_import_keep_committed_sources_when_selection_cannot_refresh() -> Result<(), String> {
+    use crate::engine::project::{MANIFEST_NAME, ProjectFolder};
+    use std::fs;
+
+    let path = std::env::temp_dir().join(format!("places-member-refresh-{}", std::process::id()));
+    let mut starter = Document::create(&path, "entry", "Membership fixture")?;
+    starter.add_level("second")?;
+    drop(starter);
+    let result = (|| {
+        let mut editor = Document::open(&path)?;
+        editor.heap_budget = editor.heap_charge();
+        let manifest_path = path.join(MANIFEST_NAME);
+        let before = fs::read(&manifest_path).map_err(|error| error.to_string())?;
+        let writer = super::member_publication::lock(editor.root())?;
+        let busy = editor
+            .add_level("third")
+            .err()
+            .ok_or("Concurrent writer was admitted")?;
+        assert!(busy.contains("Another editor"), "{busy}");
+        assert_eq!(
+            fs::read(&manifest_path).map_err(|error| error.to_string())?,
+            before
+        );
+        assert!(!path.join("levels/third.json").exists());
+        drop(writer);
+
+        let problem = editor
+            .add_level("third")
+            .err()
+            .ok_or("Selection unexpectedly fit")?;
+        assert!(
+            problem.contains("was published, but could not be selected"),
+            "{problem}"
+        );
+        assert_eq!(editor.level_id(), "entry");
+        let _row = editor.manifest().level(Some("third"))?;
+        let project = ProjectFolder::open(&path)?;
+        assert_eq!(project.read_level(Some("third"))?.2.id, "third");
+
+        let incoming = path.join("incoming.json");
+        let bytes =
+            serde_json::to_vec_pretty(&super::persistence::starter_scene("imported", "Imported"))
+                .map_err(|error| error.to_string())?;
+        fs::write(&incoming, &bytes).map_err(|error| error.to_string())?;
+        let import_problem = editor
+            .import_level(&incoming)
+            .err()
+            .ok_or("Import selection unexpectedly fit")?;
+        assert!(
+            import_problem.contains("was published, but could not be selected"),
+            "{import_problem}"
+        );
+        assert_eq!(editor.level_id(), "entry");
+        let _imported_row = editor.manifest().level(Some("imported"))?;
+        let imported = ProjectFolder::open(&path)?.read_level(Some("imported"))?;
+        assert_eq!(imported.1, bytes);
+        Ok(())
+    })();
+    fs::remove_dir_all(&path).map_err(|error| error.to_string())?;
+    result
+}
