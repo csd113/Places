@@ -3,7 +3,7 @@
 //! Runs remain visible while actions execute. A per-run revision prevents an
 //! old tick snapshot from advancing, restoring or completing its replacement.
 
-use glam::Vec3;
+use glam::{Vec2, Vec3};
 
 use super::components::SequenceCtl;
 use super::sequences::{MAX_ACTIVE_SEQUENCES, SequenceRuntime, SequenceStepDef};
@@ -11,7 +11,9 @@ use super::{
     DispatchReport, EntityHandle, EntityWorld, EventKind, WorldCommand, WorldContext, WorldTick,
     warn_once,
 };
-use crate::engine::collision::resolve_player_collision_for_body_indexed;
+use crate::engine::collision::{
+    disc_segment_blocked, door_segment_blocked, dynamic_disc_segment_blocked,
+};
 use crate::engine::entity::{
     ENTITY_FACE_EPS_RAD, ENTITY_MAX_STEP_S, ENTITY_STEP_HEIGHT_M,
     ENTITY_TURN_RATE_DEGREES_PER_SECOND, angle_difference, turn_toward,
@@ -301,11 +303,89 @@ impl EntityWorld {
         }
     }
 
-    /// One `move` step of a running sequence. Returns true when it moved on.
+    /// One straight scripted step. Sample the current storey and sweep each
+    /// supported segment before publishing any part of the pose.
     #[expect(
         clippy::arithmetic_side_effects,
-        reason = "bounded flat movement arithmetic"
-    )] // bounded flat movement arithmetic
+        reason = "finite scripted movement and support arithmetic"
+    )]
+    pub(super) fn scripted_move_position(
+        &self,
+        owner: EntityHandle,
+        here: Vec3,
+        target: Vec3,
+        speed: f32,
+        ctx: &WorldContext<'_>,
+    ) -> Result<Option<Vec3>, &'static str> {
+        let from = Vec2::new(here.x, here.z);
+        let remaining = Vec2::new(target.x, target.z) - from;
+        let distance = remaining.length();
+        if !distance.is_finite() || !speed.is_finite() || speed <= 0.0 {
+            return Err("the requested movement is invalid");
+        }
+        if distance <= super::sequences::SEQUENCE_ARRIVE_EPS_M {
+            return Ok(None);
+        }
+        let (radius, height) = self.body_of(owner);
+        let leaves = self
+            .door_colliders
+            .get(..self.guest_collider_start)
+            .unwrap_or_default();
+        let step_m = crate::engine::nav::NAV_MOVE_SUBSTEP_M;
+        let travel = (speed * ctx.delta_seconds.min(ENTITY_MAX_STEP_S))
+            .min(distance)
+            .min(step_m * 64.0);
+        let direction = remaining / distance;
+        let mut position = from;
+        let mut feet = here.y;
+        let mut covered = 0.0_f32;
+        for _ in 0_u8..64 {
+            if covered >= travel {
+                break;
+            }
+            covered = (covered + step_m).min(travel);
+            let candidate = from + direction * covered;
+            let next_floor = ctx
+                .floor
+                .walk_height_near(candidate.x, candidate.y, feet, ENTITY_STEP_HEIGHT_M)
+                .ok_or("the path has no reachable floor")?;
+            let lower = feet.min(next_floor);
+            let swept_height = height + (feet - next_floor).abs();
+            if self
+                .ceiling
+                .ceiling_above_disc(candidate.x, candidate.y, radius, next_floor)
+                .is_some_and(|ceiling| {
+                    next_floor + height > ceiling + crate::engine::collision::CONTACT_EPS
+                })
+                || disc_segment_blocked(
+                    position,
+                    candidate,
+                    radius,
+                    lower,
+                    swept_height,
+                    ENTITY_STEP_HEIGHT_M,
+                    ctx.index,
+                    ctx.walls,
+                )
+                || door_segment_blocked(position, candidate, radius, lower, swept_height, leaves)
+                || dynamic_disc_segment_blocked(
+                    position,
+                    candidate,
+                    radius,
+                    lower,
+                    swept_height,
+                    &self.navigation_obstacles,
+                )
+            {
+                return Err("a solid blocks the path");
+            }
+            position = candidate;
+            feet = next_floor;
+        }
+        Ok(Some(Vec3::new(position.x, feet, position.y)))
+    }
+
+    /// One sequence movement step. Returns true when the entity reaches the waypoint.
     fn sequence_move_step(
         &mut self,
         run: &mut SequenceRuntime,
@@ -314,62 +394,25 @@ impl EntityWorld {
         ctx: &WorldContext<'_>,
         tick: &mut WorldTick,
     ) -> bool {
-        if !target.x.is_finite() || !target.z.is_finite() || !speed.is_finite() || speed <= 0.0 {
-            return true;
-        }
         let Some(transform) = self.components.transforms.get(run.owner).copied() else {
             return true;
         };
-        let here = transform.position;
-        let flat = glam::Vec2::new(target.x - here.x, target.z - here.z);
-        let distance = flat.length();
-        if !distance.is_finite() {
-            return true;
-        }
-        if distance <= super::sequences::SEQUENCE_ARRIVE_EPS_M {
-            return true;
-        }
-        let direction = flat / distance;
-        let travel = (speed * ctx.delta_seconds).min(distance);
-        let candidate = glam::Vec2::new(here.x, here.z) + direction * travel;
-        let (radius, height) = self.body_of(run.owner);
-        let resolved = resolve_player_collision_for_body_indexed(
-            ctx.index, candidate, radius, here.y, height, ctx.walls,
-        );
-        if (resolved - candidate).length() > crate::engine::entity::ENTITY_BLOCK_EPS_M {
-            warn_once(
-                "sequence-move-blocked",
-                format!(
-                    "[entities] sequence `{}` is blocked by a wall",
-                    run.sequence
-                ),
-            );
-            run.stop();
-            return true;
-        }
-        let Some(floor_y) = ctx.floor.walk_height_at(resolved.x, resolved.y) else {
-            warn_once(
-                "sequence-move-void",
-                format!(
-                    "[entities] sequence `{}` leaves every walkable floor",
-                    run.sequence
-                ),
-            );
-            run.stop();
-            return true;
-        };
-        if (floor_y - here.y).abs() > ENTITY_STEP_HEIGHT_M + crate::engine::collision::STEP_EPS {
-            warn_once(
-                "sequence-move-step",
-                format!(
-                    "[entities] sequence `{}` cannot climb the step on its path",
-                    run.sequence
-                ),
-            );
-            run.stop();
-            return true;
-        }
-        let next = Vec3::new(resolved.x, floor_y, resolved.y);
+        let next =
+            match self.scripted_move_position(run.owner, transform.position, target, speed, ctx) {
+                Ok(Some(next)) => next,
+                Ok(None) => return true,
+                Err(reason) => {
+                    warn_once(
+                        "sequence-move-blocked",
+                        format!(
+                            "[entities] cannot move in sequence {}: {reason}",
+                            run.sequence
+                        ),
+                    );
+                    run.stop();
+                    return true;
+                }
+            };
         if let Some(entry) = self.components.transforms.get_mut(run.owner) {
             entry.position = next;
         }

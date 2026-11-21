@@ -59,7 +59,7 @@ pub use volumes::TriggerItem;
 use glam::Vec3;
 
 use crate::engine::ai::{AiDef, AiOutcome, AiStimulus, AiTarget, AiTickContext, AiWorld};
-use crate::engine::collision::{DoorCollider, WallAabb, resolve_player_collision_for_body_indexed};
+use crate::engine::collision::{DoorCollider, WallAabb};
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::{DoorPhase, Doors};
 use crate::engine::entity::{
@@ -3837,16 +3837,9 @@ impl EntityWorld {
         });
     }
 
-    #[expect(
-        clippy::arithmetic_side_effects,
-        reason = "bounded flat movement arithmetic"
-    )] // bounded flat movement arithmetic
     fn tick_moves(&mut self, ctx: &WorldContext<'_>, tick: &mut WorldTick) {
-        if self.moves.is_empty() {
-            return;
-        }
         let goals = std::mem::take(&mut self.moves);
-        let mut keep: Vec<MoveGoal> = Vec::with_capacity(goals.len());
+        let mut keep = Vec::with_capacity(goals.len());
         for goal in goals {
             if self
                 .id_of(goal.entity)
@@ -3857,36 +3850,32 @@ impl EntityWorld {
             let Some(transform) = self.components.transforms.get(goal.entity).copied() else {
                 continue;
             };
-            let here = transform.position;
-            let flat = glam::Vec2::new(goal.target.x - here.x, goal.target.z - here.z);
-            let distance = flat.length();
-            if !distance.is_finite() {
-                continue;
-            }
-            if distance <= sequences::SEQUENCE_ARRIVE_EPS_M {
-                continue;
-            }
-            let direction = flat / distance;
-            let travel = (goal.speed * ctx.delta_seconds).min(distance);
-            let candidate = glam::Vec2::new(here.x, here.z) + direction * travel;
-            let (radius, height) = self.body_of(goal.entity);
-            let resolved = resolve_player_collision_for_body_indexed(
-                ctx.index, candidate, radius, here.y, height, ctx.walls,
-            );
-            if (resolved - candidate).length() > crate::engine::entity::ENTITY_BLOCK_EPS_M {
-                warn_once(
-                    "move-blocked",
-                    format!(
-                        "[entities] `{}` cannot reach its move target: a wall blocks the path",
-                        self.id_of(goal.entity).unwrap_or("entity")
-                    ),
-                );
-                continue;
-            }
-            let next = Vec3::new(resolved.x, here.y, resolved.y);
+            let next = match self.scripted_move_position(
+                goal.entity,
+                transform.position,
+                goal.target,
+                goal.speed,
+                ctx,
+            ) {
+                Ok(Some(next)) => next,
+                Ok(None) => continue,
+                Err(reason) => {
+                    warn_once(
+                        "move-blocked",
+                        format!(
+                            "[entities] `{}` cannot reach its move target: {reason}",
+                            self.id_of(goal.entity).unwrap_or("entity")
+                        ),
+                    );
+                    continue;
+                }
+            };
             if let Some(entry) = self.components.transforms.get_mut(goal.entity) {
                 entry.position = next;
             }
+            let _agent_updated =
+                self.ai
+                    .apply_sequence_transform(goal.entity, next, transform.yaw_degrees);
             if let Some(key) = self.dynamic_key(goal.entity) {
                 self.commands.push(WorldCommand::SetDynamicTransform {
                     entity: key,
@@ -4744,6 +4733,7 @@ impl EntityWorld {
             .sequence_runs
             .iter()
             .map(|run| run.owner)
+            .chain(self.moves.iter().map(|goal| goal.entity))
             .chain(
                 self.scripted_poses
                     .iter()

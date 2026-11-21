@@ -379,6 +379,77 @@ fn sequence_movement_and_turns_publish_frame_changes() -> Result<(), String> {
     Ok(())
 }
 
+// Existing small world fixture plus one runtime spawn and one live solid
+// distinguishes cancellation from legacy retry, and checks upper-floor travel.
+#[test]
+fn blocked_scripted_moves_require_reissue_and_keep_their_floor() -> Result<(), String> {
+    let level=LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"move_upper","name":"Move upper",
+        "spawn":{"x":0.5,"z":0.5},"rooms":[{"width":5,"depth":3,"height":4},{"width":3,"depth":3,"height":3,"floor_y":4}],
+        "props":[{"id":"first","model":"core:rubber_duck","x":0.5,"y":4,"z":0.5}],
+        "spawn_templates":[{"id":"prop","model":"core:rubber_duck"}],
+        "spawn_points":[{"id":"point","x":0.5,"y":4,"z":1.5,"template":"prop"}],
+        "sequences":[{"id":"move","steps":[{"step":"move","x":2.5,"z":0.5,"speed":2}]}]}"#)
+        .map_err(|error| error.to_string())?;
+    let floor = WalkableFloor::from_level(&level);
+    let mut world = EntityWorld::from_level(&level);
+    let spawn = world.dispatch_actions(
+        &[ActionDef::SpawnEntity {
+            point: Some("point".into()),
+            name: Some("moving".into()),
+            template: None,
+            group: None,
+        }],
+        None,
+    );
+    assert_eq!(spawn.spawned, 1);
+    let scripted = ActionDef::MoveObject {
+        target: Some("moving".into()),
+        x: 2.5,
+        y: None,
+        z: 1.5,
+        speed: Some(2.0),
+    };
+    let position = |state: &EntityWorld, name: &str| -> Result<Vec3, String> {
+        state
+            .handle_of(name)
+            .and_then(|handle| state.components().transforms.get(handle))
+            .map(|transform| transform.position)
+            .ok_or_else(|| format!("missing mover {name}"))
+    };
+    let blocked = crate::engine::collision::WallAabb::with_y(0.9, 4.0, 0.0, 0.04, 2.5, 2.0);
+    world.set_navigation_obstacles(std::iter::once(blocked));
+    start(&mut world, "first", "move");
+    assert_eq!(
+        world
+            .dispatch_actions(std::slice::from_ref(&scripted), None)
+            .objects_moved,
+        1
+    );
+    for _ in 0..8_u8 {
+        let _ = tick(&mut world, 0.10, &floor);
+    }
+    assert!(idle(&world, "first"));
+    let before = [position(&world, "first")?, position(&world, "moving")?];
+    world.set_navigation_obstacles(std::iter::empty());
+    for _ in 0..4_u8 {
+        let _ = tick(&mut world, 0.10, &floor);
+    }
+    assert_eq!(
+        [position(&world, "first")?, position(&world, "moving")?],
+        before
+    );
+    start(&mut world, "first", "move");
+    assert_eq!(world.dispatch_actions(&[scripted], None).objects_moved, 1);
+    for _ in 0..16_u8 {
+        let _ = tick(&mut world, 0.10, &floor);
+    }
+    for id in ["first", "moving"] {
+        let accepted = position(&world, id)?;
+        assert!(accepted.x > 2.45 && (accepted.y - 4.0).abs() < 1.0e-5);
+    }
+    Ok(())
+}
+
 // One actual AI owner protects the cross-system bug that metadata transforms
 // moved while renderer frames and resumed AI retained the old authored pose.
 // This adds no navigation bake or asset load to the tiny CPU-only fixture.

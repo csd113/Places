@@ -1023,6 +1023,71 @@ fn moving_targets_keep_routes_between_replans_and_hold_stops() -> Result<(), Str
     Ok(())
 }
 
+// A short certified corridor and a live non-target actor verify that a
+// periodic pursuit replan cannot restart the stall window or its first leg.
+#[test]
+fn equivalent_pursuit_replan_preserves_stall_until_route_really_changes() -> Result<(), String> {
+    let mut fixture = Fixture::new(grid(7, 1, &(0..7).collect::<Vec<_>>()))?;
+    (fixture.floor, fixture.ceiling) =
+        room_floor(r#"[{"x":0,"z":0,"width":7,"depth":1,"height":3}]"#)?;
+    fixture.targets = vec![
+        AiTarget {
+            handle: crate::engine::ai::PLAYER_TARGET_HANDLE,
+            instance_id: "player".into(),
+            role: Some("player".into()),
+            behavior: AiBehavior::Idler,
+            position: Vec3::new(6.5, 0.0, 0.5),
+            radius: 0.3,
+            height: 1.8,
+            caught: false,
+        },
+        AiTarget {
+            handle: EntityHandle::from_parts(99, 0),
+            instance_id: "blocker".into(),
+            role: None,
+            behavior: AiBehavior::Idler,
+            position: Vec3::new(1.24, 0.0, 0.5),
+            radius: 0.5,
+            height: 1.8,
+            caught: false,
+        },
+    ];
+    let mut world = AiWorld::new();
+    let _actor = register(
+        &mut world,
+        0,
+        AiDef {
+            behavior: AiBehavior::Predator,
+            reacts_to: vec!["player".into()],
+            sight_fov_degrees: 360.0,
+            ..AiDef::default()
+        },
+        Vec3::new(0.5, 0.0, 0.5),
+    );
+    let mut checked = false;
+    let mut deadlock = false;
+    for _ in 0..18_u8 {
+        let last = world.agent("agent_0").ok_or("agent")?;
+        let before = last.stuck_seconds;
+        let queries = last.path_queries;
+        world.tick(&fixture.context(0.04, &[]), &mut AiOutcome::default());
+        let current = world.agent("agent_0").ok_or("agent")?;
+        if queries > 0 && current.path_queries > queries && before > 0.35 {
+            checked = true;
+            assert!(
+                current.stuck_seconds >= before || current.path.waypoints.is_empty(),
+                "equivalent replan must retain the active stalled leg"
+            );
+        }
+        deadlock |= before > 0.45 && current.path.waypoints.is_empty();
+    }
+    assert!(
+        checked && deadlock,
+        "the equivalent 0.50 s replan must leave time to detect a 0.55 s deadlock"
+    );
+    Ok(())
+}
+
 // These two tiny fixtures protect the outward-search deadline, genuine observed
 // memory and completed-route admission, absent from ordinary chase coverage.
 // They use at most 81 synthetic cells, no assets/bakes/GPU and bounded CPU ticks.

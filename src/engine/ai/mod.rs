@@ -546,6 +546,7 @@ pub struct AiAgent {
     pub speed_mps: f32,
     /// Seconds stuck against collision while trying to move.
     pub stuck_seconds: f32,
+    stuck_anchor: Vec3,
     /// Seconds until a wander/idle agent picks another destination.
     pub wait_remaining: f32,
     /// Seconds until this agent may catch again.
@@ -616,6 +617,11 @@ impl AiAgent {
         } else {
             1.0
         }
+    }
+
+    const fn reset_stuck(&mut self) {
+        self.stuck_seconds = 0.0;
+        self.stuck_anchor = self.position;
     }
 
     fn bounds(&self) -> Option<NavBounds> {
@@ -826,6 +832,7 @@ pub struct AiWorld {
     next_tick_agent: usize,
     // Queries execute serially: retain one full-grid workspace for the world.
     scratch: NavScratch,
+    replan_path: Path,
     // Full generation-safe handles index only transforms already published this tick.
     actor_positions: HashMap<EntityHandle, Vec3>,
 }
@@ -850,6 +857,7 @@ impl Default for AiWorld {
             catches_total: 0,
             next_tick_agent: 0,
             scratch: NavScratch::new(),
+            replan_path: Path::new(),
             actor_positions: HashMap::new(),
         }
     }
@@ -1005,6 +1013,7 @@ impl AiWorld {
             reported_unplaced: false,
             speed_mps: 0.0,
             stuck_seconds: 0.0,
+            stuck_anchor: position,
             wait_remaining: 0.0,
             catch_cooldown: 0.0,
             caught: false,
@@ -1109,7 +1118,7 @@ impl AiWorld {
             agent.path_done_goal = None;
             agent.current_waypoint = 0;
             agent.speed_mps = 0.0;
-            agent.stuck_seconds = 0.0;
+            agent.reset_stuck();
             agent.wait_remaining = 0.0;
             agent.catch_cooldown = 0.0;
             agent.caught = false;
@@ -1172,7 +1181,7 @@ impl AiWorld {
             agent.path_failed_at = None;
             agent.path_done_goal = None;
             agent.current_waypoint = 0;
-            agent.stuck_seconds = 0.0;
+            agent.reset_stuck();
             agent.speed_mps = 0.0;
         }
         changed
@@ -1264,10 +1273,10 @@ impl AiWorld {
         if !continuing {
             agent.path.clear();
             agent.path_goal = None;
+            agent.reset_stuck();
         }
         agent.path_done_goal = None;
         agent.path_failed_at = None;
-        agent.stuck_seconds = 0.0;
         true
     }
 
@@ -1726,7 +1735,13 @@ impl AiWorld {
             } else {
                 decide(agent, ctx, out);
             }
-            advance(agent, ctx, out, &self.actor_positions);
+            advance(
+                agent,
+                ctx,
+                out,
+                &self.actor_positions,
+                &mut self.replan_path,
+            );
             if agent.speed_mps <= 0.01
                 && let Some(target) = agent.combat_facing
             {
@@ -2334,6 +2349,7 @@ fn advance(
     ctx: &AiTickContext<'_>,
     out: &mut AiOutcome,
     actor_positions: &HashMap<EntityHandle, Vec3>,
+    trial: &mut Path,
 ) {
     let Some(nav) = ctx.nav else {
         if !agent.reported_unplaced {
@@ -2442,12 +2458,16 @@ fn advance(
             max_expansions: RUNTIME_PATH_EXPANSIONS,
             doors: ctx,
         };
-        let mut path = std::mem::take(&mut agent.path);
         let bounds = agent.bounds();
-        let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut path, bounds);
-        agent.path = path;
+        let result = nav.path_into_bounded(&query, &mut agent.scratch, trial, bounds);
         agent.path_door_version = ctx.door_version;
         if result.is_ok() {
+            let equivalent = equivalent_route_start(agent, trial, nav.grid().cell_m * 0.75);
+            std::mem::swap(&mut agent.path, trial);
+            agent.current_waypoint = equivalent.unwrap_or_default();
+            if equivalent.is_none() {
+                agent.reset_stuck();
+            }
             if agent.path.complete {
                 agent.path_age = 0.0;
                 agent.path_failed_at = None;
@@ -2458,12 +2478,12 @@ fn advance(
                 agent.path_failed_at = Some(agent.clock);
             }
             agent.path_goal = Some(goal_position);
-            agent.current_waypoint = 0;
             // Replanning projects the start onto its cell centre. A combatant
             // already inside that cell must not turn back to that artificial
             // point on every target update. Skip it only when the next segment
             // is independently clear from the actor's actual position.
-            if agent.combat_facing.is_some()
+            if equivalent.is_none()
+                && agent.combat_facing.is_some()
                 && let Some(next) = agent.path.waypoints.get(1).copied()
                 && agent
                     .path
@@ -2482,6 +2502,7 @@ fn advance(
             agent.path_done_goal = None;
             agent.path.clear();
             agent.current_waypoint = 0;
+            agent.reset_stuck();
             agent.speed_mps = 0.0;
         }
     }
@@ -2505,7 +2526,7 @@ fn advance(
             agent.position = position;
             agent.yaw_degrees = yaw;
             agent.speed_mps = speed_mps;
-            agent.stuck_seconds = 0.0;
+            agent.reset_stuck();
             agent.path_age = 0.0;
             // Keep attempted-goal/failure metadata, so retries retain the
             // normal cooldown and shared fair path-query budget.
@@ -2530,10 +2551,10 @@ fn advance(
                 agent.path.clear();
                 agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
                 agent.current_waypoint = 0;
-                agent.stuck_seconds = 0.0;
+                agent.reset_stuck();
             }
         } else {
-            agent.stuck_seconds = 0.0;
+            agent.reset_stuck();
         }
         return;
     }
@@ -2571,17 +2592,17 @@ fn advance(
                 return;
             }
             let progress =
-                next_waypoint.distance(agent.position) - next_waypoint.distance(position);
-            if progress <= 0.0005 && (yaw_degrees - agent.yaw_degrees).abs() < 0.01 {
-                agent.stuck_seconds += ctx.delta;
-            } else {
-                agent.stuck_seconds = 0.0;
-            }
+                next_waypoint.distance(agent.stuck_anchor) - next_waypoint.distance(position);
             agent.position = position;
+            if progress > 0.0005 {
+                agent.reset_stuck();
+            } else {
+                agent.stuck_seconds += ctx.delta;
+            }
             agent.yaw_degrees = yaw_degrees;
             agent.speed_mps = speed_mps;
             if agent.stuck_seconds >= STUCK_SECONDS {
-                agent.stuck_seconds = 0.0;
+                agent.reset_stuck();
                 agent.path.clear();
                 agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
                 agent.current_waypoint = 0;
@@ -2590,6 +2611,7 @@ fn advance(
                 < movement::arrival_radius(agent.profile.radius)
             {
                 agent.current_waypoint = agent.current_waypoint.saturating_add(1);
+                agent.reset_stuck();
             }
             out.moved.push((
                 agent.handle,
@@ -2610,7 +2632,7 @@ fn advance(
             agent.speed_mps = 0.0;
             agent.stuck_seconds += ctx.delta;
             if agent.stuck_seconds >= STUCK_SECONDS {
-                agent.stuck_seconds = 0.0;
+                agent.reset_stuck();
                 agent.path.clear();
                 agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
                 agent.current_waypoint = 0;
@@ -2618,6 +2640,7 @@ fn advance(
         }
         MoveStep::Arrived => {
             agent.speed_mps = 0.0;
+            agent.reset_stuck();
             agent.current_waypoint = agent.current_waypoint.saturating_add(1);
             if agent.current_waypoint >= agent.path.waypoints.len() {
                 agent.path_done_goal = agent.path_goal.filter(|_| agent.path.complete);
@@ -2630,6 +2653,31 @@ fn advance(
         }
     }
     try_catch(agent, ctx, out);
+}
+
+/// An unchanged remaining route keeps its active leg and progress origin.
+fn equivalent_route_start(agent: &AiAgent, trial: &Path, start_tolerance: f32) -> Option<usize> {
+    if agent.path.complete != trial.complete || agent.path.door_requests != trial.door_requests {
+        return None;
+    }
+    let active = agent.path.waypoints.get(agent.current_waypoint..)?;
+    if active.is_empty() {
+        return None;
+    }
+    [0, 1].into_iter().find(|&index| {
+        (index == 0
+            || trial
+                .waypoints
+                .first()
+                .is_some_and(|point| point.distance(agent.position) <= start_tolerance))
+            && trial.waypoints.get(index..).is_some_and(|remaining| {
+                remaining.len() == active.len()
+                    && active
+                        .iter()
+                        .zip(remaining)
+                        .all(|(old, new)| old.abs_diff_eq(*new, movement::ARRIVE_RADIUS_M))
+            })
+    })
 }
 
 /// Sub-cell contact/overlap correction reuses the ordinary physical mover.
