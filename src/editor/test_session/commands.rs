@@ -97,7 +97,7 @@ impl Session {
                 .into();
             }
             Some(Target::Drop) => {
-                self.status = if self.physics.world.drop() {
+                self.status = if self.game.drop_carried_item(&mut self.physics.world) {
                     "Dropped item"
                 } else {
                     "Drop blocked: move the item clear"

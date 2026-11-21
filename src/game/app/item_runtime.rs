@@ -628,7 +628,7 @@ impl FrameLoop<'_> {
             && self.items.world.held() == Some(key)
         {
             self.synchronize_physical_player();
-            self.items.release_blocked = !self.items.world.throw(self.game.view_direction());
+            self.items.release_blocked = !self.game.throw_carried_item(&mut self.items.world);
             self.trace_world(if self.items.release_blocked {
                 "item_throw_blocked"
             } else {
@@ -841,7 +841,7 @@ impl FrameLoop<'_> {
             .world
             .sync_context(self.physical_player_context(), self.game.door_colliders());
         if matches!(self.items.target, Some(InteractionTarget::Drop { key: _ })) {
-            self.items.release_blocked = !self.items.world.drop();
+            self.items.release_blocked = !self.game.drop_carried_item(&mut self.items.world);
             self.trace_world(if self.items.release_blocked {
                 "item_drop_blocked"
             } else {

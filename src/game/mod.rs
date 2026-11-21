@@ -377,6 +377,8 @@ pub struct Game {
     ground_surfaces: GroundSurfaces,
     /// Momentum retained between fixed movement commands and clipped on collision.
     horizontal_velocity: Vec2,
+    /// Feet velocity of the latest accepted fixed command, used for release.
+    last_command_velocity: Vec3,
     movement_accumulator: f64,
     movement_input: InputState,
     duck_fraction: f32,
@@ -606,6 +608,7 @@ impl Game {
             navigation: world.navigation,
             ground_surfaces: world.ground_surfaces,
             horizontal_velocity: Vec2::ZERO,
+            last_command_velocity: Vec3::ZERO,
             movement_accumulator: 0.0,
             movement_input: InputState::default(),
             duck_fraction: 0.0,
@@ -738,6 +741,9 @@ impl Game {
             self.delta_seconds = 0.0;
             self.sim_delta_seconds = 0.0;
         }
+        if new_state != AppState::Playing {
+            self.last_command_velocity = Vec3::ZERO;
+        }
         self.app_state = new_state;
     }
 
@@ -841,6 +847,7 @@ impl Game {
         self.player_yaw = spawn_yaw.rem_euclid(TWO_PI);
         self.player_pitch = 0.0;
         self.horizontal_velocity = Vec2::ZERO;
+        self.last_command_velocity = Vec3::ZERO;
         self.movement_accumulator = 0.0_f64;
         self.movement_input = InputState::default();
         self.duck_fraction = 0.0;
@@ -1123,6 +1130,7 @@ impl Game {
     /// Used when frames are skipped (e.g. a minimized window) so that resuming
     /// does not apply a huge delta-time step to movement or looking.
     pub fn reset_timing(&mut self) {
+        self.last_command_velocity = Vec3::ZERO;
         self.movement_accumulator = 0.0_f64;
         self.movement_input = InputState::default();
         self.last_frame_time = Instant::now();
@@ -1298,11 +1306,13 @@ impl Game {
 
         // While paused or in menus, do not update player movement or looking
         if self.app_state != AppState::Playing {
+            self.last_command_velocity = Vec3::ZERO;
             return;
         }
 
         self.tick_player_health();
         if self.world.health_settings().enabled && self.player_health.is_dead() {
+            self.last_command_velocity = Vec3::ZERO;
             input.release_all();
             let feet = Vec3::new(
                 self.player_position.x,
@@ -1314,6 +1324,7 @@ impl Game {
         }
 
         if self.noclip_enabled() {
+            self.last_command_velocity = Vec3::ZERO;
             self.update_noclip(&frame_input, settings, motion);
             self.finish_pending_local_elevator_departure(false);
             return;
@@ -1323,6 +1334,7 @@ impl Game {
         // clamp or integrate them. Finite escapes receive the grace interval
         // after this frame's ordinary locomotion has had a chance to return.
         if !self.player_motion_is_finite() {
+            self.last_command_velocity = Vec3::ZERO;
             let _recovered = self.recover_out_of_map();
             return;
         }
@@ -1331,6 +1343,7 @@ impl Game {
         let trigger_origin =
             self.update_playing_frame_checked(&frame_input, settings, motion, &mut contacts);
         if self.recover_out_of_map() {
+            self.last_command_velocity = Vec3::ZERO;
             self.finish_pending_local_elevator_departure(false);
             return;
         }
@@ -1472,12 +1485,12 @@ impl Game {
                 self.set_feet_y(previous_feet);
             }
             self.advance_eye_offset(VERTICAL_SUBSTEP);
-            let start = Vec2::new(self.player_position.x, self.player_position.z);
+            let start = Vec3::new(self.player_position.x, self.feet_y, self.player_position.z);
             self.update_locomotion_step(&command, settings, VERTICAL_SUBSTEP);
             let proposed = self.movement_debug.then(|| {
                 Vec2::new(
                     self.player_position.x - start.x,
-                    self.player_position.z - start.y,
+                    self.player_position.z - start.z,
                 )
             });
             rig_sample = Some((start, proposed));
@@ -1491,10 +1504,17 @@ impl Game {
         self.sim_delta_seconds = delta;
         contacts.finish(self);
         if let Some((start, proposed)) = rig_sample {
-            let accepted = Vec2::new(
+            let travel = Vec3::new(
                 self.player_position.x - start.x,
-                self.player_position.z - start.y,
+                self.feet_y - start.y,
+                self.player_position.z - start.z,
             );
+            self.last_command_velocity = Vec3::new(
+                travel.x / VERTICAL_SUBSTEP,
+                travel.y / VERTICAL_SUBSTEP,
+                travel.z / VERTICAL_SUBSTEP,
+            );
+            let accepted = Vec2::new(travel.x, travel.z);
             self.refresh_locomotion(accepted.length(), VERTICAL_SUBSTEP);
             if let Some(proposed_xz) = proposed {
                 crate::engine::logging::warn(format_args!(

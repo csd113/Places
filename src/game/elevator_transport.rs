@@ -46,6 +46,7 @@ impl Game {
         self.player_floor_y = trip.floor_y;
         self.vertical_velocity = 0.0;
         self.horizontal_velocity = Vec2::ZERO;
+        self.last_command_velocity = Vec3::ZERO;
         self.world
             .rollback_elevator_arrival(&trip.source, &trip.target_id, trip.target.as_ref());
         self.reseed_trigger_inside();
@@ -132,6 +133,7 @@ impl Game {
         self.player_yaw = yaw;
         self.player_pitch = arrival.pitch;
         self.horizontal_velocity = Vec2::ZERO;
+        self.last_command_velocity = Vec3::ZERO;
         self.vertical_velocity = arrival.vertical_velocity;
         self.grounded = arrival.grounded;
         self.player_floor_y = feet.y - arrival.local_feet.y;

@@ -10,7 +10,7 @@ impl Session {
             && !self.gameplay_controls_blocked()
             && self.physics.world.held().is_some()
         {
-            self.status = if self.physics.world.throw(self.game.view_direction()) {
+            self.status = if self.game.throw_carried_item(&mut self.physics.world) {
                 "Threw held item".into()
             } else {
                 "Throw blocked: move the item clear".into()

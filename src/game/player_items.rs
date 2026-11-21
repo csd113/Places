@@ -109,6 +109,14 @@ impl Game {
         }
     }
 
+    pub(crate) fn drop_carried_item(&self, world: &mut ItemWorld) -> bool {
+        world.drop_with_velocity(self.last_command_velocity)
+    }
+
+    pub(crate) fn throw_carried_item(&self, world: &mut ItemWorld) -> bool {
+        world.throw_with_velocity(self.view_direction(), self.last_command_velocity)
+    }
+
     fn apply_held_item_contact(&mut self, blocked_eye: Vec3, contact: &HeldPlayerContact) {
         let accepts = |eye: Vec3| {
             self.body_fits_with_height(

@@ -151,63 +151,88 @@ fn tool_tuning_and_hitbox_boundaries_reject_invalid_values() {
     );
 }
 
-// Direct regression for one input releasing carry ownership and beginning a
-// swing, with zero throw impulse. One tiny sphere, no solver ticks or renderer.
+// Two one-edge releases exercise the shared game and Quick Test crowbar
+// command at rest and before the item solver on takeoff. The blocked variant
+// also verifies that clearance failure never consumes the tool swing.
 #[test]
 fn attack_drops_the_carried_prop_and_starts_a_swing_on_the_same_input() -> Result<(), String> {
     use crate::engine::physics::{BodyMotion, ItemWorld, PhysicsDef, PlayerContext, ShapeDef};
-    let mut game = game_with_tools(true)?;
-    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"carry","name":"Carry","spawn":{"x":0,"z":0}}"#).map_err(|error| error.to_string())?;
-    let mut world = ItemWorld::from_level(&level, &[]);
-    let eye = game.view_position();
-    let position = eye + Vec3::NEG_Z;
-    world.spawn(
-        1,
-        &PhysicsDef {
-            motion: BodyMotion::Dynamic,
-            pickup: true,
-            shape: Some(ShapeDef::Sphere { radius: 0.1 }),
-            ..PhysicsDef::default()
-        },
-        (Vec3::splat(-0.1), Vec3::splat(0.1)),
-        position,
-        0.0,
-        1.0,
-    )?;
-    world.sync_context(
-        PlayerContext {
-            eye,
-            feet: Vec3::new(eye.x, 0.0, eye.z),
-            height: 1.8,
-            half: 0.4,
-            view: Vec3::NEG_Z,
-            yaw: 0.0,
-            active: true,
-        },
-        &[],
-    );
-    assert!(
-        world.pickup(1, eye, Vec3::NEG_Z, 0.0),
-        "fixture really is carried"
-    );
-    assert!(
-        super::begin_swing(&mut game, &mut world)?,
-        "same edge starts the equipped tool"
-    );
-    assert!(
-        world.held().is_none(),
-        "carried prop is released on that edge"
-    );
-    let body = world.snapshots().into_iter().next().ok_or("missing prop")?;
-    assert!(
-        body.linear_velocity.length() < 0.01,
-        "release is a drop rather than a throw"
-    );
-    assert_eq!(
-        game.tool_snapshot()
-            .get("swings")
-            .and_then(serde_json::Value::as_u64),
-        Some(1_u64)
-    );
+    use crate::game::input::{Control, InputState, ScriptedHold};
+    use crate::game::{AppState, Settings, VERTICAL_SUBSTEP};
+
+    for takeoff in [false, true] {
+        let mut game = game_with_tools(true)?;
+        game.set_app_state(AppState::Playing);
+        let mut world = ItemWorld::default();
+        let player = game.physical_player_context();
+        let center = player.eye + Vec3::NEG_Z;
+        world.spawn(
+            1,
+            &PhysicsDef {
+                motion: BodyMotion::Dynamic,
+                pickup: true,
+                shape: Some(ShapeDef::Sphere { radius: 0.1 }),
+                ..PhysicsDef::default()
+            },
+            (Vec3::splat(-0.1), Vec3::splat(0.1)),
+            center,
+            0.0,
+            1.0,
+        )?;
+        world.sync_context(player, &[]);
+        assert!(
+            world.pickup(1, player.eye, player.view, player.yaw),
+            "fixture must be carried"
+        );
+
+        if takeoff {
+            let mut input = InputState::default();
+            input.apply_move_script(
+                &[ScriptedHold {
+                    control: Control::Jump,
+                    first_seconds: 0.0,
+                    last_seconds: 1.0,
+                }],
+                0.5,
+            );
+            game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+            game.update_player_movement_with_items(&mut input, &Settings::default(), &mut world);
+            world.sync_context(
+                PlayerContext {
+                    feet: Vec3::new(center.x, player.feet.y, center.z),
+                    eye: center,
+                    ..player
+                },
+                &[],
+            );
+            assert!(
+                super::begin_swing(&mut game, &mut world).is_err(),
+                "player penetration must block the swing"
+            );
+            assert_eq!(world.held(), Some(1));
+            assert_eq!(game.tool_progress(), 0.0);
+        }
+
+        let accepted = game.physical_player_context();
+        world.sync_context(accepted, &[]);
+        assert!(
+            super::begin_swing(&mut game, &mut world)?,
+            "clear release must start the swing"
+        );
+        assert_eq!(world.held(), None);
+        let (_, actual) = world.body_pose_velocity(1).ok_or("missing released prop")?;
+        let expected = ((accepted.feet - player.feet) / VERTICAL_SUBSTEP).clamp_length_max(2.0);
+        assert_eq!(expected.y > 0.0, takeoff);
+        assert!(
+            actual.distance(expected) < 1.0e-5,
+            "actual {actual:?}, expected {expected:?}"
+        );
+        assert_eq!(
+            game.tool_snapshot()
+                .get("swings")
+                .and_then(serde_json::Value::as_u64),
+            Some(1)
+        );
+    }
     Ok(())
 }

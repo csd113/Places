@@ -174,7 +174,7 @@ pub fn begin_swing(game: &mut Game, world: &mut ItemWorld) -> Result<bool, Strin
     if !game.tool_ready() {
         return Ok(false);
     }
-    if world.held().is_some() && !world.drop() {
+    if world.held().is_some() && !game.drop_carried_item(world) {
         return Err("Crowbar blocked: move the carried prop clear so it can drop".into());
     }
     Ok(game.start_tool_swing())

@@ -420,7 +420,7 @@ fn replay_carry_jump(
         if hitch_frame && matches!(witness, JumpWitness::Release) {
             items.sync_context(context, &[]);
             assert!(
-                items.drop(),
+                game.drop_carried_item(&mut items),
                 "release before item physics must see the swept carry pose"
             );
             return Ok((game.player_position.z, game.feet_y()));
@@ -629,6 +629,75 @@ fn player_rig_uses_accepted_motion_and_resolved_support() -> Result<(), String> 
             assert_eq!(airborne.state, LocomotionState::Airborne);
             assert!((airborne.speed - distance / VERTICAL_SUBSTEP).abs() < 1.0e-5);
         }
+    }
+    Ok(())
+}
+
+// Both frontends release before the item solver. Two takeoffs distinguish
+// an ordinary substep-short frame from a timing reset such as refocus or
+// closing the console, and also exercise the blocked release retry.
+#[test]
+fn drop_before_item_step_inherits_accepted_takeoff() -> Result<(), String> {
+    use crate::engine::physics::ItemWorld;
+
+    for timing_reset in [false, true] {
+        let mut game = flat()?;
+        let mut items = ItemWorld::default();
+        let player = game.physical_player_context();
+        let center = player.eye + Vec3::NEG_Z;
+        spawn_jump_sphere(&mut items, 1, center, true)?;
+        items.sync_context(player, &[]);
+        assert!(items.pickup(1, player.eye, player.view, player.yaw));
+
+        game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+        game.update_player_movement_with_items(
+            &mut input(&[Control::MoveForward, Control::Jump]),
+            &Settings::default(),
+            &mut items,
+        );
+        let accepted = game.physical_player_context();
+        let inherited = ((accepted.feet - player.feet) / VERTICAL_SUBSTEP).clamp_length_max(2.0);
+        assert!(
+            inherited.y > 0.0 && inherited.z < 0.0,
+            "control must move forward and upward"
+        );
+
+        if timing_reset {
+            game.reset_timing();
+        }
+        game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP * 0.25);
+        game.update_player_movement_with_items(
+            &mut InputState::default(),
+            &Settings::default(),
+            &mut items,
+        );
+        assert_eq!(game.physical_player_context().feet, accepted.feet);
+        items.sync_context(
+            crate::engine::physics::PlayerContext {
+                feet: Vec3::new(center.x, player.feet.y, center.z),
+                eye: center,
+                ..accepted
+            },
+            &[],
+        );
+        assert!(
+            !game.drop_carried_item(&mut items),
+            "player penetration must block release"
+        );
+        assert_eq!(items.held(), Some(1));
+        items.sync_context(accepted, &[]);
+        assert!(
+            game.drop_carried_item(&mut items),
+            "returning to accepted feet must clear the release"
+        );
+        let (_, actual) = items
+            .body_pose_velocity(1)
+            .ok_or("missing released sphere")?;
+        let expected = if timing_reset { Vec3::ZERO } else { inherited };
+        assert!(
+            actual.distance(expected) < 1.0e-5,
+            "timing reset {timing_reset}: actual {actual:?}, expected {expected:?}"
+        );
     }
     Ok(())
 }

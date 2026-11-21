@@ -688,6 +688,14 @@ impl ItemWorld {
     /// door, player or ceiling keeps the item held and returns false.
     /// Velocity comes only from bounded player translation, never hand teleports.
     pub fn drop(&mut self) -> bool {
+        let velocity = self
+            .runtime
+            .as_ref()
+            .map_or(Vec3::ZERO, |runtime| runtime.player_velocity);
+        self.drop_with_velocity(velocity)
+    }
+
+    pub(crate) fn drop_with_velocity(&mut self, velocity: Vec3) -> bool {
         if !self.can_drop() {
             return false;
         }
@@ -710,7 +718,12 @@ impl ItemWorld {
             return false;
         };
         released_body.set_body_type(RigidBodyType::Dynamic, true);
-        released_body.set_linvel(vector(runtime.player_velocity.clamp_length_max(2.0)), true);
+        let inherited = if velocity.is_finite() {
+            velocity.clamp_length_max(2.0)
+        } else {
+            Vec3::ZERO
+        };
+        released_body.set_linvel(vector(inherited), true);
         // Only actual continuously swept hand rotation is transferred. A
         // camera snap cannot create an unbounded synthetic release impulse.
         released_body.set_angvel(vector(angular_velocity.clamp_length_max(3.0)), true);
@@ -785,6 +798,14 @@ impl ItemWorld {
     /// one kilogram leave at 8 m/s; heavier bodies receive `8 / sqrt(mass)`.
     /// Invalid aim or an obstructed release keeps the held state intact.
     pub fn throw(&mut self, direction: Vec3) -> bool {
+        let velocity = self
+            .runtime
+            .as_ref()
+            .map_or(Vec3::ZERO, |runtime| runtime.player_velocity);
+        self.throw_with_velocity(direction, velocity)
+    }
+
+    pub(crate) fn throw_with_velocity(&mut self, direction: Vec3, velocity: Vec3) -> bool {
         if !direction.is_finite() {
             return false;
         }
@@ -805,7 +826,7 @@ impl ItemWorld {
         let Some(mass_kg) = mass.filter(|mass_kg| mass_kg.is_finite() && *mass_kg > 0.0) else {
             return false;
         };
-        if !self.drop() {
+        if !self.drop_with_velocity(velocity) {
             return false;
         }
         let Some(runtime) = self.runtime.as_mut() else {
