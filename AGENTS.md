@@ -93,6 +93,14 @@ Rules for fixing lint violations:
 
 ## Test Value and Cost
 
+A reference is not evidence that a file is needed. Keep a test or fixture only
+if it protects a specific, meaningful behavior that current Places still
+supports. A test that only checks an obsolete file exists or exercises a
+retired tool does not justify keeping either. During authorized cleanup,
+remove the obsolete test, file, and their exclusive helpers or fixtures
+together. Do not remove checks that protect current behavior just because the
+game does not load their fixtures.
+
 Every future test must demonstrate essential, concrete regression value: name
 the behavior or bug it protects, its unique value beyond existing coverage, and
 its proportional runtime and resource cost before adding or expanding it.
