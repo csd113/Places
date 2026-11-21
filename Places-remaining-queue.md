@@ -103,6 +103,9 @@ After the pause only. Remove obsolete and redundant task reports, reference shee
 - **`DropGuard`:** Inspect save/export staging for narrow cleanup-on-early-exit opportunities. Keep explicit rollback where failure must be reported; don’t rewrite working transactions just to use a new API.
 - **Allocators:** Investigate only if compiler profiles show a material cost for allocating/freeing short-lived objects. Benchmark against a matched baseline and preserve parity before any adoption. No speculative allocator or never-type refactor.
 
+### 27. Move HVAC duct join metadata into the editor
+Move `tools/props/backrooms_phase6/duct_join_metadata.json` beside `src/editor/ducts.rs` or into an editor-owned data subdirectory. Update the `include_str!` path and any live tooling paths. Preserve the JSON bytes and existing duct snapping behavior. Verify a focused `places-editor` build and a representative duct join through preview and apply.
+
 ## Working rules and exclusions
 
 - One source writer at a time, one checkout per machine, fresh task context for distinct work where practical. Use the authorized dev branch; no force push, main/release work, or unrelated edits. The High setting was for the old pre-pause work; normal source implementation was Sol 6.2 Extra High unless changed, with an independent Sol 6.2 Medium static review for exact changes.
