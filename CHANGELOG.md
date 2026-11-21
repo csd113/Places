@@ -15,32 +15,80 @@ and linked reports retain historical implementation and validation details.
 
 [Version summary](docs/0.14.0/README.md).
 
-- Add GitHub-hosted Mac arm64 and Windows x64 release builds with downloadable
-  application ZIPs and explicit, additive uploads to an existing draft release.
-  Maps and the illustrated guide remain separate release assets.
+### Gameplay and maps
 
-- Add a map-granted crowbar, separate from carried props, with a compact
-  first-person mannequin hand/forearm. `1` holsters/redraws it; one click starts
-  one swing. Attacking while carrying safely drops the prop and swings on the
-  same input. Tool contact launches light props with throw-comparable force and
-  applies configured HP damage only on maps that enable health. Expose damage,
-  reach and swing speed through normal editor map settings. Old walking maps
-  grant no tool and keep health disabled.
+- Add reusable, map-local Game Modes for movement, health and crowbar settings.
+  Health is off by default. Maps can configure starting and maximum health,
+  regeneration, health kits, hit protection and whether hearts appear on the HUD.
+  The default health-enabled player has six HP, shown as three hearts when enabled.
+- Add a map-granted crowbar with a first-person hand and forearm. Press `1` to
+  holster or redraw it. Each click swings once and safely releases a carried prop
+  first. The crowbar can knock light props away and damage actors on maps with
+  health enabled. Map authors can set its damage, reach and swing speed.
+- Add a player mannequin with eight saved colours and refine its movement and
+  tool animations. On health-enabled maps the death camera and audio follow the
+  ragdoll’s head. Respawn and level changes clean up the previous body.
+- Add the opt-in zombie encounter lab, with independently timed spawn zones, a
+  robot companion and encounter respawn using the bound Interact key. Update
+  the zombie mannequin skin and add a movable PocketCHIP prop to the editor catalog.
+- Fix forward momentum when jumping with a held prop and use the player’s actual
+  movement when releasing one. Improve pursuit so NPCs don’t lose progress on
+  replans or get stuck in blocked scripted movement.
+- Keep riders and cargo together during linked elevator trips. If a destination
+  cannot load within its resource budget, keep the source cabin intact. Fix local
+  departures when a rider leaves noclip, and make Quiet Collection favor and
+  checkpoint saves more reliable during transitions.
 
-- Add a local player mannequin with eight saved colour choices, defaulting to
-  muted teal (`#4F7774`). Keep the body hidden in first person, including when
-  looking down. On enabled-health maps, death transfers the mannequin to the
-  existing ragdoll solver and keeps vision and audio attached to its physical
-  head. Explicit respawn, map reload and editor test exit retire the old body.
-  Held-tool arms and multiplayer spectating remain future work.
+### Lighting and performance
 
-- Add an opt-in player/entity health foundation, disabled by default for new
-  and existing maps. Enabled maps use six HP (three hearts), half-heart damage
-  and healing, typed death changes, and checkpoint persistence.
-  Map authors can set starting and maximum health separately for the player
-  and individual NPCs, and independently configure regeneration, instant kit
-  healing and visible hearts. Hit protection is configurable with a zero-second
-  default. No screen effects, weapons or multiplayer respawn policy is added.
+- Switch the game and map compiler to the new baked lighting system and move
+  shared lighting code into the engine’s lighting module. Rebuild affected maps
+  with the matching compiler and assets before validating the result in game.
+- Fix Static lighting at certain walls and shared doorways. Improve indirect
+  lighting on dense static props by rejecting blocked samples and including bounce
+  from lights authored as on. Correct Full lighting at water boundaries and
+  respect the authored direction of lights attached to props.
+- Make static prop shadows use the same geometry selection as visible props,
+  ignoring degenerate triangles. Keep props and their shadows in local lighting
+  previews, and prevent an actor’s flashlight state from carrying over to a
+  replacement actor.
+- Reduce Tall Guest collision and navigation work in the Danger map. Use lower
+  frame latency for Immediate presentation on Metal. These are targeted
+  improvements, not a blanket 120 FPS result.
+
+### Editor and map compiler
+
+- Show movable props at their authored positions in Edit mode. Use visible
+  geometry when placing doors, and require the current preview before enabling
+  viewport elevator tools. Keep the last accepted scene when Quick Test stops
+  early, and discard unfinished construction when entering Quick Test.
+- Prepare audio alongside editor viewport startup and keep processing events
+  while cancelled startup audio shuts down.
+- Check project membership before adding a level. Publish fresh map imports
+  atomically without replacing an existing file, and report installed or updated
+  packages separately from unchanged ones. Check staged sibling levels before
+  exporting a project from Final Build.
+- Tie compiler reuse to the level, catalog and asset bytes actually read during
+  preparation, including inputs to reflected skies. Make lightmap atlas assembly
+  cancellable, skip reflected-light samples that contribute exactly zero and
+  stream package reports instead of loading entire archives for the report.
+
+### Builds and project maintenance
+
+- Add GitHub-hosted application builds for macOS arm64 and Windows x64, with
+  downloadable ZIPs and optional uploads to an existing draft release.
+  Gameplay maps and the illustrated editor guide stay separate from app ZIPs.
+- Raise the minimum Rust version to 1.100.0, narrow Clippy exceptions across the
+  engine and tools, and fix Windows archive-staging diagnostics. Retire the old
+  rat asset generators without replacing the current rat model or texture.
+- Consolidate historical documentation into one summary per version and restore
+  the [documentation index](docs/README.md).
+
+**Validation still open:** [Final lighting acceptance](https://github.com/csd113/Places/issues/55)
+is not complete. A compact native Mac fixture ran, but the stock Menu package
+failed a mannequin asset identity check, and strict compiler validation flagged
+a folding closet door model outside the captured asset set. The compact run is
+not a substitute for validating the shipped Menu or the remaining large maps.
 
 ## 0.13.1 — 2026-11-09
 
