@@ -93,6 +93,12 @@ impl Guard {
         })
     }
 
+    pub(super) fn check_assets(&self, assets: &super::AssetInputs) -> Result<(), String> {
+        assets.check()?;
+        self.check()?;
+        assets.check_reads()
+    }
+
     pub(super) fn check(&self) -> Result<(), String> {
         super::progress::check_cancelled()?;
         if destination_path(&self.out)? != self.destination

@@ -25,6 +25,10 @@ enum Chartless {
     AtlasReference,
 }
 
+pub(super) fn project_for_publication(root: &Path) -> Result<PathBuf, String> {
+    write_fixture(root, Chartless::Absent).map(|(path, _index)| path)
+}
+
 fn write_fixture(
     root: &Path,
     chartless: Chartless,
@@ -51,6 +55,7 @@ fn write_fixture(
             catalog_sha256: "catalog".into(),
             tool_sha256: "tool".into(),
             capture_probes: true,
+            probe_sky_sha256: None,
             compact: false,
         })
         .map_err(|e| e.to_string())?;

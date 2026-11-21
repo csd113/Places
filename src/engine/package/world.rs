@@ -469,8 +469,7 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
             &installed_root.join("catalog.json"),
             8 * 1024 * 1024,
         )?;
-        let actual = super::catalog_inputs::CatalogInputs::for_level(level, &catalog_bytes)?;
-        if actual != expected {
+        if !expected.matches_installed(level, &catalog_bytes, &inputs.catalog_sha256)? {
             return Err("Package referenced catalog definitions changed; rebuild this level with places-compile".into());
         }
         return Ok(());

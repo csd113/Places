@@ -4,7 +4,7 @@ use std::path::Path;
 
 use crate::engine::package::{PackageReader, archive, hash, manifest::Manifest, project, world};
 use crate::engine::project::{ProjectFolder, ProjectLevel};
-use crate::map_compiler::{self as compiler, BuildRequest, progress};
+use crate::map_compiler::{self as compiler, AssetInputs, BuildRequest, progress};
 
 mod variants;
 
@@ -19,6 +19,7 @@ pub(in crate::map_compiler) fn stage_current_sibling(
     member: &ProjectLevel,
     source: &Path,
     staging: &archive::OwnedStaging,
+    assets: &AssetInputs,
 ) -> Result<Option<VerifiedSibling>, String> {
     let result = (|| {
         let sibling = compiler::package_path_for(&folder.root().join(member.source.as_str()));
@@ -33,7 +34,7 @@ pub(in crate::map_compiler) fn stage_current_sibling(
         )?;
         progress::stage(format!("verifying Final Build sibling for {}", member.id));
         let mut reader = PackageReader::new(file).map_err(|error| error.to_string())?;
-        let warnings = verify_sibling(&mut reader, request, folder, member, source)?;
+        let warnings = verify_sibling(&mut reader, request, folder, member, source, assets)?;
         Ok::<_, String>(VerifiedSibling { reader, warnings })
     })();
     progress::check_cancelled()?;
@@ -55,14 +56,16 @@ fn verify_sibling(
     folder: &ProjectFolder,
     member: &ProjectLevel,
     source: &Path,
+    assets: &AssetInputs,
 ) -> Result<Vec<String>, String> {
     let _scope = crate::engine::resources::admission_scope();
+    let _asset_scope = assets.scope();
     if reader.contains(project::INDEX) {
         return Err("Expected an ordinary map package".into());
     }
     let manifest = compiler::read_manifest(reader)?;
     let mut snapshot = compiler::project::read_source(source, Some(&member.id))?;
-    let catalog = verify_current_inputs(reader, request, &manifest, &mut snapshot)?;
+    verify_current_inputs(reader, request, &manifest, &mut snapshot, assets)?;
     let level = &snapshot.level;
     let semantics = crate::engine::canonical_json::canonical_json_bytes(level)?;
     let semantic_entry = manifest
@@ -84,7 +87,7 @@ fn verify_sibling(
     })?;
     verify_record_identities(reader, &manifest)?;
     let mut warnings = compiler::navigation_cache::sibling_warnings(reader, &manifest, level)?;
-    variants::verify(reader, request, &manifest, level, &catalog, &mut warnings)?;
+    variants::verify(reader, request, &manifest, level, assets, &mut warnings)?;
     Ok(warnings)
 }
 
@@ -93,7 +96,8 @@ fn verify_current_inputs(
     request: &BuildRequest,
     manifest: &Manifest,
     snapshot: &mut compiler::project::SourceSnapshot,
-) -> Result<crate::engine::loader::PropCatalog, String> {
+    assets: &AssetInputs,
+) -> Result<(), String> {
     let level = &mut snapshot.level;
     if manifest.id != level.id
         || manifest.package_id != snapshot.package_id
@@ -118,14 +122,12 @@ fn verify_current_inputs(
     {
         return Err("Saved source, capture or storage mode changed".into());
     }
-    let catalog_path = request.asset_root.join("catalog.json");
-    let (catalog, catalog_hash) = compiler::load_catalog_identity(&catalog_path)?;
-    compiler::admit_build_level(level, &request.variants, &catalog)?;
+    let catalog = assets.catalog();
+    compiler::admit_build_level(level, &request.variants, catalog)?;
     let mut warnings = Vec::new();
-    let dependencies =
-        compiler::collect_dependencies(level, &catalog, &request.asset_root, &mut warnings)?;
-    let inputs =
-        compiler::build_inputs(level, &catalog_path, &source_hash, &catalog_hash, request)?;
+    let dependencies = compiler::collect_dependencies(level, assets, &mut warnings)?;
+    compiler::validate_appearance_textures(level, catalog, assets.root())?;
+    let inputs = compiler::build_inputs(level, assets, &dependencies, &source_hash, request)?;
     if previous != inputs || manifest.dependencies != dependencies || !warnings.is_empty() {
         return Err("Compiler provenance or asset dependencies changed".into());
     }
@@ -138,9 +140,7 @@ fn verify_current_inputs(
         &request.variants,
         &dependencies,
         &inputs,
-        &catalog,
-        &catalog_path,
-        &request.asset_root,
+        assets,
     )?;
     if manifest.compiler_fingerprint != fingerprint
         || manifest.lighting_fingerprint.as_deref() != Some(&lighting)
@@ -148,7 +148,7 @@ fn verify_current_inputs(
         return Err("Compiler or prepared lighting identity changed".into());
     }
 
-    Ok(catalog)
+    Ok(())
 }
 
 fn verify_record_identities(

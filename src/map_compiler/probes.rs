@@ -1,11 +1,49 @@
-//! Compiler-only air-volume validation for the serialized probe lattice.
+//! Compiler identities for reflected sky and air-volume checks for irradiance probes.
 
+use crate::engine::assets::AssetCatalog;
 use crate::engine::collision::WallAabb;
 use crate::engine::level::{LevelDef, LevelSurfaces};
 use crate::engine::lighting::LevelLighting;
 use crate::engine::lighting::probe_placement::placement_at;
 use crate::engine::lighting::probes::ProbeField;
 use crate::engine::lighting::transport::TransportScene;
+use crate::engine::package::{DependencyKind, PackageDependency, hash::sha256_hex};
+
+/// Match the sky inputs submitted during reflection capture. File identities
+/// come from the same observed dependencies as the encoded texture readers.
+pub(super) fn sky_fingerprint(
+    level: &LevelDef,
+    catalog: &AssetCatalog,
+    dependencies: &[PackageDependency],
+) -> Result<String, String> {
+    let image = |id| {
+        catalog.texture_path(id).map(|path| {
+            let identity = dependencies.iter().find(|dependency| {
+                dependency.kind == DependencyKind::Texture && dependency.path == path
+            });
+            (path, identity)
+        })
+    };
+    let background = level
+        .sky_background_texture()
+        .map(|id| (image(id), level.sky.as_ref().map(|sky| sky.brightness)));
+    let discs: Vec<_> = level
+        .global_illuminators
+        .iter()
+        .take(crate::engine::level::MAX_GLOBAL_ILLUMINATORS)
+        .filter_map(|light| {
+            let visual = light.active_sky_visual()?;
+            let id = light.visual_texture()?;
+            Some((light.kind, light.source_direction(), visual, image(id)))
+        })
+        .collect();
+    let bytes = crate::engine::canonical_json::canonical_json_bytes(&(
+        "reflection-sky-v1",
+        background,
+        discs,
+    ))?;
+    Ok(sha256_hex(&bytes))
+}
 
 /// Label only positions in actual air. Runtime's forgiving room lookup is
 /// useful for shading boundary vertices, but must not place probes in solids.

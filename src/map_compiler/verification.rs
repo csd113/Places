@@ -1,17 +1,17 @@
 //! Read-only currentness checks of standalone maps and complete projects.
 
 use std::collections::{BTreeMap, BTreeSet};
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
-use crate::engine::loader::PropCatalog;
 use crate::engine::package::{PackageReader, archive, hash, project as package_project, world};
 use crate::engine::project::{ProjectFolder, ProjectManifest};
 
 use super::{
-    BuildInputs, LightmapQuality, Manifest, VerifyReport, catalog_inputs, check_cached_lighting,
+    AssetInputs, BuildInputs, LightmapQuality, Manifest, VerifyReport, check_cached_lighting,
     collect_dependencies, compiler_tool_sha256, fingerprint, fingerprint_with_build_inputs,
-    lighting_stage_fingerprint, load_catalog_identity, open_package, package_input_differences,
-    progress, project, read_build_inputs_from, verify_entry_hashes,
+    lighting_stage_fingerprint, open_package, package_input_differences, probe_inputs_match,
+    probes, progress, project, read_build_inputs_from, validate_appearance_textures,
+    verify_entry_hashes,
 };
 
 /// Recomputes the build fingerprint of `source` and compares it with a package.
@@ -31,6 +31,20 @@ pub fn verify_selected(
     asset_root: &Path,
 ) -> Result<VerifyReport, String> {
     crate::engine::paths::configure_assets(asset_root)?;
+    let assets = AssetInputs::read(crate::engine::paths::assets()?)?;
+    let report = verify_selected_with_assets(source, selected, package, &assets, true)?;
+    assets.check()?;
+    Ok(report)
+}
+
+pub(super) fn verify_selected_with_assets(
+    source: &Path,
+    selected: Option<&str>,
+    package: &Path,
+    assets: &AssetInputs,
+    capture_probes: bool,
+) -> Result<VerifyReport, String> {
+    let _asset_scope = assets.scope();
     let snapshot = project::read_source(source, selected)?;
     let mut reader = open_package(package)?;
     package_project::select(&mut reader, Some(&snapshot.level.id))?;
@@ -41,8 +55,13 @@ pub fn verify_selected(
             snapshot.level.id
         ));
     }
-    let context = Verification::new(source, package, asset_root)?;
-    context.member(snapshot, manifest, &mut reader, verify_entry_hashes)
+    Verification {
+        source,
+        package,
+        assets,
+        capture_probes,
+    }
+    .member(snapshot, manifest, &mut reader, verify_entry_hashes)
 }
 
 /// Verifies all project members from one archive and one validated project index.
@@ -60,9 +79,16 @@ pub fn verify_project(
     let index = project_index.ok_or("verify-project requires a compiled project package")?;
     crate::engine::package::release::admit_places_version(&index.places_version)?;
     check_project_metadata(folder.manifest(), &index.project)?;
-    let context = Verification::new(source, package, asset_root)?;
+    let assets = AssetInputs::read(crate::engine::paths::assets()?)?;
+    let _asset_scope = assets.scope();
+    let context = Verification {
+        source,
+        package,
+        assets: &assets,
+        capture_probes: true,
+    };
     let mut checked_records = BTreeMap::new();
-    folder
+    let reports = folder
         .manifest()
         .levels
         .iter()
@@ -75,7 +101,9 @@ pub fn verify_project(
                 verify_project_entries(archive, manifest_ref, member, &mut checked_records)
             })
         })
-        .collect()
+        .collect::<Result<_, _>>()?;
+    assets.check()?;
+    Ok(reports)
 }
 
 fn check_project_metadata(
@@ -111,26 +139,11 @@ type Reader = PackageReader<std::fs::File>;
 struct Verification<'a> {
     source: &'a Path,
     package: &'a Path,
-    asset_root: &'a Path,
-    catalog_path: PathBuf,
-    catalog: PropCatalog,
-    catalog_hash: String,
+    assets: &'a AssetInputs,
+    capture_probes: bool,
 }
 
-impl<'a> Verification<'a> {
-    fn new(source: &'a Path, package: &'a Path, asset_root: &'a Path) -> Result<Self, String> {
-        let catalog_path = asset_root.join("catalog.json");
-        let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
-        Ok(Self {
-            source,
-            package,
-            asset_root,
-            catalog_path,
-            catalog,
-            catalog_hash,
-        })
-    }
-
+impl Verification<'_> {
     fn member(
         &self,
         snapshot: project::SourceSnapshot,
@@ -140,10 +153,11 @@ impl<'a> Verification<'a> {
     ) -> Result<VerifyReport, String> {
         let mut level = snapshot.level;
         let mut warnings = Vec::new();
-        super::prepare_level(&mut level, self.catalog.assets(), None);
-        crate::engine::project::validate_level_assets(&level, self.catalog.assets())?;
-        let dependencies =
-            collect_dependencies(&level, &self.catalog, self.asset_root, &mut warnings)?;
+        let catalog = self.assets.catalog();
+        super::prepare_level(&mut level, catalog.assets(), None);
+        crate::engine::project::validate_level_assets(&level, catalog.assets())?;
+        let dependencies = collect_dependencies(&level, self.assets, &mut warnings)?;
+        validate_appearance_textures(&level, catalog, self.assets.root())?;
         let variants: Vec<LightmapQuality> = manifest
             .variants
             .iter()
@@ -156,12 +170,16 @@ impl<'a> Verification<'a> {
             .collect();
         let build_inputs = BuildInputs {
             revision: 2,
-            catalog_inputs: Some(catalog_inputs(&level, &self.catalog_path)?),
+            catalog_inputs: Some(self.assets.catalog_inputs(&level)?),
             compiler_code_sha256: Some(env!("PLACES_COMPILER_CODE_SHA256").into()),
             source_sha256: hash::sha256_hex(&snapshot.identity),
-            catalog_sha256: self.catalog_hash.clone(),
+            catalog_sha256: self.assets.catalog_hash().into(),
             tool_sha256: compiler_tool_sha256()?.to_string(),
-            capture_probes: true,
+            capture_probes: self.capture_probes,
+            probe_sky_sha256: self
+                .capture_probes
+                .then(|| probes::sky_fingerprint(&level, catalog.assets(), &dependencies))
+                .transpose()?,
             compact: false,
         };
         let current_fingerprint = fingerprint_with_build_inputs(
@@ -200,13 +218,16 @@ impl<'a> Verification<'a> {
             &variants,
             &dependencies,
             &build_inputs,
-            &self.catalog,
-            &self.catalog_path,
-            self.asset_root,
+            self.assets,
         )?;
         let prepared_reusable = integrity_valid
             && manifest.lighting_fingerprint.as_deref() == Some(&prepared)
-            && previous.is_ok_and(|record| super::preparation_inputs_match(&record, &build_inputs));
+            && previous.is_ok_and(|record| {
+                super::preparation_inputs_match(&record, &build_inputs)
+                    && manifest.variants.iter().all(|variant| {
+                        probe_inputs_match(&record, &build_inputs, &variant.entries.probes)
+                    })
+            });
         let current = differences.is_empty();
         let status = if !integrity_valid {
             "invalid"

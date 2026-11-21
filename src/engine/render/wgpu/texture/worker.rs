@@ -187,10 +187,12 @@ impl TextureJob {
         let (send, response) = mpsc::channel();
         let cancelled = Arc::new(AtomicBool::new(false));
         let flag = Arc::clone(&cancelled);
+        let asset_reads = crate::engine::assets::reads::current();
         let _thread = std::thread::Builder::new()
             .name("places-upload-mips".into())
             .spawn(move || {
                 let _slot = slot;
+                let _asset_scope = crate::engine::assets::reads::enter(asset_reads);
                 let prepared = prepare(&flag);
                 if !flag.load(Ordering::Acquire) {
                     let _delivered = send.send(prepared);

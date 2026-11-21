@@ -105,18 +105,7 @@ impl SkyPlan {
         level: &LevelDef,
         quality: QualityLevel,
     ) -> Option<Self> {
-        if level.sky.is_none()
-            && !level
-                .global_illuminators
-                .iter()
-                .any(|light| light.visual.is_some())
-        {
-            return None;
-        }
-        let id = level
-            .sky
-            .as_ref()
-            .map_or("core:tex_white_fallback_01", |sky| sky.texture.trim());
+        let id = level.sky_background_texture()?;
         let Some(root) = asset_root else {
             crate::engine::logging::warn_once(
                 format!("sky:{id}"),
@@ -138,12 +127,9 @@ impl SkyPlan {
         let mut sun = None;
         let mut moon = None;
         for (slot, light) in celestial.iter_mut().zip(&level.global_illuminators) {
-            let Some(visual) = &light.visual else {
+            let Some(visual) = light.active_sky_visual() else {
                 continue;
             };
-            if !light.enabled || !light.bake || light.intensity == 0.0 || visual.brightness == 0.0 {
-                continue;
-            }
             let is_moon = light.kind == GlobalIlluminatorKind::Moon;
             let image_slot = if is_moon { &mut moon } else { &mut sun };
             if image_slot.is_none() {

@@ -6,7 +6,7 @@ use crate::engine::package::{PackageReader, archive, hash, project};
 use crate::engine::project::ProjectFolder;
 
 use super::project_spool::ProjectSpool;
-use super::{BuildReport, BuildRequest, progress};
+use super::{AssetInputs, BuildReport, BuildRequest, progress};
 
 pub(super) fn operation_report(request: &BuildRequest) -> BuildReport {
     BuildReport {
@@ -38,14 +38,20 @@ pub fn export(request: &BuildRequest) -> Result<BuildReport, String> {
 
 fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     let started = std::time::Instant::now();
+    let assets = AssetInputs::read(crate::engine::paths::assets()?)?;
+    let _asset_scope = assets.scope();
     let folder = ProjectFolder::open(&request.source)?;
     let publication_guard = super::publication::Guard::new(&request.source, &request.out)?;
     check_destination(&request.out, &folder.manifest().id)?;
     progress::stage("validating complete project sources");
     let sources = project::snapshot(&folder, &progress::check_cancelled)?;
     publication_guard.check()?;
-    if !request.force && request.out.exists() && project_is_current(request, &folder, &sources)? {
-        publication_guard.check()?;
+    let check_publication = || publication_guard.check_assets(&assets);
+    if !request.force
+        && request.out.exists()
+        && project_is_current(request, &folder, &sources, &assets)?
+    {
+        check_publication()?;
         return current_project_report(request, started);
     }
     let staging = archive::OwnedStaging::reserve(&request.out)?;
@@ -60,7 +66,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             progress::check_cancelled()?;
             #[cfg(unix)]
             staging.check()?;
-            if !request.force && member_current(request, &staged_source, &level.id) {
+            if !request.force && member_current(request, &staged_source, &level.id, &assets) {
                 #[cfg(unix)]
                 staging.check()?;
                 index
@@ -81,6 +87,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
                     level,
                     &staged_source,
                     &staging,
+                    &assets,
                 )?
             {
                 staging.check()?;
@@ -103,7 +110,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             }
             let built = staging.with_path(|root| {
                 let output = root.join(format!("{}.placesmap", level.id));
-                build_staged(request, &staged_source, &output, &level.id)
+                build_staged(request, &staged_source, &output, &level.id, &assets)
             })?;
             warnings.extend(built.warnings.iter().cloned());
             cache_decisions.extend(built.cache_decisions.iter().cloned().map(|mut decision| {
@@ -123,7 +130,7 @@ fn export_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         report.warnings = warnings;
         report.cache_decisions = cache_decisions;
         staging.with_path(|root| {
-            let check = || staging.with_path(|_| publication_guard.check());
+            let check = || staging.with_path(|_| check_publication());
             let outcome = publish(request, &index, blobs, root, report, check, started);
             publication.finish(&outcome);
             outcome
@@ -224,8 +231,19 @@ fn spool_records(
     })
 }
 
-fn member_current(request: &BuildRequest, source: &std::path::Path, id: &str) -> bool {
-    super::verify_selected(source, Some(id), &request.out, &request.asset_root)
+fn member_current(
+    request: &BuildRequest,
+    source: &std::path::Path,
+    id: &str,
+    assets: &AssetInputs,
+) -> bool {
+    super::verification::verify_selected_with_assets(
+        source,
+        Some(id),
+        &request.out,
+        assets,
+        request.capture_probes,
+    )
         .is_ok_and(|report| report.current)
         && crate::engine::package::world::inspect_level(&request.out, id).is_ok_and(|manifest| {
             if request.compact
@@ -246,6 +264,7 @@ fn project_is_current(
     request: &BuildRequest,
     folder: &ProjectFolder,
     sources: &BTreeMap<crate::engine::project::ProjectPath, Vec<u8>>,
+    assets: &AssetInputs,
 ) -> Result<bool, String> {
     let mut reader = super::open_package(&request.out)?;
     let Some(index) = project::read_index(&mut reader)? else {
@@ -265,7 +284,7 @@ fn project_is_current(
     Ok(index
         .levels
         .iter()
-        .all(|level| member_current(request, &request.source, &level.id)))
+        .all(|level| member_current(request, &request.source, &level.id, assets)))
 }
 
 fn spool_map(
@@ -311,6 +330,7 @@ fn build_staged(
     source: &std::path::Path,
     out: &std::path::Path,
     level: &str,
+    assets: &AssetInputs,
 ) -> Result<BuildReport, String> {
     let mut selected = request.clone();
     selected.source = source.into();
@@ -321,7 +341,7 @@ fn build_staged(
     } else {
         super::project_cache::seed(&request.out, level, out).err()
     };
-    let mut report = super::build(&selected)?;
+    let mut report = super::build_project_member(&selected, assets)?;
     if let Some(error) = rejected {
         report.warnings.push(format!(
             "Previous prepared cache for '{level}' was rejected: {error}"

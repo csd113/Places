@@ -3,20 +3,19 @@ use std::fs::File;
 
 use crate::engine::level::LevelDef;
 use crate::engine::lighting::LevelLighting;
-use crate::engine::loader::PropCatalog;
 use crate::engine::materials::MaterialTable;
 use crate::engine::package::manifest::{Manifest, Variant};
 use crate::engine::package::{self, PackageReader, world};
 use crate::engine::quality::LightmapQuality;
 use crate::engine::render::{self, MaterialRenderState};
-use crate::map_compiler::{self as compiler, BuildRequest, progress};
+use crate::map_compiler::{self as compiler, AssetInputs, BuildRequest, progress};
 
 pub(super) fn verify(
     reader: &mut PackageReader<File>,
     request: &BuildRequest,
     manifest: &Manifest,
     level: &LevelDef,
-    catalog: &PropCatalog,
+    assets: &AssetInputs,
     warnings: &mut Vec<String>,
 ) -> Result<(), String> {
     let fixture_indices = LevelLighting::prepared_static_fixtures(level);
@@ -24,8 +23,8 @@ pub(super) fn verify(
         if request.capture_probes && request.variants.iter().any(|quality| !quality.is_off()) {
             Some(compiler::resolve_build_materials(
                 level,
-                catalog,
-                &request.asset_root,
+                assets.catalog(),
+                assets.root(),
             )?)
         } else {
             None

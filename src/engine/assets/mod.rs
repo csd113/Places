@@ -36,23 +36,36 @@ use crate::engine::materials::{
 
 pub use crate::engine::paths::{ASSET_ROOT_ENV, STATE_ROOT_ENV};
 
+pub(crate) mod reads;
+
+pub(crate) const CELESTIAL_BACKGROUND_TEXTURE: &str = "core:tex_white_fallback_01";
+pub(crate) const CAUSTICS_MASK_PATH: &str = "shared/textures/effects/caustics_01.png";
+
 /// Catalog file name inside the asset root.
 pub const CATALOG_FILE_NAME: &str = "catalog.json";
 
 /// Optional runtime-only physical metadata beside the render asset catalog.
 pub const GAMEPLAY_FILE_NAME: &str = "gameplay.json";
 
-const MAX_GAMEPLAY_JSON_BYTES: usize = 1_048_576;
+pub(crate) const MAX_GAMEPLAY_JSON_BYTES: usize = 1_048_576;
 
 /// Catalog metadata is small compared with model and image payloads. Bound it
 /// before parsing so malformed installations cannot allocate an arbitrary file.
-const MAX_CATALOG_JSON_BYTES: usize = 8 * 1024 * 1024;
+pub(crate) const MAX_CATALOG_JSON_BYTES: usize = 8 * 1024 * 1024;
 
 /// Reads one regular asset file without trusting its reported size alone.
 ///
 /// The extra byte detects a file that grows after the metadata check; neither
 /// that race nor a misleading size can turn this into an unbounded read.
 pub(crate) fn read_asset_bytes(path: &Path, max_bytes: usize) -> std::io::Result<Vec<u8>> {
+    if let Some(reads) = reads::current() {
+        return reads.read(path, max_bytes);
+    }
+    read_live_asset_bytes(path, max_bytes)
+}
+
+/// Reads live bytes without consulting an active compiler snapshot.
+pub(crate) fn read_live_asset_bytes(path: &Path, max_bytes: usize) -> std::io::Result<Vec<u8>> {
     // Opening a named pipe may block before handle metadata is available.
     // Reject ordinary special-file paths first, then recheck the opened file.
     if !fs::metadata(path)?.is_file() {

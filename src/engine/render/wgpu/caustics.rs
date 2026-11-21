@@ -289,7 +289,7 @@ impl Caustics {
         let decoded = crate::engine::assets::resolve_asset_root().and_then(|root| {
             crate::engine::materials::load_png_relative(
                 &root,
-                "shared/textures/effects/caustics_01.png",
+                crate::engine::assets::CAUSTICS_MASK_PATH,
             )
             .ok()
         });

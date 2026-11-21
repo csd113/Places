@@ -1,5 +1,5 @@
 //! One direction owns both celestial artwork and baked illumination.
-use super::{GlobalIlluminatorDef, GlobalIlluminatorKind};
+use super::{GlobalIlluminatorDef, GlobalIlluminatorKind, LevelDef};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -70,6 +70,13 @@ impl GlobalIlluminatorDef {
         let (e, h) = elevation.to_radians().sin_cos();
         Ok([-s * h, -e, c * h])
     }
+    /// The active disc submitted to the background draw and reflection capture.
+    pub(crate) fn active_sky_visual(&self) -> Option<&CelestialVisualDef> {
+        self.visual.as_ref().filter(|visual| {
+            self.enabled && self.bake && self.intensity != 0.0 && visual.brightness != 0.0
+        })
+    }
+
     /// Catalog identity of the fitted file image; old sources have no visual.
     #[must_use]
     pub fn visual_texture(&self) -> Option<&'static str> {
@@ -79,5 +86,18 @@ impl GlobalIlluminatorDef {
             GlobalIlluminatorKind::Moon => Some("core:celestial_moon"),
             GlobalIlluminatorKind::Directional => None,
         }
+    }
+}
+
+impl LevelDef {
+    /// Selects the authored panorama or the background slot required by celestial visuals.
+    pub(crate) fn sky_background_texture(&self) -> Option<&str> {
+        if let Some(sky) = &self.sky {
+            return Some(sky.texture.trim());
+        }
+        self.global_illuminators
+            .iter()
+            .any(|light| light.visual.is_some())
+            .then_some(crate::engine::assets::CELESTIAL_BACKGROUND_TEXTURE)
     }
 }

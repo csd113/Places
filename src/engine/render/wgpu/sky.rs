@@ -18,10 +18,9 @@
 //!   so it paints the cleared background and every later draw wins. It is
 //!   simply not submitted when the level declares no sky, which keeps the
 //!   historical clear colour as the background.
-//! * **No culling, no reflections.** The background is infinite: it is
-//!   not in the reflection captures or the planar mirror. Opt-in storm weather
-//!   blends it toward the storm color; the ordinary world fog
-//!   does not tint it.
+//! * **Reflection captures.** Authored sky radiance and celestial discs fill
+//!   unoccluded directions in the probe cubemaps. Opt-in storm weather blends
+//!   the display toward the storm color; ordinary world fog does not tint it.
 
 use std::path::Path;
 use std::sync::Arc;

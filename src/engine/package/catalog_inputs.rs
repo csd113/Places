@@ -4,6 +4,7 @@ use std::collections::{BTreeMap, BTreeSet};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 
+use crate::engine::assets::{AssetCatalog, MAX_CATALOG_JSON_BYTES};
 use crate::engine::level::LevelDef;
 
 #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -19,11 +20,39 @@ impl CatalogInputs {
     /// # Errors
     /// Rejects malformed catalog JSON or missing asset collection.
     pub fn for_level(level: &LevelDef, bytes: &[u8]) -> Result<Self, String> {
-        if bytes.len() > 8 * 1024 * 1024 {
-            return Err("Catalog exceeds input limit".into());
+        let catalog = AssetCatalog::from_json_str(catalog_text(bytes)?)?;
+        Self::for_validated_catalog(level, bytes, &catalog)
+    }
+
+    /// Compute the closure from the raw records paired with their validated parser output.
+    pub(crate) fn for_validated_catalog(
+        level: &LevelDef,
+        bytes: &[u8],
+        catalog: &AssetCatalog,
+    ) -> Result<Self, String> {
+        Self::collect(level, bytes, Some(catalog))
+    }
+
+    pub(super) fn matches_installed(
+        &self,
+        level: &LevelDef,
+        bytes: &[u8],
+        recorded_raw_sha256: &str,
+    ) -> Result<bool, String> {
+        if Self::for_level(level, bytes)? == *self {
+            return Ok(true);
         }
-        let text = std::str::from_utf8(bytes).map_err(|e| e.to_string())?;
-        let _validated_catalog = crate::engine::loader::PropCatalog::from_json_str(text)?;
+        // Legacy closures omitted normalized and implicit lookups. Accept
+        // a legacy match here only with the exact original catalog bytes.
+        Ok(super::hash::sha256_hex(bytes) == recorded_raw_sha256
+            && Self::collect(level, bytes, None)? == *self)
+    }
+
+    fn collect(
+        level: &LevelDef,
+        bytes: &[u8],
+        catalog: Option<&AssetCatalog>,
+    ) -> Result<Self, String> {
         let value: Value = serde_json::from_slice(bytes).map_err(|e| e.to_string())?;
         let assets = value
             .get("assets")
@@ -35,7 +64,7 @@ impl CatalogInputs {
                 entry
                     .get("id")
                     .and_then(Value::as_str)
-                    .map(|id| (id, entry))
+                    .map(|id| (if catalog.is_some() { id.trim() } else { id }, entry))
             })
             .collect();
         let mut pending: BTreeSet<String> =
@@ -68,7 +97,12 @@ impl CatalogInputs {
                 let _model_added = pending.insert(model.into());
             }
         }
-        if let Some(sky) = &level.sky {
+        if catalog.is_some() {
+            pending.extend(level.sky_background_texture().map(str::to_owned));
+            if !level.elevators.is_empty() {
+                pending.extend(crate::engine::elevator::MODEL_IDS.map(str::to_owned));
+            }
+        } else if let Some(sky) = &level.sky {
             let _added = pending.insert(sky.texture.trim().into());
         }
         pending.extend(
@@ -84,16 +118,26 @@ impl CatalogInputs {
                 continue;
             }
             let record = index.get(id.as_str()).copied();
-            if let Some(definition) = record {
-                for field in [
-                    "texture",
-                    "normal_texture",
-                    "emissive_mask",
-                    "uv_response_mask",
-                    "baseboard",
-                ] {
-                    if let Some(reference) = definition.get(field).and_then(Value::as_str) {
-                        let _added = pending.insert(reference.into());
+            match catalog {
+                Some(parsed) => {
+                    if let Some(definition) = parsed.get(&id) {
+                        pending.extend(
+                            [
+                                &definition.texture,
+                                &definition.normal_texture,
+                                &definition.emissive_mask,
+                                &definition.uv_response_mask,
+                                &definition.baseboard,
+                            ]
+                            .into_iter()
+                            .flatten()
+                            .cloned(),
+                        );
+                    }
+                }
+                None => {
+                    if let Some(definition) = record {
+                        pending.extend(legacy_references(definition).map(str::to_owned));
                     }
                 }
             }
@@ -115,6 +159,25 @@ impl CatalogInputs {
             &crate::engine::canonical_json::canonical_json_bytes(self)?,
         ))
     }
+}
+
+fn catalog_text(bytes: &[u8]) -> Result<&str, String> {
+    if bytes.len() > MAX_CATALOG_JSON_BYTES {
+        return Err("Catalog exceeds input limit".into());
+    }
+    std::str::from_utf8(bytes).map_err(|error| error.to_string())
+}
+
+fn legacy_references(definition: &Value) -> impl Iterator<Item = &str> {
+    [
+        "texture",
+        "normal_texture",
+        "emissive_mask",
+        "uv_response_mask",
+        "baseboard",
+    ]
+    .into_iter()
+    .filter_map(|field| definition.get(field).and_then(Value::as_str))
 }
 
 #[cfg(test)]

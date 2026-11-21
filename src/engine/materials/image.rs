@@ -555,11 +555,14 @@ impl TextureCache {
         let mut decoded = HashMap::new();
         let images = &self.images;
         let budget = crate::engine::resources::current();
+        let asset_reads = crate::engine::assets::reads::current();
         std::thread::scope(|scope| {
             let mut handles = Vec::new();
             for chunk_jobs in jobs.chunks(chunk) {
                 let task_budget = budget.clone();
+                let task_reads = asset_reads.clone();
                 handles.push(scope.spawn(move || {
+                    let _asset_scope = crate::engine::assets::reads::enter(task_reads);
                     let _decode_scope = crate::engine::resources::enter(task_budget);
                     chunk_jobs
                         .iter()

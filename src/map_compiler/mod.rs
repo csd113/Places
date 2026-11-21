@@ -34,6 +34,7 @@
 //! the player rather than silently rendered without reflections.
 
 mod application;
+mod asset_inputs;
 pub mod diagnostics;
 pub mod distribution;
 pub mod events;
@@ -56,6 +57,7 @@ pub use application::run;
 pub use source::prepare_level;
 pub use verification::{verify, verify_project, verify_selected};
 
+use asset_inputs::AssetInputs;
 use storage::factor_prepared_props;
 
 use std::collections::{BTreeMap, BTreeSet};
@@ -174,6 +176,8 @@ struct BuildInputs {
     compiler_code_sha256: Option<String>,
     tool_sha256: String,
     capture_probes: bool,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    probe_sky_sha256: Option<String>,
     #[serde(default)]
     compact: bool,
 }
@@ -302,13 +306,29 @@ pub fn build(request: &BuildRequest) -> Result<BuildReport, String> {
     // renderer consumers, just as compiler CLI builds do.
     crate::engine::paths::configure_assets(&request.asset_root)?;
     let scope = progress::BuildScope::start(&request.source, request.project_level.as_deref());
-    let result = build_inner(request);
+    let result = crate::engine::paths::assets()
+        .and_then(AssetInputs::read)
+        .and_then(|assets| build_inner(request, &assets, true));
+    scope.finish(&result);
+    result
+}
+
+fn build_project_member(
+    request: &BuildRequest,
+    assets: &AssetInputs,
+) -> Result<BuildReport, String> {
+    let scope = progress::BuildScope::start(&request.source, request.project_level.as_deref());
+    let result = build_inner(request, assets, false);
     scope.finish(&result);
     result
 }
 
 #[expect(clippy::too_many_lines, reason = "one cohesive build pipeline")]
-fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
+fn build_inner(
+    request: &BuildRequest,
+    asset_inputs: &AssetInputs,
+    check_live_assets: bool,
+) -> Result<BuildReport, String> {
     progress::check_cancelled()?;
     let started = Instant::now();
     let mut phases = Vec::new();
@@ -322,42 +342,51 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
     crate::engine::render::set_fill_workers(workers);
     let mut warnings = Vec::new();
 
+    let _asset_scope = asset_inputs.scope();
     let publication = publication::Guard::new(&request.source, &request.out)?;
     let snapshot = project::read_source(&request.source, request.project_level.as_deref())?;
     publication::check_map_destination(&request.out, &snapshot.level.id, &snapshot.package_id)?;
     publication.check()?;
     let source_bytes = snapshot.identity;
     let mut level = snapshot.level;
-    let catalog_path = request.asset_root.join("catalog.json");
-    let (catalog, catalog_hash) = load_catalog_identity(&catalog_path)?;
-    admit_build_level(&mut level, &request.variants, &catalog)?;
+    let catalog = asset_inputs.catalog();
+    admit_build_level(&mut level, &request.variants, catalog)?;
     let source_hash = sha256_hex(&source_bytes);
-    let mut assets = crate::engine::props::PropAssets::with_root(request.asset_root.clone());
+    let asset_root = asset_inputs.root();
+    let mut assets = crate::engine::props::PropAssets::with_root(asset_root);
+    let check_publication = || {
+        if check_live_assets {
+            publication.check_assets(asset_inputs)
+        } else {
+            publication.check()?;
+            // A staged member is private. The outer project checks every
+            // member's live inputs together before publishing the archive.
+            asset_inputs.check_reads()
+        }
+    };
 
     progress::stage("resolving assets and dependency identities");
-    let dependencies = collect_dependencies(&level, &catalog, &request.asset_root, &mut warnings)?;
+    let dependencies = collect_dependencies(&level, asset_inputs, &mut warnings)?;
+    validate_appearance_textures(&level, catalog, asset_root)?;
     record_phase(&mut phases, "load_validate_prepare_dependencies", started);
     let tool_started = Instant::now();
     progress::stage("hashing compiler identity");
-    let build_inputs = build_inputs(&level, &catalog_path, &source_hash, &catalog_hash, request)?;
+    let build_inputs = build_inputs(&level, asset_inputs, &dependencies, &source_hash, request)?;
     record_phase(&mut phases, "compiler_tool_identity", tool_started);
     let phase_started = Instant::now();
     let fingerprint = fingerprint_with_build_inputs(
         &fingerprint(&source_hash, &request.variants, &dependencies),
         &build_inputs,
     );
-    // Stage fingerprint: everything the illumination/geometry/collision/probe
-    // preparation reads, with display metadata, navigation/AI components and
-    // final presentation excluded. Those edits refresh semantics, navigation,
-    // input provenance and atlas metadata without solving stored light again.
+    // The static stage excludes display metadata and navigation/AI. Reflected
+    // sky inputs have their own key because only variants with probe captures
+    // need them to agree when reusing prepared records.
     let lighting_fingerprint = lighting_stage_fingerprint(
         &level,
         &request.variants,
         &dependencies,
         &build_inputs,
-        &catalog,
-        &catalog_path,
-        &request.asset_root,
+        asset_inputs,
     )?;
     record_phase(&mut phases, "fingerprints", phase_started);
     let integrity_started = Instant::now();
@@ -377,7 +406,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         )
     };
     if let Ok(reason) = current.as_ref() {
-        publication.check()?;
+        check_publication()?;
         cache_decisions.push(CacheDecision {
             stage: "package".to_string(),
             status: "hit".to_string(),
@@ -571,7 +600,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         progress::check_cancelled()?;
         progress::stage("resolving capture materials");
         let mut capture = if request.capture_probes {
-            Some(CaptureContext::new(&level, &catalog, &request.asset_root)?)
+            Some(CaptureContext::new(&level, catalog, asset_root)?)
         } else {
             None
         };
@@ -579,7 +608,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         // as drawing. Reuse the capture's shared decoded images when available;
         // a CPU-only build must resolve them too, rather than bake a logical table.
         let materials = capture.as_ref().map_or_else(
-            || resolve_build_materials(&level, &catalog, &request.asset_root),
+            || resolve_build_materials(&level, catalog, asset_root),
             |context| Ok(context.loaded.materials.clone()),
         )?;
         record_phase(&mut phases, "capture_device_materials", device_started);
@@ -597,7 +626,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
                     request,
                     source_sha256: &source_hash,
                     semantics: &semantics,
-                    catalog_sha256: &catalog_hash,
+                    catalog_sha256: asset_inputs.catalog_hash(),
                     compiler_fingerprint: &fingerprint,
                     lighting_fingerprint: &lighting_fingerprint,
                     dependencies: &dependencies,
@@ -607,7 +636,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
             );
             let (mut variant, stats, build) = build_variant(
                 &level,
-                &catalog,
+                catalog,
                 &mut assets,
                 &materials,
                 *quality,
@@ -938,7 +967,7 @@ fn build_inner(request: &BuildRequest) -> Result<BuildReport, String> {
         &request.out,
         entries,
         progress::check_cancelled,
-        || publication.check(),
+        check_publication,
         if request.compact { 19 } else { 6 },
     )?;
     record_phase(&mut phases, "archive_compress_publish", publication_started);
@@ -987,19 +1016,23 @@ fn admit_build_level(
 
 fn build_inputs(
     level: &LevelDef,
-    catalog_path: &Path,
+    assets: &AssetInputs,
+    dependencies: &[PackageDependency],
     source_hash: &str,
-    catalog_hash: &str,
     request: &BuildRequest,
 ) -> Result<BuildInputs, String> {
     Ok(BuildInputs {
         revision: 2,
-        catalog_inputs: Some(catalog_inputs(level, catalog_path)?),
+        catalog_inputs: Some(assets.catalog_inputs(level)?),
         compiler_code_sha256: Some(env!("PLACES_COMPILER_CODE_SHA256").into()),
         source_sha256: source_hash.into(),
-        catalog_sha256: catalog_hash.into(),
+        catalog_sha256: assets.catalog_hash().into(),
         tool_sha256: compiler_tool_sha256()?.into(),
         capture_probes: request.capture_probes,
+        probe_sky_sha256: request
+            .capture_probes
+            .then(|| probes::sky_fingerprint(level, assets.catalog().assets(), dependencies))
+            .transpose()?,
         compact: request.compact,
     })
 }
@@ -1926,14 +1959,8 @@ fn insert_blob(
     name
 }
 
-fn appearance_texture_paths(
-    level: &LevelDef,
-    catalog: &crate::engine::loader::PropCatalog,
-    asset_root: &Path,
-) -> Result<Vec<String>, String> {
-    let mut paths = Vec::new();
-    let mut character_assets = crate::engine::props::PropAssets::with_root(asset_root);
-    for texture in level
+fn character_texture_ids(level: &LevelDef) -> impl Iterator<Item = &str> {
+    level
         .props
         .iter()
         .filter_map(|prop| prop.character_texture.as_deref())
@@ -1943,64 +1970,47 @@ fn appearance_texture_paths(
                 .iter()
                 .filter_map(|template| template.character_texture.as_deref()),
         )
-    {
-        let _validated_image = character_assets.character_texture(catalog.assets(), texture)?;
-        let path = catalog
-            .assets()
-            .texture_path(texture)
-            .ok_or_else(|| format!("Unknown character texture `{texture}`"))?;
-        paths.push(path.to_owned());
-    }
-    for id in level
+}
+
+fn celestial_texture_ids(level: &LevelDef) -> impl Iterator<Item = &'static str> + '_ {
+    level
         .global_illuminators
         .iter()
         .filter_map(crate::engine::level::GlobalIlluminatorDef::visual_texture)
-    {
+}
+
+fn validate_appearance_textures(
+    level: &LevelDef,
+    catalog: &crate::engine::loader::PropCatalog,
+    asset_root: &Path,
+) -> Result<(), String> {
+    let mut assets = crate::engine::props::PropAssets::with_root(asset_root);
+    for id in character_texture_ids(level) {
+        let _validated_image = assets.character_texture(catalog.assets(), id)?;
+    }
+    for id in celestial_texture_ids(level) {
         let path = catalog
             .assets()
             .texture_path(id)
-            .ok_or_else(|| format!("Missing celestial texture `{id}`"))?;
-        let _image = crate::engine::materials::load_celestial_png_relative(asset_root, path)?;
-        paths.push(path.to_owned());
+            .ok_or_else(|| format!("Missing celestial texture '{id}'"))?;
+        let _validated_image =
+            crate::engine::materials::load_celestial_png_relative(asset_root, path)?;
     }
-    Ok(paths)
+    Ok(())
 }
 
 fn collect_dependencies(
     level: &LevelDef,
-    catalog: &crate::engine::loader::PropCatalog,
-    asset_root: &Path,
+    assets: &AssetInputs,
     warnings: &mut Vec<String>,
 ) -> Result<Vec<PackageDependency>, String> {
-    let mut identities: BTreeMap<(String, String), PackageDependency> = BTreeMap::new();
+    let catalog = assets.catalog();
+    let mut identities = BTreeMap::new();
     let mut add = |kind: DependencyKind, path: &str| -> Result<(), String> {
-        let key = (dependency_kind_name(kind).to_string(), path.to_string());
-        if identities.contains_key(&key) {
-            return Ok(());
+        let key = (dependency_kind_name(kind), path.to_owned());
+        if let std::collections::btree_map::Entry::Vacant(entry) = identities.entry(key) {
+            let _inserted = entry.insert(assets.dependency(kind, path, warnings)?);
         }
-        let (bytes, sha256) =
-            match crate::engine::package::dependencies::identity(asset_root, path, kind) {
-                Ok(identity) => identity,
-                Err(error) => {
-                    // A resource absent at compile time contributes nothing to the
-                    // prepared world (its material degrades to the diagnostic
-                    // sheet, its prop to the fallback box), so it is not a
-                    // dependency the player must find.
-                    warnings.push(format!(
-                        "dependency '{path}' could not be read ({error}); not recorded"
-                    ));
-                    return Ok(());
-                }
-            };
-        drop(identities.insert(
-            key,
-            PackageDependency {
-                kind,
-                path: path.to_string(),
-                sha256,
-                bytes,
-            },
-        ));
         Ok(())
     };
 
@@ -2028,9 +2038,15 @@ fn collect_dependencies(
             add(DependencyKind::Model, path)?;
         }
     }
-    for path in appearance_texture_paths(level, catalog, asset_root)? {
-        add(DependencyKind::Texture, &path)?;
-    }
+    let mut add_appearance = |id: &str| {
+        let path = catalog
+            .assets()
+            .texture_path(id)
+            .ok_or_else(|| format!("Missing appearance texture '{id}'"))?;
+        add(DependencyKind::Texture, path)
+    };
+    character_texture_ids(level).try_for_each(&mut add_appearance)?;
+    celestial_texture_ids(level).try_for_each(add_appearance)?;
     let mut material_ids = crate::engine::materials::referenced_material_ids(level);
     material_ids.sort();
     material_ids.dedup();
@@ -2072,12 +2088,19 @@ fn collect_dependencies(
     }
     // The sky sheet is a level dependency like any surface texture: editing it
     // must invalidate the prepared package.
-    if let Some(sky) = &level.sky
-        && let Some(path) = catalog.assets().texture_path(sky.texture.trim())
+    if let Some(path) = level
+        .sky_background_texture()
+        .and_then(|id| catalog.assets().texture_path(id))
     {
         add(DependencyKind::Texture, path)?;
     }
-    Ok(identities.into_values().collect())
+    if !level.water.is_empty() {
+        add(
+            DependencyKind::Texture,
+            crate::engine::assets::CAUSTICS_MASK_PATH,
+        )?;
+    }
+    Ok(identities.into_values().flatten().collect())
 }
 
 const fn dependency_kind_name(kind: DependencyKind) -> &'static str {
@@ -2302,28 +2325,6 @@ pub(crate) fn bake_navigation(
     Ok((bytes, report))
 }
 
-/// Parse exactly the catalogue bytes included in the build key, including
-/// definitions that reference unchanged model/texture files.
-fn load_catalog_identity(
-    path: &Path,
-) -> Result<(crate::engine::loader::PropCatalog, String), String> {
-    let bytes = crate::engine::project::read_bounded_file(path, 8 * 1024 * 1024)
-        .map_err(|error| format!("could not read catalog {}: {error}", path.display()))?;
-    let text = std::str::from_utf8(&bytes)
-        .map_err(|error| format!("catalog {} is not valid UTF-8: {error}", path.display()))?;
-    let catalog = crate::engine::loader::PropCatalog::from_json_str(text)
-        .map_err(|error| format!("catalog {} is invalid: {error}", path.display()))?;
-    Ok((catalog, sha256_hex(&bytes)))
-}
-
-fn catalog_inputs(
-    level: &LevelDef,
-    path: &Path,
-) -> Result<crate::engine::package::catalog_inputs::CatalogInputs, String> {
-    let bytes = crate::engine::project::read_bounded_file(path, 8 * 1024 * 1024)?;
-    crate::engine::package::catalog_inputs::CatalogInputs::for_level(level, &bytes)
-}
-
 /// Versioned catalogue identity surrounds both complete and reusable stage
 /// keys. No map record or package schema changes; old keys miss safely once.
 fn fingerprint_with_catalog(input: &str, catalog_hash: &str) -> String {
@@ -2385,17 +2386,15 @@ fn fingerprint_with_build_inputs(input: &str, inputs: &BuildInputs) -> String {
     )
 }
 
-/// Celestial discs are background-only: their presence, image bindings and
-/// exposure never enter captured probes or the illumination solve. Keep every
-/// real source property and any image also referenced by world materials.
+/// Celestial visual bindings are independent of the illumination solve.
+/// Keep each light and any disc image that also serves as a world texture.
+/// Variants containing reflected sky must also match the probe sky identity.
 fn lighting_stage_fingerprint(
     level: &LevelDef,
     variants: &[LightmapQuality],
     dependencies: &[PackageDependency],
     inputs: &BuildInputs,
-    catalog: &crate::engine::loader::PropCatalog,
-    catalog_path: &Path,
-    asset_root: &Path,
+    assets: &AssetInputs,
 ) -> Result<String, String> {
     if !level
         .global_illuminators
@@ -2412,13 +2411,13 @@ fn lighting_stage_fingerprint(
         light.visual = None;
     }
     let mut lighting_inputs = inputs.clone();
-    lighting_inputs.catalog_inputs = Some(catalog_inputs(&lighting_level, catalog_path)?);
+    lighting_inputs.catalog_inputs = Some(assets.catalog_inputs(&lighting_level)?);
     // The complete dependency pass already reports fallback warnings. Resolve
     // the same subset normally so a disc image reused by a wall remains a real
     // bake dependency rather than filtering its filename speculatively.
     let mut subset_warnings = Vec::new();
     let lighting_dependencies =
-        collect_dependencies(&lighting_level, catalog, asset_root, &mut subset_warnings)?;
+        collect_dependencies(&lighting_level, assets, &mut subset_warnings)?;
     Ok(fingerprint_with_build_inputs(
         &lighting_fingerprint(&lighting_level, variants, &lighting_dependencies)?,
         &lighting_inputs,
@@ -2433,8 +2432,8 @@ fn lighting_stage_fingerprint(
 /// each quality's implementation (through preparation source identity). Requested
 /// variant selection/order is excluded. Display name/author, navigation/AI components and final
 /// presentation are excluded; the outer key additionally hashes the exact
-/// referenced catalog closure, preparation source and reflection capture mode. An edit to the
-/// excluded fields reuses the previous geometry, lightmaps, probes and collision.
+/// referenced catalog closure, preparation source and reflection capture mode.
+/// Recorded probe captures have an additional sky provenance check.
 ///
 /// # Errors
 ///
@@ -2640,6 +2639,7 @@ fn reuse_prepared_lighting(
         requested
             .iter()
             .any(|quality| quality.name() == variant.lightmap_quality)
+            && probe_inputs_match(&previous_inputs, expected_inputs, &variant.entries.probes)
             && crate::engine::package::world::validate_cached_lighting(&mut reader, variant).is_ok()
     });
     if manifest.variants.is_empty() {
@@ -2893,6 +2893,18 @@ fn preparation_inputs_match(previous: &BuildInputs, current: &BuildInputs) -> bo
         && previous.capture_probes == current.capture_probes
 }
 
+fn probe_inputs_match(
+    previous: &BuildInputs,
+    current: &BuildInputs,
+    probes: &[ProbePayload],
+) -> bool {
+    probes.is_empty()
+        || current
+            .probe_sky_sha256
+            .as_ref()
+            .is_some_and(|actual| previous.probe_sky_sha256.as_ref() == Some(actual))
+}
+
 fn read_build_inputs(out: &Path, manifest: &Manifest) -> Result<BuildInputs, String> {
     let mut reader = open_package(out)?;
     crate::engine::package::project::select(&mut reader, Some(&manifest.id))?;
@@ -2956,6 +2968,12 @@ fn package_input_differences(
                 (
                     previous.capture_probes != inputs.capture_probes,
                     "reflection capture mode changed",
+                ),
+                (
+                    manifest.variants.iter().any(|variant| {
+                        !probe_inputs_match(previous, inputs, &variant.entries.probes)
+                    }),
+                    "reflection probe sky inputs changed or lack provenance",
                 ),
             ] {
                 if changed {
