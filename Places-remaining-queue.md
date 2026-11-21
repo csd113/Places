@@ -106,6 +106,13 @@ After the pause only. Remove obsolete and redundant task reports, reference shee
 ### 27. Move HVAC duct join metadata into the editor
 Move `tools/props/backrooms_phase6/duct_join_metadata.json` beside `src/editor/ducts.rs` or into an editor-owned data subdirectory. Update the `include_str!` path and any live tooling paths. Preserve the JSON bytes and existing duct snapping behavior. Verify a focused `places-editor` build and a representative duct join through preview and apply.
 
+### 28. Remove the `tools/` directory
+The goal is to delete `tools/` outright, not tidy it or move it wholesale. Treat legacy files as removable by default. Delete obsolete Blender/Python model and asset generators and their exclusive helpers, fixtures, benchmarks, and tests in bulk. Current models were authored by hand; do not regenerate or audit the assets. A reference from another old script, test, or CI job is not evidence of a current need.
+
+Start from what the current game, editor, and map compiler actually need to build, run, and ship. If deletion exposes a real dependency, move only the live data beside its owner or replace only the necessary behavior. Prefer direct Cargo and simple platform-native packaging over porting Python scripts wholesale. Drop checks that only preserve retired tooling; keep checks that protect current behavior. Reuse the three-binary and duct metadata work above rather than doing it twice.
+
+Verify the three supported entry points and the affected build and packaging paths with focused checks. Leave no replacement catch-all folder, archive of deleted tools, or task report.
+
 ## Working rules and exclusions
 
 - One source writer at a time, one checkout per machine, fresh task context for distinct work where practical. Use the authorized dev branch; no force push, main/release work, or unrelated edits. The High setting was for the old pre-pause work; normal source implementation was Sol 6.2 Extra High unless changed, with an independent Sol 6.2 Medium static review for exact changes.
