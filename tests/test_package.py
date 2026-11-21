@@ -216,7 +216,7 @@ class ShippedLevelTests(unittest.TestCase):
             "model_zoo": "71ff7d364cd8620f6800c0ab0bb65a41a43226b1579ec6ff8e9fa29477aedfd7",
         }
         for identity, digest in expected.items():
-            path = PACKAGE / "docs/archive/levels" / (identity + ".json")
+            path = PACKAGE / "archive/levels" / (identity + ".json")
             source = path.read_bytes()
             self.assertEqual(json.loads(source)["schema"], "places-level")
             self.assertEqual(json.loads(source)["format_version"], 1)
@@ -1519,15 +1519,6 @@ class SourceHygieneTests(unittest.TestCase):
         ignored = (PACKAGE / ".gitignore").read_text(encoding="utf-8")
         for entry in ("/target", "tools/bench/results/"):
             self.assertIn(entry, ignored)
-
-    def test_player_and_developer_documentation_have_their_respective_guidance(self):
-        # Two small text reads retain setup coverage after its move from promotion.
-        readme = (PACKAGE / "README.md").read_text(encoding="utf-8")
-        for needle in ("## Controls", "docs/DEVELOPMENT.md"):
-            self.assertIn(needle, readme)
-        developer = (PACKAGE / "docs/DEVELOPMENT.md").read_text(encoding="utf-8")
-        self.assertIn("SDL3", developer)
-        self.assertIn("settings.json", developer)
 
     def test_readme_documents_wasd_and_arrow_defaults(self):
         readme = (PACKAGE / "README.md").read_text(encoding="utf-8")

@@ -1,9 +1,9 @@
 # Prop toolkit
 
 Catalog-driven GLB export, geometry inspection and software previews. Read the
-[asset specification](../../docs/ASSET_SPECIFICATION.md),
-[environment profiles](../../docs/assets/ENVIRONMENTS.md), and the
-[asset authoring workflow](../../docs/OFFLINE_TOOLING.md#asset-authoring)
+[asset specification](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/ASSET_SPECIFICATION.md),
+[environment profiles](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/assets/ENVIRONMENTS.md), and the
+[asset authoring workflow](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/OFFLINE_TOOLING.md#asset-authoring)
 before changing a model or its fitted PNG.
 
 ```sh

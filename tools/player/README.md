@@ -21,7 +21,7 @@ Authoring order:
 
 The right-arm export retains the mannequin skin PNG, UVs and original crop.
 Its hash guard must be reviewed after any mannequin replacement. Both view
-meshes use the grip origin and axis contract in `docs/ASSET_SPECIFICATION.md`.
+meshes use the grip origin and axis contract in [docs/ASSET_SPECIFICATION.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/ASSET_SPECIFICATION.md).
 The robot attachment uses that same crowbar through its existing hand socket.
 
 `tools/entities/add_encounter_clips.py` preserves the original mannequin rig,

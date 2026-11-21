@@ -22,7 +22,7 @@ Edit them through the builder/editor and preserve per-placement diagnostic
 intent. The old environment generators are historical reconstruction tools;
 their output does not own or regenerate the collection. They require an explicit
 scratch destination. Places Demo and Model Zoo remain frozen historical JSON
-under `docs/archive/levels/`. Beam remains active in the broader release inventory.
+under [`archive/levels/`](../archive/levels/). Beam remains active in the broader release inventory.
 Five retired projects retain complete editable content in
 [`archive/projects/`](../archive/projects/README.md). Development controls stay
 outside release discovery; their retained purposes are documented there too.
@@ -40,7 +40,7 @@ checks every sub-map's provenance, archive validity and Static/Full payloads;
 the distribution and still exports the complete project.
 
 For an existing verified package, use `--check` directly. The
-[retirement handoff](../docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
+[retirement handoff](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 lists all eight superseded standalone IDs and the preserved recovery material.
 
 For an explicit project export or native compiler selection:

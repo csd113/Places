@@ -22,5 +22,5 @@ R rotates before placing. Names are optional. Load another level offers the
 project map and its saved arrival cabin. Three stops / two destinations per cabin
 is the current limit; Advanced preserves physical-shaft configuration.
 
-See [authoring and direct launch](../../docs/ELEVATORS.md). The original
+See [authoring and direct launch](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/ELEVATORS.md). The original
 [elevator lab](../elevator-lab) remains the explicit physical-shaft regression.

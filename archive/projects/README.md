@@ -83,15 +83,15 @@ outside the release inventory and ordinary full-map CI baking.
 
 | Folder under `projects/` | Current purpose and reference |
 | --- | --- |
-| `celestial-placement` | West/east sun and moon direction/shadow controls; [map guide](../../docs/MAP_AUTHORING_GUIDE.md), 0.13.0 native acceptance. |
+| `celestial-placement` | West/east sun and moon direction/shadow controls; [map guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/MAP_AUTHORING_GUIDE.md), 0.13.0 native acceptance. |
 | `elevator-lab` | Fixed vertical landings, cargo/checkpoint travel and rollback; `tools/bench/elevators.py`, `elevator_motion.py`, `elevator_cargo_fixture.py`. |
 | `elevator-links` | Place/link, same-height and cross-level travel, door safety and NPC/held-item custody; `elevator_links.py`, `elevator_doors.py`, `predator_search.py`, current physics audit. |
 | `janitor-supplies` | Static 15-model preview and portable-physics closet; `tools/authoring/environment_home_pool.py` consumes `janitor_physics.json`. |
-| `mannequin-appearances` | Five appearance presets, spawn templates, animation and ragdoll comparison; current [map guide](../../docs/MAP_AUTHORING_GUIDE.md). |
-| `mannequin-r2-review` | Ordered 19-clip playback plus door/carry/chair sequences, sockets and locomotion speeds; [asset specification](../../docs/ASSET_SPECIFICATION.md). |
-| `movement-gym` | Stairs, slopes, step thresholds, acceleration and blocked unduck; `places-movement-check` and [map guide](../../docs/MAP_AUTHORING_GUIDE.md). |
+| `mannequin-appearances` | Five appearance presets, spawn templates, animation and ragdoll comparison; current [map guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/MAP_AUTHORING_GUIDE.md). |
+| `mannequin-r2-review` | Ordered 19-clip playback plus door/carry/chair sequences, sockets and locomotion speeds; [asset specification](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/ASSET_SPECIFICATION.md). |
+| `movement-gym` | Stairs, slopes, step thresholds, acceleration and blocked unduck; `places-movement-check` and [map guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/MAP_AUTHORING_GUIDE.md). |
 | `performance-lab` | Bounded contact groups, actor/spawn/lifetime load and repeatable timing views; `tools/bench/performance/`, 0.13.1 acceptance. |
-| `ragdoll-lab` | Wall/stair/prop contacts, eight-ragdoll stress, socket release and lifecycle/reset; `tools/bench/ragdoll.py`, [scripting guide](../../docs/SCRIPTING.md). |
+| `ragdoll-lab` | Wall/stair/prop contacts, eight-ragdoll stress, socket release and lifecycle/reset; `tools/bench/ragdoll.py`, [scripting guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/SCRIPTING.md). |
 | `shadow-only-review` | Hidden/visible placed and spawned shadows, >24 m range, occlusion, mirror and interaction controls; `tools/authoring/shadow_only_native.py`. |
 
 CI and source tests primarily use the smaller `tests/fixtures/` controls; those

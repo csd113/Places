@@ -2,9 +2,9 @@
 
 Catalog sheet validation and explicit offline exports for surfaces, fitted
 fixture faces, decals, skies and diagnostic PNGs. Read the
-[asset specification](../../docs/ASSET_SPECIFICATION.md) for shape, alpha,
+[asset specification](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/ASSET_SPECIFICATION.md) for shape, alpha,
 orientation and seam contracts; use
-[Offline Tooling](../../docs/OFFLINE_TOOLING.md#asset-authoring) for module
+[Offline Tooling](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/OFFLINE_TOOLING.md#asset-authoring) for module
 registration and source ownership.
 
 ```sh

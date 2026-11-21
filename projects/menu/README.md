@@ -76,7 +76,7 @@ The actual `assets/shared/menu/scene.bin` was migrated losslessly from the prese
 Zstd method 93, lightmaps use PLC1 revision 2, and cost-selected prop recipes remain
 PPS1 revision 2. Full/Static decoded records, scripts, dependencies and original
 build-input provenance are exact; native matched appearance and representative
-events pass. See the single `docs/reports/release-0.13.0.md` report and its evidence index.
+events pass. See the single [docs/reports/release-0.13.0.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.0.md) report and its evidence index.
 
 Runtime SHA-256 is `bbb7cb766b5962d3c2f09b9cade186012500e4fe8213ca2ee0d71b665e3c660d`.
 Original source/preparation provenance is retained. Both original and migrated
@@ -95,7 +95,7 @@ above remains historical evidence.
 
 Current runtime bytes: **16,420,340**. SHA-256:
 `dc2e594527dde7789cc5d35bcf105abd3db0b92eb56b77af96f1e7c9d3b4da47`.
-See the final Windows section of `docs/reports/release-0.13.0.md` for the compiler,
+See the final Windows section of [docs/reports/release-0.13.0.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.0.md) for the compiler,
 receipts, native acceptance, download inventory and preserved old resource.
 
 
@@ -103,7 +103,7 @@ receipts, native acceptance, download inventory and preserved old resource.
 
 The unchanged menu source was freshly rebuilt through the standalone native editor's visible **Final build** control using the revision-6 development compiler. Static/Full integrity and `verify --require-current` pass against canonical source. The installed resource is **16,839,785 bytes**, SHA-256 `56194e1f110e34401c60cafc89042d823e7bbe23fc8e52ee71c4264aab394312`.
 
-A subsequent standalone player run verifies the installed menu, Full lighting, blackout and staged circuit restoration with actual native frames. This bounded check does not repeat all seven event reviews or establish uncapped FPS. See [the rebuild report](../../docs/reports/menu-rebuild-2026-11-09.md) for method, evidence and remaining demo release gates. Earlier hashes above are historical.
+A subsequent standalone player run verifies the installed menu, Full lighting, blackout and staged circuit restoration with actual native frames. This bounded check does not repeat all seven event reviews or establish uncapped FPS. See [the rebuild report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/menu-rebuild-2026-11-09.md) for method, evidence and remaining demo release gates. Earlier hashes above are historical.
 
 
 ## Final compiler refresh (2026-11-09)

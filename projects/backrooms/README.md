@@ -41,4 +41,4 @@ the destination and source wallpaper explicit. assets/references/backrooms
 retains the generated wallpaper master and prompt. Existing content is preserved.
 
 Validation, measured area, topology, native evidence and limitations belong in
-the one canonical docs/reports/release-0.13.0.md report.
+[the 0.13.0 report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.0.md).

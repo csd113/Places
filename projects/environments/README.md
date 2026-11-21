@@ -73,7 +73,7 @@ Only export again after editing the authoritative project:
   --out assets/levels/environments.placesmap --asset-root assets --variants off --workers 6
 ```
 
-The [retirement handoff](../../docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
+The [retirement handoff](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 records superseded standalone IDs, preserved material and deferred work.
 
 `local/environment-collection-0.12.0/` holds the stage's explicit developer
@@ -140,4 +140,4 @@ passengers transfer only after the sealed ride. The eight destinations, saved
 favors, return bays and reward-room progression retain their existing behavior.
 Re-export with the final current compiler and assets before using this version;
 older dependency hashes are refused by installation admission. See the
-[stationary ride evidence](../../docs/reports/elevator-stationary-ride-0.13.1-mac.md).
+[stationary ride evidence](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/elevator-stationary-ride-0.13.1-mac.md).

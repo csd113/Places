@@ -44,4 +44,4 @@ Do not use the old preparation ZIP or Mac executables on Windows. Use the exact
 published source commit, corrected committed GLBs/Blender sources and a native
 Windows build. Windows backend/DPI and current computer state require their own
 inspection. Mac results are not a Windows acceptance certificate. The room-light
-casting limitation in `docs/EXIT_DOORS.md` remains intentional.
+casting limitation in [docs/EXIT_DOORS.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/EXIT_DOORS.md) remains intentional.

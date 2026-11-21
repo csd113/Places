@@ -27,4 +27,4 @@ near refresh rate remains inconclusive without a workload/pacing control.
 The frame-time harness rejects an escaped player with no clear recovery spawn.
 This guard does not establish that every camera is useful or that a planned
 route succeeded. Native functional validation remains separate from timing.
-See the [Windows qualification report](../../../docs/reports/runtime-qualification-0.13.1-windows.md).
+See the [Windows qualification report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/runtime-qualification-0.13.1-windows.md).

@@ -207,11 +207,12 @@ fi
 if [ "$WITH_EDITOR" = 1 ]; then
     cp "$REPO/target/release/places-editor" "$STAGE/Places/places-editor"
 fi
-cp "$REPO/README.md" "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
+sed 's|](tools/release/INSTALLATION\.md)|](docs/INSTALLATION.md)|g' "$REPO/README.md" > "$STAGE/Places/README.md"
+cp "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places/"
 mkdir -p "$STAGE/Places/assets/levels" "$STAGE/Places/docs"
-cp "$REPO/docs/INSTALLATION.md" "$STAGE/Places/docs/"
+cp "$REPO/tools/release/INSTALLATION.md" "$STAGE/Places/docs/"
 if [ "$WITH_EDITOR" = 1 ]; then
-    cp "$REPO/docs/EDITOR.md" "$STAGE/Places/docs/"
+    cp "$REPO/tools/release/EDITOR.md" "$STAGE/Places/docs/"
 fi
 cp "$REPO/assets/catalog.json" "$REPO/assets/gameplay.json" "$STAGE/Places/assets/"
 # Sound licenses and exact provenance accompany the compact runtime library.
@@ -258,7 +259,7 @@ cat >"$STAGE/Places.app/Contents/Info.plist" <<PLIST
 PLIST
 cp -R "$STAGE/Places/assets" "$STAGE/Places.app/Contents/Resources/assets"
 cp -R "$STAGE/Places/docs" "$STAGE/Places.app/Contents/Resources/docs"
-cp "$REPO/README.md" "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
+cp "$STAGE/Places/README.md" "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
 
 python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-compile" \
     --assets "$STAGE/Places.app/Contents/Resources/assets" --project "$REPO/projects/menu"

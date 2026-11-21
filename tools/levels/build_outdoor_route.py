@@ -1740,7 +1740,7 @@ def main(argv: Optional[List[str]] = None) -> int:
                         help="explicit developer source; the archived Places Demo is immutable")
     args = parser.parse_args(argv)
     level_path = args.level.resolve()
-    if level_path.is_relative_to(APP_ROOT / "docs/archive") and not (args.check or args.summary):
+    if level_path.is_relative_to(APP_ROOT / "archive/levels") and not (args.check or args.summary):
         parser.error("historical maps are immutable; use an explicit developer fixture")
 
     raw = level_path.read_text(encoding="utf-8")

@@ -32,11 +32,11 @@ These narrow tools cover bugs beyond file-format checks without introducing
 rendering, full map baking or audio-device costs into CI. GPU rendering, real
 solver motion/contact, device PCM and performance require separately recorded
 native game runs. Human listening/comprehension and arbitrary-geometry fit are
-not established by these tools. See `docs/reports/tall-guest-integration.md` for
+not established by these tools. See [docs/reports/tall-guest-integration.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/tall-guest-integration.md) for
 the reviewed scope and limitations.
 
 The v0.3 export also supplies `capture_prey` and `swallow_prey`; the legacy bank
-above does not exercise the new action. See `docs/reports/tall-guest-swallow.md`
+above does not exercise the new action. See [docs/reports/tall-guest-swallow.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/tall-guest-swallow.md)
 for the exact profile, source-coordinate normal/topology contract and separate
 live-controller/native evidence. Do not infer whole-prey acceptance from the
 legacy pose bank or extend its old timing numbers to the new rig.

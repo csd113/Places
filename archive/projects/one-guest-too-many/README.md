@@ -44,4 +44,4 @@ clearance uses the shared 0.8 m square movement hull. Physics, animation, Luau
 budgets, door collision and navigation are shared engine capabilities.
 
 Implementation and native acceptance evidence belong only in
-`docs/reports/release-0.13.0.md`; raw Windows receipts remain outside `target`.
+[docs/reports/release-0.13.0.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.0.md); raw Windows receipts remain outside `target`.

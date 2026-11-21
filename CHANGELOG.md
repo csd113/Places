@@ -6,12 +6,14 @@ prereleases use their GitHub publication dates; older milestones use source date
 where publication cannot be verified. Performance findings retain their recorded
 hardware/workload scope.
 
-The [version audit](docs/reports/changelog-version-audit-2026-11-04.md) explains
+The [version audit](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/changelog-version-audit-2026-11-04.md) explains
 the numbering resets, tag coverage and evidence gaps. The
 [former detailed changelog](https://github.com/csd113/Places/blob/3fee560e484d5dbc61496b34c90cdef8292dbe2b/CHANGELOG.md)
 and linked reports retain historical implementation and validation details.
 
 ## 0.14.0 — Unreleased
+
+[Version summary](docs/0.14.0/README.md).
 
 - Add GitHub-hosted Mac arm64 and Windows x64 release builds with downloadable
   application ZIPs and explicit, additive uploads to an existing draft release.
@@ -41,6 +43,8 @@ and linked reports retain historical implementation and validation details.
   default. No screen effects, weapons or multiplayer respawn policy is added.
 
 ## 0.13.1 — 2026-11-09
+
+[Version summary](docs/0.13.1/README.md).
 
 - Add an illustrated beginner editor guide in seven GitHub-readable chapters
   and a downloadable PDF, with visual Simple-mode construction, native
@@ -122,7 +126,7 @@ cost. These scene-specific results do not establish a general FPS gain.
 
 - Keep held-prop pushes consistent across control rates and improve heavy/light
   resting contacts while guarding supported jams. Correct the native contact
-  fixture. See [Mac validation and remaining costs](docs/reports/prop-physics-0.13.1-mac.md).
+  fixture. See [Mac validation and remaining costs](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/prop-physics-0.13.1-mac.md).
 
 - Archive five retired projects with all editable sources, scripts and thumbnails.
   Keep Beam, Backrooms and Quiet Collection active; refuse archived identities in
@@ -148,7 +152,7 @@ cost. These scene-specific results do not establish a general FPS gain.
 - Clip movable contact shadows to supported floor receivers and solid world geometry,
   select the nearest visible footprints within eight slots, and block open-cabin
   light behind opaque hall geometry. Preserve valid doorway illumination and
-  closed seals. See [Mac validation and frame cost](docs/reports/runtime-lighting-0.13.1-mac.md).
+  closed seals. See [Mac validation and frame cost](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/runtime-lighting-0.13.1-mac.md).
 
 - Remove repeated handle scans from actor collision avoidance. Keep sight alerts
   stable across perception batches, compare every shelter within the shared path
@@ -161,11 +165,11 @@ cost. These scene-specific results do not establish a general FPS gain.
   Reuse verified navigation and project member streams after display metadata
   changes, reducing the measured collection refresh from 17.27s to 3.44s. Offer
   direct lossless compact build/export, saving 15.3% on the Low/Static collection.
-  See [Mac evidence and tradeoffs](docs/reports/compiler-safety-storage-0.13.1-mac.md).
+  See [Mac evidence and tradeoffs](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/compiler-safety-storage-0.13.1-mac.md).
 
 - Safely release a persistently obstructed held prop once it becomes too far
   away, preserving its current pose. Passive carry advisories appear only in
-  developer mode. See [Mac validation](docs/reports/held-auto-drop-0.13.1-mac.md).
+  developer mode. See [Mac validation](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/held-auto-drop-0.13.1-mac.md).
 
 - Elevator cargo supports **32 distinct authored movable props/NPCs per project
   session**, including travellers left in visited levels, across rides and
@@ -177,72 +181,72 @@ cost. These scene-specific results do not establish a general FPS gain.
   legacy vertical landings. Preserve exact passenger poses, props/NPC ownership
   and safe recovery; add a bounded in-car motor cue. Refresh the collection's
   doorway dependencies and development package versions. See
-  [native travel/audio evidence and limits](docs/reports/elevator-stationary-ride-0.13.1-mac.md).
+  [native travel/audio evidence and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/elevator-stationary-ride-0.13.1-mac.md).
 
 - Fit thin metal elevator doorways flush to the cabin and landing walls, close
   floor-skirt gaps, and automatically align editor placements with real wall
   faces. Fit openings in one undoable edit and reject insufficient space. See
-  [art, placement and review evidence](docs/reports/elevator-doorway-fit-0.13.1-mac.md).
+  [art, placement and review evidence](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/elevator-doorway-fit-0.13.1-mac.md).
   Hollow thick walls and sufficiently large rectangular or circular pillars
   around the actual cabin volume; wall depth alone does not reject placement.
-  See [pillar acceptance](docs/reports/elevator-pillar-fit-0.13.1-mac.md).
+  See [pillar acceptance](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/elevator-pillar-fit-0.13.1-mac.md).
 
 - Keep elevator cabin light inside the shell and real sliding-door aperture.
   Closed exterior panels use actual landing lighting instead of the roomless
   ambient fallback; the interior stays lit and hall fixtures still light the
   panels. Add explicit dark-room and lit-hall controls. See
-  [Mac validation and limits](docs/reports/elevator-light-0.13.1-mac.md).
+  [Mac validation and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/elevator-light-0.13.1-mac.md).
 
 - Include automatic HVAC, room/pool/fluorescent ambience, material footsteps and
   moving-door sounds in editor quick testing through the player's shared audio
   policies. Preserve authored emitters and quiet chooser auditions; clear test
-  voices on Stop, Escape and focus loss. See [Mac evidence and limits](docs/reports/release-0.13.1.md#editor-quick-play-automatic-audio-2026-11-04).
+  voices on Stop, Escape and focus loss. See [Mac evidence and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md#editor-quick-play-automatic-audio-2026-11-04).
 
 - Replace the Quiet Collection's eight hub travel doors and eight return doors
   with signed passenger elevators. Preserve favors, saved progress and the
   reward room; return to the matching hub bay. Collection package 1.0.4 adds
   fitted shafts, updated guidance and an explicit direct-binary route check.
-  See [Mac acceptance and limits](docs/reports/hub-elevators-0.13.1-mac.md).
+  See [Mac acceptance and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/hub-elevators-0.13.1-mac.md).
 
 - Batch ready level-upload work within a short CPU slice while retaining GPU
   queue and resource bounds. Matched Mac Metal loads improve 30-43%, and real
   cross-level elevator loads improve 45-47%. Add opt-in archive/stage attribution
   to the loading harness; preserve exact scene output and save/recovery behavior.
-  See [measurements and limits](docs/reports/release-0.13.1.md#level-loading-audit-and-bounded-upload-batching-2026-11-04).
+  See [measurements and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md#level-loading-audit-and-bounded-upload-batching-2026-11-04).
 
 - Simplify the editor workspace with a brighter dark slate palette, quieter
   controls, common building tools and progressive customization. Test the current
   unsaved scene in first person inside the editor window without a lightmap bake
   or separate player, then return to retained authoring state. Final builds
-  preserve production lighting validation. See [workflow and limits](docs/EDITOR.md).
+  preserve production lighting validation. See [workflow and limits](tools/release/EDITOR.md).
 
 - Author the hub's existing wall-sign decals in both editor modes: printed
   artwork selection, fitted size/spin, solid wall placement, facing, clear-space
   copies, selection/locks/history and source/package persistence. Retain the
   committed PNG lettering and shared decal depth/lighting path. See
-  [Windows evidence and limits](docs/reports/wall-signs-0.13.1-windows.md).
+  [Windows evidence and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/wall-signs-0.13.1-windows.md).
 
 - Specialize opaque model shaders to remove the unreachable editor ceiling
   discard while retaining authored faces, materials, lighting and Full reflections.
   Matched Windows pairs improve Hollow and Arcade throughput; record frame tails,
   pixel comparisons and added loading cost in the
-  [FPS optimization report](docs/reports/fps-optimization-0.13.1-windows.md).
+  [FPS optimization report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/fps-optimization-0.13.1-windows.md).
 
 - Add optional per-level gameplay checkpoints with editor volumes, shared script
   actions, compatible Continue/Start new choices and bounded atomic local saves.
   Restore authored gameplay and explicit script state through stable identities;
   retain disabled-by-default maps and clear unsupported-state refusals. See
-  [the persistence contract](docs/CHECKPOINTS.md) and
-  [Windows validation](docs/reports/checkpoints-0.13.1-windows.md).
+  [the persistence contract](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/CHECKPOINTS.md) and
+  [Windows validation](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/checkpoints-0.13.1-windows.md).
 
 - Keep loading UI/event pumping active during first-use world shader preparation.
   Preserve actual milestone progress, main-thread presentation and offline builds.
-  See [Windows startup evidence and limits](docs/reports/startup-0.13.1-windows.md).
+  See [Windows startup evidence and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/startup-0.13.1-windows.md).
 
 - Present ordinary NPC messages as queued two-line subtitles, retain F1 help,
   simplify loading to actual stage progress with separate unknown-work activity,
   and give Explore cards roomier spacing, contained titles and full-name details.
-  See [Windows validation and remaining limits](docs/reports/ui-0.13.1-windows.md).
+  See [Windows validation and remaining limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/ui-0.13.1-windows.md).
 
 - Restore continuous grounded stair support across the full player hull, retain
   real tread contacts for jumps/falls, and ease the first/last riser camera
@@ -263,7 +267,7 @@ cost. These scene-specific results do not establish a general FPS gain.
   persistence share the existing editor path. Linked overrides/deletions survive;
   missing sources retain geometry. Optional standing-hull clearance protection
   uses real collision samples, and saved baselines prevent seed drift.
-  See [the workflow and bounds](docs/EDITOR.md#reuse-tools-room-prefabs-room-styles-and-prop-variation-0131).
+  See [the workflow and bounds](tools/release/EDITOR.md#reuse-tools-room-prefabs-room-styles-and-prop-variation-0131).
 
 - Add the cloud-authored 25-model utility/HVAC kit, retained Blender/GIMP sources,
   six-axis duct joins with reversible previews, five circuit-ready fluorescent
@@ -274,7 +278,7 @@ cost. These scene-specific results do not establish a general FPS gain.
 HVAC hum now belongs to one nearby spatial duct voice, with squared falloff,
 duplicate suppression and removal/map-transition cleanup. Native kit placement,
 circuit lighting, source export/import and actual-duct audio acceptance are
-recorded in [the phase-6 report](docs/reports/release-0.13.1.md#phase-6-utility-kit-duct-joins-and-local-hvac-audio).
+recorded in [the phase-6 report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md#phase-6-utility-kit-duct-joins-and-local-hvac-audio).
 
 Phase 5 adds contextual light-circuit selection/painting and one-step switch
 assignment, native power that composes with existing flicker and prepared Full
@@ -283,7 +287,7 @@ previews retain outside lights/occluders and invalidate on edits without writing
 final exports or bake caches. Conservative CPU work reductions preserve exact
 physical output on bounded matched fixtures. Measured compiler/GPU investigation,
 quality evidence, native lifecycle validation and limits are recorded in
-[the phase-5 report](docs/reports/release-0.13.1.md#phase-5-circuits-compiler-investigation-and-local-lighting-preview).
+[the phase-5 report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md#phase-5-circuits-compiler-investigation-and-local-lighting-preview).
 GPU transport remains experimental; production uses the accepted CPU solver.
 
 First editor phase: rectangular and circular pillar creation and fitted automatic
@@ -304,7 +308,7 @@ trim, using the existing engine primitives and baseboard preparation.
   lighting or shadows. Clipped triangular receiver edges choose their owning
   air side; microscopic clipping residue is removed before publication.
 
-Workflow and fit limits: [editor guide](docs/EDITOR.md#pillars-and-automatic-trim-0131).
+Workflow and fit limits: [editor guide](tools/release/EDITOR.md#pillars-and-automatic-trim-0131).
 This is an unreleased bounded phase; later queued editor work remains separate.
 
 Phase acceptance on the Razer (Windows, RTX 3070 / Dx12, 2026-10-28):
@@ -352,7 +356,7 @@ materials, locks/layers, attached wall edits, room stretch, save/reopen and
 Play/return, including opening and walking through the new door. Actual Razer
 layout checks use 150% display scale at 960x544 through 1440x900; CPU coordinate
 checks also cover 100/125/200% and doubled drawable density. Actual Mac Retina
-acceptance remains deferred. See [current acceptance and limits](docs/reports/release-0.13.1.md).
+acceptance remains deferred. See [current acceptance and limits](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md).
 
 Third editor phase integrates construction integrity into the existing Safety
 review, now directly available in both modes. Shared checks cover short corner/
@@ -363,7 +367,7 @@ locked/hidden or protected edits refuse atomically. Existing wall attachments,
 offline alignment planning, mounting, collision and geometry union/clipping are
 reused. Cancellation discards partial results. Angled geometry, artistic
 intersections and unsupported UV/material corrections retain explicit review.
-See the [editor workflow](docs/EDITOR.md) and [phase acceptance](docs/reports/release-0.13.1.md).
+See the [editor workflow](tools/release/EDITOR.md) and [phase acceptance](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md).
 
 Fourth editor phase adds backed wall recesses/TV niches, fitted door/window
 surrounds and sills, railing/fence paths with shared posts and stair following,
@@ -372,8 +376,8 @@ save/reopen and derived regeneration. Source admission and shared Safety reject
 unsupported cuts, routes, headroom and corner fit. Frames clip existing wall trim;
 rail corners meet at miters. Simple mode exposes the tools through geometry/Build
 controls while retaining the wall/door/light tools and 24-tile material browser.
-See the [supported routes and controls](docs/EDITOR.md#construction-generators-0131)
-and [phase acceptance](docs/reports/release-0.13.1.md).
+See the [supported routes and controls](tools/release/EDITOR.md#construction-generators-0131)
+and [phase acceptance](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md).
 
 ### Completed audit and repair coverage (4–5 November 2026)
 
@@ -508,7 +512,7 @@ is a separate pending gate. No new native or FPS acceptance is claimed.
   and resource retirement without lowering authored quality.
 
 [Release notes](https://github.com/csd113/Places/releases/tag/v0.13.0) ·
-[Implementation, measured results and limits](docs/reports/release-0.13.0.md).
+[Version summary](docs/0.13.0/README.md).
 Native acceptance covers Windows/DX12 and macOS/Metal. Improvements are workload
 specific; accepted water-rendering costs, cold input stalls and uncapped Mac
 presentation uncertainty remain documented. Linux/clean-OS installer acceptance
@@ -544,7 +548,7 @@ and physical audio hotplug coverage remain open. Relay Annex stays source-only.
   native startup errors and clearer import-folder discovery.
 
 [Release notes](https://github.com/csd113/Places/releases/tag/v0.12.0) ·
-[Evidence and known defects](docs/reports/release-0.12.0.md).
+[Version summary](docs/0.12.0/README.md).
 This prerelease has no general gameplay save/load. Reported Home/Pool slowdowns,
 prop contact, Relay Annex item loss/animation/terrain and ceiling z-fighting
 problems remain open here; do not read the later 0.13.0 fixes into this release.
@@ -577,7 +581,7 @@ Windows/Linux binary acceptance was not completed for 0.12.0.
   avoid repeated skinning of unchanged poses.
 
 [Release notes](https://github.com/csd113/Places/releases/tag/0.11.0) ·
-[Validation and scene-specific performance](docs/reports/release-0.11.0.md).
+[Version summary](docs/0.11.0/README.md).
 Source prerelease, with macOS/Metal native acceptance; broad Windows/Linux
 acceptance and physical audio hotplug testing remain outstanding.
 
@@ -596,7 +600,7 @@ acceptance and physical audio hotplug testing remain outstanding.
   pickers, Static/Full builds, real per-pass progress and cooperative cancellation.
 
 [Release notes](https://github.com/csd113/Places/releases/tag/0.10.0) ·
-[Validation, performance and limits](docs/reports/release-0.10.0.md).
+[Version summary](docs/0.10.0/README.md).
 Source prerelease; native acceptance is macOS/Metal. The later refined Spooner-Man
 delivery is unconfirmed and the separate rubber-duck rebuild is excluded.
 
@@ -620,7 +624,7 @@ delivery is unconfirmed and the separate rubber-duck rebuild is excluded.
   readable failure notices. The original intermittent crashes remain unattributed.
 
 [Preparation commit](https://github.com/csd113/Places/commit/5b9340381c74) ·
-[Final preparation report](docs/reports/release-0.9.0.md).
+[Version summary](docs/0.9.0/README.md).
 Versioned and validated in source; no 0.9.0 tag or GitHub Release is present.
 Native acceptance is macOS/Metal.
 
@@ -763,7 +767,7 @@ The milestone is recorded in the inherited changelog; no separate post-reset
   boundaries when merging walls and remove overlapping patch slabs.
 
 Versions 0.1.0–0.6.0 above use the inherited source-history dates, not verified
-GitHub publication dates. See the [version/evidence audit](docs/reports/changelog-version-audit-2026-11-04.md)
+GitHub publication dates. See the [version/evidence audit](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/changelog-version-audit-2026-11-04.md)
 for source commits and attribution gaps.
 
 ## Earlier prototype numbering — 2026-09-20 to 2026-09-21

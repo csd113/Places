@@ -9,7 +9,7 @@ These files are not part of `assets/audio/` and must not enter its runtime catal
 - `manifest.json` pins each source master and its format.
 - Explicit 16 kHz runtime recipes/hashes live in `assets/audio/authoring.json`.
 
-See `docs/assets/AUDIO.md` for format decisions, decoded memory and regeneration.
+See [docs/assets/AUDIO.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/assets/AUDIO.md) for format decisions, decoded memory and regeneration.
 The pre-integration preparation/master archive is retained in Library as
 `libfile_fde3_f-ba8e4c9f8328819199784d1e230aec4d_2e37728cdad08191acacf8a0401feb09`.
 Neither numerical checks nor native mixer captures imply a perceptual listening

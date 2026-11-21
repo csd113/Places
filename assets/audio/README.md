@@ -19,7 +19,7 @@ when distributing the library with Places.
 - `authoring.json`: exact source selections, trims, crossfades and peak targets.
 - `licenses/`: original Kenney license notices and the complete source credits.
 
-See [the audio asset guide](../../docs/assets/AUDIO.md) for cue purposes, authored
+See [the audio asset guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/assets/AUDIO.md) for cue purposes, authored
 examples, budgets, offline integrity checks and the explicit import workflow.
 
 The elevator additions are original Places audio under MIT, rendered offline by

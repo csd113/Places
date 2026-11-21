@@ -116,13 +116,16 @@ def main() -> int:
         stage.mkdir()
         for name, source in inputs:
             shutil.copyfile(source, stage/name)
-        for name in ('README.md', 'LICENSE', 'THIRD_PARTY_LICENSES.txt'):
+        readme = (ROOT/'README.md').read_bytes()
+        (stage/'README.md').write_bytes(readme.replace(
+            b'](tools/release/INSTALLATION.md)', b'](docs/INSTALLATION.md)'))
+        for name in ('LICENSE', 'THIRD_PARTY_LICENSES.txt'):
             shutil.copyfile(ROOT/name, stage/name)
         shutil.copyfile(args.sdl_license, stage/'SDL3-LICENSE.txt')
         shutil.copytree(notices, stage/'licenses/windows-runtime')
         (stage/'docs').mkdir()
         for name in ['INSTALLATION.md'] + (['EDITOR.md'] if args.with_editor else []):
-            shutil.copyfile(ROOT/'docs'/name, stage/'docs'/name)
+            shutil.copyfile(ROOT/'tools/release'/name, stage/'docs'/name)
         assets = stage/'assets'
         (assets/'levels').mkdir(parents=True)
         for name in ('catalog.json', 'gameplay.json'):

@@ -55,12 +55,12 @@ class PackageDestinationGuardTests(unittest.TestCase):
             # Script-only payload fixture: native dependency relocation is
             # checked separately with mocked otool and by explicit macOS QA.
             (source / 'tools/bundle-macos.py').write_text('import sys\nassert len(sys.argv) == 3\n')
-            (source / 'docs').mkdir()
-            (source / 'docs/INSTALLATION.md').write_text('installation fixture')
-            (source / 'docs/EDITOR.md').write_text('editor fixture')
+            (source / 'tools/release').mkdir()
+            (source / 'tools/release/INSTALLATION.md').write_text('installation fixture')
+            (source / 'tools/release/EDITOR.md').write_text('editor fixture')
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
-            for name in ('README.md', 'THIRD_PARTY_LICENSES.txt'):
-                (source / name).write_text('fixture')
+            (source / 'README.md').write_text('[Installation](tools/release/INSTALLATION.md)\n')
+            (source / 'THIRD_PARTY_LICENSES.txt').write_text('fixture')
             (source / 'LICENSE').write_text('project license fixture')
             for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels', 'audio', 'editor'):
                 (source / 'assets' / name).mkdir(parents=True)
@@ -130,6 +130,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
                 self.assertFalse((payload / 'assets/environments/CABINET_ARTWORK_PROMPTS.md').exists())
                 self.assertFalse((payload / 'levels').exists(), 'writable levels belong in user storage')
                 self.assertEqual((payload / 'docs/INSTALLATION.md').read_text(), 'installation fixture')
+                self.assertEqual((payload / 'README.md').read_text(), '[Installation](docs/INSTALLATION.md)\n')
                 self.assertEqual(list(payload.rglob('*.placesmap')), [])
             compiler = source / 'target/release/places-compile'
             previous_menu = (output / 'Places/assets/shared/menu/scene.bin').read_bytes()

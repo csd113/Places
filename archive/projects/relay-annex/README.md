@@ -39,5 +39,5 @@ Full lighting is required throughout the campaign for its tower circuit and
 consistent airlock policy. The game uses only installed catalog assets; the complete package contains the prepared maps and
 exact editable sources, scripts and native screenshot thumbnails. No routine
 Cargo test or CI job bakes this campaign. The report and final receipt are
-`docs/reports/release-0.12.0.md#editor-0120-relay-annex` and
+[docs/reports/release-0.12.0.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#editor-0120-relay-annex) and
 `local/relay-annex-0.12.0/handoff.json`.

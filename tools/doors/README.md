@@ -1,6 +1,6 @@
 # Exit-door source owner
 
-See [the canonical contract](../../docs/EXIT_DOORS.md). `check.py --check` is
+See [the canonical contract](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/EXIT_DOORS.md). `check.py --check` is
 read-only and checks committed Blender/GIMP/PNG/GLB identities plus runtime
 preset structure. It does not run Blender, paint textures, bake a map or certify
 native appearance. `source/` is editable original artwork, not build output.

@@ -13,13 +13,6 @@ There is no prescribed route through these spaces. Open a door, try a light
 switch, look around a corner. Some places feel familiar. Others become stranger
 the longer you stay.
 
-[![Cosmic Lanes & Arcade: click to download the native walkthrough](docs/images/release-0.9.0/arcade.png)](docs/videos/places-0.9.0.mp4?raw=true)
-
-[Download the 32-second walkthrough (MP4)](docs/videos/places-0.9.0.mp4?raw=true) —
-real walking footage from all eight environments, with a short cut between each.
-
-[![Animated gameplay preview from all eight environments](docs/images/release-0.9.0/walkthrough-preview.webp)](docs/videos/places-0.9.0.mp4?raw=true)
-
 ## Somewhere to go
 
 The **Quiet Collection** connects eight environments through a central hub.
@@ -31,12 +24,6 @@ Hours**, the still water of **Pool**, the domestic spaces of **Home**, the
 night trails of **Lantern Hollow**, the snow and ice of **Winter**, the open
 waterfront of **Beach**, the bright architecture of **Frutiger Aero**, and the
 bowling lanes, cabinets, birthday room and restroom of **Cosmic Lanes & Arcade**.
-
-| Office: After Hours | Beach |
-| --- | --- |
-| ![Office: fluorescent light across the upper floor](docs/images/release-0.9.0/office.png) | ![Beach: palms, pier and open water](docs/images/release-0.9.0/beach.png) |
-
-![Winter: a snowy settlement under an aurora](docs/images/release-0.9.0/winter.png)
 
 Doors, switches, weather and occasional encounters give the spaces their own
 rhythms. Adjustable graphics and remappable controls let you settle into yours.
@@ -79,13 +66,12 @@ chapters and the three-part Long Way Home. The application archives contain
 no gameplay maps.
 
 [Download 0.13.1](https://github.com/csd113/Places/releases/tag/v0.13.1) ·
-[Beginner’s guide](docs/editor-guide/README.md) ·
 [Download illustrated PDF](https://github.com/csd113/Places/releases/download/v0.13.1/Beginners_Guide_to_Your_First_Places_Space.pdf) ·
-[Installation](docs/INSTALLATION.md) · [Acceptance and limits](docs/reports/release-0.13.1.md)
+[Installation](tools/release/INSTALLATION.md)
 
 The beginner guide follows the editor's Simple workspace from a blank project
-through building and playing a three-room space. Read its seven illustrated
-chapters on GitHub or download the self-contained PDF to read offline.
+through building and playing a three-room space. The illustrated PDF is
+available with the release.
 
 The Mac package is arm64, requires macOS **27.2 or newer**, and is ad-hoc signed
 without notarization. The Windows package is x64. Linux remains future scope.
@@ -101,13 +87,11 @@ Choose **Places / The Quiet Collection** in Explore to enter the collection.
 Authors can open `projects/environments/` in the native editor; an explicit
 [collection export](levels/README.md) is only needed after changing its sources.
 
-The images and walking footage above were captured from the native 0.9.0 game.
-[Developer documentation](docs/DEVELOPMENT.md) · [Changelog](CHANGELOG.md) ·
-[Documentation index](docs/README.md)
+[Changelog](CHANGELOG.md)
 
-[Installation, first launch and map imports](docs/INSTALLATION.md) documents the
-current runtime policy: optional gameplay maps, bundled menu resources, external
-assets and separate writable user data.
+[Installation, first launch and map imports](tools/release/INSTALLATION.md) covers
+optional gameplay maps, bundled menu resources, external assets and separate
+writable user data.
 
 Places is open source under the [MIT license](LICENSE).
 [Third-party notices](THIRD_PARTY_LICENSES.txt).

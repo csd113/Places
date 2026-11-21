@@ -466,7 +466,7 @@ fn options() -> Result<Option<Options>, String> {
                 use std::io::Write;
                 let _written = writeln!(
                     std::io::stdout(),
-                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH] [--performance-test]\nNative project editor. Built-in assets only. See docs/EDITOR.md for controls."
+                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH] [--performance-test]\nNative project editor. Built-in assets only. See docs/EDITOR.md in the application package or tools/release/EDITOR.md in the source checkout for controls."
                 );
                 return Ok(None);
             }

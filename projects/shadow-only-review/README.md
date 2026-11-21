@@ -44,4 +44,4 @@ python3 tools/authoring/shadow_only_native.py --binary local/shadow-only-0.12.0/
 
 Use a new output directory. Native UI requires a desktop session. These are
 explicit developer tools; Cargo and CI never bake this map. See
-[stage evidence](../../docs/reports/release-0.12.0.md#editor-0120-shadow-only).
+[stage evidence](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#editor-0120-shadow-only).

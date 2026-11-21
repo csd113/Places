@@ -64,7 +64,7 @@ Not performed: executing Places' importer, whole-catalog asset checks, native/ed
 
 Later canonical integration must first preserve existing work and use the queued source owner. Register exact accepted exports and original PNGs with source ownership; verify current catalog/schema, completed-model identity, pack allocation and asset gates. Then use a bounded native review fixture to test closed startup, repeated open/close and mid-swing reverse, blocked movement and resumption, pair opening, frame aperture and player/item/AI clearance, correct placement/rotation/reset, and editor save/reopen. Do not silently add automatic closing or lock semantics.
 
-Follow `docs/assets/SHADOWS.md`: ordinary material lighting, actual rigid transforms, independent flashlight casting and eligible floor grounding. No cavity attenuation or baked body self-shadow is supplied. Validate closed/open/rotated and raised controls, changed light direction, Static/Full, low/high textures and reflection routes. Keep frame support separate from moving leaf bounds and do not force a footprint onto overhead brackets. Native acceptance remains a later explicit result.
+Follow [docs/assets/SHADOWS.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/assets/SHADOWS.md): ordinary material lighting, actual rigid transforms, independent flashlight casting and eligible floor grounding. No cavity attenuation or baked body self-shadow is supplied. Validate closed/open/rotated and raised controls, changed light direction, Static/Full, low/high textures and reflection routes. Keep frame support separate from moving leaf bounds and do not force a footprint onto overhead brackets. Native acceptance remains a later explicit result.
 
 ## Reproduction
 

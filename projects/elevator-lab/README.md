@@ -13,7 +13,7 @@ travel retains the previous valid save and reports that the cabin is moving.
 Open places.project.json in the native editor to inspect the mechanism.
 Build > Elevator provides click placement and linking for normal authoring;
 Advanced retains fixed-landing elevations and detailed destinations.
-See [authoring, direct launch and validation](../../docs/ELEVATORS.md).
+See [authoring, direct launch and validation](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/ELEVATORS.md).
 
 The refreshed development package is version 1.0.6, retaining the separate green
 door-toggle control beneath the floor buttons while retaining the wood wall and

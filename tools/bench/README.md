@@ -2,7 +2,7 @@
 
 These tools drive release binaries on this development machine. The active
 lineup does not provide Demo or Zoo. Retired camera journals are available at
-the revision linked in the [Python cleanup record](../../docs/reports/python-cleanup-0.13.1.md). Most suites
+the revision linked in the [Python cleanup record](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/python-cleanup-0.13.1.md). Most suites
 default to `target/agent-work/`; the compiler harnesses require an explicit
 output directory. Local measurements belong in ignored `tools/bench/results/`.
 Preserve custom map sources, packages, assets and runnable builds in a durable
@@ -434,8 +434,8 @@ PLACES_BIN=target/release/places \
 ```
 
 The frozen PNGs live in [the native reference fixtures](../../tests/fixtures/native/gles2-reference).
-Their camera/settings contract is documented in [BASELINE.md](../../docs/renderer-baseline/BASELINE.md),
-and three curated High/Low pairs live in [the renderer reference gallery](../../docs/images/renderer-reference).
+Their camera/settings contract is documented in [BASELINE.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/renderer-baseline/BASELINE.md),
+and three curated High/Low pairs live in [the renderer reference gallery](https://github.com/csd113/Places/tree/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/images/renderer-reference).
 `PLACES_QUALITY=high` and `PLACES_QUALITY=low` select one
 profile, and any other value is
 rejected. Use isolated state for each current run; runtime never bakes lightmaps.
@@ -463,7 +463,7 @@ where byte equality is not the goal: it reports each view's mean absolute
 channel difference, the share of pixels differing by more than a tolerance, and
 the maximum channel difference, so a known cross-renderer gap can be quantified
 instead of hand-waved. The preserved GLES2 renderer for such a comparison lives
-at the `renderer-gles2-reference` tag (see `docs/RENDERER_REFERENCE.md`).
+at the `renderer-gles2-reference` tag (see [docs/RENDERER_REFERENCE.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/RENDERER_REFERENCE.md)).
 
 ```sh
 python3 tools/bench/compare_captures.py \
@@ -592,7 +592,7 @@ figures in the summary are always derived from `loop_ms`, never from a count of
 renderer submissions.
 
 Worker controls, baseline comparisons, and the complete first-party inventory are
-documented in [Offline Python tooling](../../docs/OFFLINE_TOOLING.md).
+documented in [Offline Python tooling](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/OFFLINE_TOOLING.md).
 # Compiler native output comparison
 
 `compiler_bench.py --baseline <baseline-directory>` checks every newly measured
@@ -628,7 +628,7 @@ by default. These are reusable capture inputs; each run writes its receipts and
 images to a new evidence directory. The domestic model validator writes its
 machine report to ignored `target/verification/domestic-model-remake/geometry-validation.json`.
 
-The [Stage 6 contracts](../../docs/art-style/stage6/contracts.md) document source,
+The [Stage 6 contracts](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/art-style/stage6/contracts.md) document source,
 resolved dependency, catalogue, tool and capture identity. `cache_decisions` in
 `places-compile --json` names package/prepared hits, misses and bypass reasons.
 `--force` remains the independent full path. Build a changed model from its real
@@ -665,7 +665,7 @@ zero-draw window summaries establish ordinary gameplay FPS or fragment overdraw.
 
 The frozen Demo and Winter style journals were removed after the collection
 became editor-owned. Their exact camera tables, settings and receipts remain in
-Git history and dated native evidence; see the [cleanup record](../../docs/reports/python-cleanup-0.13.1.md).
+Git history and dated native evidence; see the [cleanup record](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/python-cleanup-0.13.1.md).
 Current collection acceptance uses `tools/authoring/environment_acceptance.py`.
 
 `measure_capacity.sh` uses the explicit capacity fixture package by default.
@@ -708,7 +708,7 @@ receipt diagnostic. `--entity-light-trace all --capture-frame 120 --warmup 0`
 retains actual lighting payloads plus an image; exclude captures and scripted
 settings transitions from steady timings. GPU elapsed is unioned pass-stage
 coverage, including scheduling stalls, and is not utilization or an additive
-per-pass cost. See `docs/reports/release-0.10.0.md#multicore-0100` for this pass's evidence.
+per-pass cost. See [docs/reports/release-0.10.0.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.10.0.md#multicore-0100) for this pass's evidence.
 
 ## Pool caustics
 

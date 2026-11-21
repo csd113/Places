@@ -9,14 +9,14 @@ the normal distribution. Current collection acceptance uses
 camera/route inputs rather than automatic retargeting of these manifests.
 
 These are the accepted production camera, player and animation controls for the
-[model-lighting correction](../../../../docs/reports/release-0.8.0.md#model-lighting-root-cause-and-fix).
+[model-lighting correction](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.8.0.md#model-lighting-root-cause-and-fix).
 They use real Lantern Hollow skeletons and kitchen models in Demo, Hallows and
 `levels/home_showcase.json`; no replacement models or synthetic lighting scene.
 
 Build current packages before captures. The compiler records its executable
 identity; keep the same compiler while preparing/verifying packages. The player
 loads the prepared external packages. See
-[desktop verification](../../../../docs/VERIFICATION.md) for the complete gate.
+[desktop verification](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/VERIFICATION.md) for the complete gate.
 
 ```sh
 cargo build --release --bins --features visual-diagnostics

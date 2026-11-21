@@ -11,7 +11,7 @@ under an isolated state root's `levels/` directory. The internal level IDs remai
 `issue24_ghost_controls`, `issue24_ghost_absent`, `issue24_ghost_motion` and
 `issue24_rail_controls`.
 
-The [Windows review](../../../../docs/reports/issue24-assets-windows.md) records
+The [Windows review](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/issue24-assets-windows.md) records
 the exact binary, asset hash, native settings, cameras, defect and queued renderer
 implementation. For the ghost rear reproduction use High/Full, bloom on, 960x640,
 FOV 55, player spawn `0,1.6,6,0`, render eye `7.6,1.05,-2.7`, camera `204,-2`,

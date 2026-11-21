@@ -24,4 +24,4 @@ textures and sounds remain installed assets rather than duplicated custom assets
 Do not bake this map as a Cargo test or automatic CI fixture.
 
 Authoring, manual source-edit reasons and validation:
-`docs/reports/release-0.12.0.md#editor-0120-closing-time`.
+[docs/reports/release-0.12.0.md](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#editor-0120-closing-time).
