@@ -113,6 +113,11 @@ Start from what the current game, editor, and map compiler actually need to buil
 
 Verify the three supported entry points and the affected build and packaging paths with focused checks. Leave no replacement catch-all folder, archive of deleted tools, or task report.
 
+### 29. Hand-build a compact Model Zoo showcase
+Build a small, walkable gallery by hand in the Places level editor. Place one example of every current editor-available model, prop, decal, wall texture, floor texture, light type, and other placeable asset or surface category. Group related models close together and use small wall and floor swatches. Keep aisles short and leave only the clearance needed to walk around and see each display. Avoid oversized rooms, empty wings, and long corridors.
+
+Treat it as a snapshot of the current catalog to show friends, not a test fixture. No automated placement, generated map edits, test suite, coverage checks, or automatic updates when the catalog changes. Save the editable map and export a standalone `.placesmap` separately; do not bundle it with the base game or put it in the default map list.
+
 ## Working rules and exclusions
 
 - One source writer at a time, one checkout per machine, fresh task context for distinct work where practical. Use the authorized dev branch; no force push, main/release work, or unrelated edits. The High setting was for the old pre-pause work; normal source implementation was Sol 6.2 Extra High unless changed, with an independent Sol 6.2 Medium static review for exact changes.
