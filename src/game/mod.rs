@@ -1520,7 +1520,7 @@ impl Game {
             if !water_resolved {
                 contacts.resolve_command(self, contact_origin);
             }
-            self.trigger_trace.point(self.trigger_feet(), 1.0);
+            self.finish_trigger_command(contacts.items());
             self.advance_step_eye(previous_feet, previously_grounded);
             if self.movement_accumulator + 1.0e-8_f64 >= tick {
                 contacts.prepare_next_command(self, contact_origin);
@@ -1560,7 +1560,41 @@ impl Game {
     /// A later constraint supersedes the provisional motion for this command.
     fn replace_trigger_command(&mut self, contact: Option<(Vec3, f64)>, arrival: f64) {
         self.trigger_trace
-            .replace_command(contact, self.trigger_feet(), arrival);
+            .replace_command(contact, self.trigger_feet(), arrival, false);
+    }
+
+    fn finish_trigger_command(&mut self, items: Option<&ItemWorld>) {
+        let mut trace = std::mem::take(&mut self.trigger_trace);
+        trace.finish_command(self.trigger_feet(), |from, to| {
+            self.trigger_segment_clear(from, to, items)
+        });
+        self.trigger_trace = trace;
+    }
+
+    fn trigger_segment_clear(&self, from: Vec3, to: Vec3, items: Option<&ItemWorld>) -> bool {
+        if from == to {
+            return true;
+        }
+        let from_xz = Vec2::new(from.x, from.z);
+        let to_xz = Vec2::new(to.x, to.z);
+        let lower = from.y.min(to.y);
+        let height = self.body_height() + (from.y - to.y).abs();
+        if !self.body_fits_with_height(Vec3::new(to.x, lower, to.z), height) {
+            return false;
+        }
+        if from_xz != to_xz
+            && crate::engine::collision::sweep_player_hull(
+                &self.horizontal_world(),
+                (from_xz, to_xz),
+                (lower, height, self.body_half()),
+                false,
+            )
+            .distance_squared(to_xz)
+                > 1.0e-10
+        {
+            return false;
+        }
+        items.is_none_or(|world| self.trigger_item_segment_clear(world, from, to))
     }
 
     /// Applies material traction to planar velocity, then uses the established

@@ -29,6 +29,8 @@ pub(super) struct CheckpointLoop {
     volume: String,
     entry_key: String,
     occupant: CheckpointOccupant,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    cue: Option<String>,
 }
 
 pub(super) struct PendingCheckpointLoop {
@@ -219,6 +221,7 @@ impl EntityWorld {
                     volume: self.id_of(owner.volume)?.to_string(),
                     entry_key: owner.entry_key.clone(),
                     occupant: volume.checkpoint_visit(&owner.visit)?,
+                    cue: Some(audio.sound.clone()),
                 })
             })
             .collect()
@@ -265,6 +268,12 @@ impl EntityWorld {
             else {
                 return Err("Checkpoint trigger loop is not playing".into());
             };
+            if let Some(cue) = &record.cue {
+                if cue.trim().is_empty() {
+                    return Err("Checkpoint trigger loop requires a sound cue".into());
+                }
+                audio.sound.clone_from(cue);
+            }
             audio.looped = true;
             pending.push(PendingCheckpointLoop {
                 emitter,

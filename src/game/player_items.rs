@@ -151,7 +151,9 @@ impl Game {
         if let Some(held_contact) = contact {
             if self.apply_held_item_contact(eye, &held_contact) {
                 let contact_feet = Vec3::new(eye.x, goal.feet.y + (eye.y - goal.eye.y), eye.z);
-                self.replace_trigger_command(
+                self.replace_item_trigger_command(
+                    world,
+                    goal.feet.y,
                     Some((contact_feet, f64::from(arrival))),
                     f64::from(held_contact.slide_fraction),
                 );
@@ -161,7 +163,55 @@ impl Game {
             self.apply_movement_constraint(eye);
         }
         if self.trigger_feet() != goal.feet {
-            self.replace_trigger_command(None, f64::from(arrival));
+            self.replace_item_trigger_command(world, goal.feet.y, None, f64::from(arrival));
+        }
+    }
+
+    fn replace_item_trigger_command(
+        &mut self,
+        world: &ItemWorld,
+        goal_y: f32,
+        contact: Option<(Vec3, f64)>,
+        arrival: f64,
+    ) {
+        let feet = self.trigger_feet();
+        let keep_vertical = feet.y.to_bits() == goal_y.to_bits()
+            && self
+                .trigger_trace
+                .vertical_range(goal_y)
+                .is_some_and(|(low, high)| {
+                    let lower = Vec3::new(feet.x, low, feet.z);
+                    self.body_fits_with_height(lower, self.body_height() + (high - low))
+                        && world
+                            .vertical_player_item_travel(
+                                self.trigger_item_context(lower),
+                                high - low,
+                                super::CONTACT_EPS,
+                            )
+                            .is_none()
+                });
+        self.trigger_trace
+            .replace_command(contact, feet, arrival, keep_vertical);
+    }
+
+    pub(super) fn trigger_item_segment_clear(
+        &self,
+        world: &ItemWorld,
+        from: Vec3,
+        to: Vec3,
+    ) -> bool {
+        let (_, arrival) = world.constrain_player_eye_from(
+            self.trigger_item_context(from),
+            self.trigger_item_context(to),
+        );
+        arrival >= 1.0
+    }
+
+    fn trigger_item_context(&self, feet: Vec3) -> PlayerContext {
+        PlayerContext {
+            feet,
+            eye: Vec3::new(feet.x, feet.y + self.eye_offset(), feet.z),
+            ..self.physical_player_context()
         }
     }
 

@@ -826,3 +826,199 @@ fn trigger_sampling_keeps_only_accepted_vertical_peaks() -> Result<(), String> {
     }
     Ok(())
 }
+
+// A single mixed command and one real Rapier step put the later player entry
+// ahead of the earlier item's volume in authored order. One open FIFO slot
+// distinguishes the solver chronology from a command-start planar timestamp.
+#[test]
+fn mixed_player_and_item_traces_compete_by_crossing_time() -> Result<(), String> {
+    use crate::engine::entities::TriggerItem;
+    use crate::engine::entities::events::{EventKind, EventQueue};
+    use crate::engine::physics::{BodyMotion, ItemWorld, PhysicsDef};
+
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level","format_version":1,"id":"mixed_trigger","name":"Mixed trigger",
+        "spawn":{"x":20,"z":30},
+        "rooms":[{"width":40,"depth":60,"height":6,"ceiling":{"kind":"open"}}],
+        "volumes":[
+            {"id":"player_zone","x":20.5,"z":29.5,"width":0.3,"depth":1,"bottom_y":0,"top_y":1},
+            {"id":"item_zone","x":4.18,"z":3.5,"width":0.3,"depth":1,"bottom_y":1,"top_y":2,
+                "filter":{"kind":"item"}}
+        ]
+    }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let mut game = airborne_trigger_game(&level, Vec3::new(20.0, 0.5, 30.0));
+    let mut items = ItemWorld::from_level(&level, &[]);
+    let half = Vec3::splat(0.05);
+    items.spawn(
+        1,
+        &PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            linear_damping: 0.0,
+            ..PhysicsDef::default()
+        },
+        (-half, half),
+        Vec3::new(4.0, 1.5, 4.0),
+        0.0,
+        1.0,
+    )?;
+    assert!(
+        items.set_fixture_velocity(1, Vec3::new(20.0, 0.0, 0.0), Vec3::ZERO),
+        "the item needs bounded travel across its volume"
+    );
+    items.sync_context(game.physical_player_context(), &[]);
+    game.update_player_movement_with_items(
+        &mut InputState::default(),
+        &Settings::default(),
+        &mut items,
+    );
+    assert!(
+        game.player_position.x > 20.5,
+        "the player reaches its volume late in the command"
+    );
+    items.step(VERTICAL_SUBSTEP, game.physical_player_context(), &[]);
+    let mut snapshot = None;
+    items.for_each_trigger_body(|body| snapshot = Some(body));
+    let body = snapshot.ok_or("missing moved item")?;
+    let item = TriggerItem {
+        key: body.key,
+        instance: "item",
+        asset: "fixture",
+        from: body.previous,
+        to: body.current,
+        half_extents: body.half_extents,
+        held: body.held,
+        sleeping: body.sleeping,
+        up_y: body.up_y,
+        path: Some(body.path()),
+        centre_path: Some(body.centre_path()),
+        path_times: Some(body.path_times()),
+    };
+    let item_zone = game
+        .world
+        .handle_of("item_zone")
+        .ok_or("missing item volume")?;
+    for _ in 0..EventQueue::MAX_QUEUED_EVENTS.saturating_sub(1) {
+        assert!(
+            game.world.emit(EventKind::Timer, item_zone, "", None),
+            "pre-existing backlog fits"
+        );
+    }
+    game.update_volume_occupants(&[item]);
+    assert_eq!(
+        game.world.events().dropped(),
+        1,
+        "only one crossing can be admitted"
+    );
+    let mut backlog = game.world.events().clone();
+    let admitted = std::iter::from_fn(|| backlog.pop())
+        .last()
+        .ok_or("missing admitted crossing")?;
+    assert_eq!(
+        (admitted.subject, admitted.kind),
+        (item_zone, EventKind::EnterVolume),
+        "the item crossed before the later player entry"
+    );
+    Ok(())
+}
+
+fn airborne_trigger_game(level: &LevelDef, feet: Vec3) -> Game {
+    let mut game = Game::new(
+        Vec3::new(feet.x, feet.y + EYE_HEIGHT, feet.z),
+        0.0,
+        CollisionWorld::from_level(level),
+    );
+    game.set_app_state(AppState::Playing);
+    game.set_feet_y(feet.y);
+    game.grounded = false;
+    game.horizontal_velocity = Vec2::new(40.0, 0.0);
+    game.vertical_velocity = super::super::GRAVITY * VERTICAL_SUBSTEP * 0.5;
+    game.world.seed_volumes(feet);
+    game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+    game
+}
+
+// A dormant side obstacle clips the planar endpoint without changing the
+// vertical endpoints. A low overhead at the clipped footprint is the control
+// for recording a speculative apex from the original clear footprint.
+#[test]
+fn side_only_prop_clip_keeps_the_apex_only_at_a_clear_footprint() -> Result<(), String> {
+    use crate::engine::physics::{BodyMotion, ItemWorld, PhysicsDef, ShapeDef};
+
+    let level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"prop_peak","name":"Prop peak",
+        "spawn":{"x":2,"z":2},
+        "rooms":[{"width":4,"depth":4,"height":6,"ceiling":{"kind":"open"}}],
+        "volumes":[{"id":"zone","x":1,"z":1,"width":2,"depth":2,"bottom_y":0,"top_y":0.5002,
+            "bindings":[
+                {"on":"exit_volume","actions":[{"action":"show_message","title":"exit","lines":["marker"]}]},
+                {"on":"enter_volume","actions":[{"action":"show_message","title":"reentry","lines":["marker"]}]}
+            ]}]
+    }"#).map_err(|error| error.to_string())?;
+    for blocked_apex in [false, true] {
+        let mut game = airborne_trigger_game(&level, Vec3::new(2.0, 0.5, 2.0));
+        if blocked_apex {
+            game.walls
+                .push(WallAabb::with_y(0.7, 2.3002, 1.0, 1.14, 0.2, 2.0));
+            game.collision_index =
+                crate::engine::collision::index::CollisionIndex::build(&game.walls);
+        }
+        let mut items = ItemWorld::default();
+        let half = Vec3::new(0.15, 0.2, 0.25);
+        items.spawn_authored(
+            2,
+            &PhysicsDef {
+                motion: BodyMotion::Dynamic,
+                shape: Some(ShapeDef::Cuboid {
+                    half_extents: half.to_array(),
+                }),
+                ..PhysicsDef::default()
+            },
+            (-half, half),
+            Vec3::new(2.70, 1.1, 2.0),
+            0.0,
+            1.0,
+        )?;
+        items.sync_context(game.physical_player_context(), &[]);
+        game.update_player_movement_with_items(
+            &mut InputState::default(),
+            &Settings::default(),
+            &mut items,
+        );
+        assert!(
+            (2.1..2.2).contains(&game.player_position.x),
+            "the dormant prop clips only the side"
+        );
+        assert!(
+            (game.feet_y() - 0.5).abs() < 1.0e-6,
+            "the command endpoints stay near the starting feet"
+        );
+        game.update_volume_occupants(&[]);
+        let messages: Vec<_> = game
+            .world
+            .take_commands()
+            .into_iter()
+            .filter_map(|command| {
+                if let crate::engine::entities::WorldCommand::ShowMessage { title, lines: _ } =
+                    command
+                {
+                    Some(title)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        let expected: &[&str] = if blocked_apex {
+            &[]
+        } else {
+            &["exit", "reentry"]
+        };
+        assert_eq!(
+            messages, expected,
+            "only a clear apex at the accepted footprint crosses"
+        );
+    }
+    Ok(())
+}

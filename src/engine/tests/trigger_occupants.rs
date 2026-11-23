@@ -778,12 +778,12 @@ fn checkpoint_reconnects_the_visit_that_owns_a_playing_loop() -> Result<(), Stri
         "schema":"places-level","format_version":1,"id":"saved_loop","name":"Saved loop",
         "spawn":{"x":-5,"z":-5},
         "props":[
-            {"id":"loop","model":"core:rubber_duck","components":[{"component":"audio","sound":"loop.test"}]},
+            {"id":"loop","model":"core:rubber_duck","components":[{"component":"audio","sound":"authored.loop"}]},
             {"id":"other","model":"core:rubber_duck","components":[{"component":"audio","sound":"other.test","looped":true,"playing":true}]}
         ],
         "volumes":[{"id":"zone","x":0,"z":0,"width":1,"depth":1,"bottom_y":0,"top_y":1,"occupancy":"per_actor",
             "bindings":[
-                {"on":"enter_volume","actions":[{"action":"play_sound","target":"loop","loop":true}]},
+                {"on":"enter_volume","actions":[{"action":"play_sound","target":"loop","sound":"runtime.loop","loop":true}]},
                 {"on":"exit_volume","actions":[{"action":"stop_sound","target":"loop"},{"action":"stop_sound","target":"other"}]}
             ]}]
     }"#).map_err(|error| error.to_string())?;
@@ -799,23 +799,45 @@ fn checkpoint_reconnects_the_visit_that_owns_a_playing_loop() -> Result<(), Stri
     restored.restore_checkpoint(&snapshot)?;
     restored.seed_volumes(inside);
     let commands = restored.take_commands();
+    let mut cues: Vec<_> = commands
+        .iter()
+        .filter_map(|command| {
+            if let WorldCommand::PlaySound {
+                sound,
+                looped: true,
+                entity: _,
+                gain: _,
+                time_domain: _,
+            } = command
+            {
+                Some(sound.as_str())
+            } else {
+                None
+            }
+        })
+        .collect();
+    cues.sort_unstable();
     assert_eq!(
-        commands
-            .iter()
-            .filter(|command| matches!(
-                command,
-                WorldCommand::PlaySound {
-                    looped: true,
-                    entity: _,
-                    sound: _,
-                    gain: _,
-                    time_domain: _
-                }
-            ))
-            .count(),
-        2,
-        "checkpoint publication starts both loops, including the runtime loop"
+        cues,
+        ["other.test", "runtime.loop"],
+        "restore must republish the actual visit cue and the independent authored cue"
     );
+
+    let mut previous = serde_json::to_value(&snapshot).map_err(|error| error.to_string())?;
+    let previous_loop = previous
+        .get_mut("trigger_loops")
+        .and_then(serde_json::Value::as_array_mut)
+        .and_then(|records| records.first_mut())
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or("missing serialized visit")?;
+    let _cue = previous_loop.remove("cue");
+    let older_snapshot = serde_json::from_value(previous).map_err(|error| error.to_string())?;
+    let mut legacy = EntityWorld::from_level(&level);
+    legacy.restore_checkpoint(&older_snapshot)?;
+    assert!(legacy.take_commands().iter().any(|command| matches!(
+        command, WorldCommand::PlaySound { sound, looped: true, entity: _, gain: _, time_domain: _ }
+            if sound == "authored.loop"
+    )), "ownership records saved before cue persistence must retain their authored fallback");
     let zone = restored.handle_of("zone").ok_or("missing restored zone")?;
     let owned = restored.handle_of("loop").ok_or("missing restored loop")?;
     let other = restored
