@@ -26,6 +26,22 @@ const CAMERA_RADIUS: f32 = 0.10;
 const OBSTRUCTED_SECONDS: f32 = 0.35;
 const AUTO_DROP_MARGIN: f32 = 0.5;
 
+#[derive(Clone, Copy)]
+pub enum HeldPlayerSlide {
+    Full,
+    Planar,
+}
+
+impl HeldPlayerSlide {
+    fn contact_normal(self, raw_normal: Vector) -> Vec3 {
+        let normal = point(raw_normal);
+        match self {
+            Self::Full => normal,
+            Self::Planar => Vec3::new(normal.x, 0.0, normal.z).normalize_or_zero(),
+        }
+    }
+}
+
 pub struct HeldPlayerContact {
     pub eye_after_slide: Vec3,
     pub normal: Vec3,
@@ -340,7 +356,7 @@ impl ItemWorld {
         let Some(previous) = runtime.last_player else {
             return player.eye;
         };
-        self.sweep_item_contact(runtime, previous, player, false).0
+        self.sweep_item_contact(runtime, previous, player, None).0
     }
 
     pub(crate) fn constrain_player_eye_from(
@@ -349,7 +365,7 @@ impl ItemWorld {
         player: PlayerContext,
     ) -> Vec3 {
         self.runtime.as_ref().map_or(player.eye, |runtime| {
-            self.sweep_item_contact(runtime, previous, player, false).0
+            self.sweep_item_contact(runtime, previous, player, None).0
         })
     }
 
@@ -413,9 +429,10 @@ impl ItemWorld {
         &self,
         previous: PlayerContext,
         player: PlayerContext,
+        slide: HeldPlayerSlide,
     ) -> (Vec3, Option<HeldPlayerContact>) {
         self.runtime.as_ref().map_or((player.eye, None), |runtime| {
-            self.sweep_item_contact(runtime, previous, player, true)
+            self.sweep_item_contact(runtime, previous, player, Some(slide))
         })
     }
 
@@ -424,7 +441,7 @@ impl ItemWorld {
         runtime: &Runtime,
         previous: PlayerContext,
         player: PlayerContext,
-        slide_on_held: bool,
+        slide_on_held: Option<HeldPlayerSlide>,
     ) -> (Vec3, Option<HeldPlayerContact>) {
         if !player.active || !previous.active || !player.valid() || !previous.valid() {
             return (player.eye, None);
@@ -468,8 +485,11 @@ impl ItemWorld {
         let travel = hit.time_of_impact.clamp(0.0, 1.0);
         let moved = scaled(motion, travel);
         let resolved_eye = add(subtract(player.eye, motion), moved);
-        if slide_on_held && held_key.is_some() && runtime.key_for_collider(handle) == held_key {
-            let normal = point(hit.normal1);
+        if let Some(slide_mode) = slide_on_held
+            && held_key.is_some()
+            && runtime.key_for_collider(handle) == held_key
+        {
+            let normal = slide_mode.contact_normal(hit.normal1);
             let remaining = scaled(motion, 1.0 - travel);
             let slide = subtract(remaining, scaled(normal, remaining.dot(normal).min(0.0)));
             // The slide can take a path the main controller hasn't swept.
@@ -484,7 +504,8 @@ impl ItemWorld {
                 Some(HeldPlayerContact {
                     eye_after_slide: add(resolved_eye, scaled(slide, slide_travel)),
                     normal,
-                    slide_normal: slide_hit.map(|obstacle| point(obstacle.normal1)),
+                    slide_normal: slide_hit
+                        .map(|obstacle| slide_mode.contact_normal(obstacle.normal1)),
                 }),
             )
         } else {

@@ -3,7 +3,7 @@
 use glam::{Vec2, Vec3};
 
 use super::{Game, InputState, Settings};
-use crate::engine::physics::{HeldPlayerContact, ItemWorld, PlayerContext};
+use crate::engine::physics::{HeldPlayerContact, HeldPlayerSlide, ItemWorld, PlayerContext};
 
 pub(super) enum PlayerContacts<'a> {
     External {
@@ -40,19 +40,12 @@ impl PlayerContacts<'_> {
 
     pub(super) fn resolve_command(&self, game: &mut Game, origin: Option<PlayerContext>) {
         if let (Self::Items(world), Some(command_start)) = (self, origin) {
-            let player = game.physical_player_context();
-            if world.held().is_some() {
-                let (eye, held_contact) = world.constrain_carried_player_eye(command_start, player);
-                if let Some(contact) = held_contact {
-                    game.apply_held_item_contact(eye, &contact);
-                } else {
-                    game.apply_movement_constraint(eye);
-                }
-            } else {
-                game.apply_movement_constraint(
-                    world.constrain_player_eye_from(command_start, player),
-                );
-            }
+            game.resolve_item_movement(
+                world,
+                command_start,
+                game.physical_player_context(),
+                HeldPlayerSlide::Full,
+            );
         } else {
             self.apply_frame_constraint(game);
         }
@@ -132,8 +125,27 @@ impl Game {
             feet: Vec3::new(origin.feet.x, goal.feet.y, origin.feet.z),
             ..goal
         };
-        self.apply_movement_constraint(world.constrain_player_eye_from(planar_origin, goal));
+        self.resolve_item_movement(world, planar_origin, goal, HeldPlayerSlide::Planar);
         true
+    }
+
+    fn resolve_item_movement(
+        &mut self,
+        world: &ItemWorld,
+        origin: PlayerContext,
+        goal: PlayerContext,
+        slide: HeldPlayerSlide,
+    ) {
+        if world.held().is_some() {
+            let (eye, contact) = world.constrain_carried_player_eye(origin, goal, slide);
+            if let Some(held_contact) = contact {
+                self.apply_held_item_contact(eye, &held_contact);
+            } else {
+                self.apply_movement_constraint(eye);
+            }
+        } else {
+            self.apply_movement_constraint(world.constrain_player_eye_from(origin, goal));
+        }
     }
 
     pub(super) fn rising_item_head_limit(

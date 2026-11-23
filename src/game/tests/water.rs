@@ -412,6 +412,149 @@ fn water_ascent_reaches_only_ceilings_over_the_accepted_footprint() -> Result<()
     Ok(())
 }
 
+// A real rim admits the first exit. A single dormant box appears during
+// the arc, so repeated forward input must remain a dive after the impact.
+// One basin and at most 42 commands exercise re-admission without a bake.
+#[test]
+fn dormant_overhang_at_a_real_rim_does_not_relaunch_a_diving_swimmer() -> Result<(), String> {
+    let level = basin()?;
+    let mut game = placed(&level, 6.0, -1.18, 11.59, std::f32::consts::PI);
+    let mut items = ItemWorld::default();
+    tick_with_items(
+        &mut game,
+        &mut items,
+        controls(&[Control::MoveForward, Control::Jump]),
+    );
+    assert!(
+        game.water_exit.is_some(),
+        "the open bank must admit an ordinary exit"
+    );
+
+    let player = game.physical_player_context();
+    let half = Vec3::new(0.6, 0.15, 0.65);
+    spawn_dormant_box(
+        &mut items,
+        1,
+        player.feet + Vec3::new(0.0, player.height + 0.025 + half.y, 0.0),
+        half,
+    )?;
+    let forward = controls(&[Control::MoveForward]);
+    tick_with_items(&mut game, &mut items, forward);
+    assert!(
+        game.ceiling_contact_this_frame
+            && game.water_exit.is_none()
+            && game.vertical_velocity <= 0.0
+            && game.water_depth_level() == 2,
+        "the active exit must hit the dormant underside and return to waist-deep water"
+    );
+
+    let impact_feet = game.feet_y;
+    game.player_pitch = -0.8;
+    for _ in 0..40_u8 {
+        tick_with_items(&mut game, &mut items, forward);
+        assert!(
+            game.water_exit.is_none()
+                && !game.ceiling_contact_this_frame
+                && game.vertical_velocity < 0.0,
+            "continued forward dive must not rearm the blocked exit"
+        );
+    }
+    assert!(
+        items.body_is_dormant(1) && game.feet_y < impact_feet - 0.45 && game.is_underwater(),
+        "the swimmer must dive back underwater with the same overhang still present"
+    );
+    Ok(())
+}
+
+// Two commands with an oblique approach distinguish a clipped path from a
+// held-item slide. A second box tests the newly reachable footprint. Dropping
+// before any solver step checks release inheritance from accepted movement.
+#[test]
+fn held_swim_ascent_slides_then_releases_with_accepted_velocity() -> Result<(), String> {
+    let level = basin()?;
+    for roof in [false, true] {
+        let mut game = placed(&level, 6.0, -1.5, 6.0, 0.0);
+        let start = game.physical_player_context();
+        let mut items = ItemWorld::default();
+        let half = Vec3::new(0.35, 0.2, 0.2);
+        items.spawn(
+            1,
+            &PhysicsDef {
+                motion: BodyMotion::Dynamic,
+                pickup: true,
+                shape: Some(ShapeDef::Cuboid {
+                    half_extents: half.to_array(),
+                }),
+                ..PhysicsDef::default()
+            },
+            (Vec3::new(-half.x, -half.y, -half.z), half),
+            start.feet + Vec3::new(0.0, 1.6, -(start.half + half.z + 0.02)),
+            0.0,
+            1.0,
+        )?;
+        if roof {
+            let roof_half = Vec3::new(0.2, 0.15, 0.3);
+            spawn_dormant_box(
+                &mut items,
+                2,
+                start.feet
+                    + Vec3::new(
+                        start.half + 0.017 + roof_half.x,
+                        start.height + 0.025 + roof_half.y,
+                        0.0,
+                    ),
+                roof_half,
+            )?;
+        }
+        items.sync_context(start, &[]);
+        assert!(
+            items.pickup(1, start.eye, start.view, start.yaw),
+            "fixture box must be held before the oblique approach"
+        );
+        game.horizontal_velocity = Vec2::new(1.8, -3.0);
+        tick_with_items(&mut game, &mut items, controls(&[Control::Jump]));
+
+        let accepted = game.physical_player_context();
+        let travel = accepted.feet - start.feet;
+        assert!(
+            travel.x > 0.02 && (-0.019..-0.005).contains(&travel.z),
+            "held side contact must keep the tangent and block inward motion: {travel:?}"
+        );
+        assert!(
+            items.player_pose_clear(accepted),
+            "the slide must remain clear"
+        );
+        assert_eq!(
+            game.ceiling_contact_this_frame, roof,
+            "only the underside reached by the accepted slide may stop ascent"
+        );
+        if roof {
+            assert!(
+                (0.02..0.025).contains(&travel.y) && game.vertical_velocity <= 0.0,
+                "the roof reached after sliding must stop ascent: {travel:?}"
+            );
+        } else {
+            assert!(
+                travel.y > 0.03 && game.vertical_velocity > 0.0,
+                "a held side contact alone must allow ascent: {travel:?}"
+            );
+        }
+
+        items.sync_context(accepted, &[]);
+        assert!(
+            game.drop_carried_item(&mut items),
+            "the clear held box must release"
+        );
+        let (_, velocity) = items.body_pose_velocity(1).ok_or("missing released box")?;
+        let inherited = (travel / VERTICAL_SUBSTEP).clamp_length_max(2.0);
+        assert!(
+            velocity.x > 0.8 && velocity.distance(inherited) < 1.0e-5,
+            "release must inherit the accepted tangent and ascent: {velocity:?}, {inherited:?}"
+        );
+    }
+    Ok(())
+}
+
 // A landing followed by a jump on one dormant box protects support across
 // movement commands. No solver steps, assets or external fixture are needed.
 #[test]

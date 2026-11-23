@@ -174,7 +174,7 @@ impl Game {
             }
         }
         // Check the ledge before rising across the waist waterline.
-        self.try_water_exit(move_dir);
+        self.try_water_exit(move_dir, items);
         if self.water_exit.is_none() {
             self.advance_swimming(delta, items);
         }
@@ -220,7 +220,7 @@ impl Game {
 
     /// A real near-surface ledge, forward intent and clear destination permit
     /// one bounded water jump. Backward entry and fast plunges never trigger it.
-    pub(super) fn try_water_exit(&mut self, move_dir: Vec3) {
+    fn try_water_exit(&mut self, move_dir: Vec3, items: Option<&ItemWorld>) {
         if self.water_depth_level() != 2 || self.vertical_velocity < -180.0 * SOURCE_METRES {
             return;
         }
@@ -256,6 +256,14 @@ impl Game {
         }) else {
             return;
         };
+        // At the rim, the feet need to rise to the deck before crossing it.
+        // A blocking item over that footprint also rules out a retry after an impact.
+        if self
+            .rising_item_head_limit(items, support_y - self.feet_y)
+            .is_some()
+        {
+            return;
+        }
         self.water_exit = Some(WaterExit {
             support_y,
             surface_y,
