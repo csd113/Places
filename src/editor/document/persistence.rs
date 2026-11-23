@@ -263,6 +263,24 @@ pub(in crate::editor) fn atomic_create(path: &Path, bytes: &[u8]) -> Result<(), 
     result
 }
 
+pub(super) fn atomic_create_by_rename(path: &Path, chunks: &[&[u8]]) -> Result<(), String> {
+    let parent = path.parent().ok_or("Source has no parent folder")?;
+    let (temporary, mut file) = reserve_temporary(parent)?;
+    let staged = (|| {
+        for bytes in chunks {
+            file.write_all(bytes)?;
+        }
+        file.sync_all()
+    })();
+    drop(file);
+    let result =
+        staged.and_then(|()| crate::engine::package::archive::rename_noreplace(&temporary, path));
+    if result.is_err() {
+        let _cleanup = fs::remove_file(&temporary);
+    }
+    result.map_err(|error| format!("Could not create {}: {error}", path.display()))
+}
+
 fn reserve_temporary(parent: &Path) -> Result<(PathBuf, File), String> {
     for _attempt in 0_u8..16 {
         let sequence = TEMP_SEQUENCE.fetch_add(1, Ordering::Relaxed);

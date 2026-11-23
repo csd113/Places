@@ -194,10 +194,15 @@ impl App {
         self.status = self.document.as_ref().map_or_else(
             || "Opened project".into(),
             |doc| {
-                format!(
-                    "Opened {} / {}",
-                    doc.project().manifest().name,
-                    doc.level_id()
+                doc.recovery_notice().map_or_else(
+                    || {
+                        format!(
+                            "Opened {} / {}",
+                            doc.project().manifest().name,
+                            doc.level_id()
+                        )
+                    },
+                    str::to_owned,
                 )
             },
         );

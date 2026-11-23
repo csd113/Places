@@ -54,6 +54,7 @@ pub struct Document {
     project: ProjectFolder,
     scripts: BTreeMap<String, scripts::ScriptDocument>,
     manifest_bytes: Vec<u8>,
+    recovery_notice: Option<String>,
     selected: LevelDocument,
     other_levels: BTreeMap<String, LevelDocument>,
     heap_budget: usize,
@@ -109,14 +110,21 @@ impl Document {
                 Ok(())
             }
         })?;
-        Ok(Self {
+        let mut document = Self {
             project,
             scripts: BTreeMap::new(),
             manifest_bytes,
+            recovery_notice: None,
             selected,
             other_levels: BTreeMap::new(),
             heap_budget,
-        })
+        };
+        document.recovery_notice = member_publication::recover(&mut document);
+        Ok(document)
+    }
+
+    pub(super) fn recovery_notice(&self) -> Option<&str> {
+        self.recovery_notice.as_deref()
     }
 
     /// Creates a new folder with one small floor/ceiling and a built-in light.

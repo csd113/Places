@@ -18,21 +18,12 @@ impl Document {
             source,
             crate::engine::level::MAX_LEVEL_JSON_BYTES,
         )?;
-        super::source::check_editable_source(&bytes)?;
-        let raw: serde_json::Value =
-            serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
-        let id = raw
-            .get("id")
-            .and_then(serde_json::Value::as_str)
-            .ok_or("Imported map needs an explicit stable ID")?;
-        let (level, _byte_count) = persistence::validate_raw(&raw, id)?;
-        if !level.scripts.is_empty() || !level.script_sources.is_empty() {
-            return Err("Standalone JSON import cannot resolve script dependencies; recover the owning project instead".into());
-        }
+        let level = member_publication::standalone_level(&bytes)?;
+        let id = &level.id;
         let mut manifest = self.manifest().clone();
         let target = ProjectPath::new(format!("levels/{id}.json"))?;
         manifest.levels.push(ProjectLevel {
-            id: id.into(),
+            id: id.to_owned(),
             source: target.clone(),
             display_name: level.name.clone(),
             description: String::new(),
@@ -46,7 +37,7 @@ impl Document {
         self.save_all()?;
         self.publish_member(&manifest, &target, &bytes, Some(&level))?;
         self.select_published_level(id)?;
-        Ok(id.into())
+        Ok(level.id)
     }
 
     /// Updates explicit permitted destinations in the ordinary per-level history.
@@ -203,7 +194,7 @@ impl Document {
         let mut manifest = self.manifest().clone();
         let source = ProjectPath::new(format!("levels/{id}.json"))?;
         manifest.levels.push(ProjectLevel {
-            id: id.into(),
+            id: id.to_owned(),
             source: source.clone(),
             display_name: String::new(),
             description: String::new(),
@@ -226,15 +217,7 @@ impl Document {
     ) -> Result<(), String> {
         let root = self.root().to_path_buf();
         let _writer = member_publication::lock(&root)?;
-        let levels = root.join("levels");
-        if !levels
-            .symlink_metadata()
-            .map_err(|error| error.to_string())?
-            .is_dir()
-            || std::fs::canonicalize(&levels).map_err(|error| error.to_string())? != levels
-        {
-            return Err("Levels directory must be a real directory inside this project".into());
-        }
+        member_publication::check_levels_directory(&root)?;
         let size = u64::try_from(bytes.len()).map_err(|error| error.to_string())?;
         let (candidate, manifest_bytes) = self.prepare_manifest(manifest, Some((source, size)))?;
         let path = root.join(source.as_str());
@@ -243,17 +226,32 @@ impl Document {
             Err(error) if error.kind() == std::io::ErrorKind::NotFound => {}
             Err(error) => return Err(format!("Could not inspect {}: {error}", path.display())),
         }
-        if let Some(level) = imported {
-            super::game_modes::publish_copy(&root, level)?;
-            persistence::atomic_create(&path, bytes)?;
-        } else {
-            persistence::write_unlisted_member(&path, bytes)?;
+        let member = manifest.levels.last().ok_or("Missing new project member")?;
+        member_publication::stage(&root, &self.manifest_bytes, &manifest_bytes, member, bytes)?;
+        let publication = (|| {
+            if let Some(level) = imported {
+                super::game_modes::publish_copy(&root, level)?;
+                persistence::atomic_create(&path, bytes)?;
+            } else {
+                persistence::write_unlisted_member(&path, bytes)?;
+            }
+            // Preserve the source when the current session cannot finish.
+            self.commit_manifest(candidate, manifest_bytes).map_err(|error| {
+                format!("{error}; level was not added to the project. Inspect the unlisted source at {} before retrying", path.display())
+            })
+        })();
+        let cleanup = member_publication::finish(&root);
+        match publication {
+            Ok(()) => {
+                // An already-committed record can be retired on the next open.
+                self.recovery_notice = cleanup.err();
+                Ok(())
+            }
+            Err(error) => match cleanup {
+                Ok(()) => Err(error),
+                Err(cleanup_error) => Err(format!("{error}; {cleanup_error}")),
+            },
         }
-        // A late failure leaves the exact source available for explicit
-        // recovery. A later operation still refuses an occupied destination.
-        self.commit_manifest(candidate, manifest_bytes).map_err(|error| {
-            format!("{error}; level was not added to the project. Inspect the unlisted source at {} before retrying", path.display())
-        })
     }
 
     fn select_published_level(&mut self, id: &str) -> Result<(), String> {
@@ -279,7 +277,7 @@ impl Document {
         Ok((candidate, bytes))
     }
 
-    fn check_manifest(&self) -> Result<(), String> {
+    pub(super) fn check_manifest(&self) -> Result<(), String> {
         if !self
             .root()
             .join(MANIFEST_NAME)
@@ -295,7 +293,11 @@ impl Document {
         Ok(())
     }
 
-    fn commit_manifest(&mut self, candidate: ProjectFolder, bytes: Vec<u8>) -> Result<(), String> {
+    pub(super) fn commit_manifest(
+        &mut self,
+        candidate: ProjectFolder,
+        bytes: Vec<u8>,
+    ) -> Result<(), String> {
         candidate.validate_files(None)?;
         self.check_manifest()?;
         persistence::atomic_replace(&self.root().join(MANIFEST_NAME), &bytes)?;

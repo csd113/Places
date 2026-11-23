@@ -2,6 +2,12 @@
 use std::fs::{self, File, OpenOptions, TryLockError};
 use std::path::Path;
 
+use super::{Document, persistence};
+use crate::engine::level::{LevelDef, MAX_LEVEL_JSON_BYTES};
+use crate::engine::package::hash::sha256_hex;
+use crate::engine::project::{MAX_MANIFEST_BYTES, ProjectLevel, read_bounded_file};
+use std::io;
+
 pub(super) fn lock(root: &Path) -> Result<File, String> {
     if fs::canonicalize(root).map_err(|error| error.to_string())? != root {
         return Err("Project root changed; reopen before editing membership".into());
@@ -74,4 +80,225 @@ fn check_regular(file: &File, path: &Path) -> Result<(), String> {
         ));
     }
     Ok(())
+}
+
+#[cfg(test)]
+#[path = "../tests/member_recovery.rs"]
+mod tests;
+
+const PENDING_NAME: &str = ".places-editor-pending-member";
+const RECORD_VERSION: u8 = 1;
+
+#[derive(serde::Deserialize, serde::Serialize)]
+#[serde(deny_unknown_fields)]
+struct PendingMember {
+    version: u8,
+    previous_manifest: String,
+    next_manifest: String,
+    source_digest: String,
+    member: ProjectLevel,
+}
+
+/// Store exact source bytes beside the intent so an interrupted import no
+/// longer depends on the original path or a completed source publication.
+pub(super) fn stage(
+    root: &Path,
+    before: &[u8],
+    after: &[u8],
+    member: &ProjectLevel,
+    source: &[u8],
+) -> Result<(), String> {
+    let record = PendingMember {
+        version: RECORD_VERSION,
+        previous_manifest: sha256_hex(before),
+        next_manifest: sha256_hex(after),
+        source_digest: sha256_hex(source),
+        member: member.clone(),
+    };
+    let header = serde_json::to_vec(&record).map_err(|error| error.to_string())?;
+    persistence::atomic_create_by_rename(&root.join(PENDING_NAME), &[&header, b"\n", source])
+}
+
+pub(super) fn finish(root: &Path) -> Result<(), String> {
+    let path = root.join(PENDING_NAME);
+    fs::remove_file(&path).map_err(|error| format!("Could not clear {}: {error}", path.display()))
+}
+
+pub(super) fn recover(document: &mut Document) -> Option<String> {
+    let path = document.root().join(PENDING_NAME);
+    if matches!(path.symlink_metadata(), Err(error) if error.kind() == io::ErrorKind::NotFound) {
+        return None;
+    }
+    match recover_pending(document, &path) {
+        Ok(true) => Some("Recovered a pending Add/Import".into()),
+        Ok(false) => None,
+        Err(error) => Some(format!(
+            "Pending Add/Import preserved at {}: {error}",
+            path.display()
+        )),
+    }
+}
+
+fn recover_pending(document: &mut Document, path: &Path) -> Result<bool, String> {
+    let root = document.root().to_path_buf();
+    let _writer = lock(&root)?;
+    let record = read_record(
+        path,
+        MAX_MANIFEST_BYTES.saturating_add(MAX_LEVEL_JSON_BYTES),
+    )?;
+    let (intent, source) = decode_record(&record)?;
+    document.check_manifest()?;
+    let current = sha256_hex(&document.manifest_bytes);
+    // The manifest replacement committed before the editor could clear the record.
+    if current == intent.next_manifest && document.manifest().levels.last() == Some(&intent.member)
+    {
+        finish(&root)?;
+        return Ok(false);
+    }
+    if current != intent.previous_manifest {
+        return Err("The project manifest changed since the operation began".into());
+    }
+
+    let member = &intent.member;
+    let level = standalone_level(source)?;
+    if member.id != level.id
+        || member.source.as_str() != format!("levels/{}.json", level.id)
+        || !member.scripts.is_empty()
+        || member.thumbnail.is_some()
+    {
+        return Err("The pending level does not match its project membership".into());
+    }
+    let mut manifest = document.manifest().clone();
+    manifest.levels.push(member.clone());
+    for destination in &level.transitions {
+        let _declared = manifest.level(Some(destination))?;
+    }
+    let bytes = serde_json::to_vec_pretty(&manifest).map_err(|error| error.to_string())?;
+    if sha256_hex(&bytes) != intent.next_manifest {
+        return Err("The proposed manifest no longer matches the pending operation".into());
+    }
+    let size = u64::try_from(source.len()).map_err(|error| error.to_string())?;
+    let candidate = document
+        .project
+        .with_manifest(&bytes, Some((&member.source, size)))?;
+    check_levels_directory(&root)?;
+    let destination = root.join(member.source.as_str());
+    let source_exists = check_source(&destination, source)?;
+
+    if level.game_mode.is_some() {
+        check_mode_path(&root, &level)?;
+        super::game_modes::publish_copy(&root, &level)?;
+    }
+    if !source_exists {
+        persistence::atomic_create_by_rename(&destination, &[source])?;
+    }
+    let (_, published, _) = candidate.read_level(Some(&member.id))?;
+    if published != source {
+        return Err("The level source changed during restart recovery".into());
+    }
+    document.commit_manifest(candidate, bytes)?;
+    finish(&root).map_err(|error| format!("Level recovered, but {error}"))?;
+    Ok(true)
+}
+
+pub(super) fn standalone_level(bytes: &[u8]) -> Result<LevelDef, String> {
+    super::source::check_editable_source(bytes)?;
+    let raw: serde_json::Value =
+        serde_json::from_slice(bytes).map_err(|error| error.to_string())?;
+    let id = raw
+        .get("id")
+        .and_then(serde_json::Value::as_str)
+        .ok_or("Imported map needs an explicit stable ID")?;
+    let (level, _byte_count) = persistence::validate_raw(&raw, id)?;
+    if !level.scripts.is_empty() || !level.script_sources.is_empty() {
+        return Err("Standalone JSON import cannot resolve script dependencies; recover the owning project instead".into());
+    }
+    Ok(level)
+}
+
+fn decode_record(record: &[u8]) -> Result<(PendingMember, &[u8]), String> {
+    let mut sections = record.splitn(2, |byte| *byte == b'\n');
+    let header = sections.next().ok_or("Missing pending member header")?;
+    let source = sections.next().ok_or("Missing pending member source")?;
+    if u64::try_from(header.len()).unwrap_or(u64::MAX) >= MAX_MANIFEST_BYTES
+        || u64::try_from(source.len()).unwrap_or(u64::MAX) > MAX_LEVEL_JSON_BYTES
+    {
+        return Err("Pending Add/Import exceeds its size limit".into());
+    }
+    let intent: PendingMember = serde_json::from_slice(header)
+        .map_err(|error| format!("Invalid pending member: {error}"))?;
+    if intent.version != RECORD_VERSION || sha256_hex(source) != intent.source_digest {
+        return Err("Pending Add/Import version or source digest does not match".into());
+    }
+    Ok((intent, source))
+}
+
+fn read_record(path: &Path, limit: u64) -> Result<Vec<u8>, String> {
+    let metadata = path.symlink_metadata().map_err(|error| error.to_string())?;
+    if !metadata.is_file() || is_reparse_point(&metadata) {
+        return Err(format!(
+            "Expected a regular project file at {}",
+            path.display()
+        ));
+    }
+    read_bounded_file(path, limit)
+}
+
+fn check_source(path: &Path, source: &[u8]) -> Result<bool, String> {
+    match path.symlink_metadata() {
+        Ok(_) if read_record(path, MAX_LEVEL_JSON_BYTES)? == source => Ok(true),
+        Ok(_) => Err(format!("Existing level source differs: {}", path.display())),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(false),
+        Err(error) => Err(format!("Could not inspect {}: {error}", path.display())),
+    }
+}
+
+pub(super) fn check_levels_directory(root: &Path) -> Result<(), String> {
+    check_directory(&root.join("levels"))
+}
+
+fn check_directory(path: &Path) -> Result<(), String> {
+    let metadata = path.symlink_metadata().map_err(|error| error.to_string())?;
+    if !metadata.is_dir()
+        || is_reparse_point(&metadata)
+        || fs::canonicalize(path).map_err(|error| error.to_string())? != path
+    {
+        return Err(format!(
+            "Expected a real directory inside this project at {}",
+            path.display()
+        ));
+    }
+    Ok(())
+}
+
+fn check_mode_path(root: &Path, level: &LevelDef) -> Result<(), String> {
+    let directory = root.join("game_modes");
+    match directory.symlink_metadata() {
+        Ok(_) => check_directory(&directory)?,
+        Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
+        Err(error) => return Err(error.to_string()),
+    }
+    let mode = crate::engine::game_mode::GameMode::from_level(level);
+    let path = root.join(mode.project_path()?.as_str());
+    match path.symlink_metadata() {
+        Ok(metadata) if metadata.is_file() && !is_reparse_point(&metadata) => Ok(()),
+        Ok(_) => Err(format!(
+            "Expected a regular game mode file at {}",
+            path.display()
+        )),
+        Err(error) if error.kind() == io::ErrorKind::NotFound => Ok(()),
+        Err(error) => Err(error.to_string()),
+    }
+}
+
+#[cfg(windows)]
+fn is_reparse_point(metadata: &fs::Metadata) -> bool {
+    use std::os::windows::fs::MetadataExt as _;
+    const REPARSE_POINT: u32 = 0x0000_0400;
+    metadata.file_attributes() & REPARSE_POINT != 0
+}
+
+#[cfg(not(windows))]
+fn is_reparse_point(metadata: &fs::Metadata) -> bool {
+    metadata.file_type().is_symlink()
 }
