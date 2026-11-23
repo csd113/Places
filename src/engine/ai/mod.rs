@@ -2563,7 +2563,7 @@ fn advance(
             // then re-ask on the cadence in case the world changed.
             goal_changed || door_changed || agent.path_age >= planner_interval
         };
-    if needs_path && reserve_path_query(agent, out) {
+    let plan = if needs_path && reserve_path_query(agent, out) {
         request_obstructed_closing_door(agent, ctx, out);
         let query = PathQuery {
             class,
@@ -2574,10 +2574,14 @@ fn advance(
             doors: ctx,
         };
         let bounds = agent.bounds();
-        let result = doors::plan(agent, nav, &query, trial, bounds, ctx, out);
+        doors::plan(agent, nav, &query, trial, bounds, ctx, out)
+    } else {
+        doors::Plan::Deferred
+    };
+    if !matches!(plan, doors::Plan::Deferred) {
         agent.path_door_version = ctx.door_version;
         let wander = agent.ordinary_wandering();
-        if let Ok(waiting_start) = result
+        if let doors::Plan::Ready(waiting_start) = plan
             && (!wander || wander_route_in_bounds(agent, trial))
         {
             let equivalent = waiting_start

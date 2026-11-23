@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use crate::engine::collision::{DoorCollider, door_segment_blocked};
 use crate::engine::door::{DoorPhase, DoorRuntime};
 use crate::engine::entities::id::EntityHandle;
-use crate::engine::nav::{NavBounds, NavDoorState, NavMesh, Path, PathQuery, PathResult};
+use crate::engine::nav::{NavBounds, NavDoorState, NavMesh, Path, PathQuery};
 
 use super::{AgentMove, AiAgent, AiOutcome, AiTickContext, MoveStep, PATH_RETRY_S, STUCK_SECONDS};
 use super::{actor_segment_clear, movement, reserve_path_query};
@@ -21,6 +21,7 @@ pub(super) struct Approach {
     waypoint: Vec3,
     stand_off: Option<Vec3>,
     stalled_since: Option<f32>,
+    live_retry_pending: bool,
 }
 
 impl Approach {
@@ -91,6 +92,13 @@ impl NavDoorState for OpeningDoor<'_> {
     }
 }
 
+#[derive(Debug)]
+pub(super) enum Plan {
+    Ready(Option<usize>),
+    Failed,
+    Deferred,
+}
+
 pub(super) fn plan(
     agent: &mut AiAgent,
     nav: &NavMesh,
@@ -99,8 +107,9 @@ pub(super) fn plan(
     bounds: Option<NavBounds>,
     ctx: &AiTickContext<'_>,
     out: &mut AiOutcome,
-) -> Result<Option<usize>, PathResult> {
+) -> Plan {
     if let Some(approach) = agent.opening_door.as_ref()
+        && !approach.live_retry_pending
         && let Some(&waypoint) = agent.path.waypoints.get(agent.current_waypoint)
         && current_door(agent, ctx, &agent.path, waypoint)
             .is_some_and(|door| approach.matches_leg(door, waypoint))
@@ -120,12 +129,17 @@ pub(super) fn plan(
         if result.is_ok()
             && let Some(start) = waiting_route_start(agent, approach, ctx, nav, trial)
         {
-            return Ok(Some(start));
+            return Plan::Ready(Some(start));
         }
         // The waiting plan is speculative. A replacement leg must be planned
         // with the live obstruction and must spend its own query budget.
         if !reserve_path_query(agent, out) {
-            return Err(PathResult::Unreachable);
+            if let Some(retained) = agent.opening_door.as_mut() {
+                // Spend the next slot on the live query, even if it is also
+                // the last slot. Repeating speculation could starve this route.
+                retained.live_retry_pending = true;
+            }
+            return Plan::Deferred;
         }
     }
     agent.opening_door = None;
@@ -134,8 +148,14 @@ pub(super) fn plan(
         doors: overlay.as_ref().map_or(query.doors, |doors| doors),
         ..*query
     };
-    nav.path_into_bounded(&opening_query, &mut agent.scratch, trial, bounds)?;
-    Ok(None)
+    if nav
+        .path_into_bounded(&opening_query, &mut agent.scratch, trial, bounds)
+        .is_ok()
+    {
+        Plan::Ready(None)
+    } else {
+        Plan::Failed
+    }
 }
 
 fn waiting_route_start(
@@ -286,6 +306,7 @@ pub(super) fn advance(
         waypoint,
         stand_off: None,
         stalled_since: None,
+        live_retry_pending: false,
     });
     agent.speed_mps = 0.0;
     let needs_retreat = !door.def.bidirectional

@@ -2,7 +2,10 @@
 //! steering with a stalled one-way leaf. Neither creates a map package.
 
 use super::*;
-use crate::engine::ai::{AiDef, AiWorld, local_move_step};
+use crate::engine::ai::{
+    AiBehavior, AiDef, AiState, AiWorld, MAX_PATH_QUERIES_PER_TICK, REPLAN_INTERVAL_S,
+    advance as advance_route, decide_wanderer, local_move_step,
+};
 use crate::engine::collision::WallAabb;
 use crate::engine::nav::NavAgentProfile;
 use crate::engine::tests::navigation_ai::door_retreat_fixture_with_detour;
@@ -83,6 +86,7 @@ fn waiting_replan_keeps_only_the_equivalent_door_leg() -> Result<(), String> {
         waypoint,
         stand_off: None,
         stalled_since: Some(0.25),
+        live_retry_pending: false,
     });
     let query = PathQuery {
         class: 0,
@@ -94,7 +98,7 @@ fn waiting_replan_keeps_only_the_equivalent_door_leg() -> Result<(), String> {
     };
     let mut out = AiOutcome::default();
     let mut trial = Path::new();
-    let start = plan(
+    let Plan::Ready(start) = plan(
         agent,
         &fixture.nav,
         &query,
@@ -102,8 +106,9 @@ fn waiting_replan_keeps_only_the_equivalent_door_leg() -> Result<(), String> {
         None,
         &ctx,
         &mut out,
-    )
-    .map_err(|error| format!("{error:?}"))?;
+    ) else {
+        return Err("the equivalent leg should keep waiting".into());
+    };
     assert_eq!(
         start.and_then(|slot| trial.waypoints.get(slot)).copied(),
         Some(waypoint)
@@ -129,33 +134,64 @@ fn waiting_replan_keeps_only_the_equivalent_door_leg() -> Result<(), String> {
         !changed_waypoint.abs_diff_eq(waypoint, movement::ARRIVE_RADIUS_M),
         "the same door must have a genuinely different crossing waypoint"
     );
-    let changed_query = PathQuery {
-        goal: new_goal,
-        ..query
-    };
-    let replacement = plan(
-        agent,
-        &fixture.nav,
-        &changed_query,
-        &mut trial,
-        None,
-        &ctx,
-        &mut out,
-    );
-    assert!(
-        matches!(replacement, Ok(None) | Err(PathResult::Unreachable))
-            && agent.opening_door.is_none(),
-        "a changed leg must use live-door planning, even when no detour is available: {replacement:?}"
-    );
-    assert!(
-        trial.door_requests.is_empty(),
-        "the fallback must respect the blocked swing"
-    );
-    assert_eq!(
-        out.path_queries, 1,
-        "the fallback spends a separate bounded query"
-    );
+    assert_last_slot_retry(agent, &ctx, new_goal, &mut trial)
+}
 
+fn assert_last_slot_retry(
+    agent: &mut AiAgent,
+    ctx: &AiTickContext<'_>,
+    goal: Vec3,
+    trial: &mut Path,
+) -> Result<(), String> {
+    agent.def.behavior = AiBehavior::Wanderer;
+    agent.def.idle_seconds = 0.25;
+    agent.state = AiState::Wander { destination: goal };
+    agent.path_goal = Some(goal);
+    agent.path_age = 1.0;
+    agent.path_door_version = ctx.door_version.wrapping_sub(1);
+    let previous_version = agent.path_door_version;
+    let previous_route = agent.path.clone();
+    let previous_waypoint = agent.current_waypoint;
+    let waiting = agent
+        .opening_door
+        .as_mut()
+        .ok_or("missing waiting approach")?;
+    waiting.stalled_since = Some(agent.clock);
+    let previous_stall = waiting.stalled_since;
+    let last_slot = || AiOutcome {
+        path_queries: MAX_PATH_QUERIES_PER_TICK.saturating_sub(1),
+        ..AiOutcome::default()
+    };
+    let mut first_tick = last_slot();
+    advance_route(agent, ctx, &mut first_tick, &HashMap::new(), trial);
+    assert_eq!(first_tick.path_queries, MAX_PATH_QUERIES_PER_TICK);
+    assert_eq!(agent.path, previous_route, "keep the active route");
+    assert_eq!(agent.current_waypoint, previous_waypoint);
+    assert_eq!(agent.path_goal, Some(goal));
+    assert_eq!(
+        agent.path_door_version, previous_version,
+        "keep the replan trigger"
+    );
+    assert!(agent.path_failed_at.is_none(), "no live query has failed");
+    let retained = agent
+        .opening_door
+        .as_ref()
+        .ok_or("deferred retry dropped the approach")?;
+    assert_eq!(retained.stalled_since, previous_stall);
+
+    agent.clock += REPLAN_INTERVAL_S;
+    let mut retry_tick = last_slot();
+    decide_wanderer(agent, ctx, &mut retry_tick);
+    assert_eq!(agent.state, AiState::Wander { destination: goal });
+    advance_route(agent, ctx, &mut retry_tick, &HashMap::new(), trial);
+    assert_eq!(retry_tick.path_queries, MAX_PATH_QUERIES_PER_TICK);
+    assert_eq!(agent.path_door_version, ctx.door_version);
+    assert_eq!(
+        agent.path_failed_at,
+        Some(agent.clock),
+        "only the live query may fail"
+    );
+    assert!(agent.opening_door.is_none() && agent.path.door_requests.is_empty());
     Ok(())
 }
 
@@ -184,6 +220,7 @@ fn changed_waypoint_through_the_same_door_starts_a_new_timeout() -> Result<(), S
         waypoint,
         stand_off: None,
         stalled_since: Some(0.25),
+        live_retry_pending: false,
     });
     let leaves = fixture.doors.colliders();
     let mut blocked_ctx = fixture.context(0.05, &[]);
