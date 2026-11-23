@@ -1175,7 +1175,7 @@ impl AiWorld {
 
     /// Shares a successful sequence pose with AI perception and renderer frames.
     /// Moving the feet invalidates a route from the old position; a pure turn
-    /// preserves it. A `Stay` sequence keeps any pending return until it succeeds.
+    /// preserves it. An active sequence keeps any pending return until it succeeds.
     pub(crate) fn apply_sequence_transform(
         &mut self,
         handle: EntityHandle,
@@ -1198,9 +1198,7 @@ impl AiWorld {
         agent.position = position;
         agent.yaw_degrees = yaw_degrees;
         if moved {
-            if after_move != Some(AfterMove::Stay)
-                && agent.after_script_move == Some(AfterMove::ReturnHome)
-            {
+            if after_move.is_none() && agent.after_script_move == Some(AfterMove::ReturnHome) {
                 agent.after_script_move = None;
                 if returning_to_post(agent) {
                     agent.state = AiState::Idle;
@@ -1977,7 +1975,7 @@ fn decide_script_release(agent: &mut AiAgent, out: &mut AiOutcome) {
                 && agent.position.distance(agent.home) <= POST_RETURN_M
             {
                 agent.after_script_move = None;
-            } else if returning || matches!(agent.state, AiState::Wander { destination: _ }) {
+            } else if returning || agent.ordinary_wandering() {
                 set_state(agent, AiState::Idle, out);
                 agent.wait_remaining = agent.def.idle_seconds;
             }
@@ -2576,11 +2574,14 @@ fn advance(
             doors: ctx,
         };
         let bounds = agent.bounds();
-        let result = doors::plan(agent, nav, &query, trial, bounds, ctx);
+        let result = doors::plan(agent, nav, &query, trial, bounds, ctx, out);
         agent.path_door_version = ctx.door_version;
         let wander = agent.ordinary_wandering();
-        if result.is_ok() && (!wander || wander_route_in_bounds(agent, trial)) {
-            let equivalent = equivalent_route_start(agent, trial, nav.grid().cell_m * 0.75);
+        if let Ok(waiting_start) = result
+            && (!wander || wander_route_in_bounds(agent, trial))
+        {
+            let equivalent = waiting_start
+                .or_else(|| equivalent_route_start(agent, trial, nav.grid().cell_m * 0.75));
             std::mem::swap(&mut agent.path, trial);
             agent.current_waypoint = equivalent.unwrap_or_default();
             if wander {
@@ -2868,6 +2869,12 @@ fn local_move_step(
         Some(state) => state,
         None => ctx,
     };
+    let segment_clear = |endpoint| {
+        leaving_portal
+            .as_ref()
+            .is_none_or(|exit| exit.allows_exit_segment(agent, endpoint))
+            && nav.segment_clear(class, agent.position, endpoint, nav_state, approach_door)
+    };
     // A long avoidance probe may leave a tight doorway's valid corridor even
     // though a short shoulder adjustment is safe. Try the ordinary horizon
     // first, then bounded within-cell corrections before abandoning the route.
@@ -2892,7 +2899,7 @@ fn local_move_step(
             };
             let probe = Vec3::new(x, y, z);
             if !agent.allows_position(probe)
-                || !nav.segment_clear(class, agent.position, probe, nav_state, approach_door)
+                || !segment_clear(probe)
                 || !actor_segment_clear(agent, agent.position, probe, ctx, actor_positions)
             {
                 continue;
@@ -2921,7 +2928,7 @@ fn local_move_step(
                 yaw_degrees: _,
                 speed_mps: _,
             } = result
-                && nav.segment_clear(class, agent.position, position, nav_state, approach_door)
+                && segment_clear(position)
                 && actor_segment_clear(agent, agent.position, position, ctx, actor_positions)
                 && agent.allows_position(position)
             {

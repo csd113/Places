@@ -785,7 +785,7 @@ fn cinematic_admission_bounds_and_optional_serialization() -> Result<(), String>
 }
 
 #[test]
-fn stay_supersedes_a_pending_return_only_after_successful_move() -> Result<(), String> {
+fn replacement_move_preserves_the_pending_return_until_success() -> Result<(), String> {
     let level = LevelDef::from_json(r#"{
         "schema":"places-level","format_version":1,"id":"stay","name":"Stay",
         "spawn":{"x":4.5,"z":2.5},"rooms":[{"width":5,"depth":3}],
@@ -795,6 +795,7 @@ fn stay_supersedes_a_pending_return_only_after_successful_move() -> Result<(), S
             {"id":"depart","steps":[{"step":"move","x":1.5,"z":1.5,"speed":2}]},
             {"id":"here","after_move":"stay","steps":[{"step":"move","x":1.5,"z":1.5,"speed":2}]},
             {"id":"blocked","after_move":"stay","steps":[{"step":"move","x":2.5,"z":1.5,"speed":2}]},
+            {"id":"default","steps":[{"step":"move","x":2.5,"z":1.5,"speed":2}]},
             {"id":"skipped","after_move":"stay","steps":[{"step":"stop"},{"step":"move","x":2.5,"z":1.5,"speed":2}]}]
     }"#).map_err(|error| error.to_string())?;
     let floor = WalkableFloor::from_level(&level);
@@ -805,7 +806,13 @@ fn stay_supersedes_a_pending_return_only_after_successful_move() -> Result<(), S
     ))?;
     let home = Vec3::new(0.5, 0.0, 1.5);
     let post = Vec3::new(1.5, 0.0, 1.5);
-    for next in ["here", "blocked", "skipped"] {
+    for (next, obstructed) in [
+        ("here", false),
+        ("blocked", true),
+        ("default", true),
+        ("default", false),
+        ("skipped", false),
+    ] {
         let mut world = EntityWorld::from_level(&level);
         start(&mut world, "actor", "depart");
         for _ in 0_u8..25 {
@@ -824,7 +831,7 @@ fn stay_supersedes_a_pending_return_only_after_successful_move() -> Result<(), S
             "the new move starts at its goal"
         );
 
-        if next == "blocked" {
+        if obstructed {
             world.set_navigation_obstacles(std::iter::once(
                 crate::engine::collision::WallAabb::with_y(2.0, 0.0, 0.0, 0.1, 2.9, 3.0),
             ));
@@ -839,12 +846,21 @@ fn stay_supersedes_a_pending_return_only_after_successful_move() -> Result<(), S
             furthest_x = furthest_x.max(actor.position.x);
         }
         let actor = world.ai().agent("actor").ok_or("missing actor")?;
-        if next == "blocked" {
+        if obstructed {
             assert!(
                 furthest_x > 1.55,
                 "the failed move must first displace the actor"
             );
             assert_eq!(completions, 0, "collision must cancel the sequence");
+        } else if next == "default" {
+            assert!(
+                furthest_x > 2.45,
+                "the replacement must reach its own destination"
+            );
+            assert_eq!(
+                completions, 1,
+                "the successful replacement must complete once"
+            );
         }
         let expected = if next == "here" { post } else { home };
         assert!(

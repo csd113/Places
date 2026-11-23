@@ -9,7 +9,11 @@ use crate::engine::entities::id::EntityHandle;
 use crate::engine::nav::{NavBounds, NavDoorState, NavMesh, Path, PathQuery, PathResult};
 
 use super::{AgentMove, AiAgent, AiOutcome, AiTickContext, MoveStep, PATH_RETRY_S, STUCK_SECONDS};
-use super::{actor_segment_clear, movement};
+use super::{actor_segment_clear, movement, reserve_path_query};
+
+#[cfg(test)]
+#[path = "../tests/door_approach.rs"]
+mod tests;
 
 #[derive(Debug)]
 pub(super) struct Approach {
@@ -17,6 +21,15 @@ pub(super) struct Approach {
     waypoint: Vec3,
     stand_off: Option<Vec3>,
     stalled_since: Option<f32>,
+}
+
+impl Approach {
+    fn matches_leg(&self, door: usize, waypoint: Vec3) -> bool {
+        self.door == door
+            && self
+                .waypoint
+                .abs_diff_eq(waypoint, movement::ARRIVE_RADIUS_M)
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
@@ -32,6 +45,12 @@ pub(super) struct OpeningDoor<'a> {
     ctx: &'a AiTickContext<'a>,
     door: &'a DoorRuntime,
     usage: PortalUse,
+}
+
+impl OpeningDoor<'_> {
+    pub(super) fn allows_exit_segment(&self, agent: &AiAgent, endpoint: Vec3) -> bool {
+        !crosses_leaf(agent, endpoint, &self.door.closed_collider())
+    }
 }
 
 impl NavDoorState for OpeningDoor<'_> {
@@ -79,24 +98,67 @@ pub(super) fn plan(
     trial: &mut Path,
     bounds: Option<NavBounds>,
     ctx: &AiTickContext<'_>,
-) -> Result<(), PathResult> {
-    let opening = agent
-        .opening_door
-        .as_ref()
-        .and_then(|approach| ctx.doors.get(approach.door))
-        .filter(|door| door.phase() == DoorPhase::Opening && !door.is_locked());
-    let overlay = opening
-        .map(|door| OpeningDoor {
+    out: &mut AiOutcome,
+) -> Result<Option<usize>, PathResult> {
+    if let Some(approach) = agent.opening_door.as_ref()
+        && let Some(&waypoint) = agent.path.waypoints.get(agent.current_waypoint)
+        && current_door(agent, ctx, &agent.path, waypoint)
+            .is_some_and(|door| approach.matches_leg(door, waypoint))
+        && let Some(door) = ctx.doors.get(approach.door)
+        && door.phase() == DoorPhase::Opening
+    {
+        let waiting = OpeningDoor {
             ctx,
             door,
             usage: PortalUse::Waiting,
-        })
-        .or_else(|| blocked_start_portal(ctx, nav, agent.position));
+        };
+        let waiting_query = PathQuery {
+            doors: &waiting,
+            ..*query
+        };
+        let result = nav.path_into_bounded(&waiting_query, &mut agent.scratch, trial, bounds);
+        if result.is_ok()
+            && let Some(start) = waiting_route_start(agent, approach, ctx, nav, trial)
+        {
+            return Ok(Some(start));
+        }
+        // The waiting plan is speculative. A replacement leg must be planned
+        // with the live obstruction and must spend its own query budget.
+        if !reserve_path_query(agent, out) {
+            return Err(PathResult::Unreachable);
+        }
+    }
+    agent.opening_door = None;
+    let overlay = blocked_start_portal(ctx, nav, agent.position);
     let opening_query = PathQuery {
         doors: overlay.as_ref().map_or(query.doors, |doors| doors),
         ..*query
     };
-    nav.path_into_bounded(&opening_query, &mut agent.scratch, trial, bounds)
+    nav.path_into_bounded(&opening_query, &mut agent.scratch, trial, bounds)?;
+    Ok(None)
+}
+
+fn waiting_route_start(
+    agent: &AiAgent,
+    approach: &Approach,
+    ctx: &AiTickContext<'_>,
+    nav: &NavMesh,
+    trial: &Path,
+) -> Option<usize> {
+    let projection = trial.waypoints.first()?;
+    trial
+        .waypoints
+        .iter()
+        .take(2)
+        .enumerate()
+        .find_map(|(index, &point)| {
+            let reachable_start =
+                index == 0 || projection.distance(agent.position) <= nav.grid().cell_m * 0.75;
+            (reachable_start
+                && current_door(agent, ctx, trial, point)
+                    .is_some_and(|door| approach.matches_leg(door, point)))
+            .then_some(index)
+        })
 }
 
 /// Permit a detour to start inside a blocked portal. The closed throat stays
@@ -134,11 +196,16 @@ fn crosses_leaf(agent: &AiAgent, waypoint: Vec3, leaf: &DoorCollider) -> bool {
     )
 }
 
-fn current_door(agent: &AiAgent, ctx: &AiTickContext<'_>, waypoint: Vec3) -> Option<usize> {
+fn current_door(
+    agent: &AiAgent,
+    ctx: &AiTickContext<'_>,
+    path: &Path,
+    waypoint: Vec3,
+) -> Option<usize> {
     if !agent.profile.can_open_doors {
         return None;
     }
-    agent.path.door_requests.iter().find_map(|id| {
+    path.door_requests.iter().find_map(|id| {
         let index = ctx.doors.index_of(id)?;
         let door = ctx.doors.get(index)?;
         (!door.is_locked()
@@ -200,7 +267,7 @@ pub(super) fn advance(
     speed: f32,
     out: &mut AiOutcome,
 ) -> bool {
-    let Some(index) = current_door(agent, ctx, waypoint) else {
+    let Some(index) = current_door(agent, ctx, &agent.path, waypoint) else {
         agent.opening_door = None;
         return false;
     };
@@ -210,7 +277,7 @@ pub(super) fn advance(
     let previously_waiting = agent
         .opening_door
         .take()
-        .filter(|approach| approach.door == index);
+        .filter(|approach| approach.matches_leg(index, waypoint));
     if previously_waiting.is_none() {
         agent.reset_stuck();
     }
@@ -220,13 +287,6 @@ pub(super) fn advance(
         stand_off: None,
         stalled_since: None,
     });
-    if !approach
-        .waypoint
-        .abs_diff_eq(waypoint, movement::ARRIVE_RADIUS_M)
-    {
-        approach.waypoint = waypoint;
-        approach.stand_off = None;
-    }
     agent.speed_mps = 0.0;
     let needs_retreat = !door.def.bidirectional
         && (door.opening_sweep_overlaps(

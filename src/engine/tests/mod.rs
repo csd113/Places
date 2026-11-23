@@ -17,7 +17,7 @@ mod gameplay_authoring;
 mod held_auto_drop;
 mod held_obstacle;
 mod level_import;
-mod navigation_ai;
+pub(super) mod navigation_ai;
 mod package_loading;
 mod paths;
 mod physics_clock;

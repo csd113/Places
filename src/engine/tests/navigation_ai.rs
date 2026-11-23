@@ -74,14 +74,14 @@ pub(super) fn grid(width: u32, depth: u32, walkable: &[usize]) -> NavGrid {
     }
 }
 
-struct Fixture {
-    nav: NavMesh,
-    doors: Doors,
+pub(in crate::engine) struct Fixture {
+    pub(in crate::engine) nav: NavMesh,
+    pub(in crate::engine) doors: Doors,
     index: CollisionIndex,
     floor: WalkableFloor,
     ceiling: WalkableCeiling,
     walls: Vec<WallAabb>,
-    obstacles: Vec<WallAabb>,
+    pub(in crate::engine) obstacles: Vec<WallAabb>,
     targets: Vec<AiTarget>,
     noises: Vec<crate::engine::ai::AiStimulus>,
 }
@@ -101,7 +101,11 @@ impl Fixture {
         })
     }
 
-    fn context<'a>(&'a self, delta: f32, scripted: &'a [EntityHandle]) -> AiTickContext<'a> {
+    pub(in crate::engine) fn context<'a>(
+        &'a self,
+        delta: f32,
+        scripted: &'a [EntityHandle],
+    ) -> AiTickContext<'a> {
         AiTickContext {
             delta,
             sim_time: 0.0,
@@ -1109,7 +1113,7 @@ fn predator_search_deadline_uses_observations_and_completed_routes() -> Result<(
         wander_radius: 0.65,
         ..AiDef::default()
     };
-    let _handle = register(&mut world, 0, def.clone(), Vec3::new(4.5, 0.0, 4.5));
+    let handle = register(&mut world, 0, def.clone(), Vec3::new(4.5, 0.0, 4.5));
     let seen = Vec3::new(4.5, 0.0, 6.5);
     f.targets.push(AiTarget {
         handle: crate::engine::ai::PLAYER_TARGET_HANDLE,
@@ -1168,20 +1172,29 @@ fn predator_search_deadline_uses_observations_and_completed_routes() -> Result<(
             .distance(turn * seen + Vec3::new(20.0, 0.0, 0.0))
             < 0.001
     );
-    let search_start = searching.position;
+    let mut stay_position = None;
     let mut moved_beyond_roam = false;
-    for _ in 0_u8..24 {
+    for _ in 0_u8..40 {
         let mut out = AiOutcome::default();
         world.tick(&f.context(0.05, &[]), &mut out);
         let actor = world.agent("agent_0").ok_or("searching actor")?;
-        moved_beyond_roam |= matches!(actor.state, AiState::Wander { destination: _ })
-            && actor.position.distance(search_start) > 0.15
-            && (actor.position.x - actor.home.x).hypot(actor.position.z - actor.home.z) > 0.65
-            && !out.moved.is_empty();
+        let on_search_leg =
+            matches!(actor.state, AiState::Wander { destination: next } if next == destination);
+        let outside_roam =
+            (actor.position.x - actor.home.x).hypot(actor.position.z - actor.home.z) > 0.65;
+        if let Some(held_position) = stay_position {
+            moved_beyond_roam |= on_search_leg
+                && outside_roam
+                && actor.position.distance(held_position) > 0.15
+                && !out.moved.is_empty();
+        } else if on_search_leg && outside_roam {
+            stay_position = Some(actor.position);
+            world.complete_script_move(handle, crate::engine::entities::sequences::AfterMove::Stay);
+        }
     }
     assert!(
         moved_beyond_roam,
-        "the lost-target search must actually walk beyond the roam radius"
+        "Stay must leave the active lost-target search leg walking beyond the roam radius"
     );
     Ok(())
 }
@@ -1370,7 +1383,7 @@ fn door_retreat_fixture() -> Result<Fixture, String> {
     door_retreat_fixture_with_detour(false)
 }
 
-fn door_retreat_fixture_with_detour(detour: bool) -> Result<Fixture, String> {
+pub(in crate::engine) fn door_retreat_fixture_with_detour(detour: bool) -> Result<Fixture, String> {
     let mut level = LevelDef::from_json(
         r#"{"schema":"places-level","format_version":1,"id":"retreat","name":"Retreat",
          "spawn":{"x":0.5,"z":0.5},"rooms":[{"x":0,"z":0,"width":6,"depth":4}],
