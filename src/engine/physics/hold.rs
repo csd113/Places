@@ -218,6 +218,13 @@ fn carry_waypoint(
     }
 }
 
+fn blocking_player_item(runtime: &Runtime, handle: ColliderHandle, key: u64, frozen: bool) -> bool {
+    runtime.entries.get(&key).is_some_and(|entry| {
+        entry.collider == handle
+            && (frozen || entry.dormant || runtime.held.as_ref().is_some_and(|held| held.key == key))
+    })
+}
+
 impl ItemWorld {
     /// A tool contact applies the existing throw-strength mass curve at the
     /// contact point. It neither picks up the body nor changes inventory.
@@ -336,6 +343,70 @@ impl ItemWorld {
         self.sweep_item_contact(runtime, previous, player, false).0
     }
 
+    pub(crate) fn constrain_player_eye_from(
+        &self,
+        previous: PlayerContext,
+        player: PlayerContext,
+    ) -> Vec3 {
+        self.runtime.as_ref().map_or(player.eye, |runtime| {
+            self.sweep_item_contact(runtime, previous, player, false).0
+        })
+    }
+
+    /// Sweeps the accepted footprint straight up or down against blocking
+    /// items. An exact cast keeps lateral contact skin from acting as a roof.
+    pub(crate) fn vertical_player_item_travel(
+        &self,
+        player: PlayerContext,
+        travel: f32,
+        min_normal_y: f32,
+    ) -> Option<f32> {
+        let runtime = self.runtime.as_ref()?;
+        if !player.active || !player.valid() || travel == 0.0 {
+            return None;
+        }
+        let hull = Cuboid::new(Vector::new(player.half, player.height * 0.5, player.half));
+        let center = Vec3::new(
+            player.feet.x,
+            player.height.mul_add(0.5, player.feet.y),
+            player.feet.z,
+        );
+        let start = pose(center, Quat::IDENTITY);
+        let delta = vector(Vec3::new(0.0, travel, 0.0));
+        let end = translated_pose(&start, delta, 1.0);
+        let bounds = hull.compute_aabb(&start).merged(&hull.compute_aabb(&end));
+        let clock = self.simulation_state();
+        let frozen = clock.paused || clock.time_scale <= 0.0;
+        let blocking = |handle, _collider: &Collider| {
+            runtime
+                .key_for_collider(handle)
+                .is_some_and(|key| blocking_player_item(runtime, handle, key, frozen))
+        };
+        let filter = query_filter()
+            .exclude_rigid_body(runtime.player)
+            .predicate(&blocking);
+        let options = ShapeCastOptions {
+            max_time_of_impact: 1.0,
+            stop_at_penetration: false,
+            ..ShapeCastOptions::default()
+        };
+        runtime
+            .world
+            .intersect_aabb_conservative(bounds, filter)
+            .filter_map(|(_, obstacle)| {
+                let hit = cast_shapes(
+                    &start, delta, &hull, obstacle.position(), Vector::ZERO, obstacle.shape(), options,
+                )
+                .ok()
+                .flatten()?;
+                // Local normal1 points from the unrotated player toward the item.
+                (hit.normal1.y * travel.signum() > min_normal_y)
+                    .then_some(hit.time_of_impact.clamp(0.0, 1.0))
+            })
+            .min_by(f32::total_cmp)
+            .map(|fraction| fraction * travel)
+    }
+
     /// Uses the resolved start of this command and the carry pose swept by
     /// earlier commands in the same frame. The item solver owns the live pose.
     pub(crate) fn constrain_carried_player_eye(
@@ -377,12 +448,9 @@ impl ItemWorld {
         let sweep = |center, delta, sliding| {
             let blocking = |handle, collider: &Collider| {
                 collider.is_enabled()
-                    && runtime.key_for_collider(handle).map_or(sliding, |key| {
-                        runtime.entries.get(&key).is_some_and(|entry| {
-                            entry.collider == handle
-                                && (frozen || entry.dormant || held_key == Some(key))
-                        })
-                    })
+                    && runtime
+                        .key_for_collider(handle)
+                        .map_or(sliding, |key| blocking_player_item(runtime, handle, key, frozen))
             };
             runtime.world.cast_shape(
                 &pose(center, Quat::IDENTITY),

@@ -46,6 +46,7 @@ use crate::engine::level::{
     WaterSample, WaterVolumes,
 };
 use crate::engine::materials::GroundSurface;
+use crate::engine::physics::ItemWorld;
 use crate::engine::scene::{LocomotionSnapshot, LocomotionState};
 use crate::game::input::{Control, InputState};
 use crate::game::settings::Settings;
@@ -1486,7 +1487,8 @@ impl Game {
             }
             self.advance_eye_offset(VERTICAL_SUBSTEP);
             let start = Vec3::new(self.player_position.x, self.feet_y, self.player_position.z);
-            self.update_locomotion_step(&command, settings, VERTICAL_SUBSTEP);
+            let water_resolved =
+                self.update_locomotion_step(&command, settings, VERTICAL_SUBSTEP, contacts.items());
             let proposed = self.movement_debug.then(|| {
                 Vec2::new(
                     self.player_position.x - start.x,
@@ -1494,7 +1496,9 @@ impl Game {
                 )
             });
             rig_sample = Some((start, proposed));
-            contacts.resolve_command(self, contact_origin);
+            if !water_resolved {
+                contacts.resolve_command(self, contact_origin);
+            }
             self.advance_step_eye(previous_feet, previously_grounded);
             if self.movement_accumulator + 1.0e-8_f64 >= tick {
                 contacts.prepare_next_command(self, contact_origin);
@@ -1617,7 +1621,13 @@ impl Game {
 
     /// One short locomotion interval, with current contacts and velocity.
     /// Input edges, stance, looking and doors remain frame-owned.
-    fn update_locomotion_step(&mut self, input: &InputState, settings: &Settings, delta: f32) {
+    fn update_locomotion_step(
+        &mut self,
+        input: &InputState,
+        settings: &Settings,
+        delta: f32,
+        items: Option<&ItemWorld>,
+    ) -> bool {
         // Rim contact is recomputed for this locomotion interval.
         self.pressed_exit_support = None;
 
@@ -1655,12 +1665,11 @@ impl Game {
         if self.update_ladder(move_dir, jump_pressed, delta, settings) {
             self.horizontal_velocity = Vec2::ZERO;
             self.ice_airborne = false;
-            return;
+            return false;
         }
 
         if self.water_exit.is_some() {
-            let _distance = self.advance_water_exit(delta);
-            return;
+            return self.advance_water_exit(delta, items);
         }
         let before_sample = self.water.sample(
             self.player_position.x,
@@ -1672,7 +1681,7 @@ impl Game {
             self.climbing = None;
             self.water_velocity(input, settings, delta);
         } else {
-            self.refresh_ground_support();
+            self.refresh_command_support(items);
         }
         let on_ice = !self.swimming
             && self.grounded
@@ -1700,27 +1709,16 @@ impl Game {
             self.grounded = false;
             self.vertical_accumulator = 0.0;
         }
+        let swim_origin = self.physical_player_context();
         let _distance = self.move_on_surface(move_dir, settings, delta, before_sample, on_ice);
-        let after_sample = self.water.sample(
-            self.player_position.x,
-            self.player_position.z,
-            self.feet_y(),
-        );
-        let now_swimming = self.deep_water_under(after_sample);
-        if now_swimming {
-            if !self.swimming {
-                self.swimming = true;
-                self.water_velocity(input, settings, delta);
-            }
-            // The ledge check precedes vertical rise, like the reference: a
-            // held rise may otherwise cross the waist boundary before it runs.
-            self.try_water_exit(move_dir);
-            if self.water_exit.is_none() {
-                self.advance_swimming(delta);
-            }
+        if let Some(water_resolved) =
+            self.finish_swim_command(input, settings, delta, items, swim_origin, move_dir)
+        {
+            water_resolved
         } else {
             self.swimming = false;
-            self.land_vertical(false);
+            self.land_vertical(false, items);
+            false
         }
     }
 
@@ -3089,9 +3087,9 @@ impl Game {
     /// Vertical step for a grounded or airborne player: the grounded snap, a
     /// launch on a fresh Jump press, and bounded-interval gravity integration
     /// while airborne.
-    fn land_vertical(&mut self, jump_pressed: bool) {
+    fn land_vertical(&mut self, jump_pressed: bool, items: Option<&ItemWorld>) {
         if self.grounded {
-            self.refresh_ground_support();
+            self.refresh_command_support(items);
         }
         if self.grounded {
             self.set_feet_y(self.player_floor_y);
@@ -3125,10 +3123,15 @@ impl Game {
     /// Returns what the substep resolved to: still airborne, landed, or a
     /// ceiling bump.
     fn integrate_vertical_substep(&mut self, delta: f32) -> VerticalStep {
-        self.integrate_vertical_with_gravity(delta, GRAVITY)
+        self.integrate_vertical_with_gravity(delta, GRAVITY, None)
     }
 
-    fn integrate_vertical_with_gravity(&mut self, delta: f32, gravity: f32) -> VerticalStep {
+    fn integrate_vertical_with_gravity(
+        &mut self,
+        delta: f32,
+        gravity: f32,
+        items: Option<&ItemWorld>,
+    ) -> VerticalStep {
         let height = self.body_height();
         let start_feet = self.feet_y;
         let initial_velocity = self.vertical_velocity;
@@ -3149,7 +3152,11 @@ impl Game {
         // horizontal pass from re-reading the same box as a wall at the
         // contact plane.
         if initial_velocity > 0.0
-            && let Some(limit) = self.head_limit(start_feet)
+            && let Some(limit) = self
+                .head_limit(start_feet)
+                .into_iter()
+                .chain(self.rising_item_head_limit(items, peak_rise))
+                .min_by(f32::total_cmp)
             && start_feet + height <= limit + CONTACT_EPS
             && start_feet + peak_rise + height > limit - CONTACT_EPS
         {

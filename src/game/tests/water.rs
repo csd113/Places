@@ -1,10 +1,13 @@
 //! Essential CPU regressions for water depth/input, entry momentum, exits and
 //! timestep stability. One 12 m basin and a short bank, no assets or map bake;
 //! a few thousand controller ticks replace a costly full-map test campaign.
-use crate::engine::level::LevelDef;
+use crate::engine::level::{LadderDef, LevelDef};
+use crate::engine::physics::{BodyMotion, ItemWorld, PhysicsDef, ShapeDef};
 use crate::game::input::{Control, ScriptedHold};
-use crate::game::{CollisionWorld, EYE_HEIGHT, Game, InputState, Settings};
-use glam::Vec3;
+use crate::game::{
+    AppState, CollisionWorld, EYE_HEIGHT, Game, InputState, Settings, VERTICAL_SUBSTEP, WaterExit,
+};
+use glam::{Vec2, Vec3};
 
 fn basin() -> Result<LevelDef, String> {
     LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"water_test","name":"Water test",
@@ -21,6 +24,7 @@ fn placed(level: &LevelDef, x: f32, feet: f32, z: f32, yaw: f32) -> Game {
         yaw,
         CollisionWorld::from_level(level),
     );
+    game.set_app_state(AppState::Playing);
     game.player_position.x = x;
     game.player_position.z = z;
     game.set_feet_y(feet);
@@ -221,6 +225,15 @@ fn ramp_and_checked_ledge_exit_use_real_support_without_reentry_or_reset() -> Re
         covered.player_position.z < 11.61 && covered.feet_y + covered.body_height() <= 1.001,
         "a refused exit must preserve the actual rim and head contacts"
     );
+    let before_dive = covered.feet_y;
+    covered.player_pitch = -0.8;
+    for _ in 0_u16..60 {
+        tick(&mut covered, &forward, 1.0 / 120.0);
+    }
+    assert!(
+        covered.water_exit.is_none() && covered.feet_y < before_dive - 0.2,
+        "after the exit is refused, looking down and swimming must still dive"
+    );
     Ok(())
 }
 
@@ -283,5 +296,183 @@ fn maximum_authored_rim_remains_reachable_by_a_standing_swimmer() -> Result<(), 
         game.grounded && game.player_position.z > 12.1 && (game.feet_y - 0.35).abs() < 0.002,
         "the standing swimmer must clear the documented maximum waterline rim"
     );
+    Ok(())
+}
+
+fn spawn_dormant_box(
+    items: &mut ItemWorld,
+    key: u64,
+    center: Vec3,
+    half: Vec3,
+) -> Result<(), String> {
+    items.spawn_authored(
+        key,
+        &PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            shape: Some(ShapeDef::Cuboid {
+                half_extents: half.to_array(),
+            }),
+            ..PhysicsDef::default()
+        },
+        (Vec3::new(-half.x, -half.y, -half.z), half),
+        center,
+        0.0,
+        1.0,
+    )
+}
+
+fn tick_with_items(game: &mut Game, items: &mut ItemWorld, mut input: InputState) {
+    items.sync_context(game.physical_player_context(), &[]);
+    game.sim_delta_seconds = VERTICAL_SUBSTEP;
+    game.update_player_movement_with_items(&mut input, &Settings::default(), items);
+}
+
+// One command per case, with one or two dormant boxes. A side hit precedes
+// the possible underside, exercising the accepted path that a room-roof
+// clamp or a single diagonal cast cannot distinguish. No solver or map bake.
+#[test]
+fn water_ascent_reaches_only_ceilings_over_the_accepted_footprint() -> Result<(), String> {
+    let level = basin()?;
+    for exiting in [false, true] {
+        for (side, roof, ceiling) in [
+            (true, None, false),
+            (true, Some(0.0), true),
+            (true, Some(0.014), false),
+            (false, Some(0.0), true),
+        ] {
+            let mut game = placed(&level, 6.0, -1.25, 6.0, 0.0);
+            let start = game.physical_player_context();
+            let mut items = ItemWorld::default();
+            if side {
+                let half = Vec3::new(0.2, 0.75, 0.3);
+                spawn_dormant_box(
+                    &mut items,
+                    1,
+                    start.feet + Vec3::new(start.half + 0.009 + half.x, 0.65, 0.0),
+                    half,
+                )?;
+            }
+            let underside_rise = 0.025;
+            if let Some(overhang) = roof {
+                let half = Vec3::new(0.2, 0.15, 0.3);
+                let x = if overhang > 0.0 {
+                    start.half + overhang + half.x
+                } else {
+                    0.0
+                };
+                spawn_dormant_box(
+                    &mut items,
+                    2,
+                    start.feet + Vec3::new(x, start.height + underside_rise + half.y, 0.0),
+                    half,
+                )?;
+            }
+            game.horizontal_velocity = Vec2::new(2.0, 0.0);
+            game.vertical_velocity = 4.0;
+            if exiting {
+                game.water_exit = Some(WaterExit {
+                    support_y: 0.0,
+                    surface_y: -0.15,
+                    direction: Vec2::X,
+                    remaining: 2.0,
+                });
+            }
+            tick_with_items(
+                &mut game,
+                &mut items,
+                controls(&[Control::StrafeRight, Control::Jump]),
+            );
+            let rise = game.feet_y - start.feet.y;
+            assert_eq!(
+                game.ceiling_contact_this_frame, ceiling,
+                "wrong ceiling at exiting={exiting}, side={side}, roof={roof:?}, rise={rise}"
+            );
+            if side {
+                assert!(
+                    game.player_position.x < start.feet.x + 0.008,
+                    "the near side must block the planar approach"
+                );
+            }
+            if ceiling {
+                assert!(
+                    (0.02..=underside_rise).contains(&rise)
+                        && game.vertical_velocity <= 0.0
+                        && game.water_exit.is_none(),
+                    "reachable underside must consume ascent and end any exit, rise={rise}"
+                );
+            } else {
+                assert!(
+                    rise > underside_rise && game.vertical_velocity > 0.0,
+                    "side contact must retain available ascent, rise={rise}"
+                );
+                assert_eq!(game.water_exit.is_some(), exiting);
+            }
+        }
+    }
+    Ok(())
+}
+
+// A landing followed by a jump on one dormant box protects support across
+// movement commands. No solver steps, assets or external fixture are needed.
+#[test]
+fn dormant_prop_support_allows_the_next_jump() -> Result<(), String> {
+    let level = basin()?;
+    let mut game = placed(&level, 1.0, 1.035, 1.0, 0.0);
+    let mut items = ItemWorld::default();
+    spawn_dormant_box(
+        &mut items,
+        1,
+        Vec3::new(1.0, 0.5, 1.0),
+        Vec3::new(0.4, 0.5, 0.4),
+    )?;
+    game.vertical_velocity = -3.0;
+    tick_with_items(&mut game, &mut items, InputState::default());
+    assert!(
+        game.grounded && (game.feet_y - 1.0).abs() < 0.01,
+        "the dormant prop must catch the fall"
+    );
+    let landed = game.feet_y;
+    tick_with_items(&mut game, &mut items, controls(&[Control::Jump]));
+    assert!(
+        !game.grounded && game.feet_y > landed + 0.02 && game.vertical_velocity > 0.0,
+        "the jump must use the dormant support from the preceding command"
+    );
+    Ok(())
+}
+
+// A ladder inside the basin distinguishes climbing from swimming ascent.
+// Five commands check forward, idle, reverse and jump with no builds or GPU.
+#[test]
+fn ladder_controls_keep_priority_over_water_ascent() -> Result<(), String> {
+    let mut level = basin()?;
+    level.ladders.push(LadderDef {
+        x: 5.7,
+        z: 5.5,
+        width: 0.6,
+        depth: 0.2,
+        bottom_y: -3.0,
+        top_y: 1.0,
+        facing_degrees: 0.0,
+    });
+    let mut game = placed(&level, 6.0, -1.8, 5.9, 0.0);
+    let mut items = ItemWorld::default();
+    let before = game.feet_y;
+    tick_with_items(&mut game, &mut items, controls(&[Control::MoveForward]));
+    assert!(
+        game.climbing.is_some() && game.feet_y > before && !game.swimming,
+        "forward input must climb the submerged ladder"
+    );
+    let attached = game.feet_y;
+    tick_with_items(&mut game, &mut items, InputState::default());
+    assert!(
+        game.climbing.is_some() && (game.feet_y - attached).abs() < 0.0001,
+        "idle input must hold the attached height"
+    );
+    tick_with_items(&mut game, &mut items, controls(&[Control::MoveBackward]));
+    assert!(game.climbing.is_none(), "backward input must detach");
+    tick_with_items(&mut game, &mut items, controls(&[Control::MoveForward]));
+    assert!(game.climbing.is_some(), "forward input must reattach");
+    tick_with_items(&mut game, &mut items, controls(&[Control::Jump]));
+    assert!(game.climbing.is_none(), "jump must detach the climber");
     Ok(())
 }

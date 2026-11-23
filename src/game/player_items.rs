@@ -24,9 +24,9 @@ impl PlayerContacts<'_> {
         }
     }
 
-    pub(super) fn command_origin(&self, game: &Game) -> Option<PlayerContext> {
+    pub(super) const fn items(&self) -> Option<&ItemWorld> {
         match self {
-            Self::Items(world) => world.held().map(|_| game.physical_player_context()),
+            Self::Items(world) => Some(world),
             Self::External {
                 constrain: _,
                 stance_clear: _,
@@ -34,14 +34,24 @@ impl PlayerContacts<'_> {
         }
     }
 
+    pub(super) fn command_origin(&self, game: &Game) -> Option<PlayerContext> {
+        self.items().map(|_| game.physical_player_context())
+    }
+
     pub(super) fn resolve_command(&self, game: &mut Game, origin: Option<PlayerContext>) {
         if let (Self::Items(world), Some(command_start)) = (self, origin) {
-            let (eye, held_contact) =
-                world.constrain_carried_player_eye(command_start, game.physical_player_context());
-            if let Some(contact) = held_contact {
-                game.apply_held_item_contact(eye, &contact);
+            let player = game.physical_player_context();
+            if world.held().is_some() {
+                let (eye, held_contact) = world.constrain_carried_player_eye(command_start, player);
+                if let Some(contact) = held_contact {
+                    game.apply_held_item_contact(eye, &contact);
+                } else {
+                    game.apply_movement_constraint(eye);
+                }
             } else {
-                game.apply_movement_constraint(eye);
+                game.apply_movement_constraint(
+                    world.constrain_player_eye_from(command_start, player),
+                );
             }
         } else {
             self.apply_frame_constraint(game);
@@ -50,6 +60,7 @@ impl PlayerContacts<'_> {
 
     pub(super) fn prepare_next_command(&mut self, game: &Game, origin: Option<PlayerContext>) {
         if let (Self::Items(world), Some(command_start)) = (self, origin)
+            && world.held().is_some()
             && game.airborne_velocity().length_squared() > 0.0
         {
             world.preview_carried_translation(
@@ -66,11 +77,6 @@ impl PlayerContacts<'_> {
                 constrain,
                 stance_clear: _,
             } => game.apply_movement_constraint(constrain(game)),
-            Self::Items(world) if world.held().is_none() => {
-                game.apply_movement_constraint(
-                    world.constrain_player_eye(game.physical_player_context()),
-                );
-            }
             Self::Items(_) => {}
         }
     }
@@ -106,6 +112,55 @@ impl Game {
             view: self.view_direction(),
             yaw: self.player_yaw,
             active: !self.noclip_enabled() && !self.player_is_dead(),
+        }
+    }
+
+    pub(super) fn constrain_swim_ascent(
+        &mut self,
+        origin: PlayerContext,
+        items: Option<&ItemWorld>,
+    ) -> bool {
+        let Some(world) = items.filter(|_| self.vertical_velocity > 0.0) else {
+            return false;
+        };
+        let goal = self.physical_player_context();
+        // The normal controller runs horizontal motion before vertical motion.
+        // Keep that order for props so a clipped approach also chooses the
+        // footprint used by the head clearance checks.
+        let planar_origin = PlayerContext {
+            eye: Vec3::new(origin.eye.x, goal.eye.y, origin.eye.z),
+            feet: Vec3::new(origin.feet.x, goal.feet.y, origin.feet.z),
+            ..goal
+        };
+        self.apply_movement_constraint(world.constrain_player_eye_from(planar_origin, goal));
+        true
+    }
+
+    pub(super) fn rising_item_head_limit(
+        &self,
+        items: Option<&ItemWorld>,
+        rise: f32,
+    ) -> Option<f32> {
+        let world = items?;
+        let player = self.physical_player_context();
+        let hit = world.vertical_player_item_travel(player, rise, super::CONTACT_EPS)?;
+        Some(player.feet.y + player.height + hit)
+    }
+
+    pub(super) fn refresh_command_support(&mut self, items: Option<&ItemWorld>) {
+        self.refresh_ground_support();
+        if !self.grounded
+            && self.vertical_velocity <= 0.0
+            && let Some(world) = items
+            // The movement sweep stands off by 6 mm. A short downward probe
+            // can keep that support through the next command's jump check.
+            && world
+                .vertical_player_item_travel(self.physical_player_context(), -0.01, 0.7)
+                .is_some()
+        {
+            self.grounded = true;
+            self.vertical_velocity = 0.0;
+            self.player_floor_y = self.feet_y;
         }
     }
 

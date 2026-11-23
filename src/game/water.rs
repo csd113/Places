@@ -6,7 +6,7 @@ use super::{
     CONTACT_EPS, Game, HorizontalMode, InputState, PLAYER_STEP_HEIGHT, STEP_EPS, Settings,
     WATER_EXIT_EYE_CLEARANCE_M, WATER_EXIT_STEP_M, WaterExit, WaterSample,
 };
-use crate::engine::physics::GRAVITY;
+use crate::engine::physics::{GRAVITY, ItemWorld, PlayerContext};
 use glam::{Vec2, Vec3};
 
 const WATER_FRICTION: f32 = 4.0;
@@ -141,9 +141,53 @@ impl Game {
         self.vertical_velocity = relative.y;
     }
 
+    /// Completes swimming from the accepted horizontal pose. An item sweep
+    /// can keep a proposed step on the dry side of the water boundary.
+    pub(super) fn finish_swim_command(
+        &mut self,
+        input: &InputState,
+        settings: &Settings,
+        delta: f32,
+        items: Option<&ItemWorld>,
+        origin: PlayerContext,
+        move_dir: Vec3,
+    ) -> Option<bool> {
+        let deep_water = |game: &Self| {
+            game.deep_water_under(game.water.sample(
+                game.player_position.x,
+                game.player_position.z,
+                game.feet_y,
+            ))
+        };
+        let mut ascent_resolved = self.swimming && self.constrain_swim_ascent(origin, items);
+        if !deep_water(self) {
+            return None;
+        }
+        if !self.swimming {
+            let previous_velocity = (self.horizontal_velocity, self.vertical_velocity);
+            self.swimming = true;
+            self.water_velocity(input, settings, delta);
+            ascent_resolved = self.constrain_swim_ascent(origin, items);
+            if ascent_resolved && !deep_water(self) {
+                (self.horizontal_velocity, self.vertical_velocity) = previous_velocity;
+                return None;
+            }
+        }
+        // Check the ledge before rising across the waist waterline.
+        self.try_water_exit(move_dir);
+        if self.water_exit.is_none() {
+            self.advance_swimming(delta, items);
+        }
+        Some(ascent_resolved)
+    }
+
     /// Physical feet/head contacts remain the shared controller's contacts.
-    pub(super) fn advance_swimming(&mut self, delta: f32) {
+    pub(super) fn advance_swimming(&mut self, delta: f32, items: Option<&ItemWorld>) {
         let start_feet = self.feet_y;
+        let rise = self.vertical_velocity * delta;
+        let item_limit = (rise > 0.0)
+            .then(|| self.rising_item_head_limit(items, rise))
+            .flatten();
         self.set_feet_y(self.vertical_velocity.mul_add(delta, start_feet));
         self.grounded = false;
         if self.vertical_velocity <= 0.0
@@ -156,11 +200,17 @@ impl Game {
             self.vertical_velocity = 0.0;
             self.grounded = true;
         }
-        if self.vertical_velocity > 0.0
-            && let Some(limit) = self.head_limit(start_feet)
-        {
-            let max_feet = limit - self.body_height().max(self.eye_offset() + 0.1) - CONTACT_EPS;
-            if self.feet_y > max_feet {
+        if self.vertical_velocity > 0.0 {
+            let static_max_feet = self
+                .head_limit(start_feet)
+                .map(|limit| limit - self.body_height().max(self.eye_offset() + 0.1) - CONTACT_EPS);
+            let item_max_feet = item_limit.map(|limit| limit - self.body_height() - CONTACT_EPS);
+            if let Some(max_feet) = static_max_feet
+                .into_iter()
+                .chain(item_max_feet)
+                .min_by(f32::total_cmp)
+                .filter(|max_feet| self.feet_y > *max_feet)
+            {
                 self.set_feet_y(max_feet.max(start_feet));
                 self.vertical_velocity = 0.0;
                 self.ceiling_contact_this_frame = true;
@@ -218,11 +268,12 @@ impl Game {
         self.jump_latched = true;
     }
 
-    pub(super) fn advance_water_exit(&mut self, delta: f32) -> f32 {
+    pub(super) fn advance_water_exit(&mut self, delta: f32, items: Option<&ItemWorld>) -> bool {
         let Some(mut exit) = self.water_exit else {
-            return 0.0;
+            return false;
         };
-        let before = Vec2::new(self.player_position.x, self.player_position.z);
+        let origin = self.physical_player_context();
+        let before = Vec2::new(origin.feet.x, origin.feet.z);
         self.move_horizontal(
             Vec3::new(exit.direction.x, 0.0, exit.direction.y),
             EXIT_FORWARD_SPEED,
@@ -231,13 +282,10 @@ impl Game {
                 surface_y: exit.surface_y,
             },
         );
-        let _step = self.integrate_vertical_with_gravity(delta, GRAVITY);
+        let ascent_resolved = self.constrain_swim_ascent(origin, items);
+        let _step = self.integrate_vertical_with_gravity(delta, GRAVITY, items);
         exit.remaining -= delta;
-        if self.grounded
-            || self.ceiling_contact_this_frame
-            || exit.remaining <= 0.0
-            || self.vertical_velocity <= 0.0
-        {
+        if self.grounded || exit.remaining <= 0.0 || self.vertical_velocity <= 0.0 {
             self.water_exit = None;
         } else {
             self.water_exit = Some(exit);
@@ -248,7 +296,7 @@ impl Game {
             (after.x - before.x) / interval,
             (after.y - before.y) / interval,
         );
-        before.distance(after)
+        ascent_resolved
     }
 
     /// Clearance and the authored mean plane bound every eligible rim.
