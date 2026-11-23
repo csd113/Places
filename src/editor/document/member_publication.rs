@@ -1,12 +1,13 @@
 //! Serializes manifest mutations by cooperating Places editors.
 use std::fs::{self, File, OpenOptions, TryLockError};
+use std::io::{self, Read as _, Seek as _, Write as _};
 use std::path::Path;
 
 use super::{Document, persistence};
+use crate::engine::game_mode::{GameMode, MAX_MODE_BYTES};
 use crate::engine::level::{LevelDef, MAX_LEVEL_JSON_BYTES};
 use crate::engine::package::hash::sha256_hex;
-use crate::engine::project::{MAX_MANIFEST_BYTES, ProjectLevel, read_bounded_file};
-use std::io;
+use crate::engine::project::{MAX_MANIFEST_BYTES, ProjectFolder, ProjectLevel, read_bounded_file};
 
 pub(super) fn lock(root: &Path) -> Result<File, String> {
     if fs::canonicalize(root).map_err(|error| error.to_string())? != root {
@@ -88,6 +89,8 @@ mod tests;
 
 const PENDING_NAME: &str = ".places-editor-pending-member";
 const RECORD_VERSION: u8 = 1;
+const RECORD_START: u8 = b'{';
+const CANCELED_START: u8 = b'!';
 
 #[derive(serde::Deserialize, serde::Serialize)]
 #[serde(deny_unknown_fields)]
@@ -124,6 +127,41 @@ pub(super) fn finish(root: &Path) -> Result<(), String> {
     fs::remove_file(&path).map_err(|error| format!("Could not clear {}: {error}", path.display()))
 }
 
+pub(super) fn cancel(root: &Path, problem: String) -> String {
+    let path = root.join(PENDING_NAME);
+    if let Err(error) = mark_canceled(&path) {
+        return format!(
+            "Add/Import outcome is uncertain. Reopening may complete the operation. {problem}; could not durably cancel {}: {error}",
+            path.display()
+        );
+    }
+    match finish(root) {
+        Ok(()) => problem,
+        Err(error) => format!("{problem}; pending Add/Import canceled. {error}"),
+    }
+}
+
+fn mark_canceled(path: &Path) -> Result<(), String> {
+    let mut file = confined_open()
+        .read(true)
+        .write(true)
+        .open(path)
+        .map_err(|error| error.to_string())?;
+    check_regular(&file, path)?;
+    let mut start = [0_u8];
+    file.read_exact(&mut start)
+        .map_err(|error| error.to_string())?;
+    if start != [RECORD_START] {
+        return Err("Pending Add/Import header changed".into());
+    }
+    // Persist the state before deleting the record or reporting a failure.
+    // Changing its first byte leaves all staged source bytes intact.
+    file.rewind()
+        .and_then(|()| file.write_all(&[CANCELED_START]))
+        .and_then(|()| file.sync_all())
+        .map_err(|error| error.to_string())
+}
+
 pub(super) fn recover(document: &mut Document) -> Option<String> {
     let path = document.root().join(PENDING_NAME);
     if matches!(path.symlink_metadata(), Err(error) if error.kind() == io::ErrorKind::NotFound) {
@@ -142,20 +180,25 @@ pub(super) fn recover(document: &mut Document) -> Option<String> {
 fn recover_pending(document: &mut Document, path: &Path) -> Result<bool, String> {
     let root = document.root().to_path_buf();
     let _writer = lock(&root)?;
-    let record = read_record(
+    let mut record = read_record(
         path,
         MAX_MANIFEST_BYTES.saturating_add(MAX_LEVEL_JSON_BYTES),
     )?;
+    let canceled = record.first() == Some(&CANCELED_START);
+    if canceled && let Some(start) = record.first_mut() {
+        *start = RECORD_START;
+    }
     let (intent, source) = decode_record(&record)?;
-    document.check_manifest()?;
-    let current = sha256_hex(&document.manifest_bytes);
-    // The manifest replacement committed before the editor could clear the record.
-    if current == intent.next_manifest && document.manifest().levels.last() == Some(&intent.member)
-    {
-        finish(&root)?;
+    if canceled {
+        finish(&root).map_err(|error| format!("Add/Import was canceled. {error}"))?;
         return Ok(false);
     }
-    if current != intent.previous_manifest {
+
+    document.check_manifest()?;
+    let current = sha256_hex(&document.manifest_bytes);
+    let committed = current == intent.next_manifest
+        && document.manifest().levels.last() == Some(&intent.member);
+    if !committed && current != intent.previous_manifest {
         return Err("The project manifest changed since the operation began".into());
     }
 
@@ -168,6 +211,14 @@ fn recover_pending(document: &mut Document, path: &Path) -> Result<bool, String>
     {
         return Err("The pending level does not match its project membership".into());
     }
+    check_levels_directory(&root)?;
+    if committed {
+        // The manifest can be installed even though a member no longer matches.
+        verify_published(&document.project, member, source, &level)?;
+        finish(&root)?;
+        return Ok(false);
+    }
+
     let mut manifest = document.manifest().clone();
     manifest.levels.push(member.clone());
     for destination in &level.transitions {
@@ -181,7 +232,6 @@ fn recover_pending(document: &mut Document, path: &Path) -> Result<bool, String>
     let candidate = document
         .project
         .with_manifest(&bytes, Some((&member.source, size)))?;
-    check_levels_directory(&root)?;
     let destination = root.join(member.source.as_str());
     let source_exists = check_source(&destination, source)?;
 
@@ -192,13 +242,44 @@ fn recover_pending(document: &mut Document, path: &Path) -> Result<bool, String>
     if !source_exists {
         persistence::atomic_create_by_rename(&destination, &[source])?;
     }
-    let (_, published, _) = candidate.read_level(Some(&member.id))?;
-    if published != source {
-        return Err("The level source changed during restart recovery".into());
-    }
+    verify_published(&candidate, member, source, &level)?;
     document.commit_manifest(candidate, bytes)?;
     finish(&root).map_err(|error| format!("Level recovered, but {error}"))?;
     Ok(true)
+}
+
+fn verify_published(
+    project: &ProjectFolder,
+    member: &ProjectLevel,
+    source: &[u8],
+    level: &LevelDef,
+) -> Result<(), String> {
+    if level.game_mode.is_some() {
+        let root = project.root();
+        check_directory(&root.join("game_modes"))?;
+        let mode = GameMode::from_level(level);
+        let mode_path = root.join(mode.project_path()?.as_str());
+        let published_mode = read_record(&mode_path, MAX_MODE_BYTES).map_err(|error| {
+            format!(
+                "Could not verify published game mode at {}: {error}",
+                mode_path.display()
+            )
+        })?;
+        if published_mode != mode.bytes()? {
+            return Err(format!(
+                "Published game mode bytes differ: {}",
+                mode_path.display()
+            ));
+        }
+    }
+    let (path, published, _) = project.read_level(Some(&member.id))?;
+    if published != source {
+        return Err(format!(
+            "Published level source differs: {}",
+            path.display()
+        ));
+    }
+    Ok(())
 }
 
 pub(super) fn standalone_level(bytes: &[u8]) -> Result<LevelDef, String> {
@@ -278,7 +359,7 @@ fn check_mode_path(root: &Path, level: &LevelDef) -> Result<(), String> {
         Err(error) if error.kind() == io::ErrorKind::NotFound => return Ok(()),
         Err(error) => return Err(error.to_string()),
     }
-    let mode = crate::engine::game_mode::GameMode::from_level(level);
+    let mode = GameMode::from_level(level);
     let path = root.join(mode.project_path()?.as_str());
     match path.symlink_metadata() {
         Ok(metadata) if metadata.is_file() && !is_reparse_point(&metadata) => Ok(()),

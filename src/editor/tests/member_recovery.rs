@@ -237,3 +237,151 @@ fn ordinary_import_failure_cancels_restart_intent() -> Result<(), String> {
     assert!(!target.root().join(member.source.as_str()).exists());
     Ok(())
 }
+
+// A committed manifest can coexist with different but valid member bytes.
+// One tiny import exercises source and mode identity without a compiler or bake.
+#[test]
+fn committed_record_requires_exact_source_and_mode_before_retirement() -> Result<(), String> {
+    let fixture = Fixture::new("committed-mismatch")?;
+    let mut target = Document::create(&fixture.0.join("target"), "entry", "Entry")?;
+    let mut origin = Document::create(&fixture.0.join("origin"), "imported", "Imported")?;
+    let mut mode = GameMode::from_level(origin.level());
+    mode.mode.walk_speed = 6.0;
+    origin.apply_game_mode(&mode)?;
+    origin.save_all()?;
+
+    let root = target.root().to_path_buf();
+    let manifest_path = root.join(MANIFEST_NAME);
+    let prior = read(&manifest_path)?;
+    let origin_source = origin.root().join("levels/imported.json");
+    let source = read(&origin_source)?;
+    let member_id = target.import_level(&origin_source)?;
+    let member = target.manifest().level(Some(&member_id))?;
+    let committed = read(&manifest_path)?;
+    stage(&root, &prior, &committed, member, &source)?;
+
+    let pending = root.join(PENDING_NAME);
+    let original_record = read(&pending)?;
+    let published_source = root.join(member.source.as_str());
+    let mode_path = root.join(mode.project_path()?.as_str());
+    let mode_bytes = read(&mode_path)?;
+    let mut alternate_source = source.clone();
+    alternate_source.push(b'\n');
+    fs::write(&published_source, &alternate_source).map_err(|error| error.to_string())?;
+    // The replacement is readable and still represents the original level.
+    let project = ProjectFolder::open(&root)?;
+    assert_eq!(project.read_level(Some(&member_id))?.1, alternate_source);
+    assert_retained(
+        &root,
+        &committed,
+        &original_record,
+        "Published level source differs",
+    )?;
+    assert_eq!(read(&published_source)?, alternate_source);
+    fs::write(&published_source, &source).map_err(|error| error.to_string())?;
+
+    fs::remove_file(&mode_path).map_err(|error| error.to_string())?;
+    assert_retained(
+        &root,
+        &committed,
+        &original_record,
+        "Could not verify published game mode",
+    )?;
+    assert!(!mode_path.exists());
+
+    let mut alternate_mode = mode_bytes.clone();
+    alternate_mode.push(b' ');
+    mode.verify_copy(&alternate_mode)?;
+    fs::write(&mode_path, &alternate_mode).map_err(|error| error.to_string())?;
+    assert_retained(
+        &root,
+        &committed,
+        &original_record,
+        "Published game mode bytes differ",
+    )?;
+    assert_eq!(read(&mode_path)?, alternate_mode);
+
+    fs::write(&mode_path, &mode_bytes).map_err(|error| error.to_string())?;
+    let reopened = Document::open_with_recovery(&root)?;
+    assert_eq!(reopened.recovery_notice(), None);
+    assert!(!pending.exists());
+    assert_eq!(read(&manifest_path)?, committed);
+    assert_eq!(read(&published_source)?, source);
+    Ok(())
+}
+
+fn assert_retained(
+    root: &Path,
+    manifest: &[u8],
+    record: &[u8],
+    reason: &str,
+) -> Result<(), String> {
+    let reopened = Document::open_with_recovery(root)?;
+    assert_eq!(reopened.level_id(), "entry");
+    let notice = reopened
+        .recovery_notice()
+        .ok_or("No recovery conflict reported")?;
+    assert!(notice.contains(reason), "{notice}");
+    assert_eq!(read(&root.join(MANIFEST_NAME))?, manifest);
+    assert_eq!(read(&root.join(PENDING_NAME))?, record);
+    Ok(())
+}
+
+// The OS supplies real deletion/write failures at the transaction boundary.
+// Two tiny projects distinguish a synchronized cancellation from no cancellation.
+#[cfg(windows)]
+#[test]
+fn writeable_cancellation_blocks_retry_even_when_delete_is_denied() -> Result<(), String> {
+    check_failed_cleanup(3, true)?;
+    check_failed_cleanup(1, false)
+}
+
+#[cfg(windows)]
+fn check_failed_cleanup(share: u32, can_cancel: bool) -> Result<(), String> {
+    use std::os::windows::fs::OpenOptionsExt as _;
+
+    let fixture = Fixture::new(if can_cancel { "cancel" } else { "uncertain" })?;
+    let target = Document::create(&fixture.0.join("target"), "entry", "Entry")?;
+    let origin = Document::create(&fixture.0.join("origin"), "imported", "Imported")?;
+    let member = interrupt(&target, &origin)?;
+    let root = target.root();
+    let manifest_path = root.join(MANIFEST_NAME);
+    let prior = read(&manifest_path)?;
+    let pending = root.join(PENDING_NAME);
+    let original_record = read(&pending)?;
+    let published_source = root.join(member.source.as_str());
+    let source = read(&origin.root().join(member.source.as_str()))?;
+    super::persistence::write_unlisted_member(&published_source, &source)?;
+
+    let hold = fs::OpenOptions::new()
+        .read(true)
+        .share_mode(share)
+        .open(&pending)
+        .map_err(|error| error.to_string())?;
+    let writer = super::lock(root)?;
+    let report = super::cancel(root, "Simulated failed manifest publication".into());
+    drop(writer);
+    assert_eq!(read(&manifest_path)?, prior);
+    assert_eq!(read(&published_source)?, source);
+    if can_cancel {
+        assert!(report.contains("pending Add/Import canceled"), "{report}");
+        let held_record = read(&pending)?;
+        assert_eq!(held_record.get(1..), original_record.get(1..));
+        assert_ne!(held_record, original_record);
+        assert_retained(root, &prior, &held_record, "Add/Import was canceled")?;
+        drop(hold);
+        let reopened = Document::open_with_recovery(root)?;
+        assert!(reopened.manifest().level(Some(&member.id)).is_err());
+        assert_eq!(read(&manifest_path)?, prior);
+    } else {
+        assert!(report.contains("outcome is uncertain"), "{report}");
+        assert!(report.contains("Reopening may complete"), "{report}");
+        assert_eq!(read(&pending)?, original_record);
+        drop(hold);
+        let reopened = Document::open_with_recovery(root)?;
+        assert_eq!(reopened.manifest().level(Some(&member.id))?, &member);
+    }
+    assert!(!pending.exists());
+    assert_eq!(read(&published_source)?, source);
+    Ok(())
+}

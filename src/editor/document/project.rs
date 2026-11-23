@@ -236,21 +236,21 @@ impl Document {
                 persistence::write_unlisted_member(&path, bytes)?;
             }
             // Preserve the source when the current session cannot finish.
-            self.commit_manifest(candidate, manifest_bytes).map_err(|error| {
-                format!("{error}; level was not added to the project. Inspect the unlisted source at {} before retrying", path.display())
-            })
+            self.commit_manifest(candidate, manifest_bytes)
+                .map_err(|error| {
+                    format!(
+                        "{error}; Inspect the unlisted source at {} before retrying",
+                        path.display()
+                    )
+                })
         })();
-        let cleanup = member_publication::finish(&root);
         match publication {
             Ok(()) => {
                 // An already-committed record can be retired on the next open.
-                self.recovery_notice = cleanup.err();
+                self.recovery_notice = member_publication::finish(&root).err();
                 Ok(())
             }
-            Err(error) => match cleanup {
-                Ok(()) => Err(error),
-                Err(cleanup_error) => Err(format!("{error}; {cleanup_error}")),
-            },
+            Err(error) => Err(member_publication::cancel(&root, error)),
         }
     }
 
