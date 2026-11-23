@@ -292,6 +292,11 @@ impl EntityWorld {
             control.running = false;
         }
         if run.finished && !run.stopped {
+            if run.moved_owner
+                && let Some(def) = self.sequences.get(&run.sequence)
+            {
+                self.ai.complete_script_move(run.owner, def.after_move);
+            }
             let _event_queued = self.emit_depth(
                 EventKind::SequenceComplete,
                 run.owner,
@@ -419,6 +424,7 @@ impl EntityWorld {
         let _agent_updated =
             self.ai
                 .apply_sequence_transform(run.owner, next, transform.yaw_degrees);
+        run.moved_owner |= next != transform.position;
         if let Some(key) = self.dynamic_key(run.owner) {
             self.commands.push(WorldCommand::SetDynamicTransform {
                 entity: key,

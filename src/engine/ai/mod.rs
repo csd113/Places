@@ -25,6 +25,7 @@
 // are audited at their local expressions instead of exempting the module.
 pub mod authoring;
 pub mod controller;
+mod doors;
 pub mod movement;
 pub mod perception;
 mod search;
@@ -46,6 +47,7 @@ use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::Doors;
 use crate::engine::entities::events::EventKind;
 use crate::engine::entities::id::EntityHandle;
+use crate::engine::entities::sequences::AfterMove;
 use crate::engine::entity::PoseCue;
 use crate::engine::level::{WalkableCeiling, WalkableFloor};
 use crate::engine::nav::{
@@ -485,6 +487,7 @@ pub struct AiAgent {
     pub controller: controller::Controller,
     /// State retained while a sequence owns motion.
     pub sequence_state: Option<AiState>,
+    after_script_move: Option<AfterMove>,
     /// Bounded last-known target memory; never updated from live target lookup.
     pub last_known: Option<Perceived>,
     pub last_seen_at: f32,
@@ -565,6 +568,7 @@ pub struct AiAgent {
     pub interest: Option<Vec3>,
     /// The door version the current path was planned against.
     pub path_door_version: u64,
+    opening_door: Option<doors::Approach>,
     /// Agent-local pathfinding scratch, reused across queries.
     pub scratch: NavScratch,
     /// Deterministic phase for staggered perception.
@@ -628,6 +632,20 @@ impl AiAgent {
         self.def
             .home_bounds
             .map(|area| area.nav_bounds(self.profile.radius))
+    }
+
+    fn in_wander_radius(&self, point: Vec3) -> bool {
+        (point.x - self.home.x).hypot(point.z - self.home.z) <= self.def.wander_radius
+    }
+
+    const fn ordinary_wandering(&self) -> bool {
+        matches!(self.state, AiState::Wander { destination: _ })
+            && !(matches!(self.def.behavior, AiBehavior::Predator) && self.search.is_some())
+    }
+
+    fn allows_position(&self, point: Vec3) -> bool {
+        self.bounds().is_none_or(|bounds| bounds.contains(point))
+            && (!self.ordinary_wandering() || self.in_wander_radius(point))
     }
 
     #[must_use]
@@ -981,6 +999,7 @@ impl AiWorld {
             handle,
             controller: controller::Controller::default(),
             sequence_state: None,
+            after_script_move: None,
             last_known: None,
             last_seen_at: 0.0,
             search: None,
@@ -1023,6 +1042,7 @@ impl AiWorld {
             contact: None,
             interest: None,
             path_door_version: 0,
+            opening_door: None,
             scratch: NavScratch::new(),
             perception_phase: phase,
             shelter_return: None,
@@ -1103,6 +1123,8 @@ impl AiWorld {
             agent.next_task_sense = 0.0;
             agent.sense_memory.clear();
             agent.sequence_state = None;
+            agent.after_script_move = None;
+            agent.opening_door = None;
             agent.last_known = None;
             agent.search = None;
             agent.state = AiState::Idle;
@@ -1175,7 +1197,19 @@ impl AiWorld {
         agent.position = position;
         agent.yaw_degrees = yaw_degrees;
         if moved {
+            if agent.after_script_move == Some(AfterMove::ReturnHome) {
+                agent.after_script_move = None;
+                if returning_to_post(agent) {
+                    agent.state = AiState::Idle;
+                }
+                if matches!(agent.sequence_state, Some(AiState::Return { destination }) if destination == agent.home)
+                    && agent.shelter_return.is_none()
+                {
+                    agent.sequence_state = Some(AiState::Idle);
+                }
+            }
             agent.path.clear();
+            agent.opening_door = None;
             agent.path_goal = None;
             agent.path_age = 0.0;
             agent.path_failed_at = None;
@@ -1185,6 +1219,12 @@ impl AiWorld {
             agent.speed_mps = 0.0;
         }
         changed
+    }
+
+    pub(crate) fn complete_script_move(&mut self, handle: EntityHandle, after_move: AfterMove) {
+        if let Some(agent) = self.agents.iter_mut().find(|agent| agent.handle == handle) {
+            agent.after_script_move = Some(after_move);
+        }
     }
 
     /// Applies an opt-in renderer-backed light hold without replacing AI state.
@@ -1257,6 +1297,7 @@ impl AiWorld {
             return false;
         }
         agent.navigation_speed = speed;
+        agent.after_script_move = None;
         let holding = agent.position.distance_squared(goal) < 0.0025;
         if agent
             .navigation_goal
@@ -1706,6 +1747,7 @@ impl AiWorld {
                 agent.speed_mps = 0.0;
                 out.cues_changed |= agent.speed_mps != previous_speed;
                 agent.path.clear();
+                agent.opening_door = None;
                 agent.path_goal = None;
                 continue;
             }
@@ -1875,6 +1917,11 @@ fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         }
         return;
     }
+    if returning_to_post(agent) && route_completed_at(agent, agent.home) {
+        agent.after_script_move = None;
+        set_state(agent, AiState::Idle, out);
+        agent.wait_remaining = agent.def.idle_seconds;
+    }
     match agent.def.behavior {
         AiBehavior::Predator => decide_predator(agent, ctx, out),
         AiBehavior::Prey => decide_prey(agent, ctx, out),
@@ -1882,6 +1929,55 @@ fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         AiBehavior::Wanderer => decide_wanderer(agent, ctx, out),
         AiBehavior::Skittish => decide_skittish(agent, ctx, out),
         AiBehavior::Idler => decide_idler(agent, ctx, out),
+    }
+    decide_script_release(agent, out);
+}
+
+fn returning_to_post(agent: &AiAgent) -> bool {
+    matches!(agent.state, AiState::Return { destination } if destination == agent.home)
+        && agent.shelter_return.is_none()
+}
+
+fn start_post_return(agent: &mut AiAgent, out: &mut AiOutcome) {
+    set_state(
+        agent,
+        AiState::Return {
+            destination: agent.home,
+        },
+        out,
+    );
+    agent.path.clear();
+    agent.path_goal = None;
+    agent.path_done_goal = None;
+}
+
+fn decide_script_release(agent: &mut AiAgent, out: &mut AiOutcome) {
+    match agent.after_script_move {
+        Some(AfterMove::ReturnHome) => {
+            if !matches!(agent.state, AiState::Idle) && !agent.ordinary_wandering() {
+                return;
+            }
+            if agent.position.distance(agent.home)
+                > movement::arrival_radius(agent.profile.radius) + 0.01
+            {
+                start_post_return(agent, out);
+            } else {
+                agent.after_script_move = None;
+            }
+        }
+        Some(AfterMove::Stay) => {
+            if agent.in_wander_radius(agent.position)
+                && agent.position.distance(agent.home) <= POST_RETURN_M
+            {
+                agent.after_script_move = None;
+            } else if matches!(agent.state, AiState::Wander { destination: _ })
+                || returning_to_post(agent)
+            {
+                set_state(agent, AiState::Idle, out);
+                agent.wait_remaining = agent.def.idle_seconds;
+            }
+        }
+        None => {}
     }
 }
 
@@ -2072,7 +2168,7 @@ fn decide_skittish(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
             }
             return;
         }
-        AiState::Return { destination } => {
+        AiState::Return { destination } if !returning_to_post(agent) => {
             if route_completed_at(agent, destination) {
                 set_state(agent, AiState::Idle, out);
                 agent.shelter_return = None;
@@ -2086,6 +2182,7 @@ fn decide_skittish(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
         }
         AiState::Idle
         | AiState::Wander { destination: _ }
+        | AiState::Return { destination: _ }
         | AiState::Follow { target: _ }
         | AiState::Flee {
             threat: _,
@@ -2261,7 +2358,7 @@ fn decide_wanderer(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOut
                     .path
                     .reached()
                     .is_none_or(|reached| reached.distance(agent.position) < 0.45));
-        if done && agent.path_age >= agent.def.idle_seconds {
+        if done && agent.path_age >= agent.def.idle_seconds && agent.opening_door.is_none() {
             set_state(agent, AiState::Idle, out);
             agent.wait_remaining = agent.def.idle_seconds;
         } else if agent.path_goal != Some(destination) {
@@ -2308,20 +2405,17 @@ fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcom
         | AiState::Scripted
         | AiState::Caught => return,
     }
+    if agent.after_script_move == Some(AfterMove::ReturnHome) {
+        return;
+    }
     agent.wait_remaining = (agent.wait_remaining - ctx.delta).max(0.0);
     if agent.wait_remaining > 0.0 {
         return;
     }
-    if agent.position.distance(agent.home) > POST_RETURN_M {
-        set_state(
-            agent,
-            AiState::Wander {
-                destination: agent.home,
-            },
-            out,
-        );
-        agent.path.clear();
-        agent.path_goal = None;
+    if agent.after_script_move != Some(AfterMove::Stay)
+        && agent.position.distance(agent.home) > POST_RETURN_M
+    {
+        start_post_return(agent, out);
         return;
     }
     if matches!(
@@ -2391,9 +2485,18 @@ fn advance(
         | AiState::Caught => None,
     };
     let Some(goal_position) = goal else {
+        agent.opening_door = None;
         agent.speed_mps = 0.0;
         return;
     };
+    if agent.ordinary_wandering()
+        && (!agent.in_wander_radius(agent.position) || !agent.in_wander_radius(goal_position))
+    {
+        agent.opening_door = None;
+        agent.path.clear();
+        agent.speed_mps = 0.0;
+        return;
+    }
     let state_speed = match agent.state {
         AiState::Flee {
             threat: _,
@@ -2459,12 +2562,16 @@ fn advance(
             doors: ctx,
         };
         let bounds = agent.bounds();
-        let result = nav.path_into_bounded(&query, &mut agent.scratch, trial, bounds);
+        let result = doors::plan(agent, nav, &query, trial, bounds, ctx);
         agent.path_door_version = ctx.door_version;
-        if result.is_ok() {
+        let wander = agent.ordinary_wandering();
+        if result.is_ok() && (!wander || wander_route_in_bounds(agent, trial)) {
             let equivalent = equivalent_route_start(agent, trial, nav.grid().cell_m * 0.75);
             std::mem::swap(&mut agent.path, trial);
             agent.current_waypoint = equivalent.unwrap_or_default();
+            if wander {
+                skip_wander_projection(agent);
+            }
             if equivalent.is_none() {
                 agent.reset_stuck();
             }
@@ -2501,12 +2608,14 @@ fn advance(
             agent.path_goal = Some(goal_position);
             agent.path_done_goal = None;
             agent.path.clear();
+            agent.opening_door = None;
             agent.current_waypoint = 0;
             agent.reset_stuck();
             agent.speed_mps = 0.0;
         }
     }
     if agent.path.waypoints.is_empty() {
+        agent.opening_door = None;
         // A conservative dynamic cell may reject a physically clear final
         // approach or recovery. Only correct when no usable path exists;
         // never pull an actor off a valid detour to chase the raw goal.
@@ -2536,28 +2645,6 @@ fn advance(
         agent.speed_mps = 0.0;
         return;
     }
-    // A closed door on the route: ask for it, then wait for the leaf.
-    request_route_doors(agent, ctx, out);
-    if route_waits_for_door(agent, ctx) {
-        agent.speed_mps = 0.0;
-        if agent
-            .path
-            .door_requests
-            .iter()
-            .any(|door| ctx.door_obstructed(door))
-        {
-            agent.stuck_seconds += ctx.delta;
-            if agent.stuck_seconds >= STUCK_SECONDS {
-                agent.path.clear();
-                agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
-                agent.current_waypoint = 0;
-                agent.reset_stuck();
-            }
-        } else {
-            agent.reset_stuck();
-        }
-        return;
-    }
     let waypoint = agent
         .path
         .waypoints
@@ -2568,6 +2655,9 @@ fn advance(
         agent.speed_mps = 0.0;
         return;
     };
+    if doors::advance(agent, ctx, actor_positions, nav, next_waypoint, speed, out) {
+        return;
+    }
     match local_move_step(
         agent,
         ctx,
@@ -2582,15 +2672,6 @@ fn advance(
             yaw_degrees,
             speed_mps,
         } => {
-            if agent
-                .bounds()
-                .is_some_and(|bounds| !bounds.contains(position))
-            {
-                agent.speed_mps = 0.0;
-                agent.path.clear();
-                agent.path_goal = None;
-                return;
-            }
             let progress =
                 next_waypoint.distance(agent.stuck_anchor) - next_waypoint.distance(position);
             agent.position = position;
@@ -2725,9 +2806,7 @@ fn physical_approach(
             ctx.ceiling,
             ctx.leaves,
             ctx.obstacles,
-        ) && agent
-            .bounds()
-            .is_none_or(|bounds| bounds.contains(position))
+        ) && agent.allows_position(position)
             && actor_segment_clear(agent, agent.position, position, ctx, actor_positions)
         {
             return Some((position, yaw_degrees, speed_mps));
@@ -2771,6 +2850,12 @@ fn local_move_step(
     let lookahead = (agent.profile.radius * 2.0 + speed * 0.35)
         .clamp(0.35, 1.2)
         .min(flat.length());
+    let approach_door = agent.profile.can_open_doors && !agent.path.door_requests.is_empty();
+    let leaving_portal = doors::leaving_portal(agent, ctx, nav, waypoint);
+    let nav_state: &dyn NavDoorState = match &leaving_portal {
+        Some(state) => state,
+        None => ctx,
+    };
     // A long avoidance probe may leave a tight doorway's valid corridor even
     // though a short shoulder adjustment is safe. Try the ordinary horizon
     // first, then bounded within-cell corrections before abandoning the route.
@@ -2794,8 +2879,8 @@ fn local_move_step(
                 continue;
             };
             let probe = Vec3::new(x, y, z);
-            if agent.bounds().is_some_and(|bounds| !bounds.contains(probe))
-                || !nav.segment_clear(class, agent.position, probe, ctx, false)
+            if !agent.allows_position(probe)
+                || !nav.segment_clear(class, agent.position, probe, nav_state, approach_door)
                 || !actor_segment_clear(agent, agent.position, probe, ctx, actor_positions)
             {
                 continue;
@@ -2824,11 +2909,9 @@ fn local_move_step(
                 yaw_degrees: _,
                 speed_mps: _,
             } = result
-                && nav.segment_clear(class, agent.position, position, ctx, false)
+                && nav.segment_clear(class, agent.position, position, nav_state, approach_door)
                 && actor_segment_clear(agent, agent.position, position, ctx, actor_positions)
-                && agent
-                    .bounds()
-                    .is_none_or(|bounds| bounds.contains(position))
+                && agent.allows_position(position)
             {
                 return result;
             }
@@ -3109,7 +3192,7 @@ fn choose_wander_destination(
     ctx: &AiTickContext<'_>,
     out: &mut AiOutcome,
 ) -> Option<Vec3> {
-    if !path_attempt_due(agent) {
+    if !path_attempt_due(agent) || !agent.in_wander_radius(agent.position) {
         return None;
     }
     let nav = ctx.nav?;
@@ -3119,13 +3202,13 @@ fn choose_wander_destination(
     for index in 0..WANDER_CANDIDATES {
         let angle = base + index as f32 * std::f32::consts::TAU / WANDER_CANDIDATES as f32;
         let (sin, cos) = angle.sin_cos();
-        let distance = agent.def.wander_radius.max(1.0) * (0.4 + 0.6 * sin.abs());
+        let distance = agent.def.wander_radius * (0.55 + 0.35 * sin.abs());
         let candidate = bounds.map_or_else(
             || {
                 Vec3::new(
-                    agent.position.x + cos * distance,
+                    agent.home.x + cos * distance,
                     agent.position.y,
-                    agent.position.z + sin * distance,
+                    agent.home.z + sin * distance,
                 )
             },
             |volume| {
@@ -3141,7 +3224,7 @@ fn choose_wander_destination(
                 )
             },
         );
-        if bounds.is_some() && candidate.distance(agent.home) > agent.def.wander_radius {
+        if !agent.in_wander_radius(candidate) {
             continue;
         }
         let Some(point) = nav.nearest(
@@ -3154,10 +3237,10 @@ fn choose_wander_destination(
         ) else {
             continue;
         };
-        if bounds.is_none_or(|volume| {
-            volume.contains(point.position)
-                && point.position.distance(agent.home) <= agent.def.wander_radius
-        }) && point.position.distance(agent.position) > 0.5
+        if bounds.is_none_or(|volume| volume.contains(point.position))
+            && agent.in_wander_radius(point.position)
+            && (point.position.x - agent.position.x).hypot(point.position.z - agent.position.z)
+                > movement::arrival_radius(agent.profile.radius)
         {
             let query = PathQuery {
                 class,
@@ -3171,18 +3254,44 @@ fn choose_wander_destination(
                 break;
             }
             let result = nav.path_into_bounded(&query, &mut agent.scratch, &mut agent.path, bounds);
-            if result.is_ok() && agent.path.complete {
+            if result.is_ok() && agent.path.complete && wander_route_in_bounds(agent, &agent.path) {
                 agent.path_goal = Some(point.position);
                 agent.path_door_version = ctx.door_version;
                 agent.path_age = 0.0;
                 agent.path_failed_at = None;
                 agent.path_done_goal = None;
                 agent.current_waypoint = 0;
+                skip_wander_projection(agent);
                 return Some(point.position);
             }
         }
     }
+    agent.path.clear();
     None
+}
+
+fn wander_route_in_bounds(agent: &AiAgent, path: &Path) -> bool {
+    // The first waypoint may be an artificial projection of the actual feet.
+    path.reached()
+        .is_some_and(|point| agent.in_wander_radius(point))
+        && path
+            .waypoints
+            .iter()
+            .skip(1)
+            .all(|point| agent.in_wander_radius(*point))
+}
+
+fn skip_wander_projection(agent: &mut AiAgent) {
+    if agent.current_waypoint == 0
+        && agent.path.waypoints.len() > 1
+        && agent
+            .path
+            .waypoints
+            .first()
+            .is_some_and(|point| !agent.in_wander_radius(*point))
+    {
+        agent.current_waypoint = 1;
+    }
 }
 
 /// A stopped closing leaf can cover the actor's starting portal. Planning
@@ -3211,35 +3320,6 @@ fn request_obstructed_closing_door(agent: &AiAgent, ctx: &AiTickContext<'_>, out
     if !out.door_requests.iter().any(|(id, _)| id == &door.def.id) {
         out.door_requests.push((door.def.id.clone(), agent.handle));
     }
-}
-
-/// Asks for a closed door on the route.
-fn request_route_doors(agent: &AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
-    if !agent.profile.can_open_doors || agent.path.door_requests.is_empty() {
-        return;
-    }
-    for door in &agent.path.door_requests {
-        if ctx.doors.door_open(door) || ctx.doors.is_locked(door).unwrap_or(false) {
-            continue;
-        }
-        if !out
-            .door_requests
-            .iter()
-            .any(|(requested, _)| requested == door)
-        {
-            out.door_requests.push((door.clone(), agent.handle));
-        }
-    }
-}
-
-/// True when a requested door is still closed under the agent's feet.
-fn route_waits_for_door(agent: &AiAgent, ctx: &AiTickContext<'_>) -> bool {
-    agent.profile.can_open_doors
-        && agent
-            .path
-            .door_requests
-            .iter()
-            .any(|door| !ctx.doors.door_open(door) && !ctx.doors.is_locked(door).unwrap_or(false))
 }
 
 /// Releases movement noise for one agent; returns the stimuli count.

@@ -227,6 +227,32 @@ impl DoorRuntime {
         self.collider_at(self.angle)
     }
 
+    pub(crate) fn closed_collider(&self) -> DoorCollider {
+        self.collider_at(0.0)
+    }
+
+    /// Covers the authored opening sweep, including any angle between probes.
+    pub(crate) fn opening_sweep_overlaps(
+        &self,
+        feet: glam::Vec3,
+        radius: f32,
+        height: f32,
+    ) -> bool {
+        let closed = self.closed_collider();
+        if !closed.overlaps_body_y(feet.y, height) {
+            return false;
+        }
+        let interval = self.open_angle / 64.0;
+        let padding = (closed.width + closed.thickness) * interval.to_radians().abs() * 0.5;
+        (0_u8..=64).any(|probe| {
+            self.collider_at(interval * f32::from(probe)).overlaps_disc(
+                feet.x,
+                feet.z,
+                radius + padding,
+            )
+        })
+    }
+
     /// The collider the leaf would have at `angle`.
     #[must_use]
     fn collider_at(&self, angle: f32) -> DoorCollider {

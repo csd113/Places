@@ -1,5 +1,5 @@
 //! Predator search uses observations, bounded clocks and completed routes only.
-use super::{AiAgent, AiOutcome, AiState, AiTickContext, PathQuery};
+use super::{AfterMove, AiAgent, AiOutcome, AiState, AiTickContext, PathQuery};
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
@@ -89,9 +89,17 @@ pub(super) fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiO
         }
         agent.wait_remaining = agent.def.idle_seconds.min(1.0);
     }
+    if agent.after_script_move == Some(AfterMove::ReturnHome) && super::returning_to_post(agent) {
+        return;
+    }
     if !matches!(agent.state, AiState::Idle) {
         super::set_state(agent, AiState::Idle, out);
         clear_route(agent);
+    }
+    // Finish the current investigation or search leg, then give an interrupted
+    // return the idle boundary before requesting another outward search leg.
+    if agent.after_script_move == Some(AfterMove::ReturnHome) {
+        return;
     }
     agent.wait_remaining = (agent.wait_remaining - ctx.delta).max(0.0);
     if agent.wait_remaining > 0.0 {

@@ -1,6 +1,6 @@
 //! Focused CPU regressions for stopped clocks, sequence ownership, escape
-//! retries and live navigation topology. Fixtures have at most 81 cells and
-//! eight agents; they load no assets, bake no maps and need no native device.
+//! retries and live navigation topology. Small CPU fixtures load no assets or
+//! map packages and need no native device.
 
 use glam::Vec3;
 
@@ -18,7 +18,7 @@ use crate::engine::package::navigation::{
     CELL_SURFACE, NAV_DIRECTIONS, NO_NAV_LINK, NO_PORTAL, NO_REGION, NavGrid, NavPortal,
 };
 
-fn grid(width: u32, depth: u32, walkable: &[usize]) -> NavGrid {
+pub(super) fn grid(width: u32, depth: u32, walkable: &[usize]) -> NavGrid {
     let cells = usize::try_from(u64::from(width).saturating_mul(u64::from(depth))).unwrap_or(0);
     let mut mask = vec![0_u8; cells.div_ceil(8)];
     let mut regions = vec![NO_REGION; cells];
@@ -80,6 +80,7 @@ struct Fixture {
     index: CollisionIndex,
     floor: WalkableFloor,
     ceiling: WalkableCeiling,
+    walls: Vec<WallAabb>,
     obstacles: Vec<WallAabb>,
     targets: Vec<AiTarget>,
     noises: Vec<crate::engine::ai::AiStimulus>,
@@ -93,6 +94,7 @@ impl Fixture {
             index: CollisionIndex::empty(),
             floor: WalkableFloor::default(),
             ceiling: WalkableCeiling::default(),
+            walls: Vec::new(),
             obstacles: Vec::new(),
             targets: Vec::new(),
             noises: Vec::new(),
@@ -106,7 +108,7 @@ impl Fixture {
             nav: Some(&self.nav),
             doors: &self.doors,
             door_version: self.doors.version(),
-            walls: &[],
+            walls: &self.walls,
             leaves: &[],
             index: &self.index,
             floor: &self.floor,
@@ -154,7 +156,7 @@ fn stopped_clock_preserves_routes_and_released_scripted_agent_resumes() -> Resul
     assert!(world.force_state(
         "agent_0",
         AiState::Wander {
-            destination: Vec3::new(4.5, 0.0, 2.5),
+            destination: Vec3::new(3.5, 0.0, 2.5),
         },
     ));
     world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
@@ -1104,6 +1106,7 @@ fn predator_search_deadline_uses_observations_and_completed_routes() -> Result<(
         sight_fov_degrees: 360.0,
         search_after_seconds: 1.0,
         search_radius: 6.0,
+        wander_radius: 0.65,
         ..AiDef::default()
     };
     let _handle = register(&mut world, 0, def.clone(), Vec3::new(4.5, 0.0, 4.5));
@@ -1164,6 +1167,21 @@ fn predator_search_deadline_uses_observations_and_completed_routes() -> Result<(
             .point
             .distance(turn * seen + Vec3::new(20.0, 0.0, 0.0))
             < 0.001
+    );
+    let search_start = searching.position;
+    let mut moved_beyond_roam = false;
+    for _ in 0_u8..24 {
+        let mut out = AiOutcome::default();
+        world.tick(&f.context(0.05, &[]), &mut out);
+        let actor = world.agent("agent_0").ok_or("searching actor")?;
+        moved_beyond_roam |= matches!(actor.state, AiState::Wander { destination: _ })
+            && actor.position.distance(search_start) > 0.15
+            && (actor.position.x - actor.home.x).hypot(actor.position.z - actor.home.z) > 0.65
+            && !out.moved.is_empty();
+    }
+    assert!(
+        moved_beyond_roam,
+        "the lost-target search must actually walk beyond the roam radius"
     );
     Ok(())
 }
@@ -1341,6 +1359,485 @@ fn shelter_sweeps_finish_fairly_and_compare_later_reachable_routes() -> Result<(
         assert!(
             selected.iter().all(|done| *done),
             "both agents eventually reach their ninth candidate"
+        );
+    }
+    Ok(())
+}
+
+/// A small in-memory floor uses the normal navigation bake to include the
+/// entire swing portal (rather than tagging a single hand-picked cell).
+fn door_retreat_fixture() -> Result<Fixture, String> {
+    door_retreat_fixture_with_detour(false)
+}
+
+fn door_retreat_fixture_with_detour(detour: bool) -> Result<Fixture, String> {
+    let mut level = LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,"id":"retreat","name":"Retreat",
+         "spawn":{"x":0.5,"z":0.5},"rooms":[{"x":0,"z":0,"width":6,"depth":4}],
+         "walls":[{"x":0,"z":2,"width":6,"depth":0.1,"height":2.8,
+                   "openings":[{"offset":2,"width":1.4,"height":2.2}]}],
+         "doors":[{"id":"swing","x":2,"z":2.05,"width":1.4,"height":2.2,
+                   "swing_degrees":90,"open_direction":"left","obstruction":"stop"}]}"#,
+    )
+    .map_err(|error| error.to_string())?;
+    if detour {
+        let wall = level.walls.first_mut().ok_or("missing divider")?;
+        let mut passage = wall.openings.first().ok_or("missing opening")?.clone();
+        passage.offset = 0.3;
+        passage.width = 1.2;
+        wall.openings.push(passage);
+    }
+    let floor = WalkableFloor::from_level(&level);
+    let ceiling = WalkableCeiling::from_level(&level);
+    let doors = Doors::from_level(&level);
+    let walls = level.collision_aabbs();
+    let (grid, _) = crate::map_compiler::navigation::bake(
+        &crate::map_compiler::navigation::NavBakeInput {
+            level: &level,
+            walls: &walls,
+            floor: &floor,
+            ceiling: &ceiling,
+            doors: &doors,
+            classes: &[NavAgentProfile::reference().class()],
+            obstacles: &[],
+            walk_proxies: &[],
+        },
+        &crate::map_compiler::navigation::NavBakeOptions::default(),
+    )?;
+    let mut fixture = Fixture::new(grid)?;
+    fixture.index = CollisionIndex::build(&walls);
+    fixture.walls = walls;
+    fixture.floor = floor;
+    fixture.ceiling = ceiling;
+    fixture.doors = doors;
+    Ok(fixture)
+}
+
+fn door_tick(world: &mut AiWorld, fixture: &mut Fixture) -> Result<AiOutcome, String> {
+    let leaves = fixture.doors.colliders();
+    let mut context = fixture.context(0.05, &[]);
+    context.leaves = &leaves;
+    let mut out = AiOutcome::default();
+    world.tick(&context, &mut out);
+    let actor = world.agent("agent_0").ok_or("missing door actor")?;
+    for (id, _) in &out.door_requests {
+        let _started = fixture.doors.request_open_from(id, Some(actor.position));
+    }
+    let _steps = fixture.doors.advance(0.05, |_, leaf| {
+        (leaf.overlaps_body_y(actor.position.y, actor.profile.height)
+            && leaf.overlaps_disc(actor.position.x, actor.position.z, actor.profile.radius))
+            || fixture
+                .obstacles
+                .iter()
+                .any(|solid| crate::engine::entities::door_pose_hits_box(leaf, solid))
+            || fixture.targets.iter().any(|target| {
+                leaf.overlaps_body_y(target.position.y, target.height)
+                    && leaf.overlaps_disc(target.position.x, target.position.z, target.radius)
+            })
+    });
+    Ok(out)
+}
+
+fn in_baked_portal(nav: &NavMesh, point: Vec3) -> bool {
+    let grid = nav.grid();
+    grid.cell_at(point.x, point.z)
+        .and_then(|(x, z)| grid.index_of(x, z))
+        .and_then(|node| grid.cell_portal.get(node))
+        .is_some_and(|id| *id != NO_PORTAL)
+}
+
+// Protect the deadlock where a physically clear retreat starts inside many
+// live portal cells. The one-door fixture also proves a wall-sized obstruction
+// remains solid and switching the route away drops the opening interaction.
+#[test]
+fn one_way_door_retreat_respects_portal_obstruction_and_changed_leg() -> Result<(), String> {
+    let start = Vec3::new(2.7, 0.0, 1.5);
+    let target = Vec3::new(2.7, 0.0, 2.7);
+    let radius = 1.45;
+    for blocked in [false, true] {
+        let mut fixture = door_retreat_fixture()?;
+        assert!(
+            fixture
+                .nav
+                .grid()
+                .cell_portal
+                .iter()
+                .filter(|id| **id != NO_PORTAL)
+                .count()
+                > 20
+        );
+        assert!(
+            in_baked_portal(&fixture.nav, start),
+            "actor must start inside the full baked portal"
+        );
+        let mut world = AiWorld::new();
+        let _actor = register(
+            &mut world,
+            0,
+            AiDef {
+                behavior: AiBehavior::Wanderer,
+                can_open_doors: true,
+                walk_speed: 1.2,
+                wander_radius: radius,
+                idle_seconds: 20.0,
+                ..AiDef::default()
+            },
+            start,
+        );
+        assert!(world.force_state(
+            "agent_0",
+            AiState::Wander {
+                destination: target
+            }
+        ));
+        let _first = door_tick(&mut world, &mut fixture)?;
+        if blocked {
+            // Install three solid sides only after the initial route was built.
+            // The closed leaf and its jambs cover the fourth side.
+            fixture.obstacles.extend([
+                WallAabb::with_y(2.10, 0.0, 0.5, 0.1, 2.1, 1.56),
+                WallAabb::with_y(3.21, 0.0, 0.5, 0.1, 2.1, 1.56),
+                WallAabb::with_y(2.20, 0.0, 1.08, 1.01, 2.1, 0.1),
+            ]);
+        }
+        let mut cleared_portal = false;
+        let mut moved_back = false;
+        for _ in 0_u8..80 {
+            let was_open = fixture.doors.door_open("swing");
+            let _out = door_tick(&mut world, &mut fixture)?;
+            let position = world.agent("agent_0").ok_or("missing actor")?.position;
+            assert!((position.x - start.x).hypot(position.z - start.z) <= radius);
+            if !was_open {
+                moved_back |= position.z < start.z - 0.08;
+                cleared_portal |= !in_baked_portal(&fixture.nav, position);
+            }
+        }
+        if blocked {
+            assert!(
+                !cleared_portal && !fixture.doors.door_open("swing"),
+                "real solids must prevent retreat and opening"
+            );
+            fixture.obstacles.clear();
+            assert!(world.set_navigation_goal("agent_0", Vec3::new(2.7, 0.0, 0.7)));
+            for _ in 0_u8..24 {
+                assert!(
+                    door_tick(&mut world, &mut fixture)?
+                        .door_requests
+                        .is_empty(),
+                    "new route must never request the old door"
+                );
+            }
+            let rerouted = world.agent("agent_0").ok_or("missing rerouted actor")?;
+            assert!(
+                rerouted.position.z < 1.0,
+                "the new leg must leave the old door behind"
+            );
+        } else {
+            assert!(
+                moved_back && cleared_portal,
+                "actor must physically retreat through the marked portal"
+            );
+            assert!(
+                fixture.doors.door_open("swing"),
+                "leaf must fully open after retreat"
+            );
+            let reached = world
+                .agent("agent_0")
+                .ok_or("missing routed actor")?
+                .position;
+            assert!(
+                reached.z > 2.4,
+                "actor should resume its route across the door: {reached:?}"
+            );
+        }
+    }
+    Ok(())
+}
+
+// A 20 cm grid with a sub-metre radius reproduces the projected-goal bug in
+// a compact room. Observing multiple goals and accepted movement prevents a
+// range check that technically passes by freezing the agent.
+#[test]
+fn small_wander_radius_keeps_multiple_real_goals_and_walks() -> Result<(), String> {
+    let mut fixture = door_retreat_fixture()?;
+    let home = Vec3::new(4.8, 0.0, 2.8);
+    let radius = 0.65;
+    let mut world = AiWorld::new();
+    let _actor = register(
+        &mut world,
+        0,
+        AiDef {
+            behavior: AiBehavior::Wanderer,
+            wander_radius: radius,
+            idle_seconds: 0.35,
+            walk_speed: 0.75,
+            ..AiDef::default()
+        },
+        home,
+    );
+    let mut goals = Vec::new();
+    let mut moved = false;
+    for _ in 0_u16..180 {
+        let _out = door_tick(&mut world, &mut fixture)?;
+        let actor = world.agent("agent_0").ok_or("missing wanderer")?;
+        let distance = |p: Vec3| (p.x - home.x).hypot(p.z - home.z);
+        assert!(
+            distance(actor.position) <= radius,
+            "accepted feet left the radius"
+        );
+        moved |= distance(actor.position) > 0.15;
+        if let AiState::Wander { destination } = actor.state {
+            assert!(
+                distance(destination) <= radius,
+                "projected goal left the radius"
+            );
+            if !goals.contains(&destination) {
+                goals.push(destination);
+            }
+        }
+    }
+    assert!(
+        moved && goals.len() > 2,
+        "the wanderer must choose and walk to distinct goals"
+    );
+    Ok(())
+}
+
+// A dynamic near-cell obstacle permits fallback while the sparse grid cannot
+// plan at all. The physical body still makes a real, bounded approach.
+#[test]
+fn wander_empty_route_fallback_accepts_only_bounded_motion() -> Result<(), String> {
+    let mut fixture = Fixture::new(grid(5, 3, &[0]))?;
+    fixture.floor = door_retreat_fixture()?.floor;
+    fixture
+        .obstacles
+        .push(WallAabb::with_y(3.24, 0.0, 1.82, 0.1, 2.1, 0.2));
+    let home = Vec3::new(2.5, 0.0, 1.5);
+    let start = Vec3::new(3.08, 0.0, 1.5);
+    let mut world = AiWorld::new();
+    let actor = register(
+        &mut world,
+        0,
+        AiDef {
+            behavior: AiBehavior::Wanderer,
+            wander_radius: 0.65,
+            idle_seconds: 10.0,
+            ..AiDef::default()
+        },
+        home,
+    );
+    assert!(world.apply_sequence_transform(actor, start, 0.0));
+    assert!(world.force_state(
+        "agent_0",
+        AiState::Wander {
+            destination: Vec3::new(3.05, 0.0, 1.8),
+        }
+    ));
+    let mut travelled = false;
+    for _ in 0_u8..16 {
+        let out = door_tick(&mut world, &mut fixture)?;
+        let npc = world.agent("agent_0").ok_or("missing actor")?;
+        assert!(
+            npc.path.waypoints.is_empty(),
+            "the fixture must exercise the empty-route fallback"
+        );
+        assert!((npc.position.x - home.x).hypot(npc.position.z - home.z) <= 0.65);
+        travelled |= !out.moved.is_empty() && npc.position.distance(start) > 0.08;
+    }
+    assert!(
+        travelled,
+        "a clear bounded direction must make physical progress"
+    );
+    Ok(())
+}
+
+// The actor starts in the swing portal, with a real leaf blocker and retreat
+// walls that leave a route only by stepping toward the divider, then turning
+// away from the blocked opening. The original goal stays in effect.
+#[test]
+fn obstructed_one_way_door_replans_to_same_goal_via_passage() -> Result<(), String> {
+    let mut fixture = door_retreat_fixture_with_detour(true)?;
+    let start = Vec3::new(2.7, 0.0, 1.1);
+    let goal = Vec3::new(2.7, 0.0, 2.9);
+    assert!(
+        in_baked_portal(&fixture.nav, start),
+        "actor starts in the baked swing"
+    );
+    let mut world = AiWorld::new();
+    let _actor = register(
+        &mut world,
+        0,
+        AiDef {
+            walk_speed: 1.5,
+            ..AiDef::default()
+        },
+        start,
+    );
+    assert!(world.set_navigation_goal("agent_0", goal));
+    fixture
+        .obstacles
+        .push(WallAabb::with_y(0.3, 0.0, 1.9, 1.2, 2.1, 0.3));
+    let _initial = door_tick(&mut world, &mut fixture)?;
+    let planned = world.agent("agent_0").ok_or("missing actor")?;
+    assert_eq!(
+        planned.path.door_requests,
+        ["swing"],
+        "initial route uses the swing door"
+    );
+    fixture.obstacles.extend([
+        WallAabb::with_y(1.90, 0.0, 0.0, 0.10, 2.1, 1.00),
+        WallAabb::with_y(3.35, 0.0, 0.0, 0.10, 2.1, 1.00),
+        WallAabb::with_y(2.00, 0.0, 0.40, 1.35, 2.1, 0.10),
+    ]);
+    fixture.targets.push(AiTarget {
+        handle: EntityHandle::from_parts(9, 0),
+        instance_id: "blocker".into(),
+        role: None,
+        behavior: AiBehavior::Idler,
+        position: Vec3::new(3.25, 0.0, 1.76),
+        radius: 0.14,
+        height: 1.8,
+        caught: false,
+    });
+    let mut opened = false;
+    let mut blocked_in_portal = false;
+    let mut used_passage = false;
+    for tick in 0_u16..140 {
+        if tick == 14 {
+            // Keep the passage blocked through the first opening-version
+            // replan. Clearing this box does not change the door version.
+            assert!(
+                blocked_in_portal,
+                "the actor must wait inside the obstructed swing first"
+            );
+            let _cleared_passage = fixture.obstacles.remove(0);
+        }
+        let before = world.agent("agent_0").ok_or("missing actor")?.position;
+        let _out = door_tick(&mut world, &mut fixture)?;
+        let actor = world.agent("agent_0").ok_or("missing actor")?;
+        opened |= fixture.doors.door_open("swing");
+        blocked_in_portal |= fixture.doors.door_obstructed("swing")
+            && in_baked_portal(&fixture.nav, actor.position)
+            && actor.position.distance(start) < 0.06;
+        assert_eq!(
+            actor.navigation_goal,
+            Some(goal),
+            "the command must remain unchanged"
+        );
+        if before.z < 2.05 && actor.position.z >= 2.05 {
+            assert!(
+                actor.position.x <= 1.5,
+                "only the alternative passage may cross the divider"
+            );
+            used_passage = true;
+        }
+        if actor.position.distance(goal) < 0.06 {
+            break;
+        }
+    }
+    let actor = world.agent("agent_0").ok_or("missing actor")?;
+    assert!(
+        blocked_in_portal && !opened && fixture.doors.door_obstructed("swing"),
+        "solid must keep the leaf blocked"
+    );
+    assert!(
+        used_passage && actor.position.distance(goal) < 0.06,
+        "actor must reach the same goal by the passage: {:?}, {:?}, waypoint {}, queries {}, stuck {}, door: {:?}",
+        actor.position,
+        actor.path,
+        actor.current_waypoint,
+        actor.path_queries,
+        actor.stuck_seconds,
+        fixture.doors.get(0)
+    );
+    Ok(())
+}
+
+// Use live observation to interrupt an already moving short return, then
+// withdraw the stimulus. The actual chase, escape and follow each must hand
+// motion back to the original post instead of dropping the outstanding intent.
+#[test]
+fn post_return_resumes_after_reactive_motion() -> Result<(), String> {
+    use crate::engine::entities::sequences::AfterMove;
+    let mut fixture = Fixture::new(grid(9, 9, &(0..81).collect::<Vec<_>>()))?;
+    let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"post_reaction","name":"Post reaction","spawn":{"x":1,"z":1},"rooms":[{"width":9,"depth":9}]}"#)
+        .map_err(|error| error.to_string())?;
+    fixture.floor = WalkableFloor::from_level(&level);
+    fixture.ceiling = WalkableCeiling::from_level(&level);
+    let home = Vec3::new(3.5, 0.0, 4.5);
+    let displaced = Vec3::new(4.5, 0.0, 4.5);
+    for behavior in [AiBehavior::Predator, AiBehavior::Prey, AiBehavior::Follower] {
+        let mut world = AiWorld::new();
+        let actor = register(
+            &mut world,
+            0,
+            AiDef {
+                behavior,
+                reacts_to: vec!["guide".into()],
+                sight_fov_degrees: 360.0,
+                search_after_seconds: 0.5,
+                flee_distance: 4.0,
+                ..AiDef::default()
+            },
+            home,
+        );
+        assert!(world.apply_sequence_transform(actor, displaced, 0.0));
+        world.complete_script_move(actor, AfterMove::ReturnHome);
+        for _ in 0_u8..4 {
+            world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+        }
+        let returning = world.agent("agent_0").ok_or("missing returner")?;
+        assert!(matches!(returning.state, AiState::Return { destination } if destination == home));
+        assert!(
+            returning.position.x < displaced.x,
+            "return must already be walking"
+        );
+        fixture.targets.push(AiTarget {
+            handle: EntityHandle::from_parts(9, 0),
+            instance_id: "guide".into(),
+            role: Some("guide".into()),
+            behavior: AiBehavior::Idler,
+            position: Vec3::new(7.5, 0.0, 4.5),
+            radius: 0.3,
+            height: 1.8,
+            caught: false,
+        });
+        let mut preempted = false;
+        let reaction_ticks = if behavior == AiBehavior::Prey { 28 } else { 12 };
+        for _ in 0_u8..reaction_ticks {
+            world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+            let npc = world.agent("agent_0").ok_or("missing reacting actor")?;
+            preempted |= npc.speed_mps > 0.01
+                && match behavior {
+                    AiBehavior::Predator => matches!(npc.state, AiState::Pursue { target: _ }),
+                    AiBehavior::Prey => matches!(
+                        npc.state,
+                        AiState::Flee {
+                            threat: _,
+                            destination: _
+                        }
+                    ),
+                    AiBehavior::Follower => matches!(npc.state, AiState::Follow { target: _ }),
+                    AiBehavior::Idler | AiBehavior::Wanderer | AiBehavior::Skittish => false,
+                };
+        }
+        assert!(preempted, "{behavior:?} must take priority");
+        fixture.targets.clear();
+        let mut resumed = false;
+        for _ in 0_u16..160 {
+            world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+            let npc = world.agent("agent_0").ok_or("missing returning actor")?;
+            resumed |= matches!(npc.state, AiState::Return { destination } if destination == home)
+                && npc.speed_mps > 0.01;
+            if resumed && npc.position.distance(home) < 0.06 {
+                break;
+            }
+        }
+        let npc = world.agent("agent_0").ok_or("missing actor")?;
+        assert!(
+            resumed && npc.position.distance(home) < 0.06,
+            "{behavior:?} must resume to the authored post: {:?}",
+            npc.position
         );
     }
     Ok(())

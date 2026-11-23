@@ -28,6 +28,15 @@ fn fixture(sequences: &str, bindings: &str) -> Result<(EntityWorld, WalkableFloo
 }
 
 fn tick(world: &mut EntityWorld, seconds: f32, floor: &WalkableFloor) -> WorldTick {
+    tick_with_nav(world, seconds, floor, None)
+}
+
+fn tick_with_nav(
+    world: &mut EntityWorld,
+    seconds: f32,
+    floor: &WalkableFloor,
+    nav: Option<&crate::engine::nav::NavMesh>,
+) -> WorldTick {
     let index = CollisionIndex::build(&[]);
     world.tick(&WorldContext {
         player_walk_speed: 3.75,
@@ -41,7 +50,7 @@ fn tick(world: &mut EntityWorld, seconds: f32, floor: &WalkableFloor) -> WorldTi
         walls: &[],
         index: &index,
         floor,
-        nav: None,
+        nav,
     })
 }
 
@@ -464,7 +473,7 @@ fn sequence_pose_reaches_ai_and_render_frames_and_survives_release() -> Result<(
             "components":[
                 {"component":"nav_agent","radius":0.2,"speed_mps":1.0},
                 {"component":"ai","behavior":"idler","sight_range":0.0,"hearing_range":0.0}]}],
-        "sequences":[{"id":"performance","steps":[
+        "sequences":[{"id":"performance","after_move":"stay","steps":[
             {"step":"move","x":0.7,"z":0.5,"speed":1.0},
             {"step":"face","yaw_degrees":90.0},
             {"step":"wait","seconds":0.2},
@@ -772,5 +781,91 @@ fn cinematic_admission_bounds_and_optional_serialization() -> Result<(), String>
             .contains("cinematic"),
         "old maps retain absent optional metadata"
     );
+    Ok(())
+}
+
+// Sequences share the same public collision handoff as normal play. A tiny
+// floor with one runtime barrier distinguishes absence, explicit return, and
+// stay, plus the failure mode of resetting the transform directly to home.
+#[test]
+fn scripted_npc_completion_returns_by_navigation_or_stays() -> Result<(), String> {
+    let level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"post","name":"Post",
+        "spawn":{"x":4.5,"z":2.5},"rooms":[{"width":5,"depth":3}],
+        "props":[{"id":"actor","model":"core:rubber_duck","x":0.5,"z":1.5,
+            "components":[{"component":"nav_agent","radius":0.3,"speed_mps":1},
+                {"component":"ai","walk_speed":1.2}]}],
+        "sequences":[
+            {"id":"default","steps":[{"step":"move","x":1.5,"z":1.5,"speed":2}]},
+            {"id":"return","after_move":"return_home","steps":[{"step":"move","x":1.5,"z":1.5,"speed":2}]},
+            {"id":"stay","after_move":"stay","steps":[{"step":"move","x":2.5,"z":1.5,"speed":2}]}]
+    }"#).map_err(|error| error.to_string())?;
+    let floor = WalkableFloor::from_level(&level);
+    let cells = (0_usize..15).collect::<Vec<_>>();
+    let nav = crate::engine::nav::NavMesh::from_record(super::navigation_ai::grid(5, 3, &cells))?;
+    let home = Vec3::new(0.5, 0.0, 1.5);
+    for sequence in ["default", "return", "stay", "supersede"] {
+        let mut world = EntityWorld::from_level(&level);
+        let first = if sequence == "supersede" {
+            "default"
+        } else {
+            sequence
+        };
+        start(&mut world, "actor", first);
+        for _ in 0_u8..25 {
+            let _tick = tick_with_nav(&mut world, 0.05, &floor, Some(&nav));
+            // Install an obstruction after scripted ownership is released.
+            if world.sequence_count() == 0 {
+                break;
+            }
+        }
+        if sequence == "supersede" {
+            let actor = world.ai().agent("actor").ok_or("missing returner")?;
+            assert!(
+                matches!(actor.state, crate::engine::ai::AiState::Return { destination } if destination == home)
+            );
+            start(&mut world, "actor", "stay");
+        }
+        if matches!(sequence, "stay" | "supersede") {
+            for _ in 0_u8..48 {
+                let _tick = tick_with_nav(&mut world, 0.05, &floor, Some(&nav));
+            }
+            let actor = world.ai().agent("actor").ok_or("missing actor")?;
+            assert!(actor.position.distance(Vec3::new(2.5, 0.0, 1.5)) < 0.03);
+            assert_eq!(actor.home, home, "stay must preserve the authored post");
+            assert!(world.set_ai_navigation_goal("actor", Vec3::new(3.5, 0.0, 1.5)));
+            for _ in 0_u8..48 {
+                let _tick = tick_with_nav(&mut world, 0.05, &floor, Some(&nav));
+            }
+            assert!(world.ai().agent("actor").ok_or("missing actor")?.position.x > 3.0);
+        } else {
+            assert_eq!(world.sequence_count(), 0, "the scripted walk must finish");
+            assert!(world.ai().agent("actor").ok_or("missing actor")?.position.x > 1.3);
+            let blocker =
+                crate::engine::collision::WallAabb::with_y(0.94, 0.0, 0.0, 0.05, 2.9, 3.0);
+            world.set_navigation_obstacles(std::iter::once(blocker));
+            for _ in 0_u8..48 {
+                let _tick = tick_with_nav(&mut world, 0.05, &floor, Some(&nav));
+                let actor = world
+                    .ai()
+                    .agent("actor")
+                    .ok_or("missing blocked returner")?;
+                assert!(
+                    actor.position.x >= 0.99 + actor.profile.radius - 0.001,
+                    "the return may not pass through the solid"
+                );
+            }
+            world.set_navigation_obstacles(std::iter::empty());
+            for _ in 0_u8..60 {
+                let _tick = tick_with_nav(&mut world, 0.05, &floor, Some(&nav));
+            }
+            let actor = world.ai().agent("actor").ok_or("missing returner")?;
+            assert!(
+                actor.position.distance(home) < 0.06,
+                "{sequence} must walk back after clearance: {:?}",
+                actor.position
+            );
+        }
+    }
     Ok(())
 }

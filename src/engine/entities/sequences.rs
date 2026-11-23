@@ -44,8 +44,32 @@ pub struct SequenceDef {
     /// Restart from step 0 after the last step instead of completing.
     #[serde(default)]
     pub looped: bool,
+    /// What an NPC does after a successful sequence that walked it away from its post.
+    #[serde(default, skip_serializing_if = "AfterMove::is_return_home")]
+    pub after_move: AfterMove,
     /// The steps, in order. Must not be empty.
     pub steps: Vec<SequenceStepDef>,
+}
+
+/// The post-movement policy for a completed scripted sequence.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub enum AfterMove {
+    /// Release the NPC to walk back to its authored post when outside its wander area.
+    #[default]
+    ReturnHome,
+    /// Release the NPC at the scripted destination without initiating a walk home.
+    Stay,
+}
+
+impl AfterMove {
+    #[expect(
+        clippy::trivially_copy_pass_by_ref,
+        reason = "Serde's skip predicate receives a field reference."
+    )]
+    const fn is_return_home(&self) -> bool {
+        matches!(self, Self::ReturnHome)
+    }
 }
 
 /// One step of a sequence.
@@ -225,6 +249,8 @@ pub struct SequenceRuntime {
     /// True when the active step has run its one-shot effect (an action, an
     /// emit or a state write) and is waiting to advance.
     pub step_ran: bool,
+    /// Whether a move step has actually displaced the owner.
+    pub(super) moved_owner: bool,
     /// The active `wait_animation` step observed its clip complete.
     pub animation_complete: bool,
     /// True when the authored sequence loops.
@@ -247,6 +273,7 @@ impl SequenceRuntime {
             step: 0,
             step_time: 0.0,
             step_ran: false,
+            moved_owner: false,
             animation_complete: false,
             looped: def.looped,
             finished: false,

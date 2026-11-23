@@ -1,5 +1,5 @@
 //! Portable AI intent uses semantic identities, never world-local handles.
-use super::{AiAgent, AiState, EntityHandle, PLAYER_TARGET_HANDLE};
+use super::{AfterMove, AiAgent, AiState, EntityHandle, PLAYER_TARGET_HANDLE};
 use glam::{Quat, Vec3};
 use serde::{Deserialize, Serialize};
 
@@ -10,6 +10,8 @@ pub struct Record {
     // Authored motion ownership survives; cached paths and handles do not.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     navigation: Option<Navigation>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    after_script_move: Option<AfterMove>,
     point: Option<Vec3>,
     target: Option<String>,
     clock: f32,
@@ -98,6 +100,7 @@ impl Record {
                 goal,
                 speed: agent.navigation_speed,
             }),
+            after_script_move: agent.after_script_move,
             point,
             target,
             clock: agent.clock,
@@ -262,10 +265,12 @@ impl Record {
         }
         agent.shelter_search = None;
         agent.path.clear();
+        agent.opening_door = None;
         agent.path_goal = None;
         agent.path_done_goal = None;
         agent.path_failed_at = None;
         agent.navigation_goal = self.navigation.as_ref().map(|navigation| navigation.goal);
+        agent.after_script_move = self.after_script_move;
         agent.navigation_speed = self
             .navigation
             .as_ref()
