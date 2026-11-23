@@ -417,6 +417,43 @@ fn square_start_clear(world: &HorizontalWorld<'_>, point: Vec2, body: (f32, f32,
         })
 }
 
+/// Accepted positions after the hull advances to a contact or finishes a slide.
+pub struct PlayerHullSweep {
+    positions: [Vec2; CONTACT_ITERATIONS],
+    len: usize,
+    end: Vec2,
+}
+
+impl PlayerHullSweep {
+    const fn new(from: Vec2) -> Self {
+        Self {
+            positions: [from; CONTACT_ITERATIONS],
+            len: 0,
+            end: from,
+        }
+    }
+
+    fn advance(&mut self, position: Vec2) {
+        if position != self.end
+            && let Some(point) = self.positions.get_mut(self.len)
+        {
+            *point = position;
+            self.len = self.len.saturating_add(1);
+        }
+        self.end = position;
+    }
+
+    pub(crate) fn contact_positions(&self) -> &[Vec2] {
+        self.positions
+            .get(..self.len.saturating_sub(1))
+            .unwrap_or_default()
+    }
+
+    pub(crate) const fn end(&self) -> Vec2 {
+        self.end
+    }
+}
+
 /// Exact fixed-orientation player hull; the disc API remains available to AI.
 pub fn sweep_player_hull(
     world: &HorizontalWorld<'_>,
@@ -424,15 +461,15 @@ pub fn sweep_player_hull(
     body: (f32, f32, f32),
     allow_steps: bool,
 ) -> Vec2 {
-    sweep_shape(world, path, body, allow_steps)
+    sweep_player_hull_path(world, path, body, allow_steps).end()
 }
 
-fn sweep_shape(
+pub fn sweep_player_hull_path(
     world: &HorizontalWorld<'_>,
     path: (Vec2, Vec2),
     body: (f32, f32, f32),
     allow_steps: bool,
-) -> Vec2 {
+) -> PlayerHullSweep {
     let HorizontalWorld {
         index,
         walls,
@@ -446,11 +483,12 @@ fn sweep_shape(
     let mut remaining = Vec2::new(to.x - from.x, to.y - from.y);
     let cast_wall = square_wall;
     let cast_leaf = square_door;
+    let mut trace = PlayerHullSweep::new(from);
     if !square_start_clear(world, from, body) {
-        return from;
+        return trace;
     }
-    let mut position = from;
     for _ in 0..CONTACT_ITERATIONS {
+        let position = trace.end();
         if remaining.length_squared() <= MOTION_EPS_SQUARED {
             break;
         }
@@ -514,7 +552,7 @@ fn sweep_shape(
             },
         );
         let Some(hit) = best else {
-            position = point_on_path(position, remaining, 1.0);
+            trace.advance(point_on_path(position, remaining, 1.0));
             break;
         };
         let distance = remaining.length();
@@ -530,10 +568,10 @@ fn sweep_shape(
                 hit.normal
             ));
         }
-        position = point_on_path(position, remaining, advance);
+        trace.advance(point_on_path(position, remaining, advance));
         remaining = Vec2::new(remaining.x * (1.0 - advance), remaining.y * (1.0 - advance));
         let incoming = remaining.dot(hit.normal).min(0.0);
         remaining = point_on_path(remaining, hit.normal, -incoming);
     }
-    position
+    trace
 }

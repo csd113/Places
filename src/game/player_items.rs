@@ -69,7 +69,13 @@ impl PlayerContacts<'_> {
             Self::External {
                 constrain,
                 stance_clear: _,
-            } => game.apply_movement_constraint(constrain(game)),
+            } => {
+                let before = game.trigger_feet();
+                game.apply_movement_constraint(constrain(game));
+                if game.trigger_feet() != before {
+                    game.replace_trigger_command(None);
+                }
+            }
             Self::Items(_) => {}
         }
     }
@@ -136,15 +142,21 @@ impl Game {
         goal: PlayerContext,
         slide: HeldPlayerSlide,
     ) {
-        if world.held().is_some() {
+        let contact_feet = if world.held().is_some() {
             let (eye, contact) = world.constrain_carried_player_eye(origin, goal, slide);
             if let Some(held_contact) = contact {
-                self.apply_held_item_contact(eye, &held_contact);
+                self.apply_held_item_contact(eye, &held_contact)
+                    .then(|| Vec3::new(eye.x, goal.feet.y + (eye.y - goal.eye.y), eye.z))
             } else {
                 self.apply_movement_constraint(eye);
+                None
             }
         } else {
             self.apply_movement_constraint(world.constrain_player_eye_from(origin, goal));
+            None
+        };
+        if self.trigger_feet() != goal.feet || contact_feet.is_some() {
+            self.replace_trigger_command(contact_feet);
         }
     }
 
@@ -184,7 +196,7 @@ impl Game {
         world.throw_with_velocity(self.view_direction(), self.last_command_velocity)
     }
 
-    fn apply_held_item_contact(&mut self, blocked_eye: Vec3, contact: &HeldPlayerContact) {
+    fn apply_held_item_contact(&mut self, blocked_eye: Vec3, contact: &HeldPlayerContact) -> bool {
         let accepts = |eye: Vec3| {
             self.body_fits_with_height(
                 Vec3::new(eye.x, self.feet_y + (eye.y - self.player_position.y), eye.z),
@@ -197,7 +209,7 @@ impl Game {
         } else if accepts(blocked_eye) {
             blocked_eye
         } else {
-            return;
+            return false;
         };
         let feet = self.feet_y + (eye.y - self.player_position.y);
         self.player_position = eye;
@@ -206,6 +218,7 @@ impl Game {
         if use_slide && let Some(normal) = contact.slide_normal {
             self.apply_item_contact_normal(normal);
         }
+        use_slide
     }
 
     fn apply_item_contact_normal(&mut self, normal: Vec3) {

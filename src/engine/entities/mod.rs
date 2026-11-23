@@ -473,6 +473,7 @@ pub struct EntityWorld {
     transition_targets: std::collections::BTreeSet<String>,
     scripts: crate::engine::scripting::ScriptRuntime,
     script_event: Option<EventRecord>,
+    trigger_loops: std::collections::BTreeMap<EntityHandle, volumes::TriggerVisit>,
     pub(crate) script_player: Vec3,
     pub(crate) script_form: Option<String>,
     pub(crate) script_held_item: Option<String>,
@@ -624,6 +625,7 @@ impl EntityWorld {
             transition_targets: std::collections::BTreeSet::new(),
             scripts: crate::engine::scripting::ScriptRuntime::default(),
             script_event: None,
+            trigger_loops: std::collections::BTreeMap::new(),
             script_player: Vec3::ZERO,
             script_form: None,
             script_held_item: None,
@@ -1312,6 +1314,7 @@ impl EntityWorld {
                     occupancy: def.occupancy,
                     item_receipt: def.item_receipt,
                     occupants: Vec::new(),
+                    visits: volumes::VisitSet::new(&def.bindings),
                 },
             );
             self.resolve_bindings_for(handle, &def.bindings);
@@ -2529,6 +2532,7 @@ impl EntityWorld {
             key: key.to_string(),
             actor,
             depth,
+            trigger_visit: None,
         }
     }
 
@@ -2565,6 +2569,7 @@ impl EntityWorld {
             actor: Some(crate::engine::ai::PLAYER_TARGET_HANDLE),
             origin: origin.filter(|point| point.is_finite()),
             depth: 0,
+            trigger_visit: None,
         });
         let mut report = self.dispatch_queued_events();
         if powered {
@@ -3418,13 +3423,25 @@ impl EntityWorld {
                     report.unsupported = report.unsupported.saturating_add(1);
                     return;
                 }
+                let owned_visit = looped.then(|| self.volume_loop_visit(handle)).flatten();
+                report.actions_run = report.actions_run.saturating_add(1);
+                if owned_visit
+                    .as_ref()
+                    .is_some_and(volumes::TriggerVisit::exit_dropped)
+                {
+                    return;
+                }
                 if let Some(entry) = self.components.audio.get_mut(handle) {
                     entry.playing = true;
                     entry.looped = *looped;
                     entry.sound = sound_name;
                 }
+                if let Some(visit) = owned_visit {
+                    drop(self.trigger_loops.insert(handle, visit));
+                } else {
+                    drop(self.trigger_loops.remove(&handle));
+                }
                 self.queue_audio_start(handle);
-                report.actions_run = report.actions_run.saturating_add(1);
                 report.sounds = report.sounds.saturating_add(1);
             }
             ActionDef::StopSound { target } => {
@@ -3443,9 +3460,8 @@ impl EntityWorld {
                 if let Some(entry) = self.components.audio.get_mut(handle) {
                     entry.playing = false;
                 }
-                if let Some(key) = self.dynamic_key(handle).or_else(|| self.stable_key(handle)) {
-                    self.commands.push(WorldCommand::StopSound { entity: key });
-                }
+                drop(self.trigger_loops.remove(&handle));
+                self.queue_audio_stop(handle);
                 report.actions_run = report.actions_run.saturating_add(1);
             }
         }
@@ -4194,6 +4210,7 @@ impl EntityWorld {
     /// Releases component ownership after the caller handles render lifetime.
     /// Binding slots stay stable until the current event wave has finished.
     fn remove_entity_handle(&mut self, handle: EntityHandle) -> bool {
+        drop(self.trigger_loops.remove(&handle));
         let _retired_guest = self.retire_guest(handle);
         let _retired_feltling = self.retire_feltling(handle);
         let id = self.id_of(handle).map(str::to_string);
@@ -5328,7 +5345,12 @@ impl EntityWorld {
                 };
                 let before = state.position;
                 let before_yaw = state.yaw;
-                route.advance(state, delta, world);
+                let trace = self.trigger_index.route_path(&route.instance_id, before);
+                if let Some(path) = trace {
+                    route.advance_with_trace(state, delta, world, |position| path.push(position));
+                } else {
+                    route.advance(state, delta, world);
+                }
                 if (state.position - before).length_squared() > f32::EPSILON
                     || (state.yaw - before_yaw).abs() > f32::EPSILON
                     || state.blocked

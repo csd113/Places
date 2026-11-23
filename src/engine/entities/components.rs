@@ -457,6 +457,7 @@ pub struct TriggerVolume {
     pub item_receipt: ItemReceiptDef,
     /// Eligible actors inside at the last update, bounded by the item limit.
     pub(crate) occupants: Vec<super::volumes::VolumeOccupant>,
+    pub(super) visits: super::volumes::VisitSet,
 }
 
 impl TriggerVolume {

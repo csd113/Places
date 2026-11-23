@@ -32,6 +32,7 @@ impl TerminalDispatch {
 impl EntityWorld {
     pub(super) fn clear_event_dispatch(&mut self) {
         self.events.clear();
+        self.trigger_loops.clear();
         self.terminal_dispatch = TerminalDispatch::default();
     }
 
@@ -143,7 +144,7 @@ impl EntityWorld {
         tick: &mut WorldTick,
         terminal: bool,
     ) -> bool {
-        if !self.scripts.is_empty() {
+        if !self.scripts.is_empty() || dispatch.event.trigger_visit.is_some() {
             self.script_event = Some(dispatch.event.clone());
         }
         let queued_before = self.events.len();

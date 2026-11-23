@@ -2,7 +2,10 @@
 
 use glam::Vec3;
 
+use super::events::EventKind;
+use super::volumes::TriggerVisit;
 use super::{AudioEmitter, EntityHandle, EntityId, EntityWorld, LevelDef, Transform, WorldCommand};
+use crate::engine::level::ActionDef;
 
 impl EntityWorld {
     pub(super) fn resolve_sound_emitters(&mut self, level: &LevelDef) {
@@ -127,6 +130,43 @@ impl EntityWorld {
                     .iter()
                     .any(|actor| self.handle_of(&actor.state.id) == Some(handle))))
         .then_some(handle)
+    }
+
+    /// A trigger owns loops it starts that have an authored stop on departure.
+    pub(super) fn volume_loop_visit(&self, handle: EntityHandle) -> Option<TriggerVisit> {
+        let event = self.script_event.as_ref()?;
+        if event.kind != EventKind::EnterVolume {
+            return None;
+        }
+        let visit = event.trigger_visit.as_ref()?;
+        let target_id = self.id_of(handle)?;
+        let paired = self.bindings_by_owner.get(&event.subject)?.iter().any(|index| {
+            self.bindings.get(*index).is_some_and(|binding| {
+                binding.on == EventKind::ExitVolume
+                    && binding.key.as_ref().is_none_or(|key| key == &event.key)
+                    && binding.actions.iter().any(|action| {
+                        matches!(action, ActionDef::StopSound { target }
+                            if target.as_deref().map_or(handle == event.subject, |id| id.trim() == target_id))
+                    })
+            })
+        });
+        paired.then(|| visit.clone())
+    }
+
+    /// Reconciles only live playback owned by a visit whose exit could not be
+    /// admitted. No binding, script, condition, cooldown or once flag runs here.
+    pub(super) fn stop_dropped_trigger_loops(&mut self) {
+        let stopped: Vec<_> = self
+            .trigger_loops
+            .extract_if(.., |_, visit| visit.exit_dropped())
+            .map(|(handle, _)| handle)
+            .collect();
+        for handle in stopped {
+            if let Some(emitter) = self.components.audio.get_mut(handle) {
+                emitter.playing = false;
+                self.queue_audio_stop(handle);
+            }
+        }
     }
 
     pub(super) fn queue_audio_start(&mut self, handle: EntityHandle) {

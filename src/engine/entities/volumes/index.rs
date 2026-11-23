@@ -1,6 +1,6 @@
 //! Static balanced AABB tree over authored triggers. Swept actor bounds admit
-//! candidates, plus previously occupied boxes so disappearance and refused exits
-//! can be retried. Buffers are reserved at load. Empty-space queries traverse the
+//! candidates, plus previously occupied boxes so disappearing actors are found.
+//! Buffers are reserved at load. Empty-space queries traverse the
 //! tree instead of every volume; arbitrary large boxes need no global fallback.
 
 use std::collections::HashMap;
@@ -51,7 +51,9 @@ impl Candidate {
 struct WatchedEntity {
     id: String,
     previous: Option<(EntityHandle, Vec3)>,
-    pub sample: Option<(EntityHandle, Vec3, Vec3)>,
+    sample: Option<EntityHandle>,
+    path: Vec<Vec3>,
+    traced: bool,
     physical: bool,
 }
 
@@ -111,6 +113,8 @@ impl TriggerIndex {
                                 id: instance.clone(),
                                 previous: None,
                                 sample: None,
+                                path: Vec::new(),
+                                traced: false,
                                 physical: false,
                             });
                             next
@@ -157,11 +161,11 @@ impl TriggerIndex {
         }
     }
 
-    pub fn player(&mut self, from: Vec3, to: Vec3) {
-        if !from.is_finite() || !to.is_finite() {
+    pub fn player(&mut self, path: &[Vec3]) {
+        let Some((low, high)) = path_bounds(path) else {
             return;
-        }
-        self.gather(from.min(to), from.max(to));
+        };
+        self.gather(low, high);
         for index in 0..self.query_slots.len() {
             let Some(slot) = self.query_slots.get(index).copied() else {
                 continue;
@@ -231,6 +235,14 @@ impl TriggerIndex {
         }
     }
 
+    pub fn route_path(&mut self, id: &str, from: Vec3) -> Option<&mut Vec<Vec3>> {
+        let watch = self.watchers.get_mut(*self.watch_by_id.get(id)?)?;
+        watch.path.clear();
+        watch.path.push(from);
+        watch.traced = true;
+        Some(&mut watch.path)
+    }
+
     pub fn entities(
         &mut self,
         names: &EntityNames,
@@ -246,26 +258,28 @@ impl TriggerIndex {
                 .and_then(|actor| transforms.get(actor).map(|pose| (actor, pose.position)));
             let previous = watch.previous;
             watch.previous = current;
-            watch.sample = current.map(|(actor, to)| {
-                let from = if seed {
-                    to
-                } else {
-                    previous
-                        .filter(|(old_actor, _)| *old_actor == actor)
-                        .map_or(to, |(_, position)| position)
-                };
-                (actor, from, to)
-            });
-            if watch.physical {
-                continue;
-            }
-            let Some((_, from, to)) = watch.sample else {
+            watch.sample = current.map(|(actor, _)| actor);
+            let traced = std::mem::take(&mut watch.traced);
+            let Some((actor, to)) = current.filter(|_| !watch.physical) else {
                 continue;
             };
-            if !from.is_finite() || !to.is_finite() {
-                continue;
+            let from = previous
+                .filter(|(old_actor, _)| *old_actor == actor)
+                .map(|(_, position)| position);
+            if let Some(start) = from.filter(|_| !seed && traced && watch.path.last() == Some(&to))
+            {
+                if watch.path.first() != Some(&start) {
+                    watch.path.insert(0, start);
+                }
+            } else {
+                watch.path.clear();
+                watch.path.extend(from.filter(|_| !seed));
+                watch.path.push(to);
             }
-            self.gather(from.min(to), from.max(to));
+            let Some((low, high)) = path_bounds(&watch.path) else {
+                continue;
+            };
+            self.gather(low, high);
             for index in 0..self.query_slots.len() {
                 let Some(slot) = self.query_slots.get(index).copied() else {
                     continue;
@@ -281,8 +295,9 @@ impl TriggerIndex {
         self.candidates.sort_unstable();
     }
 
-    pub fn entity_sample(&self, watch: usize) -> Option<(EntityHandle, Vec3, Vec3)> {
-        self.watchers.get(watch)?.sample
+    pub fn entity_sample(&self, watch: usize) -> Option<(EntityHandle, &[Vec3])> {
+        let entry = self.watchers.get(watch)?;
+        Some((entry.sample?, &entry.path))
     }
 
     pub fn finish_volume(&mut self, slot: usize, inside: bool) {
@@ -345,6 +360,16 @@ impl TriggerIndex {
             .spatial_candidates
             .saturating_add(self.query_slots.len());
     }
+}
+
+fn path_bounds(path: &[Vec3]) -> Option<(Vec3, Vec3)> {
+    let (&first, rest) = path.split_first()?;
+    if !first.is_finite() {
+        return None;
+    }
+    rest.iter().try_fold((first, first), |(low, high), &point| {
+        point.is_finite().then(|| (low.min(point), high.max(point)))
+    })
 }
 
 #[derive(Clone, Copy)]

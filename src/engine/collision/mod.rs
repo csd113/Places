@@ -7,8 +7,9 @@ mod movement;
 
 use index::CollisionIndex;
 pub(crate) use movement::{
-    HorizontalWorld, disc_segment_blocked, door_segment_blocked, dynamic_disc_segment_blocked,
-    square_overlaps_door, square_overlaps_wall, sweep_player_hull,
+    HorizontalWorld, PlayerHullSweep, disc_segment_blocked, door_segment_blocked,
+    dynamic_disc_segment_blocked, square_overlaps_door, square_overlaps_wall, sweep_player_hull,
+    sweep_player_hull_path,
 };
 
 /// Half width of the fixed 32-unit square player hull (0.025 m/unit).

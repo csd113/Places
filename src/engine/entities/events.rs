@@ -130,6 +130,7 @@ pub struct EventRecord {
     /// against this value, including when a bounded budget defers the record
     /// to another tick, so delayed chains cannot restart their depth count.
     pub depth: u8,
+    pub(super) trigger_visit: Option<super::volumes::TriggerVisit>,
 }
 
 /// The bounded FIFO between event producers and the dispatcher.
@@ -206,7 +207,7 @@ impl EventQueue {
         self.records.pop_front()
     }
 
-    /// Space available for an atomic producer batch.
+    /// Space available to producers, excluding a reserved terminal slot.
     #[must_use]
     pub fn remaining_capacity(&self) -> usize {
         Self::MAX_QUEUED_EVENTS
@@ -220,7 +221,7 @@ impl EventQueue {
         self.reserved_terminal_slots = usize::from(held);
     }
 
-    /// Records an atomically refused batch without inserting a partial prefix.
+    /// Records rejected occurrences from a bounded producer batch.
     pub(super) const fn refuse_batch(&mut self, count: usize) {
         self.dropped = self.dropped.saturating_add(count);
     }

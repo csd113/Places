@@ -6,7 +6,7 @@
 use glam::Vec3;
 
 use crate::engine::collision_index::CollisionIndex;
-use crate::engine::entities::events::EventKind;
+use crate::engine::entities::events::{EventKind, EventQueue};
 use crate::engine::entities::{EntityWorld, TriggerItem, WorldCommand, WorldContext};
 use crate::engine::level::{ActionDef, LevelDef, WalkableFloor};
 
@@ -142,6 +142,148 @@ fn substep_bounce_crossing_survives_equal_outside_endpoints() -> Result<(), Stri
             ]
         ),
         "touching substep intervals must merge into one crossing"
+    );
+    Ok(())
+}
+
+// A four-point solver path crosses an earlier-authored far volume after leaving,
+// reentering and leaving the near volume. One bounded FIFO prefix forces the
+// records to survive two dispatch frames without changing their exit positions.
+#[test]
+fn solved_crossings_keep_exact_exit_positions_and_global_fifo() -> Result<(), String> {
+    use crate::engine::entities::MAX_EVENTS_PER_TICK;
+
+    let level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"crossings","name":"Crossings",
+        "spawn":{"x":-5,"z":-5},
+        "volumes":[
+            {"id":"far","x":-2,"z":0,"width":0.5,"depth":1,"bottom_y":0,"top_y":1,"filter":{"kind":"item"}},
+            {"id":"near","x":0,"z":0,"width":1,"depth":1,"bottom_y":0,"top_y":1,"filter":{"kind":"item"}}
+        ]
+    }"#).map_err(|error| error.to_string())?;
+    let mut world = EntityWorld::from_level(&level);
+    let near = world.handle_of("near").ok_or("missing near volume")?;
+    let far = world.handle_of("far").ok_or("missing far volume")?;
+    let path = [
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(2.0, 0.5, 0.5),
+        Vec3::new(0.5, 0.5, 0.5),
+        Vec3::new(-3.0, 0.5, 0.5),
+    ];
+    let mut crossed = item(1, 0.5, -3.0);
+    crossed.path = Some(&path);
+    for prefix in [
+        MAX_EVENTS_PER_TICK.saturating_add(1),
+        EventQueue::MAX_QUEUED_EVENTS.saturating_sub(3),
+    ] {
+        world.seed_volume_occupants(point(), &[item(1, 0.5, 0.5)]);
+        let drops_before = world.events().dropped();
+        for _ in 0..prefix {
+            assert!(world.emit(EventKind::Timer, far, "", None), "backlog fits");
+        }
+        world.update_volume_occupants(point(), point(), &[crossed]);
+        let _first = world.dispatch_queued_events();
+        assert!(
+            world
+                .events()
+                .peek()
+                .is_some_and(|event| event.kind == EventKind::Timer),
+            "the earliest prior-frame event still heads the queue"
+        );
+        let mut queued = world.events().clone();
+        let mut crossings = Vec::new();
+        while let Some(event) = queued.pop() {
+            if event.kind != EventKind::Timer {
+                crossings.push((event.subject, event.kind, event.origin));
+            }
+        }
+        let expected = [
+            (near, EventKind::ExitVolume, Some(1.05)),
+            (near, EventKind::EnterVolume, None),
+            (near, EventKind::ExitVolume, Some(-0.05)),
+            (far, EventKind::EnterVolume, None),
+            (far, EventKind::ExitVolume, Some(-2.05)),
+        ];
+        let admitted = EventQueue::MAX_QUEUED_EVENTS
+            .saturating_sub(prefix)
+            .min(expected.len());
+        assert_eq!(crossings.len(), admitted, "only the earliest crossings fit");
+        assert_eq!(
+            world.events().dropped().saturating_sub(drops_before),
+            expected.len().saturating_sub(admitted),
+            "the later crossings are the only drops"
+        );
+        for ((subject, kind, origin), (expected_subject, expected_kind, expected_x)) in
+            crossings.into_iter().zip(expected)
+        {
+            assert_eq!(
+                (subject, kind),
+                (expected_subject, expected_kind),
+                "crossing order and identity"
+            );
+            if let Some(x) = expected_x {
+                assert!(
+                    origin
+                        .is_some_and(|position| position.distance(Vec3::new(x, 0.5, 0.5)) < 1.0e-5),
+                    "exit must come from its own solved segment: {origin:?}"
+                );
+            }
+        }
+        drain_trigger_events(&mut world);
+    }
+    Ok(())
+}
+
+// Two route legs cross a small volume that the frame chord entirely misses.
+// A single route update proves watched non-physical entities use accepted legs.
+#[test]
+fn watched_route_crosses_before_turning_away() -> Result<(), String> {
+    use crate::engine::entity::RouteWorld;
+
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level","format_version":1,"id":"route_trigger","name":"Route trigger",
+        "spawn":{"x":3,"z":3},"rooms":[{"width":4,"depth":4}],
+        "props":[{"id":"actor","model":"mannequin","x":1,"z":1,"solid":false}],
+        "routes":[{"id":"actor","steps":[
+            {"step":"move_to","x":1.25,"z":1,"speed":12},
+            {"step":"move_to","x":1.25,"z":1.25,"speed":12}
+        ]}],
+        "volumes":[{"id":"zone","x":1.15,"z":0.98,"width":0.05,"depth":0.04,
+            "bottom_y":-0.1,"top_y":0.1,"filter":{"kind":"entity","instance":"actor"}}]
+    }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let mut world = EntityWorld::from_level(&level);
+    world.seed_volumes(point());
+    let floor = WalkableFloor::from_level(&level);
+    let index = CollisionIndex::build(&[]);
+    world.update_entities(
+        0.1,
+        &RouteWorld {
+            walls: &[],
+            floor: &floor,
+            index: &index,
+        },
+        Some(point()),
+    );
+    world.update_volumes(point(), point());
+
+    let mut events = world.events().clone();
+    assert_eq!(events.len(), 2, "the accepted first leg enters and exits");
+    assert!(
+        events
+            .pop()
+            .is_some_and(|event| event.kind == EventKind::EnterVolume),
+        "entry comes first"
+    );
+    let exit = events.pop().ok_or("missing routed exit")?;
+    assert_eq!(exit.kind, EventKind::ExitVolume, "the next edge is an exit");
+    assert!(
+        exit.origin
+            .is_some_and(|origin| origin.distance(Vec3::new(1.2, 0.0, 1.0)) < 1.0e-5),
+        "the exit is on the accepted first leg: {:?}",
+        exit.origin
     );
     Ok(())
 }
@@ -317,8 +459,8 @@ fn authored_playing_emitter_starts_mutes_resumes_and_restores_on_reset() -> Resu
     Ok(())
 }
 
-// These two bounded queue fixtures protect persistent-loop cleanup under overload.
-// They use only 257/4096 tiny in-memory records, never a capacity map or device.
+// This 256-record prefix protects admitted cleanup at the dispatch budget
+// boundary without building a capacity-size map or opening an audio device.
 #[test]
 fn event_budget_defers_accepted_exit_instead_of_erasing_cleanup() -> Result<(), String> {
     let mut world = fixture(r#"{"kind":"player"}"#, "per_actor", SOUND_BINDINGS)?;
@@ -351,45 +493,178 @@ fn event_budget_defers_accepted_exit_instead_of_erasing_cleanup() -> Result<(), 
     Ok(())
 }
 
-#[test]
-fn full_queue_restores_membership_until_final_exit_can_retry() -> Result<(), String> {
-    let mut world = fixture(r#"{"kind":"player"}"#, "per_actor", SOUND_BINDINGS)?;
-    let zone = world.handle_of("zone").ok_or("missing fixture zone")?;
-    world.seed_volumes(Vec3::splat(0.5));
-    for _ in 0..crate::engine::entities::events::EventQueue::MAX_QUEUED_EVENTS {
+fn overflow_loop_fixture() -> Result<EntityWorld, String> {
+    use crate::engine::project::ProjectPath;
+    use crate::engine::scripting::ScriptSource;
+
+    // One volume, two emitters and one callback isolate real playback ownership
+    // from exit effects and use only the bounded FIFO to force overflow.
+    let mut level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"exit_fixture","name":"Exit fixture",
+        "spawn":{"x":-5,"z":-5},
+        "props":[
+            {"id":"loop","model":"core:rubber_duck","components":[{"component":"audio","sound":"loop.test"}]},
+            {"id":"other","model":"core:rubber_duck","components":[{"component":"audio","sound":"other.test","playing":true}]}
+        ],
+        "volumes":[{"id":"zone","x":0,"z":0,"width":1,"depth":1,"bottom_y":0,"top_y":1,
+            "bindings":[
+                {"on":"enter_volume","actions":[{"action":"play_sound","target":"loop","loop":true}]},
+                {"on":"exit_volume","once":true,"actions":[
+                    {"action":"stop_sound","target":"loop"},
+                    {"action":"stop_sound","target":"other"},
+                    {"action":"run_script","script":"scripts/exit.luau","handler":"leave"}
+                ]}
+            ]}]
+    }"#).map_err(|error| error.to_string())?;
+    level.script_sources.push(ScriptSource {
+        path: ProjectPath::new("scripts/exit.luau".into())?,
+        source: r#"return {leave=function(api) api.message("real exit", {"marker"}) end}"#.into(),
+    });
+    let mut world = EntityWorld::from_level(&level);
+    let _autoplay = world.take_commands();
+    Ok(world)
+}
+
+fn drain_trigger_events(world: &mut EntityWorld) {
+    while !world.events().is_empty() {
+        let _report = world.dispatch_queued_events();
+    }
+}
+
+fn fill_trigger_backlog(
+    world: &mut EntityWorld,
+    zone: crate::engine::entities::id::EntityHandle,
+    slots_left: usize,
+) {
+    for _ in 0..EventQueue::MAX_QUEUED_EVENTS.saturating_sub(slots_left) {
         assert!(
             world.emit(EventKind::Timer, zone, "", None),
-            "fixture prefill fits"
+            "fixture prefill fits exactly"
         );
     }
-    world.update_volumes(Vec3::splat(0.5), point());
+}
+
+#[test]
+fn overflow_stops_only_the_departed_trigger_loop_without_replaying_exit() -> Result<(), String> {
+    let mut world = overflow_loop_fixture()?;
+    let zone = world.handle_of("zone").ok_or("missing fixture zone")?;
+    let active = world.handle_of("loop").ok_or("missing fixture loop")?;
+    let other = world
+        .handle_of("other")
+        .ok_or("missing unrelated emitter")?;
+    let inside = Vec3::splat(0.5);
+    let outside = Vec3::new(-1.0, 0.5, 0.5);
+    world.update_volumes(outside, inside);
+    let _entry = world.dispatch_queued_events();
+    let entry_commands = world.take_commands();
+    let [
+        WorldCommand::PlaySound {
+            entity,
+            looped: true,
+            sound: _,
+            gain: _,
+            time_domain: _,
+        },
+    ] = entry_commands.as_slice()
+    else {
+        return Err("entry did not start the fixture loop".into());
+    };
+
+    fill_trigger_backlog(&mut world, zone, 0);
+    world.update_volumes(inside, outside);
+    assert_eq!(
+        world.events().len(),
+        EventQueue::MAX_QUEUED_EVENTS,
+        "capacity is shared"
+    );
+    assert_eq!(
+        world.events().dropped(),
+        1,
+        "only the newest exit is refused"
+    );
     assert!(
         world
             .components()
             .volumes
             .get(zone)
-            .is_some_and(|volume| volume.inside),
-        "refused exit must preserve membership for retry"
+            .is_some_and(|volume| !volume.inside),
+        "actual departure updates occupancy despite overflow"
     );
-    let _first = world.dispatch_queued_events();
-    world.update_volumes(point(), point());
     assert!(
-        !world
+        world
             .components()
-            .volumes
-            .get(zone)
-            .is_some_and(|volume| volume.inside),
-        "available queue space accepts the retried exit"
+            .audio
+            .get(active)
+            .is_some_and(|emitter| !emitter.playing),
+        "the departed visit clears its emitter state immediately"
     );
-    while !world.events().is_empty() {
-        let _report = world.dispatch_queued_events();
-    }
     assert!(
-        matches!(
-            world.take_commands().as_slice(),
-            [WorldCommand::StopSound { entity: _ }]
-        ),
-        "retried last exit must eventually clean up playback"
+        world
+            .components()
+            .audio
+            .get(other)
+            .is_some_and(|emitter| emitter.playing),
+        "an unrelated emitter stays active despite its authored exit action"
+    );
+    assert!(
+        matches!(world.take_commands().as_slice(), [WorldCommand::StopSound { entity: stopped }] if stopped == entity),
+        "only the owned loop stops before a dispatch pump"
+    );
+
+    let _first = world.dispatch_queued_events();
+    let remaining = world.events().len();
+    world.update_volumes(outside, outside);
+    assert_eq!(
+        world.events().len(),
+        remaining,
+        "newly available space cannot replay an exit"
+    );
+    drain_trigger_events(&mut world);
+    assert!(
+        world.take_commands().is_empty(),
+        "no exit action or script ran later"
+    );
+    world.update_volumes(outside, inside);
+    let _next_entry = world.dispatch_queued_events();
+    assert!(
+        world.take_commands().iter().any(is_play),
+        "a later entry starts a fresh loop"
+    );
+    world.update_volumes(inside, outside);
+    let _real_exit = world.dispatch_queued_events();
+    let commands = world.take_commands();
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|command| matches!(command, WorldCommand::StopSound { entity: _ }))
+            .count(),
+        2,
+        "a real admitted exit still runs both authored audio actions"
+    );
+    assert!(commands.iter().any(|command| matches!(command, WorldCommand::ShowMessage { title, lines: _ } if title == "real exit")),
+        "the dropped exit did not consume the once-only script binding");
+
+    Ok(())
+}
+
+// A single spared queue slot forces the admitted entry to outlive its dropped
+// exit. The delayed entry must not start a loop after the real visit ended.
+#[test]
+fn dropped_exit_cancels_loop_start_of_an_admitted_entry() -> Result<(), String> {
+    let mut world = overflow_loop_fixture()?;
+    let zone = world.handle_of("zone").ok_or("missing fixture zone")?;
+    let outside = Vec3::new(-1.0, 0.5, 0.5);
+    fill_trigger_backlog(&mut world, zone, 1);
+    world.update_volumes(outside, Vec3::new(2.0, 0.5, 0.5));
+    assert_eq!(
+        world.events().dropped(),
+        1,
+        "the paired exit is dropped behind its admitted entry"
+    );
+    drain_trigger_events(&mut world);
+    assert!(
+        world.take_commands().is_empty(),
+        "the delayed entry cannot restart a departed visit's loop"
     );
     Ok(())
 }

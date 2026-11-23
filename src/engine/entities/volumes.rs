@@ -1,14 +1,16 @@
 //! Swept, spatially indexed trigger occupancy shared by every authored action kind.
 
 mod index;
+mod publish;
 pub(super) use index::TriggerIndex;
 pub use index::TriggerQueryStats;
+use publish::CrossingBatch;
+pub(super) use publish::{TriggerVisit, VisitSet};
 
 use glam::Vec3;
 
 use super::EntityWorld;
 use super::components::TriggerVolume;
-use super::events::{EventKind, EventQueue, EventRecord};
 use super::id::{EntityHandle, EntityNames};
 use crate::engine::level::{ItemReceiptDef, TriggerFilterDef, TriggerOccupancyDef};
 
@@ -65,42 +67,53 @@ pub(super) struct Sweep {
 }
 
 #[derive(Clone, Copy, Debug)]
+struct CrossingPoint {
+    time: f64,
+    position: Vec3,
+}
+
+#[derive(Debug, Default)]
 struct SweepIntervals {
-    values: [(f32, f32); MAX_TRIGGER_PATH_POINTS],
+    inline: [Option<(CrossingPoint, CrossingPoint)>; MAX_TRIGGER_PATH_POINTS],
+    extra: Vec<(CrossingPoint, CrossingPoint)>,
     len: usize,
 }
 
 impl SweepIntervals {
-    const fn new() -> Self {
-        Self {
-            values: [(0.0, 0.0); MAX_TRIGGER_PATH_POINTS],
-            len: 0,
-        }
-    }
-
-    fn push(&mut self, enter: f32, exit: f32) {
-        if let Some(previous) = self
-            .len
-            .checked_sub(1)
-            .and_then(|index| self.values.get_mut(index))
-            && enter <= previous.1
+    fn push(&mut self, enter: CrossingPoint, exit: CrossingPoint) {
+        let previous = self.extra.last_mut().or_else(|| {
+            self.len
+                .checked_sub(1)
+                .and_then(|index| self.inline.get_mut(index))
+                .and_then(Option::as_mut)
+        });
+        if let Some((_, previous_exit)) = previous
+            && enter.time <= previous_exit.time
         {
-            previous.1 = previous.1.max(exit);
+            if exit.time > previous_exit.time {
+                *previous_exit = exit;
+            }
             return;
         }
-        if let Some(slot) = self.values.get_mut(self.len) {
-            *slot = (enter, exit);
-            self.len = self.len.saturating_add(1);
+        if let Some(slot) = self.inline.get_mut(self.len) {
+            *slot = Some((enter, exit));
+        } else {
+            self.extra.push((enter, exit));
         }
+        self.len = self.len.saturating_add(1);
     }
 
-    fn iter(&self) -> impl Iterator<Item = (f32, f32)> {
-        self.values.iter().take(self.len).copied()
+    fn iter(&self) -> impl Iterator<Item = (CrossingPoint, CrossingPoint)> {
+        self.inline
+            .iter()
+            .flatten()
+            .chain(self.extra.iter())
+            .copied()
     }
 }
 
 pub(super) struct Edge {
-    time: f32,
+    time: f64,
     entered: bool,
     occupant: VolumeOccupant,
 }
@@ -140,7 +153,7 @@ impl EntityWorld {
         feet: Vec3,
         items: impl Iterator<Item = TriggerItem<'a>> + Clone,
     ) {
-        self.sample_volume_occupants(feet, feet, &items.take(MAX_TRIGGER_ITEMS), true);
+        self.sample_volume_occupants(&[feet], items, true);
     }
 
     /// Backward-compatible player-only baseline; callers with items use the combined API.
@@ -152,7 +165,7 @@ impl EntityWorld {
     pub fn reseed_volumes(&mut self, feet: Vec3) {
         let broadphase = &mut self.trigger_index;
         broadphase.begin();
-        broadphase.player(feet, feet);
+        broadphase.player(&[feet]);
         for candidate_index in 0..broadphase.candidates.len() {
             let Some(slot) = broadphase.candidates.get(candidate_index).copied() else {
                 continue;
@@ -166,10 +179,13 @@ impl EntityWorld {
             volume
                 .occupants
                 .retain(|occupant| occupant.id != OccupantId::Player);
-            if volume.filter.accepts_player() && volume.contains(feet.x, feet.z, feet.y) {
+            let player_inside =
+                volume.filter.accepts_player() && volume.contains(feet.x, feet.z, feet.y);
+            if player_inside {
                 volume.occupants.push(player_occupant(feet));
             }
             volume.inside = !volume.occupants.is_empty();
+            volume.visits.reseed_player(player_inside, volume.inside);
             broadphase.finish_volume(slot, volume.inside);
         }
         broadphase.finish();
@@ -190,7 +206,16 @@ impl EntityWorld {
         to: Vec3,
         items: impl Iterator<Item = TriggerItem<'a>> + Clone,
     ) {
-        self.sample_volume_occupants(from, to, &items.take(MAX_TRIGGER_ITEMS), false);
+        self.update_volume_paths_iter(&[from, to], items);
+    }
+
+    /// Updates trigger occupancy from the player's accepted movement points.
+    pub fn update_volume_paths_iter<'a>(
+        &mut self,
+        player_path: &[Vec3],
+        items: impl Iterator<Item = TriggerItem<'a>>,
+    ) {
+        self.sample_volume_occupants(player_path, items, false);
     }
 
     /// Backward-compatible player-only update for consumers without physical items.
@@ -200,15 +225,14 @@ impl EntityWorld {
 
     fn sample_volume_occupants<'a>(
         &mut self,
-        from: Vec3,
-        to: Vec3,
-        items: &(impl Iterator<Item = TriggerItem<'a>> + Clone),
+        player_path: &[Vec3],
+        items: impl Iterator<Item = TriggerItem<'a>>,
         seed: bool,
     ) {
-        let snapshots = materialize_snapshots((*items).clone());
+        let snapshots = materialize_snapshots(items);
         let broadphase = &mut self.trigger_index;
         broadphase.begin();
-        broadphase.player(from, to);
+        broadphase.player(player_path);
         for (index, item) in snapshots
             .iter()
             .enumerate()
@@ -217,6 +241,7 @@ impl EntityWorld {
             broadphase.item(item, index);
         }
         broadphase.entities(&self.names, &self.components.transforms, seed);
+        let mut batch = CrossingBatch::new(self.events.remaining_capacity());
         let sweeps = &mut self.trigger_sweeps;
         let edges = &mut self.trigger_edges;
         for candidate_index in 0..broadphase.candidates.len() {
@@ -236,7 +261,7 @@ impl EntityWorld {
             edges.clear();
             let initial_count = volume.occupants.len();
             if candidate.player
-                && let Some(sweep) = player_sweep(volume, from, to)
+                && let Some(sweep) = player_sweep(volume, player_path)
             {
                 sweeps.push(sweep);
             }
@@ -264,16 +289,30 @@ impl EntityWorld {
                     sweeps.push(sweep);
                 }
             }
-            let update = VolumeUpdate {
-                generation: self.generation,
-                handle,
-                seed,
-                initial_count,
-            };
-            let inside = publish_edges(volume, sweeps, edges, &mut self.events, update);
-            broadphase.finish_volume(slot, inside);
+            if seed {
+                volume.visits.clear();
+            } else {
+                occupancy_edges(volume, sweeps, edges, initial_count);
+                for edge in edges.drain(..) {
+                    let visit = volume.visits.transition(volume.occupancy, &edge);
+                    batch.offer(self.generation, handle, edge, visit);
+                }
+                volume.visits.prune();
+            }
+            volume.occupants.clear();
+            volume.occupants.extend(
+                sweeps
+                    .drain(..)
+                    .filter(|sweep| sweep.at_end)
+                    .map(|sweep| sweep.occupant),
+            );
+            volume.inside = !volume.occupants.is_empty();
+            broadphase.finish_volume(slot, volume.inside);
         }
         broadphase.finish();
+        if batch.publish(&mut self.events) {
+            self.stop_dropped_trigger_loops();
+        }
     }
 
     /// Last update's exact-work counts for explicit developer diagnostics.
@@ -375,72 +414,16 @@ fn receipt_item<'a>(volume: &TriggerVolume, item: &TriggerItem<'a>) -> Option<Tr
     })
 }
 
-#[derive(Clone, Copy)]
-struct VolumeUpdate {
-    generation: u64,
-    handle: EntityHandle,
-    seed: bool,
-    initial_count: usize,
-}
-
-fn publish_edges(
-    volume: &mut TriggerVolume,
-    sweeps: &mut Vec<Sweep>,
-    edges: &mut Vec<Edge>,
-    events: &mut EventQueue,
-    update: VolumeUpdate,
-) -> bool {
-    if !update.seed {
-        occupancy_edges(volume, sweeps, edges, update.initial_count);
-    }
-    if !update.seed && edges.len() > events.remaining_capacity() {
-        events.refuse_batch(edges.len());
-        // Keep previous membership authoritative so a refused final exit is
-        // retained by the broadphase's occupied set and retried next frame.
-        volume.occupants.extend(
-            sweeps
-                .drain(..)
-                .filter(|sweep| sweep.was_inside)
-                .map(|sweep| sweep.occupant),
-        );
-        edges.clear();
-        return volume.inside;
-    }
-    volume.occupants.clear();
-    volume.occupants.extend(
-        sweeps
-            .drain(..)
-            .filter(|sweep| sweep.at_end)
-            .map(|sweep| sweep.occupant),
-    );
-    volume.inside = !volume.occupants.is_empty();
-    for edge in edges.drain(..) {
-        let _ = events.push(EventRecord {
-            generation: update.generation,
-            kind: if edge.entered {
-                EventKind::EnterVolume
-            } else {
-                EventKind::ExitVolume
-            },
-            subject: update.handle,
-            key: edge.occupant.key,
-            actor: edge.occupant.actor,
-            origin: Some(edge.occupant.position),
-            depth: 0,
-        });
-    }
-    volume.inside
-}
-
 fn entity_sweep(
     volume: &mut TriggerVolume,
-    (actor, start, position): (EntityHandle, Vec3, Vec3),
+    (actor, path): (EntityHandle, &[Vec3]),
 ) -> Option<Sweep> {
     let TriggerFilterDef::Entity { instance } = &volume.filter else {
         return None;
     };
 
-    let (enter, exit) = interval(volume, start, position, Vec3::ZERO)?;
+    let position = *path.last()?;
+    let intervals = path_intervals(volume, path, Vec3::ZERO)?;
     let existing = volume
         .occupants
         .iter()
@@ -455,8 +438,6 @@ fn entity_sweep(
             position,
         }
     };
-    let mut intervals = SweepIntervals::new();
-    intervals.push(enter, exit);
     Some(Sweep {
         occupant: VolumeOccupant {
             position,
@@ -468,17 +449,16 @@ fn entity_sweep(
     })
 }
 
-fn player_sweep(volume: &mut TriggerVolume, from: Vec3, to: Vec3) -> Option<Sweep> {
+fn player_sweep(volume: &mut TriggerVolume, path: &[Vec3]) -> Option<Sweep> {
     if !volume.filter.accepts_player() {
         return None;
     }
-    let (enter, exit) = interval(volume, from, to, Vec3::ZERO)?;
+    let to = *path.last()?;
+    let intervals = path_intervals(volume, path, Vec3::ZERO)?;
     let existing = volume
         .occupants
         .iter()
         .position(|occupant| occupant.id == OccupantId::Player);
-    let mut intervals = SweepIntervals::new();
-    intervals.push(enter, exit);
     Some(Sweep {
         occupant: existing.map_or_else(
             || player_occupant(to),
@@ -560,25 +540,45 @@ fn interval(volume: &TriggerVolume, from: Vec3, to: Vec3, half: Vec3) -> Option<
 }
 
 fn item_intervals(volume: &TriggerVolume, item: &TriggerItem<'_>) -> Option<SweepIntervals> {
-    let mut intervals = SweepIntervals::new();
     if let Some(path) = item.path.filter(|path| path.len() >= 2) {
         if path.len() > MAX_TRIGGER_PATH_POINTS || path.iter().any(|point| !point.is_finite()) {
             return None;
         }
-        let segments = path.len().saturating_sub(1);
-        let denominator = f32::from(u16::try_from(segments).ok()?);
+        path_intervals(volume, path, item.half_extents)
+    } else {
+        path_intervals(volume, &[item.from, item.to], item.half_extents)
+    }
+}
+
+fn path_intervals(volume: &TriggerVolume, path: &[Vec3], half: Vec3) -> Option<SweepIntervals> {
+    let mut intervals = SweepIntervals::default();
+    let first = *path.first()?;
+    if path.len() == 1 {
+        if endpoint_inside(volume, first, half) {
+            intervals.push(
+                CrossingPoint {
+                    time: 0.0,
+                    position: first,
+                },
+                CrossingPoint {
+                    time: 1.0,
+                    position: first,
+                },
+            );
+        }
+    } else {
+        let segments = f64::from(u32::try_from(path.len().saturating_sub(1)).ok()?);
         for (index, pair) in path.windows(2).enumerate() {
             let (&from, &to) = (pair.first()?, pair.get(1)?);
-            if let Some((enter, exit)) = interval(volume, from, to, item.half_extents) {
-                let offset = f32::from(u16::try_from(index).ok()?);
-                intervals.push(
-                    (offset + enter) / denominator,
-                    (offset + exit) / denominator,
-                );
+            if let Some((enter, exit)) = interval(volume, from, to, half) {
+                let offset = f64::from(u32::try_from(index).ok()?);
+                let crossing = |fraction| CrossingPoint {
+                    time: (offset + f64::from(fraction)) / segments,
+                    position: from.lerp(to, fraction),
+                };
+                intervals.push(crossing(enter), crossing(exit));
             }
         }
-    } else if let Some((enter, exit)) = interval(volume, item.from, item.to, item.half_extents) {
-        intervals.push(enter, exit);
     }
     (intervals.len > 0).then_some(intervals)
 }
@@ -599,25 +599,28 @@ fn occupancy_edges(
     for sweep in sweeps {
         for (index, (enter, exit)) in sweep.intervals.iter().enumerate() {
             let starts_inside = index == 0 && sweep.was_inside;
-            if starts_inside && enter > 0.0 {
+            if starts_inside && enter.time > 0.0_f64 {
                 edges.push(Edge {
                     time: 0.0,
                     entered: false,
                     occupant: sweep.occupant.clone(),
                 });
             }
-            if !starts_inside || enter > 0.0 {
+            if !starts_inside || enter.time > 0.0_f64 {
                 edges.push(Edge {
-                    time: enter,
+                    time: enter.time,
                     entered: true,
                     occupant: sweep.occupant.clone(),
                 });
             }
             if !sweep.at_end || index.saturating_add(1) < sweep.intervals.len {
                 edges.push(Edge {
-                    time: exit,
+                    time: exit.time,
                     entered: false,
-                    occupant: sweep.occupant.clone(),
+                    occupant: VolumeOccupant {
+                        position: exit.position,
+                        ..sweep.occupant.clone()
+                    },
                 });
             }
         }

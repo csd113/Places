@@ -381,6 +381,16 @@ impl EntityRoute {
     /// [`ENTITY_MAX_STEP_S`] so a frame hitch never skips the route across a
     /// wall or a floor edge.
     pub fn advance(&self, state: &mut RouteState, delta_seconds: f32, world: &RouteWorld<'_>) {
+        self.advance_with_trace(state, delta_seconds, world, |_| {});
+    }
+
+    pub(crate) fn advance_with_trace(
+        &self,
+        state: &mut RouteState,
+        delta_seconds: f32,
+        world: &RouteWorld<'_>,
+        mut accepted_position: impl FnMut(Vec3),
+    ) {
         if state.finished {
             return;
         }
@@ -404,6 +414,7 @@ impl EntityRoute {
         let count = substeps as u32;
         for _ in 0..count {
             self.advance_substep(state, substep, world);
+            accepted_position(state.position);
             if state.blocked || state.finished {
                 break;
             }

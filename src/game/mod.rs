@@ -491,7 +491,9 @@ pub struct Game {
     reset_count: u64,
     world_reset_count: u64,
     /// Player sweep awaiting the once-per-frame combined physical trigger update.
-    trigger_sweep: Option<(Vec3, Vec3)>,
+    trigger_sweep_ready: bool,
+    trigger_path: Vec<Vec3>,
+    trigger_command_start: usize,
     /// Vertical simulation time not yet consumed by a fixed
     /// [`VERTICAL_SUBSTEP`].
     vertical_accumulator: f32,
@@ -634,7 +636,9 @@ impl Game {
             spawn_yaw: spawn_yaw.rem_euclid(TWO_PI),
             reset_count: 0,
             world_reset_count: 0,
-            trigger_sweep: None,
+            trigger_sweep_ready: false,
+            trigger_path: Vec::new(),
+            trigger_command_start: 0,
             vertical_accumulator: 0.0,
             ceiling_contact_this_frame: false,
             movement_debug: std::env::var("PLACES_MOVEMENT_DEBUG").is_ok_and(|value| value == "1"),
@@ -795,7 +799,7 @@ impl Game {
     /// movement state.
     pub fn reset_to_spawn(&mut self) {
         self.player_health = health::initial_player_health(self.world.health_settings());
-        self.trigger_sweep = None;
+        self.trigger_sweep_ready = false;
         self.clear_run_state(self.spawn_position, self.spawn_yaw, true);
         self.world.reset_runtime();
         self.world.seed_volumes(Vec3::new(
@@ -836,7 +840,7 @@ impl Game {
         self.world.cancel_cinematic();
         self.cinematic_control = None;
         self.local_elevator_trip = None;
-        self.trigger_sweep = None;
+        self.trigger_sweep_ready = false;
         self.noclip = None;
         self.player_shape = None;
         self.form_model = None;
@@ -883,7 +887,7 @@ impl Game {
     /// in becomes the new baseline, so the change itself is never reported as
     /// a swept entry.
     fn reseed_trigger_inside(&mut self) {
-        self.trigger_sweep = None;
+        self.trigger_sweep_ready = false;
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -929,12 +933,19 @@ impl Game {
 
     /// Advances the entity runtime by one frame and applies its outcome.
     fn update_world(&mut self, feet_from: Vec3) {
+        self.trigger_path.clear();
+        self.record_trigger_position(feet_from);
+        self.update_world_from_motion(feet_from);
+    }
+
+    fn update_world_from_motion(&mut self, feet_from: Vec3) {
         let delta = self.world_delta_seconds();
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
             self.player_position.z,
         );
+        self.record_trigger_position(feet);
         let ctx = WorldContext {
             player_walk_speed: self.configured_walk_speed,
             delta_seconds: delta,
@@ -949,7 +960,7 @@ impl Game {
             floor: &self.floor,
             nav: self.navigation.as_ref(),
         };
-        self.trigger_sweep = Some((ctx.feet_from, ctx.feet));
+        self.trigger_sweep_ready = true;
         let tick = self.world.tick(&ctx);
         self.last_tick = tick;
         if tick.player_reset {
@@ -992,10 +1003,11 @@ impl Game {
         &mut self,
         items: impl Iterator<Item = crate::engine::entities::TriggerItem<'a>> + Clone,
     ) {
-        let Some((from, to)) = self.trigger_sweep.take() else {
+        if !std::mem::take(&mut self.trigger_sweep_ready) {
             return;
-        };
-        self.world.update_volume_occupants_iter(from, to, items);
+        }
+        self.world
+            .update_volume_paths_iter(&self.trigger_path, items);
         let report = self.world.dispatch_queued_events();
         if report.player_reset {
             self.reset_to_spawn();
@@ -1012,7 +1024,7 @@ impl Game {
         &mut self,
         items: impl Iterator<Item = crate::engine::entities::TriggerItem<'a>> + Clone,
     ) {
-        self.trigger_sweep = None;
+        self.trigger_sweep_ready = false;
         let feet = Vec3::new(
             self.player_position.x,
             self.feet_y(),
@@ -1226,8 +1238,8 @@ impl Game {
     /// horizontal collision switches between the walking step rule (drops
     /// become falls), an airborne rule (no floor above the live feet, the void
     /// is crossable) and the swimming band. Ladder attachment runs before all
-    /// of them and owns the frame while attached. Area triggers run last, on
-    /// the swept segment from the frame's start feet to the resolved feet.
+    /// of them and owns the frame while attached. Area triggers sample the
+    /// accepted movement path after the solver and item constraints finish.
     fn walk_speed(&self, settings: &Settings) -> f32 {
         self.world.mode_walk_speed().unwrap_or(settings.walk_speed)
     }
@@ -1348,7 +1360,7 @@ impl Game {
             self.finish_pending_local_elevator_departure(false);
             return;
         }
-        self.update_world(trigger_origin);
+        self.update_world_from_motion(trigger_origin);
         // Finish the local handoff after the source movement sweep. The cargo
         // transaction checks destination clearance before committing passengers.
         self.finish_pending_local_elevator_departure(true);
@@ -1461,6 +1473,9 @@ impl Game {
             self.player_position.z,
         );
 
+        self.trigger_path.clear();
+        self.record_trigger_position(trigger_origin);
+        self.trigger_command_start = self.trigger_path.len();
         self.movement_input.merge_frame(input);
         self.movement_accumulator += f64::from(clamp_sim_delta(delta));
         let tick = f64::from(VERTICAL_SUBSTEP);
@@ -1472,6 +1487,7 @@ impl Game {
             }
             self.movement_accumulator = (self.movement_accumulator - tick).max(0.0);
             let command = self.movement_input;
+            self.trigger_command_start = self.trigger_path.len();
             let contact_origin = contacts.command_origin(self);
             let previous_stance = self.stance;
             let previous_feet = self.feet_y;
@@ -1499,6 +1515,7 @@ impl Game {
             if !water_resolved {
                 contacts.resolve_command(self, contact_origin);
             }
+            self.record_trigger_position(self.trigger_feet());
             self.advance_step_eye(previous_feet, previously_grounded);
             if self.movement_accumulator + 1.0e-8_f64 >= tick {
                 contacts.prepare_next_command(self, contact_origin);
@@ -1507,6 +1524,7 @@ impl Game {
         }
         self.sim_delta_seconds = delta;
         contacts.finish(self);
+        self.record_trigger_position(self.trigger_feet());
         if let Some((start, proposed)) = rig_sample {
             let travel = Vec3::new(
                 self.player_position.x - start.x,
@@ -1528,6 +1546,25 @@ impl Game {
             }
         }
         trigger_origin
+    }
+
+    const fn trigger_feet(&self) -> Vec3 {
+        Vec3::new(self.player_position.x, self.feet_y, self.player_position.z)
+    }
+
+    fn record_trigger_position(&mut self, feet: Vec3) {
+        if self.trigger_path.last() != Some(&feet) {
+            self.trigger_path.push(feet);
+        }
+    }
+
+    /// A later constraint supersedes the provisional motion for this command.
+    fn replace_trigger_command(&mut self, contact: Option<Vec3>) {
+        self.trigger_path.truncate(self.trigger_command_start);
+        if let Some(feet) = contact {
+            self.record_trigger_position(feet);
+        }
+        self.record_trigger_position(self.trigger_feet());
     }
 
     /// Applies material traction to planar velocity, then uses the established
@@ -2459,22 +2496,11 @@ impl Game {
                 self.note_pressed_water_exit(current_pos, step_dir, surface_y);
             }
             let raw = Vec2::new(current_pos.x + step_delta.x, current_pos.y + step_delta.z);
-            let mut candidate =
-                self.resolve_horizontal_contact(current_pos, raw, foot_y, sweep_mode);
-            if sweep_mode == HorizontalMode::Walk
-                && candidate.distance_squared(raw) > 1e-10
-                && raw.distance_squared(current_pos)
-                    > candidate.distance_squared(current_pos) + 1.0e-10
-                && let Some(step_y) = self.solid_step_height(current_pos, raw, foot_y)
-            {
-                candidate = raw;
+            let (trace, candidate, step_up) =
+                self.horizontal_step_candidate(current_pos, raw, foot_y, sweep_mode);
+            if let Some(step_y) = step_up {
                 current_floor = step_y;
                 live_feet = step_y;
-            }
-            if matches!(sweep_mode, HorizontalMode::Swim { surface_y: _ }) {
-                // Physical body sweeps also retain the animated camera's
-                // near-plane clearance while changing stance at a rim.
-                candidate = self.clear_swim_camera(candidate);
             }
             // A depenetration deeper than the body radius is a teleport (the
             // centre was inside a box, or several boxes pushed at once): refuse
@@ -2487,6 +2513,8 @@ impl Game {
                 HorizontalMode::Airborne => self.airborne_step(candidate, live_feet),
                 HorizontalMode::Swim { surface_y } => self.swim_step(candidate, surface_y),
             };
+            let prior_xz = current_pos;
+            let prior_feet = live_feet;
             match outcome {
                 StepOutcome::Accepted { floor, dropped } => {
                     current_pos = candidate;
@@ -2511,6 +2539,14 @@ impl Game {
                     }
                 }
             }
+            if let Some(step_y) = step_up {
+                self.record_trigger_position(Vec3::new(prior_xz.x, step_y, prior_xz.y));
+            } else if candidate == trace.end() {
+                for &point in trace.contact_positions() {
+                    self.record_trigger_position(Vec3::new(point.x, prior_feet, point.y));
+                }
+            }
+            self.record_trigger_position(Vec3::new(current_pos.x, live_feet, current_pos.y));
         }
         self.player_floor_y = current_floor;
         self.player_position.x = current_pos.x;
@@ -2544,6 +2580,31 @@ impl Game {
         }
     }
 
+    fn horizontal_step_candidate(
+        &self,
+        from: Vec2,
+        to: Vec2,
+        feet: f32,
+        mode: HorizontalMode,
+    ) -> (crate::engine::collision::PlayerHullSweep, Vec2, Option<f32>) {
+        let trace = self.resolve_horizontal_contact(from, to, feet, mode);
+        let end = trace.end();
+        let step_up = (mode == HorizontalMode::Walk
+            && end.distance_squared(to) > 1.0e-10
+            && to.distance_squared(from) > end.distance_squared(from) + 1.0e-10)
+            .then(|| self.solid_step_height(from, to, feet))
+            .flatten();
+        let candidate = if step_up.is_some() {
+            to
+        } else if matches!(mode, HorizontalMode::Swim { surface_y: _ }) {
+            // Keep near-plane clearance while changing stance at a rim.
+            self.clear_swim_camera(end)
+        } else {
+            end
+        };
+        (trace, candidate, step_up)
+    }
+
     /// Every mode sweeps the upright body at its physical feet.
     fn resolve_horizontal_contact(
         &self,
@@ -2551,7 +2612,7 @@ impl Game {
         to: Vec2,
         foot_y: f32,
         mode: HorizontalMode,
-    ) -> Vec2 {
+    ) -> crate::engine::collision::PlayerHullSweep {
         let mut height = if matches!(mode, HorizontalMode::Swim { surface_y: _ }) {
             // A crouch switches the body immediately while the eye eases;
             // retain camera clearance until that animation completes.
@@ -2571,7 +2632,7 @@ impl Game {
             // lip, where the underside correctly prevents further ascent.
             height = height.max(2.0_f32.mul_add(CONTACT_EPS, support - foot_y));
         }
-        crate::engine::collision::sweep_player_hull(
+        crate::engine::collision::sweep_player_hull_path(
             &self.horizontal_world(),
             (from, to),
             (foot_y, height, self.body_half()),

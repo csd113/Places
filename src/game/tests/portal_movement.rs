@@ -701,3 +701,59 @@ fn drop_before_item_step_inherits_accepted_takeoff() -> Result<(), String> {
     }
     Ok(())
 }
+
+// One movement command against one wall protects both accepted slide crossings
+// and rejection of what the controller requested past the wall. No native map
+// build or device is involved.
+#[test]
+fn trigger_sampling_follows_the_solved_wall_slide() -> Result<(), String> {
+    let level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"slide_trigger","name":"Slide trigger",
+        "spawn":{"x":20,"z":30},
+        "rooms":[{"x":0,"z":0,"width":40,"depth":60,"height":12,"ceiling":{"kind":"open"}}],
+        "volumes":[
+            {"id":"slide","x":20.19,"z":30.23,"width":0.015,"depth":0.05,"bottom_y":0,"top_y":2,
+                "bindings":[{"on":"exit_volume","actions":[{"action":"show_message","title":"slide crossed","lines":["marker"]}]}]},
+            {"id":"blocked","x":20.22,"z":30.23,"width":0.1,"depth":0.10,"bottom_y":0,"top_y":2,
+                "bindings":[{"on":"enter_volume","actions":[{"action":"show_message","title":"blocked","lines":["marker"]}]}]}
+        ]
+    }"#).map_err(|error| error.to_string())?;
+    let mut game = Game::new(
+        Vec3::new(20.0, EYE_HEIGHT + 0.5, 30.0),
+        0.0,
+        CollisionWorld::from_level(&level),
+    );
+    game.set_app_state(AppState::Playing);
+    game.walls
+        .push(WallAabb::with_y(20.6, 0.0, 29.5, 1.0, 4.0, 3.0));
+    game.collision_index = crate::engine::collision::index::CollisionIndex::build(&game.walls);
+    game.set_feet_y(0.5);
+    game.grounded = false;
+    game.horizontal_velocity = Vec2::new(30.0, 33.0);
+    game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+    game.update_player_movement(&mut InputState::default(), &Settings::default());
+    game.update_volume_occupants(&[]);
+    assert!(
+        game.player_position.x < 20.21 && game.player_position.z > 30.3,
+        "the hull stops its horizontal advance and slides along the wall"
+    );
+    let messages: Vec<_> = game
+        .world
+        .take_commands()
+        .into_iter()
+        .filter_map(|command| {
+            if let crate::engine::entities::WorldCommand::ShowMessage { title, lines: _ } = command
+            {
+                Some(title)
+            } else {
+                None
+            }
+        })
+        .collect();
+    assert_eq!(
+        messages,
+        ["slide crossed"],
+        "only the actual slide passes through a trigger"
+    );
+    Ok(())
+}
