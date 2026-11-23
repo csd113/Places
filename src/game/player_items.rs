@@ -194,19 +194,6 @@ impl Game {
             .replace_command(contact, feet, arrival, keep_vertical);
     }
 
-    pub(super) fn trigger_item_segment_clear(
-        &self,
-        world: &ItemWorld,
-        from: Vec3,
-        to: Vec3,
-    ) -> bool {
-        let (_, arrival) = world.constrain_player_eye_from(
-            self.trigger_item_context(from),
-            self.trigger_item_context(to),
-        );
-        arrival >= 1.0
-    }
-
     fn trigger_item_context(&self, feet: Vec3) -> PlayerContext {
         PlayerContext {
             feet,

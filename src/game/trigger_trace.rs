@@ -11,7 +11,6 @@ pub(super) struct TriggerTrace {
     end: f64,
     recording: bool,
     vertical: Option<VerticalMotion>,
-    merged: Vec<(Vec3, f64)>,
 }
 
 impl TriggerTrace {
@@ -103,74 +102,14 @@ impl TriggerTrace {
         ))
     }
 
-    pub(super) fn finish_command(&mut self, feet: Vec3, mut clear: impl FnMut(Vec3, Vec3) -> bool) {
-        let Some(vertical) = self.vertical.take() else {
-            self.point(feet, 1.0);
-            return;
-        };
-        self.point(vertical.origin, 1.0);
-        let first = self.command_start.saturating_sub(1);
-        let mixed = self.points.get(first..).is_some_and(|points| {
-            points
-                .iter()
-                .any(|point| (point.x, point.z) != (vertical.origin.x, vertical.origin.z))
-        });
-        if mixed && self.end > self.start && self.merge_command(first, vertical, &mut clear) {
-            self.points.truncate(self.command_start);
-            self.times.truncate(self.command_start);
-            for &(point, time) in &self.merged {
-                self.points.push(point);
-                self.times.push(time);
-            }
-        } else {
-            // Preserve the planar clock if raising the path would cut through
-            // solid geometry. The vertical solve is valid at its own footprint.
+    pub(super) fn finish_command(&mut self, feet: Vec3) {
+        if let Some(vertical) = self.vertical.take() {
+            // The controller solves vertical motion at the final planar
+            // footprint. Keep the corner between the two accepted legs.
+            self.point(vertical.origin, 1.0);
             self.append_vertical(vertical);
         }
         self.point(feet, 1.0);
-    }
-
-    fn merge_command(
-        &mut self,
-        first: usize,
-        vertical: VerticalMotion,
-        clear: &mut impl FnMut(Vec3, Vec3) -> bool,
-    ) -> bool {
-        let Some(points) = self.points.get(first..) else {
-            return false;
-        };
-        let Some(times) = self.times.get(first..) else {
-            return false;
-        };
-        let mut peak = vertical.peak;
-        let mut previous = points.first().copied().unwrap_or(vertical.origin);
-        self.merged.clear();
-        for ((&from, &to), (&start, &end)) in points
-            .iter()
-            .zip(points.iter().skip(1))
-            .zip(times.iter().zip(times.iter().skip(1)))
-        {
-            if let Some((time, _)) = peak
-                && start < time
-                && time < end
-            {
-                let sample = from.lerp(to, interpolation_fraction(start, end, time));
-                let point = vertical.combine(sample, time, self.start, self.end);
-                if !clear(previous, point) {
-                    return false;
-                }
-                self.merged.push((point, time));
-                previous = point;
-                peak = None;
-            }
-            let point = vertical.combine(to, end, self.start, self.end);
-            if !clear(previous, point) {
-                return false;
-            }
-            self.merged.push((point, end));
-            previous = point;
-        }
-        true
     }
 
     fn append_vertical(&mut self, vertical: VerticalMotion) {
@@ -181,6 +120,10 @@ impl TriggerTrace {
         {
             arrival_index = arrival_index.saturating_sub(1);
         }
+        // Replace the trailing hold at the footprint with the vertical leg.
+        // Keep earlier planar timestamps. If the vertical landmark would come
+        // before arrival, give it that timestamp and let traversal order break
+        // the tie. A full-length planar leg can leave only command-end time.
         let arrival = self.times.get(arrival_index).copied().unwrap_or(self.start);
         let retain = arrival_index.saturating_add(1);
         self.points.truncate(retain);
@@ -206,39 +149,4 @@ struct VerticalMotion {
     origin: Vec3,
     peak: Option<(f64, f32)>,
     end_y: f32,
-}
-
-impl VerticalMotion {
-    fn combine(self, planar: Vec3, time: f64, start: f64, end: f64) -> Vec3 {
-        let (low, high) = self
-            .peak
-            .map_or(((start, self.origin.y), (end, self.end_y)), |peak| {
-                if time <= peak.0 {
-                    ((start, self.origin.y), peak)
-                } else {
-                    (peak, (end, self.end_y))
-                }
-            });
-        let y = if time <= start {
-            self.origin.y
-        } else if time >= end {
-            self.end_y
-        } else {
-            (high.1 - low.1).mul_add(interpolation_fraction(low.0, high.0, time), low.1)
-        };
-        Vec3::new(planar.x, planar.y + (y - self.origin.y), planar.z)
-    }
-}
-
-#[expect(
-    clippy::cast_possible_truncation,
-    clippy::as_conversions,
-    reason = "the interpolation factor is clamped to the finite unit interval"
-)]
-fn interpolation_fraction(start: f64, end: f64, time: f64) -> f32 {
-    if end > start {
-        ((time - start) / (end - start)).clamp(0.0, 1.0) as f32
-    } else {
-        1.0
-    }
 }

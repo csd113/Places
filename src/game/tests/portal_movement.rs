@@ -830,6 +830,7 @@ fn trigger_sampling_keeps_only_accepted_vertical_peaks() -> Result<(), String> {
 // A single mixed command and one real Rapier step put the later player entry
 // ahead of the earlier item's volume in authored order. One open FIFO slot
 // distinguishes the solver chronology from a command-start planar timestamp.
+// A third volume lies above the horizontal leg and short of the vertical leg.
 #[test]
 fn mixed_player_and_item_traces_compete_by_crossing_time() -> Result<(), String> {
     use crate::engine::entities::TriggerItem;
@@ -843,6 +844,7 @@ fn mixed_player_and_item_traces_compete_by_crossing_time() -> Result<(), String>
         "rooms":[{"width":40,"depth":60,"height":6,"ceiling":{"kind":"open"}}],
         "volumes":[
             {"id":"player_zone","x":20.5,"z":29.5,"width":0.3,"depth":1,"bottom_y":0,"top_y":1},
+            {"id":"between_legs","x":20.22,"z":29.5,"width":0.06,"depth":1,"bottom_y":0.5002,"top_y":0.5006},
             {"id":"item_zone","x":4.18,"z":3.5,"width":0.3,"depth":1,"bottom_y":1,"top_y":2,
                 "filter":{"kind":"item"}}
         ]
@@ -910,7 +912,7 @@ fn mixed_player_and_item_traces_compete_by_crossing_time() -> Result<(), String>
     assert_eq!(
         game.world.events().dropped(),
         1,
-        "only one crossing can be admitted"
+        "only the later player entry is refused, with no crossings between the accepted legs"
     );
     let mut backlog = game.world.events().clone();
     let admitted = std::iter::from_fn(|| backlog.pop())
