@@ -3875,7 +3875,7 @@ impl EntityWorld {
             }
             let _agent_updated =
                 self.ai
-                    .apply_sequence_transform(goal.entity, next, transform.yaw_degrees);
+                    .apply_sequence_transform(goal.entity, next, transform.yaw_degrees, None);
             if let Some(key) = self.dynamic_key(goal.entity) {
                 self.commands.push(WorldCommand::SetDynamicTransform {
                     entity: key,

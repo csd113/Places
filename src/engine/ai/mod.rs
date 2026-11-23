@@ -1175,12 +1175,13 @@ impl AiWorld {
 
     /// Shares a successful sequence pose with AI perception and renderer frames.
     /// Moving the feet invalidates a route from the old position; a pure turn
-    /// preserves it. Authored home, behavior and temporary light holds survive.
+    /// preserves it. A `Stay` sequence keeps any pending return until it succeeds.
     pub(crate) fn apply_sequence_transform(
         &mut self,
         handle: EntityHandle,
         position: Vec3,
         yaw_degrees: f32,
+        after_move: Option<AfterMove>,
     ) -> bool {
         if !position.is_finite() || !yaw_degrees.is_finite() {
             return false;
@@ -1197,7 +1198,9 @@ impl AiWorld {
         agent.position = position;
         agent.yaw_degrees = yaw_degrees;
         if moved {
-            if agent.after_script_move == Some(AfterMove::ReturnHome) {
+            if after_move != Some(AfterMove::Stay)
+                && agent.after_script_move == Some(AfterMove::ReturnHome)
+            {
                 agent.after_script_move = None;
                 if returning_to_post(agent) {
                     agent.state = AiState::Idle;
@@ -1917,7 +1920,7 @@ fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         }
         return;
     }
-    if returning_to_post(agent) && route_completed_at(agent, agent.home) {
+    if returning_to_post(agent) && at_home(agent) {
         agent.after_script_move = None;
         set_state(agent, AiState::Idle, out);
         agent.wait_remaining = agent.def.idle_seconds;
@@ -1936,6 +1939,10 @@ fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
 fn returning_to_post(agent: &AiAgent) -> bool {
     matches!(agent.state, AiState::Return { destination } if destination == agent.home)
         && agent.shelter_return.is_none()
+}
+
+fn at_home(agent: &AiAgent) -> bool {
+    agent.position.distance(agent.home) <= movement::arrival_radius(agent.profile.radius) + 0.01
 }
 
 fn start_post_return(agent: &mut AiAgent, out: &mut AiOutcome) {
@@ -1957,22 +1964,20 @@ fn decide_script_release(agent: &mut AiAgent, out: &mut AiOutcome) {
             if !matches!(agent.state, AiState::Idle) && !agent.ordinary_wandering() {
                 return;
             }
-            if agent.position.distance(agent.home)
-                > movement::arrival_radius(agent.profile.radius) + 0.01
-            {
-                start_post_return(agent, out);
-            } else {
+            if at_home(agent) {
                 agent.after_script_move = None;
+            } else {
+                start_post_return(agent, out);
             }
         }
         Some(AfterMove::Stay) => {
-            if agent.in_wander_radius(agent.position)
+            let returning = returning_to_post(agent);
+            if !returning
+                && agent.in_wander_radius(agent.position)
                 && agent.position.distance(agent.home) <= POST_RETURN_M
             {
                 agent.after_script_move = None;
-            } else if matches!(agent.state, AiState::Wander { destination: _ })
-                || returning_to_post(agent)
-            {
+            } else if returning || matches!(agent.state, AiState::Wander { destination: _ }) {
                 set_state(agent, AiState::Idle, out);
                 agent.wait_remaining = agent.def.idle_seconds;
             }
@@ -2352,13 +2357,22 @@ fn decide_follower(agent: &mut AiAgent, _ctx: &AiTickContext<'_>, out: &mut AiOu
 /// Wanderer: picks navigable destinations around its post.
 fn decide_wanderer(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
     if let AiState::Wander { destination } = agent.state {
+        // An obstructed door invalidates the planned goal. Keep the destination
+        // until the planner has actually tried it again under the query budget.
+        let awaiting_plan = agent.path_goal != Some(destination)
+            && agent.in_wander_radius(agent.position)
+            && agent.in_wander_radius(destination);
         let done = agent.path.waypoints.is_empty()
             || (agent.path.complete
                 && agent
                     .path
                     .reached()
                     .is_none_or(|reached| reached.distance(agent.position) < 0.45));
-        if done && agent.path_age >= agent.def.idle_seconds && agent.opening_door.is_none() {
+        if !awaiting_plan
+            && done
+            && agent.path_age >= agent.def.idle_seconds
+            && agent.opening_door.is_none()
+        {
             set_state(agent, AiState::Idle, out);
             agent.wait_remaining = agent.def.idle_seconds;
         } else if agent.path_goal != Some(destination) {
@@ -2687,8 +2701,7 @@ fn advance(
                 agent.path.clear();
                 agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
                 agent.current_waypoint = 0;
-            }
-            if next_waypoint.distance(agent.position)
+            } else if next_waypoint.distance(agent.position)
                 < movement::arrival_radius(agent.profile.radius)
             {
                 agent.current_waypoint = agent.current_waypoint.saturating_add(1);
@@ -2700,14 +2713,6 @@ fn advance(
                 agent.yaw_degrees,
                 agent.spawned,
             ));
-            if agent.current_waypoint >= agent.path.waypoints.len() {
-                agent.path_done_goal = agent.path_goal.filter(|_| agent.path.complete);
-                agent.path.clear();
-                agent.current_waypoint = 0;
-                if matches!(agent.state, AiState::Wander { destination: _ }) {
-                    agent.wait_remaining = agent.def.idle_seconds;
-                }
-            }
         }
         MoveStep::Blocked => {
             agent.speed_mps = 0.0;
@@ -2723,14 +2728,21 @@ fn advance(
             agent.speed_mps = 0.0;
             agent.reset_stuck();
             agent.current_waypoint = agent.current_waypoint.saturating_add(1);
-            if agent.current_waypoint >= agent.path.waypoints.len() {
-                agent.path_done_goal = agent.path_goal.filter(|_| agent.path.complete);
-                agent.path.clear();
-                agent.current_waypoint = 0;
-                if matches!(agent.state, AiState::Wander { destination: _ }) {
-                    agent.wait_remaining = agent.def.idle_seconds;
-                }
-            }
+        }
+    }
+    if !agent.path.waypoints.is_empty() && agent.current_waypoint >= agent.path.waypoints.len() {
+        if returning_to_post(agent) && !at_home(agent) {
+            // The goal cell may have been projected away from the actual home.
+            // Retry on the normal failure cadence even if doors did not change.
+            agent.path_done_goal = None;
+            agent.path_failed_at = Some(agent.clock);
+        } else {
+            agent.path_done_goal = agent.path_goal.filter(|_| agent.path.complete);
+        }
+        agent.path.clear();
+        agent.current_waypoint = 0;
+        if matches!(agent.state, AiState::Wander { destination: _ }) {
+            agent.wait_remaining = agent.def.idle_seconds;
         }
     }
     try_catch(agent, ctx, out);

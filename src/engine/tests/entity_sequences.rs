@@ -784,6 +784,78 @@ fn cinematic_admission_bounds_and_optional_serialization() -> Result<(), String>
     Ok(())
 }
 
+#[test]
+fn stay_supersedes_a_pending_return_only_after_successful_move() -> Result<(), String> {
+    let level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"stay","name":"Stay",
+        "spawn":{"x":4.5,"z":2.5},"rooms":[{"width":5,"depth":3}],
+        "props":[{"id":"actor","model":"core:rubber_duck","x":0.5,"z":1.5,
+            "components":[{"component":"nav_agent","radius":0.3,"speed_mps":1},{"component":"ai"}]}],
+        "sequences":[
+            {"id":"depart","steps":[{"step":"move","x":1.5,"z":1.5,"speed":2}]},
+            {"id":"here","after_move":"stay","steps":[{"step":"move","x":1.5,"z":1.5,"speed":2}]},
+            {"id":"blocked","after_move":"stay","steps":[{"step":"move","x":2.5,"z":1.5,"speed":2}]},
+            {"id":"skipped","after_move":"stay","steps":[{"step":"stop"},{"step":"move","x":2.5,"z":1.5,"speed":2}]}]
+    }"#).map_err(|error| error.to_string())?;
+    let floor = WalkableFloor::from_level(&level);
+    let nav = crate::engine::nav::NavMesh::from_record(super::navigation_ai::grid(
+        5,
+        3,
+        &(0..15).collect::<Vec<_>>(),
+    ))?;
+    let home = Vec3::new(0.5, 0.0, 1.5);
+    let post = Vec3::new(1.5, 0.0, 1.5);
+    for next in ["here", "blocked", "skipped"] {
+        let mut world = EntityWorld::from_level(&level);
+        start(&mut world, "actor", "depart");
+        for _ in 0_u8..25 {
+            let _tick = tick_with_nav(&mut world, 0.05, &floor, Some(&nav));
+            if world.sequence_count() == 0 {
+                break;
+            }
+        }
+        let returner = world.ai().agent("actor").ok_or("missing returner")?;
+        assert!(
+            matches!(returner.state, crate::engine::ai::AiState::Return { destination } if destination == home),
+            "the older return must already be active"
+        );
+        assert!(
+            returner.position.distance(post) < 0.02,
+            "the new move starts at its goal"
+        );
+
+        if next == "blocked" {
+            world.set_navigation_obstacles(std::iter::once(
+                crate::engine::collision::WallAabb::with_y(2.0, 0.0, 0.0, 0.1, 2.9, 3.0),
+            ));
+        }
+        start(&mut world, "actor", next);
+        let mut furthest_x = post.x;
+        let mut completions = 0_usize;
+        for _ in 0_u8..70 {
+            let tick = tick_with_nav(&mut world, 0.05, &floor, Some(&nav));
+            completions = completions.saturating_add(tick.sequences_completed);
+            let actor = world.ai().agent("actor").ok_or("missing actor")?;
+            furthest_x = furthest_x.max(actor.position.x);
+        }
+        let actor = world.ai().agent("actor").ok_or("missing actor")?;
+        if next == "blocked" {
+            assert!(
+                furthest_x > 1.55,
+                "the failed move must first displace the actor"
+            );
+            assert_eq!(completions, 0, "collision must cancel the sequence");
+        }
+        let expected = if next == "here" { post } else { home };
+        assert!(
+            actor.position.distance(expected) < 0.06,
+            "{next} must leave the actor at {expected:?}, found {:?}",
+            actor.position
+        );
+    }
+    Ok(())
+}
+
 // Sequences share the same public collision handoff as normal play. A tiny
 // floor with one runtime barrier distinguishes absence, explicit return, and
 // stay, plus the failure mode of resetting the transform directly to home.

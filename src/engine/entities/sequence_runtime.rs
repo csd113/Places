@@ -6,7 +6,7 @@
 use glam::{Vec2, Vec3};
 
 use super::components::SequenceCtl;
-use super::sequences::{MAX_ACTIVE_SEQUENCES, SequenceRuntime, SequenceStepDef};
+use super::sequences::{AfterMove, MAX_ACTIVE_SEQUENCES, SequenceRuntime, SequenceStepDef};
 use super::{
     DispatchReport, EntityHandle, EntityWorld, EventKind, WorldCommand, WorldContext, WorldTick,
     warn_once,
@@ -165,15 +165,17 @@ impl EntityWorld {
         ctx: &WorldContext<'_>,
         tick: &mut WorldTick,
     ) {
-        let Some(definition_index) = self
+        let Some((definition_index, definition)) = self
             .sequences
             .defs()
             .iter()
-            .position(|def| def.id == run.sequence)
+            .enumerate()
+            .find(|(_, def)| def.id == run.sequence)
         else {
             run.finished = true;
             return;
         };
+        let after_move = definition.after_move;
         for _ in 0_u8..64 {
             let Some(step) = self
                 .sequences
@@ -209,7 +211,7 @@ impl EntityWorld {
                 SequenceStepDef::Wait { seconds } => run.step_time >= seconds,
                 SequenceStepDef::Move { x, y, z, speed } => {
                     let target = Vec3::new(x, y.unwrap_or(f32::NAN), z);
-                    self.sequence_move_step(run, target, speed, ctx, tick)
+                    self.sequence_move_step(run, target, speed, after_move, ctx, tick)
                 }
                 SequenceStepDef::Face { yaw_degrees } => {
                     self.sequence_face_step(run, yaw_degrees, ctx.delta_seconds, tick)
@@ -396,6 +398,7 @@ impl EntityWorld {
         run: &mut SequenceRuntime,
         target: Vec3,
         speed: f32,
+        after_move: AfterMove,
         ctx: &WorldContext<'_>,
         tick: &mut WorldTick,
     ) -> bool {
@@ -405,7 +408,10 @@ impl EntityWorld {
         let next =
             match self.scripted_move_position(run.owner, transform.position, target, speed, ctx) {
                 Ok(Some(next)) => next,
-                Ok(None) => return true,
+                Ok(None) => {
+                    run.moved_owner |= after_move == AfterMove::Stay;
+                    return true;
+                }
                 Err(reason) => {
                     warn_once(
                         "sequence-move-blocked",
@@ -421,9 +427,12 @@ impl EntityWorld {
         if let Some(entry) = self.components.transforms.get_mut(run.owner) {
             entry.position = next;
         }
-        let _agent_updated =
-            self.ai
-                .apply_sequence_transform(run.owner, next, transform.yaw_degrees);
+        let _agent_updated = self.ai.apply_sequence_transform(
+            run.owner,
+            next,
+            transform.yaw_degrees,
+            Some(after_move),
+        );
         run.moved_owner |= next != transform.position;
         if let Some(key) = self.dynamic_key(run.owner) {
             self.commands.push(WorldCommand::SetDynamicTransform {
@@ -468,9 +477,12 @@ impl EntityWorld {
         if let Some(entry) = self.components.transforms.get_mut(run.owner) {
             entry.yaw_degrees = next.to_degrees();
         }
-        let _agent_updated =
-            self.ai
-                .apply_sequence_transform(run.owner, transform.position, next.to_degrees());
+        let _agent_updated = self.ai.apply_sequence_transform(
+            run.owner,
+            transform.position,
+            next.to_degrees(),
+            None,
+        );
         if let Some(key) = self.dynamic_key(run.owner) {
             self.commands.push(WorldCommand::SetDynamicTransform {
                 entity: key,

@@ -1626,7 +1626,7 @@ fn wander_empty_route_fallback_accepts_only_bounded_motion() -> Result<(), Strin
         },
         home,
     );
-    assert!(world.apply_sequence_transform(actor, start, 0.0));
+    assert!(world.apply_sequence_transform(actor, start, 0.0, None));
     assert!(world.force_state(
         "agent_0",
         AiState::Wander {
@@ -1668,12 +1668,14 @@ fn obstructed_one_way_door_replans_to_same_goal_via_passage() -> Result<(), Stri
         &mut world,
         0,
         AiDef {
+            behavior: AiBehavior::Wanderer,
+            idle_seconds: 0.25,
             walk_speed: 1.5,
             ..AiDef::default()
         },
         start,
     );
-    assert!(world.set_navigation_goal("agent_0", goal));
+    assert!(world.force_state("agent_0", AiState::Wander { destination: goal }));
     fixture
         .obstacles
         .push(WallAabb::with_y(0.3, 0.0, 1.9, 1.2, 2.1, 0.3));
@@ -1701,6 +1703,7 @@ fn obstructed_one_way_door_replans_to_same_goal_via_passage() -> Result<(), Stri
     });
     let mut opened = false;
     let mut blocked_in_portal = false;
+    let mut timed_out = false;
     let mut used_passage = false;
     for tick in 0_u16..140 {
         if tick == 14 {
@@ -1719,10 +1722,15 @@ fn obstructed_one_way_door_replans_to_same_goal_via_passage() -> Result<(), Stri
         blocked_in_portal |= fixture.doors.door_obstructed("swing")
             && in_baked_portal(&fixture.nav, actor.position)
             && actor.position.distance(start) < 0.06;
-        assert_eq!(
-            actor.navigation_goal,
-            Some(goal),
-            "the command must remain unchanged"
+        timed_out |= actor.path.waypoints.is_empty()
+            && actor.path_age >= actor.def.idle_seconds
+            && actor
+                .path_failed_at
+                .is_some_and(|failed| failed <= actor.clock - crate::engine::ai::PATH_RETRY_S);
+        assert!(actor.navigation_goal.is_none());
+        assert!(
+            matches!(actor.state, AiState::Wander { destination } if destination == goal),
+            "the ordinary wander goal must survive the door timeout"
         );
         if before.z < 2.05 && actor.position.z >= 2.05 {
             assert!(
@@ -1731,24 +1739,82 @@ fn obstructed_one_way_door_replans_to_same_goal_via_passage() -> Result<(), Stri
             );
             used_passage = true;
         }
-        if actor.position.distance(goal) < 0.06 {
+        if actor.position.distance(goal) < 0.45 {
             break;
         }
     }
     let actor = world.agent("agent_0").ok_or("missing actor")?;
+    assert!(timed_out, "exercise the obstructed door's timeout");
     assert!(
         blocked_in_portal && !opened && fixture.doors.door_obstructed("swing"),
         "solid must keep the leaf blocked"
     );
     assert!(
-        used_passage && actor.position.distance(goal) < 0.06,
-        "actor must reach the same goal by the passage: {:?}, {:?}, waypoint {}, queries {}, stuck {}, door: {:?}",
+        used_passage && actor.position.distance(goal) < 0.45,
+        "the wanderer must approach the same goal by the passage: {:?}, {:?}",
         actor.position,
-        actor.path,
-        actor.current_waypoint,
-        actor.path_queries,
-        actor.stuck_seconds,
-        fixture.doors.get(0)
+        actor.path
+    );
+    Ok(())
+}
+
+// A blocked goal cell can produce a complete route to a reachable projection.
+#[test]
+fn post_return_retries_after_reaching_a_projection_of_blocked_home() -> Result<(), String> {
+    use crate::engine::entities::sequences::AfterMove;
+
+    let mut fixture = Fixture::new(grid(5, 3, &(0..15).collect::<Vec<_>>()))?;
+    (fixture.floor, fixture.ceiling) = room_floor(r#"[{"width":5,"depth":3}]"#)?;
+    let home = Vec3::new(0.5, 0.0, 1.5);
+    let displaced = Vec3::new(3.5, 0.0, 1.5);
+    let blocker = WallAabb::with_y(0.35, 0.0, 1.35, 0.3, 2.0, 0.3);
+    fixture.obstacles.push(blocker);
+    let door_version = fixture.doors.version();
+    let mut world = AiWorld::new();
+    let handle = register(&mut world, 0, AiDef::default(), home);
+    assert!(world.apply_sequence_transform(handle, displaced, 0.0, None));
+    world.complete_script_move(handle, AfterMove::ReturnHome);
+
+    let mut projected = false;
+    let mut exhausted = false;
+    for _ in 0_u8..80 {
+        world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+        let actor = world.agent("agent_0").ok_or("missing blocked returner")?;
+        projected |= actor.path.complete
+            && actor
+                .path
+                .reached()
+                .is_some_and(|point| point.distance(home) > 0.06);
+        exhausted |= projected && actor.path.waypoints.is_empty();
+        assert!(
+            matches!(actor.state, AiState::Return { destination } if destination == home),
+            "the live blocker must leave the authored return pending"
+        );
+        assert!(
+            !blocker.overlaps_disc(actor.position.x, actor.position.z, actor.profile.radius),
+            "the return must respect the dynamic blocker"
+        );
+    }
+    let short_of_home = world.agent("agent_0").ok_or("missing blocked returner")?;
+    assert!(
+        exhausted && short_of_home.position.distance(displaced) > 1.0,
+        "the actor must walk to the end of the projected route"
+    );
+    assert!(
+        short_of_home.path_queries <= 7,
+        "home retries must stay bounded"
+    );
+
+    fixture.obstacles.clear();
+    for _ in 0_u8..60 {
+        world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());
+    }
+    assert_eq!(fixture.doors.version(), door_version);
+    let actor = world.agent("agent_0").ok_or("missing returner")?;
+    assert!(matches!(actor.state, AiState::Idle));
+    assert!(
+        actor.position.distance(home) < 0.06,
+        "actor must walk to the authored home"
     );
     Ok(())
 }
@@ -1781,7 +1847,7 @@ fn post_return_resumes_after_reactive_motion() -> Result<(), String> {
             },
             home,
         );
-        assert!(world.apply_sequence_transform(actor, displaced, 0.0));
+        assert!(world.apply_sequence_transform(actor, displaced, 0.0, None));
         world.complete_script_move(actor, AfterMove::ReturnHome);
         for _ in 0_u8..4 {
             world.tick(&fixture.context(0.05, &[]), &mut AiOutcome::default());

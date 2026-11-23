@@ -276,6 +276,9 @@ pub(super) fn advance(
     agent.stuck_seconds = agent.clock - stalled_since;
     if agent.stuck_seconds >= STUCK_SECONDS && door.obstructed {
         agent.path.clear();
+        if agent.ordinary_wandering() {
+            agent.path_goal = None;
+        }
         agent.path_done_goal = None;
         agent.path_failed_at = Some(agent.clock - PATH_RETRY_S);
         agent.current_waypoint = 0;

@@ -249,7 +249,7 @@ pub struct SequenceRuntime {
     /// True when the active step has run its one-shot effect (an action, an
     /// emit or a state write) and is waiting to advance.
     pub step_ran: bool,
-    /// Whether a move step has actually displaced the owner.
+    /// Whether a move displaced the owner or reached an explicit `Stay` destination.
     pub(super) moved_owner: bool,
     /// The active `wait_animation` step observed its clip complete.
     pub animation_complete: bool,
