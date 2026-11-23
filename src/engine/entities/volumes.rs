@@ -4,12 +4,13 @@ mod index;
 mod publish;
 pub(super) use index::TriggerIndex;
 pub use index::TriggerQueryStats;
-use publish::CrossingBatch;
+use publish::{CrossingBatch, VisitOwner};
 pub(super) use publish::{TriggerVisit, VisitSet};
 
 use glam::Vec3;
 
 use super::EntityWorld;
+use super::audio::CheckpointOccupant;
 use super::components::TriggerVolume;
 use super::id::{EntityHandle, EntityNames};
 use crate::engine::level::{ItemReceiptDef, TriggerFilterDef, TriggerOccupancyDef};
@@ -41,6 +42,8 @@ pub struct TriggerItem<'a> {
     pub path: Option<&'a [Vec3]>,
     /// Physical shape-centre path; omitted uses the ordinary path/endpoints.
     pub centre_path: Option<&'a [Vec3]>,
+    /// Normalized solver tick times shared by the origin and centre paths.
+    pub path_times: Option<&'a [f64]>,
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -58,6 +61,61 @@ pub(crate) struct VolumeOccupant {
     position: Vec3,
 }
 
+impl VolumeOccupant {
+    fn checkpoint_id(&self) -> CheckpointOccupant {
+        match self.id {
+            OccupantId::Player => CheckpointOccupant::Player,
+            OccupantId::Item(_) => CheckpointOccupant::Item(self.key.clone()),
+            OccupantId::Entity(_) => CheckpointOccupant::Entity(self.key.clone()),
+        }
+    }
+
+    fn matches_checkpoint(&self, occupant: &CheckpointOccupant) -> bool {
+        match (&self.id, occupant) {
+            (OccupantId::Player, CheckpointOccupant::Player) => true,
+            (OccupantId::Item(_), CheckpointOccupant::Item(id))
+            | (OccupantId::Entity(_), CheckpointOccupant::Entity(id)) => self.key == *id,
+            _ => false,
+        }
+    }
+}
+
+impl TriggerVolume {
+    pub(super) fn checkpoint_visit(&self, visit: &TriggerVisit) -> Option<CheckpointOccupant> {
+        match self.visits.owner(visit)? {
+            VisitOwner::Aggregate => self.inside.then_some(CheckpointOccupant::Aggregate),
+            VisitOwner::Actor(actor) => self
+                .occupants
+                .iter()
+                .find(|occupant| occupant.id == actor)
+                .map(VolumeOccupant::checkpoint_id),
+        }
+    }
+
+    pub(super) fn restore_trigger_visit(
+        &mut self,
+        saved: &CheckpointOccupant,
+    ) -> Option<TriggerVisit> {
+        if *saved == CheckpointOccupant::Aggregate {
+            return if self.inside && self.occupancy == TriggerOccupancyDef::Aggregate {
+                self.visits.restore(None)
+            } else {
+                None
+            };
+        }
+        let mut matching = self
+            .occupants
+            .iter()
+            .filter(|occupant| occupant.matches_checkpoint(saved));
+        let actor = matching.next()?.id;
+        if self.occupancy == TriggerOccupancyDef::PerActor && matching.next().is_none() {
+            self.visits.restore(Some(actor))
+        } else {
+            None
+        }
+    }
+}
+
 #[derive(Debug)]
 pub(super) struct Sweep {
     occupant: VolumeOccupant,
@@ -67,8 +125,63 @@ pub(super) struct Sweep {
 }
 
 #[derive(Clone, Copy, Debug)]
+struct CrossingTime {
+    frame: f64,
+    // Multiple accepted positions can share one solver time. Keep the
+    // traversal order of those instantaneous segments at that timestamp.
+    instant_order: f64,
+}
+
+impl CrossingTime {
+    const FRAME_START: Self = Self {
+        frame: 0.0,
+        instant_order: 0.0,
+    };
+    const FRAME_END: Self = Self {
+        frame: 1.0,
+        instant_order: 0.0,
+    };
+
+    fn segment(
+        (start, end): (f64, f64),
+        fraction: f32,
+        progress: f64,
+        times: &[f64],
+        index: usize,
+    ) -> Self {
+        let at_start = fraction <= 0.0;
+        let at_end = fraction >= 1.0;
+        let frame = if at_start {
+            start
+        } else if at_end {
+            end
+        } else {
+            (end - start).mul_add(f64::from(fraction), start)
+        };
+        let shares_instant = start.total_cmp(&end).is_eq()
+            || (at_start
+                && index
+                    .checked_sub(1)
+                    .and_then(|previous| times.get(previous))
+                    == Some(&start))
+            || (at_end && times.get(index.saturating_add(2)) == Some(&end));
+        Self {
+            frame,
+            instant_order: if shares_instant { progress } else { 0.0 },
+        }
+    }
+
+    fn cmp(self, other: Self) -> std::cmp::Ordering {
+        self.frame
+            .total_cmp(&other.frame)
+            .then_with(|| self.instant_order.total_cmp(&other.instant_order))
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
 struct CrossingPoint {
-    time: f64,
+    time: CrossingTime,
+    progress: f64,
     position: Vec3,
 }
 
@@ -88,9 +201,9 @@ impl SweepIntervals {
                 .and_then(Option::as_mut)
         });
         if let Some((_, previous_exit)) = previous
-            && enter.time <= previous_exit.time
+            && enter.progress <= previous_exit.progress
         {
-            if exit.time > previous_exit.time {
+            if exit.progress > previous_exit.progress {
                 *previous_exit = exit;
             }
             return;
@@ -113,7 +226,7 @@ impl SweepIntervals {
 }
 
 pub(super) struct Edge {
-    time: f64,
+    time: CrossingTime,
     entered: bool,
     occupant: VolumeOccupant,
 }
@@ -153,7 +266,8 @@ impl EntityWorld {
         feet: Vec3,
         items: impl Iterator<Item = TriggerItem<'a>> + Clone,
     ) {
-        self.sample_volume_occupants(&[feet], items, true);
+        self.sample_volume_occupants(&[feet], None, items, true);
+        self.rebind_checkpoint_loops();
     }
 
     /// Backward-compatible player-only baseline; callers with items use the combined API.
@@ -206,16 +320,17 @@ impl EntityWorld {
         to: Vec3,
         items: impl Iterator<Item = TriggerItem<'a>> + Clone,
     ) {
-        self.update_volume_paths_iter(&[from, to], items);
+        self.update_volume_paths_iter(&[from, to], None, items);
     }
 
     /// Updates trigger occupancy from the player's accepted movement points.
     pub fn update_volume_paths_iter<'a>(
         &mut self,
         player_path: &[Vec3],
+        player_times: Option<&[f64]>,
         items: impl Iterator<Item = TriggerItem<'a>>,
     ) {
-        self.sample_volume_occupants(player_path, items, false);
+        self.sample_volume_occupants(player_path, player_times, items, false);
     }
 
     /// Backward-compatible player-only update for consumers without physical items.
@@ -226,6 +341,7 @@ impl EntityWorld {
     fn sample_volume_occupants<'a>(
         &mut self,
         player_path: &[Vec3],
+        player_times: Option<&[f64]>,
         items: impl Iterator<Item = TriggerItem<'a>>,
         seed: bool,
     ) {
@@ -233,11 +349,7 @@ impl EntityWorld {
         let broadphase = &mut self.trigger_index;
         broadphase.begin();
         broadphase.player(player_path);
-        for (index, item) in snapshots
-            .iter()
-            .enumerate()
-            .filter_map(|(index, item)| item.as_ref().map(|snapshot| (index, snapshot)))
-        {
+        for (index, item) in snapshots.iter().enumerate() {
             broadphase.item(item, index);
         }
         broadphase.entities(&self.names, &self.components.transforms, seed);
@@ -261,7 +373,7 @@ impl EntityWorld {
             edges.clear();
             let initial_count = volume.occupants.len();
             if candidate.player
-                && let Some(sweep) = player_sweep(volume, player_path)
+                && let Some(sweep) = player_sweep(volume, player_path, player_times)
             {
                 sweeps.push(sweep);
             }
@@ -274,7 +386,7 @@ impl EntityWorld {
                 sweeps.push(sweep);
             }
             for item_index in candidate.item_indices() {
-                let Some(item) = snapshots.get(item_index).copied().flatten() else {
+                let Some(item) = snapshots.get(item_index).copied() else {
                     continue;
                 };
                 broadphase.stats.item_sweeps = broadphase.stats.item_sweeps.saturating_add(1);
@@ -322,23 +434,16 @@ impl EntityWorld {
     }
 }
 
-fn materialize_snapshots<'a>(
-    items: impl Iterator<Item = TriggerItem<'a>>,
-) -> [Option<TriggerItem<'a>>; MAX_TRIGGER_ITEMS] {
-    // One bounded borrowed snapshot array, instead of repeatedly cloning and
-    // searching the native snapshot iterator for every authored volume.
-    let mut snapshots = [None; MAX_TRIGGER_ITEMS];
-    for (index, item) in items.take(MAX_TRIGGER_ITEMS).enumerate() {
-        if item.from.is_finite()
-            && item.to.is_finite()
-            && item.half_extents.is_finite()
-            && item.half_extents.cmpge(Vec3::ZERO).all()
-            && let Some(snapshot) = snapshots.get_mut(index)
-        {
-            *snapshot = Some(item);
-        }
-    }
-    snapshots
+fn materialize_snapshots<'a>(items: impl Iterator<Item = TriggerItem<'a>>) -> Vec<TriggerItem<'a>> {
+    items
+        .take(MAX_TRIGGER_ITEMS)
+        .filter(|item| {
+            item.from.is_finite()
+                && item.to.is_finite()
+                && item.half_extents.is_finite()
+                && item.half_extents.cmpge(Vec3::ZERO).all()
+        })
+        .collect()
 }
 
 fn physical_sweep(
@@ -402,6 +507,7 @@ fn receipt_item<'a>(volume: &TriggerVolume, item: &TriggerItem<'a>) -> Option<Tr
             to,
             half_extents: Vec3::ZERO,
             path: None,
+            path_times: None,
             ..*item
         });
     }
@@ -416,14 +522,14 @@ fn receipt_item<'a>(volume: &TriggerVolume, item: &TriggerItem<'a>) -> Option<Tr
 
 fn entity_sweep(
     volume: &mut TriggerVolume,
-    (actor, path): (EntityHandle, &[Vec3]),
+    (actor, path, times): (EntityHandle, &[Vec3], &[f64]),
 ) -> Option<Sweep> {
     let TriggerFilterDef::Entity { instance } = &volume.filter else {
         return None;
     };
 
     let position = *path.last()?;
-    let intervals = path_intervals(volume, path, Vec3::ZERO)?;
+    let intervals = path_intervals(volume, path, Some(times), Vec3::ZERO)?;
     let existing = volume
         .occupants
         .iter()
@@ -449,12 +555,12 @@ fn entity_sweep(
     })
 }
 
-fn player_sweep(volume: &mut TriggerVolume, path: &[Vec3]) -> Option<Sweep> {
+fn player_sweep(volume: &mut TriggerVolume, path: &[Vec3], times: Option<&[f64]>) -> Option<Sweep> {
     if !volume.filter.accepts_player() {
         return None;
     }
     let to = *path.last()?;
-    let intervals = path_intervals(volume, path, Vec3::ZERO)?;
+    let intervals = path_intervals(volume, path, times, Vec3::ZERO)?;
     let existing = volume
         .occupants
         .iter()
@@ -544,24 +650,40 @@ fn item_intervals(volume: &TriggerVolume, item: &TriggerItem<'_>) -> Option<Swee
         if path.len() > MAX_TRIGGER_PATH_POINTS || path.iter().any(|point| !point.is_finite()) {
             return None;
         }
-        path_intervals(volume, path, item.half_extents)
+        path_intervals(volume, path, item.path_times, item.half_extents)
     } else {
-        path_intervals(volume, &[item.from, item.to], item.half_extents)
+        path_intervals(volume, &[item.from, item.to], None, item.half_extents)
     }
 }
 
-fn path_intervals(volume: &TriggerVolume, path: &[Vec3], half: Vec3) -> Option<SweepIntervals> {
+fn path_intervals(
+    volume: &TriggerVolume,
+    path: &[Vec3],
+    times: Option<&[f64]>,
+    half: Vec3,
+) -> Option<SweepIntervals> {
+    if times.is_some_and(|values| {
+        values.len() != path.len()
+            || values
+                .iter()
+                .any(|time| !(0.0_f64..=1.0_f64).contains(time))
+            || !values.is_sorted()
+    }) {
+        return None;
+    }
     let mut intervals = SweepIntervals::default();
     let first = *path.first()?;
     if path.len() == 1 {
         if endpoint_inside(volume, first, half) {
             intervals.push(
                 CrossingPoint {
-                    time: 0.0,
+                    time: CrossingTime::FRAME_START,
+                    progress: 0.0,
                     position: first,
                 },
                 CrossingPoint {
-                    time: 1.0,
+                    time: CrossingTime::FRAME_END,
+                    progress: 1.0,
                     position: first,
                 },
             );
@@ -572,9 +694,34 @@ fn path_intervals(volume: &TriggerVolume, path: &[Vec3], half: Vec3) -> Option<S
             let (&from, &to) = (pair.first()?, pair.get(1)?);
             if let Some((enter, exit)) = interval(volume, from, to, half) {
                 let offset = f64::from(u32::try_from(index).ok()?);
-                let crossing = |fraction| CrossingPoint {
-                    time: (offset + f64::from(fraction)) / segments,
-                    position: from.lerp(to, fraction),
+                let explicit_times = times.and_then(|values| {
+                    values
+                        .get(index)
+                        .copied()
+                        .zip(values.get(index.saturating_add(1)).copied())
+                });
+                let crossing = |fraction| {
+                    let progress = offset + f64::from(fraction);
+                    let time = explicit_times.map_or(
+                        CrossingTime {
+                            frame: progress / segments,
+                            instant_order: 0.0,
+                        },
+                        |(start, end)| {
+                            CrossingTime::segment(
+                                (start, end),
+                                fraction,
+                                progress,
+                                times.unwrap_or_default(),
+                                index,
+                            )
+                        },
+                    );
+                    CrossingPoint {
+                        time,
+                        progress,
+                        position: from.lerp(to, fraction),
+                    }
                 };
                 intervals.push(crossing(enter), crossing(exit));
             }
@@ -591,7 +738,7 @@ fn occupancy_edges(
 ) {
     for occupant in &volume.occupants {
         edges.push(Edge {
-            time: 0.0,
+            time: CrossingTime::FRAME_START,
             entered: false,
             occupant: occupant.clone(),
         });
@@ -599,14 +746,14 @@ fn occupancy_edges(
     for sweep in sweeps {
         for (index, (enter, exit)) in sweep.intervals.iter().enumerate() {
             let starts_inside = index == 0 && sweep.was_inside;
-            if starts_inside && enter.time > 0.0_f64 {
+            if starts_inside && enter.progress > 0.0_f64 {
                 edges.push(Edge {
-                    time: 0.0,
+                    time: CrossingTime::FRAME_START,
                     entered: false,
                     occupant: sweep.occupant.clone(),
                 });
             }
-            if !starts_inside || enter.time > 0.0_f64 {
+            if !starts_inside || enter.progress > 0.0_f64 {
                 edges.push(Edge {
                     time: enter.time,
                     entered: true,
@@ -627,11 +774,7 @@ fn occupancy_edges(
     }
     // Enter before exit at a shared boundary prevents an aggregate ambience
     // from stopping when one occupant hands occupancy directly to another.
-    edges.sort_by(|a, b| {
-        a.time
-            .total_cmp(&b.time)
-            .then_with(|| b.entered.cmp(&a.entered))
-    });
+    edges.sort_by(|a, b| a.time.cmp(b.time).then_with(|| b.entered.cmp(&a.entered)));
     if volume.occupancy == TriggerOccupancyDef::Aggregate {
         let mut count = initial_count;
         edges.retain(|edge| {

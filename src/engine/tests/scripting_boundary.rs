@@ -178,6 +178,7 @@ fn named_runtime_lifecycle_refuses_authored_deletion_and_queries_live_items() ->
         up_y: 1.0,
         path: None,
         centre_path: None,
+        path_times: None,
     }));
     let module = Module::load(&ScriptSource {
         path: ProjectPath::new("scripts/lifecycle.luau".into())?,

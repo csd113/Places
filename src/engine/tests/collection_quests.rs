@@ -139,6 +139,7 @@ impl Fixture {
                     up_y: *up_y,
                     path: None,
                     centre_path: None,
+                    path_times: None,
                 },
             ));
     }

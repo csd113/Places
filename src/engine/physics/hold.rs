@@ -44,6 +44,8 @@ impl HeldPlayerSlide {
 
 pub struct HeldPlayerContact {
     pub eye_after_slide: Vec3,
+    /// Command fraction at the last position the slide accepted.
+    pub(crate) slide_fraction: f32,
     pub normal: Vec3,
     pub slide_normal: Option<Vec3>,
 }
@@ -363,9 +365,10 @@ impl ItemWorld {
         &self,
         previous: PlayerContext,
         player: PlayerContext,
-    ) -> Vec3 {
-        self.runtime.as_ref().map_or(player.eye, |runtime| {
-            self.sweep_item_contact(runtime, previous, player, None).0
+    ) -> (Vec3, f32) {
+        self.runtime.as_ref().map_or((player.eye, 1.0), |runtime| {
+            let (eye, fraction, _) = self.sweep_item_contact(runtime, previous, player, None);
+            (eye, fraction)
         })
     }
 
@@ -430,8 +433,8 @@ impl ItemWorld {
         previous: PlayerContext,
         player: PlayerContext,
         slide: HeldPlayerSlide,
-    ) -> (Vec3, Option<HeldPlayerContact>) {
-        self.runtime.as_ref().map_or((player.eye, None), |runtime| {
+    ) -> (Vec3, f32, Option<HeldPlayerContact>) {
+        self.runtime.as_ref().map_or((player.eye, 1.0, None), |runtime| {
             self.sweep_item_contact(runtime, previous, player, Some(slide))
         })
     }
@@ -442,13 +445,13 @@ impl ItemWorld {
         previous: PlayerContext,
         player: PlayerContext,
         slide_on_held: Option<HeldPlayerSlide>,
-    ) -> (Vec3, Option<HeldPlayerContact>) {
+    ) -> (Vec3, f32, Option<HeldPlayerContact>) {
         if !player.active || !previous.active || !player.valid() || !previous.valid() {
-            return (player.eye, None);
+            return (player.eye, 1.0, None);
         }
         let motion = subtract(player.feet, previous.feet);
         if motion.length_squared() == 0.0 {
-            return (player.eye, None);
+            return (player.eye, 1.0, None);
         }
         let clock = self.simulation_state();
         let frozen = clock.paused || clock.time_scale <= 0.0;
@@ -480,7 +483,7 @@ impl ItemWorld {
             )
         };
         let Some((handle, hit)) = sweep(start, motion, false) else {
-            return (player.eye, None);
+            return (player.eye, 1.0, None);
         };
         let travel = hit.time_of_impact.clamp(0.0, 1.0);
         let moved = scaled(motion, travel);
@@ -501,7 +504,9 @@ impl ItemWorld {
                 slide_hit.map_or(1.0, |obstacle| obstacle.time_of_impact.clamp(0.0, 1.0));
             (
                 resolved_eye,
+                travel,
                 Some(HeldPlayerContact {
+                    slide_fraction: (1.0 - travel).mul_add(slide_travel, travel),
                     eye_after_slide: add(resolved_eye, scaled(slide, slide_travel)),
                     normal,
                     slide_normal: slide_hit
@@ -509,7 +514,7 @@ impl ItemWorld {
                 }),
             )
         } else {
-            (resolved_eye, None)
+            (resolved_eye, travel, None)
         }
     }
 

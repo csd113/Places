@@ -904,6 +904,7 @@ fn trigger_items<'a>(
             sleeping: body.sleeping,
             up_y: body.up_y,
             centre_path: Some(body.centre_path()),
+            path_times: Some(body.path_times()),
         })
     })
 }
@@ -977,6 +978,7 @@ impl Items {
             up_y: body.up_y,
             path: Some(body.path()),
             centre_path: Some(body.centre_path()),
+            path_times: Some(body.path_times()),
         };
         for (id, min, max, accepted) in game
             .entities()

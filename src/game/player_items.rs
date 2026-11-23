@@ -73,7 +73,7 @@ impl PlayerContacts<'_> {
                 let before = game.trigger_feet();
                 game.apply_movement_constraint(constrain(game));
                 if game.trigger_feet() != before {
-                    game.replace_trigger_command(None);
+                    game.replace_trigger_command(None, 1.0);
                 }
             }
             Self::Items(_) => {}
@@ -142,21 +142,26 @@ impl Game {
         goal: PlayerContext,
         slide: HeldPlayerSlide,
     ) {
-        let contact_feet = if world.held().is_some() {
-            let (eye, contact) = world.constrain_carried_player_eye(origin, goal, slide);
-            if let Some(held_contact) = contact {
-                self.apply_held_item_contact(eye, &held_contact)
-                    .then(|| Vec3::new(eye.x, goal.feet.y + (eye.y - goal.eye.y), eye.z))
-            } else {
-                self.apply_movement_constraint(eye);
-                None
+        let (eye, arrival, contact) = if world.held().is_some() {
+            world.constrain_carried_player_eye(origin, goal, slide)
+        } else {
+            let (eye, arrival) = world.constrain_player_eye_from(origin, goal);
+            (eye, arrival, None)
+        };
+        if let Some(held_contact) = contact {
+            if self.apply_held_item_contact(eye, &held_contact) {
+                let contact_feet = Vec3::new(eye.x, goal.feet.y + (eye.y - goal.eye.y), eye.z);
+                self.replace_trigger_command(
+                    Some((contact_feet, f64::from(arrival))),
+                    f64::from(held_contact.slide_fraction),
+                );
+                return;
             }
         } else {
-            self.apply_movement_constraint(world.constrain_player_eye_from(origin, goal));
-            None
-        };
-        if self.trigger_feet() != goal.feet || contact_feet.is_some() {
-            self.replace_trigger_command(contact_feet);
+            self.apply_movement_constraint(eye);
+        }
+        if self.trigger_feet() != goal.feet {
+            self.replace_trigger_command(None, f64::from(arrival));
         }
     }
 

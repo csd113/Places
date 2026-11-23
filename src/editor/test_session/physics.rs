@@ -160,6 +160,7 @@ impl PreparedPhysics {
                 up_y: body.up_y,
                 path: Some(body.path()),
                 centre_path: Some(body.centre_path()),
+                path_times: Some(body.path_times()),
             })
         });
         game.entities_mut()

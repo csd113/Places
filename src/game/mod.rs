@@ -57,6 +57,7 @@ pub(crate) mod play_spawn;
 mod player_items;
 mod portal_movement;
 mod recovery;
+mod trigger_trace;
 mod water;
 use player_items::PlayerContacts;
 use recovery::{PlayableSpace, RecoveryDestination};
@@ -492,8 +493,7 @@ pub struct Game {
     world_reset_count: u64,
     /// Player sweep awaiting the once-per-frame combined physical trigger update.
     trigger_sweep_ready: bool,
-    trigger_path: Vec<Vec3>,
-    trigger_command_start: usize,
+    trigger_trace: trigger_trace::TriggerTrace,
     /// Vertical simulation time not yet consumed by a fixed
     /// [`VERTICAL_SUBSTEP`].
     vertical_accumulator: f32,
@@ -637,8 +637,7 @@ impl Game {
             reset_count: 0,
             world_reset_count: 0,
             trigger_sweep_ready: false,
-            trigger_path: Vec::new(),
-            trigger_command_start: 0,
+            trigger_trace: trigger_trace::TriggerTrace::default(),
             vertical_accumulator: 0.0,
             ceiling_contact_this_frame: false,
             movement_debug: std::env::var("PLACES_MOVEMENT_DEBUG").is_ok_and(|value| value == "1"),
@@ -933,8 +932,7 @@ impl Game {
 
     /// Advances the entity runtime by one frame and applies its outcome.
     fn update_world(&mut self, feet_from: Vec3) {
-        self.trigger_path.clear();
-        self.record_trigger_position(feet_from);
+        self.trigger_trace.begin_frame(feet_from);
         self.update_world_from_motion(feet_from);
     }
 
@@ -945,7 +943,7 @@ impl Game {
             self.feet_y(),
             self.player_position.z,
         );
-        self.record_trigger_position(feet);
+        self.trigger_trace.finish_frame(feet);
         let ctx = WorldContext {
             player_walk_speed: self.configured_walk_speed,
             delta_seconds: delta,
@@ -1006,8 +1004,11 @@ impl Game {
         if !std::mem::take(&mut self.trigger_sweep_ready) {
             return;
         }
-        self.world
-            .update_volume_paths_iter(&self.trigger_path, items);
+        self.world.update_volume_paths_iter(
+            &self.trigger_trace.points,
+            Some(&self.trigger_trace.times),
+            items,
+        );
         let report = self.world.dispatch_queued_events();
         if report.player_reset {
             self.reset_to_spawn();
@@ -1473,11 +1474,10 @@ impl Game {
             self.player_position.z,
         );
 
-        self.trigger_path.clear();
-        self.record_trigger_position(trigger_origin);
-        self.trigger_command_start = self.trigger_path.len();
+        self.trigger_trace.begin_frame(trigger_origin);
         self.movement_input.merge_frame(input);
-        self.movement_accumulator += f64::from(clamp_sim_delta(delta));
+        let frame_seconds = f64::from(clamp_sim_delta(delta));
+        self.movement_accumulator += frame_seconds;
         let tick = f64::from(VERTICAL_SUBSTEP);
         self.sim_delta_seconds = VERTICAL_SUBSTEP;
         let mut rig_sample = None;
@@ -1487,7 +1487,12 @@ impl Game {
             }
             self.movement_accumulator = (self.movement_accumulator - tick).max(0.0);
             let command = self.movement_input;
-            self.trigger_command_start = self.trigger_path.len();
+            let command_end = if frame_seconds > 0.0_f64 {
+                (1.0 - self.movement_accumulator / frame_seconds).clamp(0.0, 1.0)
+            } else {
+                1.0_f64
+            };
+            self.trigger_trace.begin_command(command_end);
             let contact_origin = contacts.command_origin(self);
             let previous_stance = self.stance;
             let previous_feet = self.feet_y;
@@ -1515,7 +1520,7 @@ impl Game {
             if !water_resolved {
                 contacts.resolve_command(self, contact_origin);
             }
-            self.record_trigger_position(self.trigger_feet());
+            self.trigger_trace.point(self.trigger_feet(), 1.0);
             self.advance_step_eye(previous_feet, previously_grounded);
             if self.movement_accumulator + 1.0e-8_f64 >= tick {
                 contacts.prepare_next_command(self, contact_origin);
@@ -1524,7 +1529,7 @@ impl Game {
         }
         self.sim_delta_seconds = delta;
         contacts.finish(self);
-        self.record_trigger_position(self.trigger_feet());
+        self.trigger_trace.finish_frame(self.trigger_feet());
         if let Some((start, proposed)) = rig_sample {
             let travel = Vec3::new(
                 self.player_position.x - start.x,
@@ -1552,19 +1557,10 @@ impl Game {
         Vec3::new(self.player_position.x, self.feet_y, self.player_position.z)
     }
 
-    fn record_trigger_position(&mut self, feet: Vec3) {
-        if self.trigger_path.last() != Some(&feet) {
-            self.trigger_path.push(feet);
-        }
-    }
-
     /// A later constraint supersedes the provisional motion for this command.
-    fn replace_trigger_command(&mut self, contact: Option<Vec3>) {
-        self.trigger_path.truncate(self.trigger_command_start);
-        if let Some(feet) = contact {
-            self.record_trigger_position(feet);
-        }
-        self.record_trigger_position(self.trigger_feet());
+    fn replace_trigger_command(&mut self, contact: Option<(Vec3, f64)>, arrival: f64) {
+        self.trigger_trace
+            .replace_command(contact, self.trigger_feet(), arrival);
     }
 
     /// Applies material traction to planar velocity, then uses the established
@@ -2487,7 +2483,7 @@ impl Game {
         // body can cross it; the pressed-exit probe follows this direction.
         let step_dir = Vec2::new(step_delta.x, step_delta.z);
 
-        for _ in 0..steps {
+        for step in 0..steps {
             let foot_y = match sweep_mode {
                 HorizontalMode::Walk => current_floor,
                 HorizontalMode::Airborne | HorizontalMode::Swim { surface_y: _ } => live_feet,
@@ -2539,14 +2535,13 @@ impl Game {
                     }
                 }
             }
-            if let Some(step_y) = step_up {
-                self.record_trigger_position(Vec3::new(prior_xz.x, step_y, prior_xz.y));
-            } else if candidate == trace.end() {
-                for &point in trace.contact_positions() {
-                    self.record_trigger_position(Vec3::new(point.x, prior_feet, point.y));
-                }
-            }
-            self.record_trigger_position(Vec3::new(current_pos.x, live_feet, current_pos.y));
+            self.record_horizontal_trigger_step(
+                &trace,
+                step_up,
+                Vec3::new(prior_xz.x, prior_feet, prior_xz.y),
+                Vec3::new(current_pos.x, live_feet, current_pos.y),
+                (step, step_count),
+            );
         }
         self.player_floor_y = current_floor;
         self.player_position.x = current_pos.x;
@@ -2565,6 +2560,29 @@ impl Game {
                 self.set_feet_y(self.player_floor_y);
             }
         }
+    }
+
+    fn record_horizontal_trigger_step(
+        &mut self,
+        trace: &crate::engine::collision::PlayerHullSweep,
+        step_up: Option<f32>,
+        from: Vec3,
+        to: Vec3,
+        (step, count): (usize, f32),
+    ) {
+        let offset = f64::from(u32::try_from(step).unwrap_or_default());
+        let at = |fraction| (offset + f64::from(fraction)) / f64::from(count);
+        if let Some(step_y) = step_up {
+            self.trigger_trace
+                .point(Vec3::new(from.x, step_y, from.z), at(0.0));
+        } else if Vec2::new(to.x, to.z) == trace.end() {
+            for &(position, fraction) in trace.contact_positions() {
+                self.trigger_trace
+                    .point(Vec3::new(position.x, from.y, position.y), at(fraction));
+            }
+            self.trigger_trace.point(to, at(trace.end_fraction()));
+        }
+        self.trigger_trace.point(to, at(1.0));
     }
 
     /// Swimming and deep wading can discover a real rim contact.
@@ -3164,7 +3182,8 @@ impl Game {
         }
 
         self.vertical_accumulator = 0.0;
-        let _vertical_step = self.integrate_vertical_substep(self.sim_delta_seconds);
+        let _vertical_step =
+            self.integrate_vertical_motion(self.sim_delta_seconds, GRAVITY, items, false);
     }
 
     /// Advances the airborne player through one bounded simulation interval.
@@ -3183,6 +3202,7 @@ impl Game {
     ///
     /// Returns what the substep resolved to: still airborne, landed, or a
     /// ceiling bump.
+    #[cfg(test)]
     fn integrate_vertical_substep(&mut self, delta: f32) -> VerticalStep {
         self.integrate_vertical_with_gravity(delta, GRAVITY, None)
     }
@@ -3192,6 +3212,16 @@ impl Game {
         delta: f32,
         gravity: f32,
         items: Option<&ItemWorld>,
+    ) -> VerticalStep {
+        self.integrate_vertical_motion(delta, gravity, items, true)
+    }
+
+    fn integrate_vertical_motion(
+        &mut self,
+        delta: f32,
+        gravity: f32,
+        items: Option<&ItemWorld>,
+        resolve_item_ceiling: bool,
     ) -> VerticalStep {
         let height = self.body_height();
         let start_feet = self.feet_y;
@@ -3203,6 +3233,12 @@ impl Game {
         } else {
             rise.max(0.0)
         };
+        let mut peak = (initial_velocity > 0.0 && next_velocity < 0.0)
+            .then(|| (initial_velocity / gravity, start_feet + peak_rise));
+        let vertical_origin = self.trigger_feet();
+        let item_ceiling = (resolve_item_ceiling && initial_velocity > 0.0)
+            .then(|| self.rising_item_head_limit(items, peak_rise))
+            .flatten();
         self.vertical_velocity = next_velocity;
         let mut feet = self.feet_y + rise;
         let mut bumped = false;
@@ -3216,20 +3252,16 @@ impl Game {
             && let Some(limit) = self
                 .head_limit(start_feet)
                 .into_iter()
-                .chain(self.rising_item_head_limit(items, peak_rise))
+                .chain(item_ceiling)
                 .min_by(f32::total_cmp)
             && start_feet + height <= limit + CONTACT_EPS
             && start_feet + peak_rise + height > limit - CONTACT_EPS
         {
             let contact_feet = limit - height - CONTACT_EPS;
-            let clearance = (contact_feet - start_feet).max(0.0);
-            let impact_velocity = (initial_velocity
-                .mul_add(initial_velocity, -2.0 * gravity * clearance))
-            .max(0.0)
-            .sqrt();
             let impact_time =
-                (2.0 * clearance / (initial_velocity + impact_velocity)).clamp(0.0, delta);
+                vertical_contact_time(initial_velocity, gravity, contact_feet - start_feet, delta);
             let remaining = delta - impact_time;
+            peak = Some((impact_time, contact_feet.max(start_feet)));
             self.vertical_velocity = -gravity * remaining;
             feet = (-0.5 * gravity * remaining).mul_add(remaining, contact_feet);
             bumped = true;
@@ -3240,6 +3272,20 @@ impl Game {
                     self.vertical_velocity
                 ));
             }
+        }
+        // Land movement still resolves prop contacts after the whole
+        // command. Bound only an intermediate height the later chord cannot see.
+        if !resolve_item_ceiling && let Some((_, peak_y)) = peak {
+            let trace_ceiling = self.rising_item_head_limit(items, (peak_y - start_feet).max(0.0));
+            peak = cap_trace_peak(
+                peak,
+                trace_ceiling,
+                start_feet,
+                height,
+                initial_velocity,
+                gravity,
+                delta,
+            );
         }
         self.set_feet_y(feet);
 
@@ -3252,46 +3298,54 @@ impl Game {
                 self.support_at(self.player_position.x, self.player_position.z, start_feet)
             && feet <= support + CONTACT_EPS
         {
-            self.set_feet_y(support);
-            self.player_floor_y = support;
-            let normal = self
-                .floor
-                .hull_support(
-                    Vec2::new(self.player_position.x, self.player_position.z),
-                    self.body_half() - CONTACT_EPS,
-                    support + CONTACT_EPS,
-                )
-                .filter(|surface| (surface.0 - support).abs() <= CONTACT_EPS)
-                .map_or(Vec3::Y, |surface| surface.1);
-            if normal.y < 0.7 {
-                let velocity = Vec3::new(
-                    self.horizontal_velocity.x,
-                    self.vertical_velocity,
-                    self.horizontal_velocity.y,
-                );
-                let into = velocity.dot(normal).min(0.0);
-                self.horizontal_velocity = Vec2::new(
-                    normal.x.mul_add(-into, velocity.x),
-                    normal.z.mul_add(-into, velocity.z),
-                );
-                self.vertical_velocity = normal.y.mul_add(-into, velocity.y);
-                self.grounded = false;
-                return VerticalStep::Airborne;
-            }
-            self.vertical_velocity = 0.0;
-            self.grounded = true;
-            if self.movement_debug {
-                crate::engine::logging::warn(format_args!(
-                    "[movement] support_hit height={support} initial_feet={start_feet} final_feet={feet} normal=(0,1,0) classification=floor"
-                ));
-            }
-            return VerticalStep::Landed;
+            self.trigger_trace
+                .vertical(vertical_origin, peak, support, delta);
+            return self.land_on_support(start_feet, feet, support);
         }
+        self.trigger_trace
+            .vertical(vertical_origin, peak, feet, delta);
         if bumped {
             VerticalStep::Bumped
         } else {
             VerticalStep::Airborne
         }
+    }
+
+    fn land_on_support(&mut self, start_feet: f32, feet: f32, support: f32) -> VerticalStep {
+        self.set_feet_y(support);
+        self.player_floor_y = support;
+        let normal = self
+            .floor
+            .hull_support(
+                Vec2::new(self.player_position.x, self.player_position.z),
+                self.body_half() - CONTACT_EPS,
+                support + CONTACT_EPS,
+            )
+            .filter(|surface| (surface.0 - support).abs() <= CONTACT_EPS)
+            .map_or(Vec3::Y, |surface| surface.1);
+        if normal.y < 0.7 {
+            let velocity = Vec3::new(
+                self.horizontal_velocity.x,
+                self.vertical_velocity,
+                self.horizontal_velocity.y,
+            );
+            let into = velocity.dot(normal).min(0.0);
+            self.horizontal_velocity = Vec2::new(
+                normal.x.mul_add(-into, velocity.x),
+                normal.z.mul_add(-into, velocity.z),
+            );
+            self.vertical_velocity = normal.y.mul_add(-into, velocity.y);
+            self.grounded = false;
+            return VerticalStep::Airborne;
+        }
+        self.vertical_velocity = 0.0;
+        self.grounded = true;
+        if self.movement_debug {
+            crate::engine::logging::warn(format_args!(
+                "[movement] support_hit height={support} initial_feet={start_feet} final_feet={feet} normal=(0,1,0) classification=floor"
+            ));
+        }
+        VerticalStep::Landed
     }
 
     /// Ground is a current supporting surface, never a cached collision flag.
@@ -3518,6 +3572,40 @@ impl Game {
         };
         self.locomotion = LocomotionSnapshot { state, speed };
     }
+}
+
+fn vertical_contact_time(velocity: f32, gravity: f32, height: f32, delta: f32) -> f32 {
+    let clearance = height.max(0.0);
+    let impact_velocity = velocity
+        .mul_add(velocity, -2.0 * gravity * clearance)
+        .max(0.0)
+        .sqrt();
+    (2.0 * clearance / (velocity + impact_velocity)).clamp(0.0, delta)
+}
+
+fn cap_trace_peak(
+    peak: Option<(f32, f32)>,
+    ceiling: Option<f32>,
+    start: f32,
+    height: f32,
+    velocity: f32,
+    gravity: f32,
+    delta: f32,
+) -> Option<(f32, f32)> {
+    let Some(limit) = ceiling else {
+        return peak;
+    };
+    peak.map(|(time, y)| {
+        if y + height > limit - CONTACT_EPS {
+            let cap = (limit - height - CONTACT_EPS).max(start);
+            (
+                vertical_contact_time(velocity, gravity, cap - start, delta),
+                cap,
+            )
+        } else {
+            (time, y)
+        }
+    })
 }
 
 /// The component of `move_dir` along a ladder's facing, with zero for no

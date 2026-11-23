@@ -1286,6 +1286,7 @@ impl ItemWorld {
                     &self.water,
                     &self.surface_materials,
                     &mut self.stats,
+                    alpha,
                 );
                 self.simulation.fixed_steps = self.simulation.fixed_steps.saturating_add(1);
                 previous_alpha = alpha;
@@ -1338,6 +1339,7 @@ impl ItemWorld {
                 &self.water,
                 &self.surface_materials,
                 &mut self.stats,
+                1.0,
             );
             runtime.populate_counts(&mut self.stats);
             self.stats.step_millis = started.elapsed().as_secs_f64() * 1_000.0_f64;
@@ -1663,6 +1665,7 @@ impl Runtime {
         water: &WaterVolumes,
         surface_materials: &SurfaceMaterials,
         stats: &mut PhysicsStats,
+        frame_fraction: f32,
     ) {
         stats.recovered_bodies = stats
             .recovered_bodies
@@ -1689,7 +1692,7 @@ impl Runtime {
         for entry in self.entries.values_mut() {
             entry
                 .trigger_path
-                .record(entry.current, entry.center, &entry.shape);
+                .record(entry.current, entry.center, &entry.shape, frame_fraction);
         }
         stats.substeps = stats.substeps.saturating_add(1);
     }

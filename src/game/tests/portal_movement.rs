@@ -757,3 +757,72 @@ fn trigger_sampling_follows_the_solved_wall_slide() -> Result<(), String> {
     );
     Ok(())
 }
+
+// One real movement command in each case detects reversals hidden by the
+// endpoint chord, including a ceiling that prevents the predicted exit.
+#[test]
+fn trigger_sampling_keeps_only_accepted_vertical_peaks() -> Result<(), String> {
+    let level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"peak_trigger","name":"Peak trigger",
+        "spawn":{"x":2,"z":2},
+        "rooms":[{"width":4,"depth":4,"height":6,"ceiling":{"kind":"open"}}],
+        "volumes":[{"id":"zone","x":1,"z":1,"width":2,"depth":2,"bottom_y":0,"top_y":0.5002,
+            "bindings":[
+                {"on":"exit_volume","actions":[{"action":"show_message","title":"exit","lines":["marker"]}]},
+                {"on":"enter_volume","actions":[{"action":"show_message","title":"reentry","lines":["marker"]}]}
+            ]}]
+    }"#).map_err(|error| error.to_string())?;
+    let cases: [(Option<f32>, &[&str]); 3] = [
+        (None, &["exit", "reentry"]),
+        (Some(2.30045), &["exit", "reentry"]),
+        (Some(2.3002), &[]),
+    ];
+    for (ceiling, expected) in cases {
+        let mut game = Game::new(
+            Vec3::new(2.0, EYE_HEIGHT + 0.5, 2.0),
+            0.0,
+            CollisionWorld::from_level(&level),
+        );
+        game.set_app_state(AppState::Playing);
+        if let Some(underside) = ceiling {
+            game.walls
+                .push(WallAabb::with_y(1.0, underside, 1.0, 2.0, 0.2, 2.0));
+            game.collision_index =
+                crate::engine::collision::index::CollisionIndex::build(&game.walls);
+        }
+        game.set_feet_y(0.5);
+        game.grounded = false;
+        game.vertical_velocity = if ceiling.is_some() {
+            0.15
+        } else {
+            super::super::GRAVITY * VERTICAL_SUBSTEP * 0.5
+        };
+        game.world.seed_volumes(Vec3::new(2.0, 0.5, 2.0));
+        game.set_benchmark_simulation_delta(VERTICAL_SUBSTEP);
+        game.update_player_movement(&mut InputState::default(), &Settings::default());
+        game.update_volume_occupants(&[]);
+        assert!(
+            game.feet_y() <= 0.5002,
+            "both command endpoints are inside the trigger"
+        );
+        let messages: Vec<_> = game
+            .world
+            .take_commands()
+            .into_iter()
+            .filter_map(|command| {
+                if let crate::engine::entities::WorldCommand::ShowMessage { title, lines: _ } =
+                    command
+                {
+                    Some(title)
+                } else {
+                    None
+                }
+            })
+            .collect();
+        assert_eq!(
+            messages, expected,
+            "trace must follow only the accepted peak under {ceiling:?}"
+        );
+    }
+    Ok(())
+}

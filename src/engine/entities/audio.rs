@@ -7,6 +7,43 @@ use super::volumes::TriggerVisit;
 use super::{AudioEmitter, EntityHandle, EntityId, EntityWorld, LevelDef, Transform, WorldCommand};
 use crate::engine::level::ActionDef;
 
+pub(super) struct OwnedTriggerLoop {
+    volume: EntityHandle,
+    entry_key: String,
+    visit: TriggerVisit,
+}
+
+#[derive(Clone, Debug, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
+#[serde(rename_all = "snake_case")]
+pub(super) enum CheckpointOccupant {
+    Aggregate,
+    Player,
+    Item(String),
+    Entity(String),
+}
+
+#[derive(Clone, serde::Serialize, serde::Deserialize)]
+#[serde(deny_unknown_fields)]
+pub(super) struct CheckpointLoop {
+    emitter: String,
+    volume: String,
+    entry_key: String,
+    occupant: CheckpointOccupant,
+}
+
+pub(super) struct PendingCheckpointLoop {
+    emitter: EntityHandle,
+    volume: EntityHandle,
+    entry_key: String,
+    occupant: CheckpointOccupant,
+}
+
+impl OwnedTriggerLoop {
+    pub(super) fn exit_dropped(&self) -> bool {
+        self.visit.exit_dropped()
+    }
+}
+
 impl EntityWorld {
     pub(super) fn resolve_sound_emitters(&mut self, level: &LevelDef) {
         for def in &level.sound_emitters {
@@ -133,24 +170,130 @@ impl EntityWorld {
     }
 
     /// A trigger owns loops it starts that have an authored stop on departure.
-    pub(super) fn volume_loop_visit(&self, handle: EntityHandle) -> Option<TriggerVisit> {
+    pub(super) fn volume_loop_visit(&self, handle: EntityHandle) -> Option<OwnedTriggerLoop> {
         let event = self.script_event.as_ref()?;
         if event.kind != EventKind::EnterVolume {
             return None;
         }
         let visit = event.trigger_visit.as_ref()?;
-        let target_id = self.id_of(handle)?;
-        let paired = self.bindings_by_owner.get(&event.subject)?.iter().any(|index| {
+        self.has_authored_loop_stop(event.subject, &event.key, handle)
+            .then(|| OwnedTriggerLoop {
+                volume: event.subject,
+                entry_key: event.key.clone(),
+                visit: visit.clone(),
+            })
+    }
+
+    fn has_authored_loop_stop(
+        &self,
+        volume: EntityHandle,
+        key: &str,
+        emitter: EntityHandle,
+    ) -> bool {
+        let Some(target_id) = self.id_of(emitter) else {
+            return false;
+        };
+        self.bindings_by_owner.get(&volume).is_some_and(|indices| indices.iter().any(|index| {
             self.bindings.get(*index).is_some_and(|binding| {
                 binding.on == EventKind::ExitVolume
-                    && binding.key.as_ref().is_none_or(|key| key == &event.key)
+                    && binding.key.as_deref().is_none_or(|binding_key| key == binding_key)
                     && binding.actions.iter().any(|action| {
                         matches!(action, ActionDef::StopSound { target }
-                            if target.as_deref().map_or(handle == event.subject, |id| id.trim() == target_id))
+                            if target.as_deref().map_or(emitter == volume, |id| id.trim() == target_id))
                     })
             })
-        });
-        paired.then(|| visit.clone())
+        }))
+    }
+
+    pub(super) fn checkpoint_loops(&self) -> Vec<CheckpointLoop> {
+        self.trigger_loops
+            .iter()
+            .filter_map(|(handle, owner)| {
+                let audio = self.components.audio.get(*handle)?;
+                let volume = self.components.volumes.get(owner.volume)?;
+                if !audio.playing || !audio.looped {
+                    return None;
+                }
+                Some(CheckpointLoop {
+                    emitter: self.id_of(*handle)?.to_string(),
+                    volume: self.id_of(owner.volume)?.to_string(),
+                    entry_key: owner.entry_key.clone(),
+                    occupant: volume.checkpoint_visit(&owner.visit)?,
+                })
+            })
+            .collect()
+    }
+
+    pub(super) fn restore_checkpoint_loops(
+        &mut self,
+        saved: &[CheckpointLoop],
+    ) -> Result<Vec<PendingCheckpointLoop>, String> {
+        if saved.len() > self.components.audio.len() {
+            return Err("Too many checkpoint trigger loops".into());
+        }
+        let mut seen = std::collections::BTreeSet::new();
+        let mut pending = Vec::with_capacity(saved.len());
+        for record in saved {
+            let emitter = self
+                .handle_of(&record.emitter)
+                .ok_or("Unknown checkpoint loop emitter")?;
+            let volume = self
+                .handle_of(&record.volume)
+                .ok_or("Unknown checkpoint loop volume")?;
+            let key = match &record.occupant {
+                CheckpointOccupant::Aggregate => None,
+                CheckpointOccupant::Player => Some("player"),
+                CheckpointOccupant::Item(id) | CheckpointOccupant::Entity(id) => Some(id.as_str()),
+            };
+            let aggregate = record.occupant == CheckpointOccupant::Aggregate;
+            if !seen.insert(emitter)
+                || !self.components.volumes.get(volume).is_some_and(|entry| {
+                    (entry.occupancy == crate::engine::level::TriggerOccupancyDef::Aggregate)
+                        == aggregate
+                })
+                || key.is_some_and(|id| id != record.entry_key)
+                || record.entry_key.is_empty()
+                || !self.has_authored_loop_stop(volume, &record.entry_key, emitter)
+            {
+                return Err("Invalid checkpoint trigger loop ownership".into());
+            }
+            let Some(audio) = self
+                .components
+                .audio
+                .get_mut(emitter)
+                .filter(|audio| audio.playing)
+            else {
+                return Err("Checkpoint trigger loop is not playing".into());
+            };
+            audio.looped = true;
+            pending.push(PendingCheckpointLoop {
+                emitter,
+                volume,
+                entry_key: record.entry_key.clone(),
+                occupant: record.occupant.clone(),
+            });
+        }
+        Ok(pending)
+    }
+
+    pub(super) fn rebind_checkpoint_loops(&mut self) {
+        for pending in std::mem::take(&mut self.pending_checkpoint_loops) {
+            if let Some(visit) = self
+                .components
+                .volumes
+                .get_mut(pending.volume)
+                .and_then(|volume| volume.restore_trigger_visit(&pending.occupant))
+            {
+                drop(self.trigger_loops.insert(
+                    pending.emitter,
+                    OwnedTriggerLoop {
+                        volume: pending.volume,
+                        entry_key: pending.entry_key,
+                        visit,
+                    },
+                ));
+            }
+        }
     }
 
     /// Reconciles only live playback owned by a visit whose exit could not be
@@ -158,7 +301,7 @@ impl EntityWorld {
     pub(super) fn stop_dropped_trigger_loops(&mut self) {
         let stopped: Vec<_> = self
             .trigger_loops
-            .extract_if(.., |_, visit| visit.exit_dropped())
+            .extract_if(.., |_, owner| owner.exit_dropped())
             .map(|(handle, _)| handle)
             .collect();
         for handle in stopped {

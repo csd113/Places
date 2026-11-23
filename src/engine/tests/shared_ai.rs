@@ -782,6 +782,7 @@ fn shared_ai_physical_observation_uses_shape_center_after_rotation() -> Result<(
         up_y: 0.0,
         path: None,
         centre_path: Some(&centers),
+        path_times: None,
     }));
     assert!(
         world

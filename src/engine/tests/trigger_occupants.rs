@@ -37,6 +37,7 @@ fn item<'a>(key: u64, from: f32, to: f32) -> TriggerItem<'a> {
         sleeping: false,
         up_y: 1.0,
         centre_path: None,
+        path_times: None,
     }
 }
 
@@ -231,6 +232,44 @@ fn solved_crossings_keep_exact_exit_positions_and_global_fifo() -> Result<(), St
         }
         drain_trigger_events(&mut world);
     }
+    Ok(())
+}
+
+// Stationary gaps and unequal clocks reverse the verdict obtained by dividing
+// each path into equal segments. One open FIFO slot forces a distinct result.
+#[test]
+fn a_nearly_full_fifo_admits_the_earliest_occupied_exit() -> Result<(), String> {
+    let mut world = fixture(r#"{"kind":"item"}"#, "per_actor", "[]")?;
+    let zone = world.handle_of("zone").ok_or("missing fixture zone")?;
+    let mut early = item(1, 0.5, 1.06);
+    let early_path = [early.from, early.to, early.to];
+    early.path = Some(&early_path);
+    early.path_times = Some(&[0.0_f64, 0.2_f64, 1.0_f64]);
+    let mut late = item(2, -0.06, 0.5);
+    let late_path = [late.from, late.from, late.to, late.to];
+    late.path = Some(&late_path);
+    late.path_times = Some(&[0.0_f64, 0.7_f64, 0.9_f64, 1.0_f64]);
+    world.seed_volume_occupants(point(), &[item(1, 0.5, 0.5)]);
+    fill_trigger_backlog(&mut world, zone, 1);
+    world.update_volume_occupants(point(), point(), &[early, late]);
+    assert_eq!(world.events().dropped(), 1, "the later entry is refused");
+    let mut admitted = world.events().clone();
+    let last = std::iter::from_fn(|| admitted.pop())
+        .last()
+        .ok_or("missing admitted exit")?;
+    assert_eq!(
+        last.kind,
+        EventKind::ExitVolume,
+        "the earlier exit takes the only slot"
+    );
+    assert!(
+        world
+            .components()
+            .volumes
+            .get(zone)
+            .is_some_and(|volume| volume.inside),
+        "the dropped later entry still establishes occupancy"
+    );
     Ok(())
 }
 
@@ -669,6 +708,147 @@ fn dropped_exit_cancels_loop_start_of_an_admitted_entry() -> Result<(), String> 
     Ok(())
 }
 
+// A real Luau sound call takes ownership only when its exit explicitly
+// names that emitter. A script-only exit cannot be inferred from its source.
+#[test]
+fn luau_started_loop_requires_an_explicit_authored_exit_stop() -> Result<(), String> {
+    use crate::engine::{project::ProjectPath, scripting::ScriptSource};
+
+    for paired in [true, false] {
+        let stop = if paired {
+            r#"{"action":"stop_sound","target":"loop"},"#
+        } else {
+            ""
+        };
+        let source = r#"{
+            "schema":"places-level","format_version":1,"id":"script_loop","name":"Script loop",
+            "spawn":{"x":-5,"z":-5},
+            "props":[{"id":"loop","model":"core:rubber_duck","components":[
+                {"component":"audio","sound":"loop.test","looped":true}]}],
+            "volumes":[{"id":"zone","x":0,"z":0,"width":1,"depth":1,"bottom_y":0,"top_y":1,
+                "bindings":[
+                    {"on":"enter_volume","actions":[{"action":"run_script","script":"scripts/audio.luau","handler":"enter"}]},
+                    {"on":"exit_volume","actions":[AUTHORED_STOP
+                        {"action":"run_script","script":"scripts/audio.luau","handler":"leave"}
+                    ]}
+                ]}]
+        }"#.replace("AUTHORED_STOP", stop);
+        let mut level = LevelDef::from_json(&source).map_err(|error| error.to_string())?;
+        level.script_sources.push(ScriptSource {
+            path: ProjectPath::new("scripts/audio.luau".into())?,
+            source: r#"return {
+                enter=function(api) api.sound("loop", true) end,
+                leave=function(api) api.sound("loop", false); api.message("exit callback", {"marker"}) end,
+            }"#.into(),
+        });
+        let mut world = EntityWorld::from_level(&level);
+        let zone = world.handle_of("zone").ok_or("missing zone")?;
+        let inside = Vec3::splat(0.5);
+        world.update_volumes(point(), inside);
+        let _enter = world.dispatch_queued_events();
+        assert!(
+            world.take_commands().iter().any(is_play),
+            "Luau starts the actual loop"
+        );
+        fill_trigger_backlog(&mut world, zone, 0);
+        world.update_volumes(inside, point());
+        assert_eq!(
+            world
+                .take_commands()
+                .iter()
+                .filter(|command| matches!(command, WorldCommand::StopSound { entity: _ }))
+                .count(),
+            usize::from(paired),
+            "overflow only stops the loop with authored ownership",
+        );
+        drain_trigger_events(&mut world);
+        assert!(
+            world.take_commands().is_empty(),
+            "the dropped Lua callback never runs later"
+        );
+    }
+    Ok(())
+}
+
+// One serialized snapshot and two emitters exercise stable ownership in a
+// fresh world after seeding. Only the visit-owned loop stops under overflow.
+#[test]
+fn checkpoint_reconnects_the_visit_that_owns_a_playing_loop() -> Result<(), String> {
+    let level = LevelDef::from_json(r#"{
+        "schema":"places-level","format_version":1,"id":"saved_loop","name":"Saved loop",
+        "spawn":{"x":-5,"z":-5},
+        "props":[
+            {"id":"loop","model":"core:rubber_duck","components":[{"component":"audio","sound":"loop.test"}]},
+            {"id":"other","model":"core:rubber_duck","components":[{"component":"audio","sound":"other.test","looped":true,"playing":true}]}
+        ],
+        "volumes":[{"id":"zone","x":0,"z":0,"width":1,"depth":1,"bottom_y":0,"top_y":1,"occupancy":"per_actor",
+            "bindings":[
+                {"on":"enter_volume","actions":[{"action":"play_sound","target":"loop","loop":true}]},
+                {"on":"exit_volume","actions":[{"action":"stop_sound","target":"loop"},{"action":"stop_sound","target":"other"}]}
+            ]}]
+    }"#).map_err(|error| error.to_string())?;
+    let inside = Vec3::splat(0.5);
+    let mut world = EntityWorld::from_level(&level);
+    world.update_volumes(point(), inside);
+    let _entry = world.dispatch_queued_events();
+    let _played = world.take_commands();
+    let encoded = serde_json::to_vec(&world.checkpoint()?).map_err(|error| error.to_string())?;
+    let snapshot = serde_json::from_slice(&encoded).map_err(|error| error.to_string())?;
+
+    let mut restored = EntityWorld::from_level(&level);
+    restored.restore_checkpoint(&snapshot)?;
+    restored.seed_volumes(inside);
+    let commands = restored.take_commands();
+    assert_eq!(
+        commands
+            .iter()
+            .filter(|command| matches!(
+                command,
+                WorldCommand::PlaySound {
+                    looped: true,
+                    entity: _,
+                    sound: _,
+                    gain: _,
+                    time_domain: _
+                }
+            ))
+            .count(),
+        2,
+        "checkpoint publication starts both loops, including the runtime loop"
+    );
+    let zone = restored.handle_of("zone").ok_or("missing restored zone")?;
+    let owned = restored.handle_of("loop").ok_or("missing restored loop")?;
+    let other = restored
+        .handle_of("other")
+        .ok_or("missing other restored loop")?;
+    fill_trigger_backlog(&mut restored, zone, 0);
+    restored.update_volumes(inside, point());
+    assert!(
+        restored
+            .components()
+            .audio
+            .get(owned)
+            .is_some_and(|emitter| !emitter.playing),
+        "the previously saved visit owns the dropped exit"
+    );
+    assert!(
+        restored
+            .components()
+            .audio
+            .get(other)
+            .is_some_and(|emitter| emitter.playing),
+        "authored autoplay keeps its independent ownership"
+    );
+    assert!(
+        matches!(
+            restored.take_commands().as_slice(),
+            [WorldCommand::StopSound { entity: _ }]
+        ),
+        "only one restored loop stops"
+    );
+    Ok(())
+}
+
 const fn is_play(command: &WorldCommand) -> bool {
     matches!(
         command,
@@ -841,6 +1021,7 @@ fn centre_and_settled_receipts_reject_rotated_envelopes_and_rearm_cleanly() -> R
         half_extents: body.half_extents,
         path: Some(body.path()),
         centre_path: Some(body.centre_path()),
+        path_times: Some(body.path_times()),
         held: false,
         sleeping: body.sleeping,
         ..item(1, 0.5, 0.5)

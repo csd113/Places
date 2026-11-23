@@ -41,6 +41,7 @@ fn sparse_trigger_queries_preserve_crossings_and_missing_item_exits_without_scan
         sleeping: false,
         up_y: 1.0,
         centre_path: None,
+        path_times: None,
     };
     world.update_volume_occupants(outside, outside, &[item]);
     assert_eq!(

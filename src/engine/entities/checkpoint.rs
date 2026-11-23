@@ -47,6 +47,9 @@ pub struct Snapshot {
     poses: Vec<(String, crate::engine::entity::PoseCue)>,
     circuits: Vec<(String, super::light_power::Power, bool)>,
     scripts: crate::engine::scripting::Checkpoint,
+    // Older checkpoints contain playback state without visit attribution.
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    trigger_loops: Vec<super::audio::CheckpointLoop>,
 }
 
 pub(crate) fn number(value: f32, limit: f32) -> Result<(), String> {
@@ -238,6 +241,7 @@ impl EntityWorld {
                 })
                 .collect(),
             scripts: self.scripts.checkpoint()?,
+            trigger_loops: self.checkpoint_loops(),
         })
     }
 
@@ -332,7 +336,9 @@ impl EntityWorld {
             circuit.requested = *requested;
         }
         self.scripts.restore_checkpoint(&snapshot.scripts)?;
+        let pending_loops = self.restore_checkpoint_loops(&snapshot.trigger_loops)?;
         self.publish_checkpoint(snapshot.time);
+        self.pending_checkpoint_loops = pending_loops;
         Ok(())
     }
 

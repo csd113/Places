@@ -419,34 +419,41 @@ fn square_start_clear(world: &HorizontalWorld<'_>, point: Vec2, body: (f32, f32,
 
 /// Accepted positions after the hull advances to a contact or finishes a slide.
 pub struct PlayerHullSweep {
-    positions: [Vec2; CONTACT_ITERATIONS],
+    positions: [(Vec2, f32); CONTACT_ITERATIONS],
     len: usize,
     end: Vec2,
+    end_fraction: f32,
 }
 
 impl PlayerHullSweep {
     const fn new(from: Vec2) -> Self {
         Self {
-            positions: [from; CONTACT_ITERATIONS],
+            positions: [(from, 0.0); CONTACT_ITERATIONS],
             len: 0,
             end: from,
+            end_fraction: 0.0,
         }
     }
 
-    fn advance(&mut self, position: Vec2) {
+    fn advance(&mut self, position: Vec2, fraction: f32) {
         if position != self.end
             && let Some(point) = self.positions.get_mut(self.len)
         {
-            *point = position;
+            *point = (position, fraction);
+            self.end_fraction = fraction;
             self.len = self.len.saturating_add(1);
         }
         self.end = position;
     }
 
-    pub(crate) fn contact_positions(&self) -> &[Vec2] {
+    pub(crate) fn contact_positions(&self) -> &[(Vec2, f32)] {
         self.positions
             .get(..self.len.saturating_sub(1))
             .unwrap_or_default()
+    }
+
+    pub(crate) const fn end_fraction(&self) -> f32 {
+        self.end_fraction
     }
 
     pub(crate) const fn end(&self) -> Vec2 {
@@ -481,12 +488,11 @@ pub fn sweep_player_hull_path(
     let (from, to) = path;
     let (feet, height, radius) = body;
     let mut remaining = Vec2::new(to.x - from.x, to.y - from.y);
-    let cast_wall = square_wall;
-    let cast_leaf = square_door;
     let mut trace = PlayerHullSweep::new(from);
     if !square_start_clear(world, from, body) {
         return trace;
     }
+    let mut elapsed = 0.0_f32;
     for _ in 0..CONTACT_ITERATIONS {
         let position = trace.end();
         if remaining.length_squared() <= MOTION_EPS_SQUARED {
@@ -496,7 +502,7 @@ pub fn sweep_player_hull_path(
         index.for_each_swept_disc(position, point_on_path(position, remaining, 1.0), radius * std::f32::consts::SQRT_2, walls, |wall| {
             if wall.max_y <= feet + CONTACT_EPS
                 || wall.min_y >= feet + height - CONTACT_EPS { return; }
-            if let Some(hit) = cast_wall(position, remaining, radius, wall) {
+            if let Some(hit) = square_wall(position, remaining, radius, wall) {
                 if *debug { crate::engine::logging::warn(format_args!("[movement] candidate collider=box identity={:?} bounds={wall:?} hit_time={} normal={:?}", walls.iter().position(|candidate| std::ptr::eq(candidate,wall)), hit.fraction,hit.normal)); }
                 nearer(&mut best, hit, remaining);
             }
@@ -505,17 +511,17 @@ pub fn sweep_player_hull_path(
             if !door.overlaps_body_y(feet, height) {
                 continue;
             }
-            if let Some(hit) = cast_leaf(position, remaining, radius, door) {
+            if let Some(hit) = square_door(position, remaining, radius, door) {
                 nearer(&mut best, hit, remaining);
             }
         }
         ceiling.for_each_body_barrier(feet, height, |wall| {
-            if let Some(hit) = cast_wall(position, remaining, radius, wall) {
+            if let Some(hit) = square_wall(position, remaining, radius, wall) {
                 nearer(&mut best, hit, remaining);
             }
         });
         floor.for_each_boundary(|wall, surface| {
-            let Some(hit) = cast_wall(position, remaining, radius, wall) else {
+            let Some(hit) = square_wall(position, remaining, radius, wall) else {
                 return;
             };
             let contact = point_on_path(position, remaining, hit.fraction);
@@ -541,7 +547,7 @@ pub fn sweep_player_hull_path(
                 0.0
             },
             |wall, outward| {
-                if let Some(hit) = cast_wall(position, remaining, radius, wall)
+                if let Some(hit) = square_wall(position, remaining, radius, wall)
                     && hit.normal.dot(outward) > GRAZING_EPS
                 {
                     // Terrain faces block entry from outside. A body following
@@ -552,7 +558,7 @@ pub fn sweep_player_hull_path(
             },
         );
         let Some(hit) = best else {
-            trace.advance(point_on_path(position, remaining, 1.0));
+            trace.advance(point_on_path(position, remaining, 1.0), 1.0);
             break;
         };
         let distance = remaining.length();
@@ -568,7 +574,8 @@ pub fn sweep_player_hull_path(
                 hit.normal
             ));
         }
-        trace.advance(point_on_path(position, remaining, advance));
+        elapsed = (1.0 - elapsed).mul_add(advance, elapsed);
+        trace.advance(point_on_path(position, remaining, advance), elapsed);
         remaining = Vec2::new(remaining.x * (1.0 - advance), remaining.y * (1.0 - advance));
         let incoming = remaining.dot(hit.normal).min(0.0);
         remaining = point_on_path(remaining, hit.normal, -incoming);

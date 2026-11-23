@@ -33,6 +33,7 @@ impl EntityWorld {
     pub(super) fn clear_event_dispatch(&mut self) {
         self.events.clear();
         self.trigger_loops.clear();
+        self.pending_checkpoint_loops.clear();
         self.terminal_dispatch = TerminalDispatch::default();
     }
 

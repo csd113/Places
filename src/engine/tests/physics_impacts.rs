@@ -251,3 +251,34 @@ fn rotating_trigger_bounds_enclose_the_intermediate_diagonal() -> Result<(), Str
     );
     Ok(())
 }
+
+// Three fixed samples include an idle first interval, avoiding a full native
+// step while pinning the same bounded recorder used by physics snapshots.
+#[test]
+fn trigger_path_keeps_stationary_ticks_and_frame_tail() {
+    use crate::engine::physics::trigger_path::TriggerPath;
+
+    let shape = rapier3d::prelude::SharedShape::ball(0.1);
+    let start = crate::engine::physics::ItemPose {
+        position: Vec3::ZERO,
+        rotation: glam::Quat::IDENTITY,
+    };
+    let end = crate::engine::physics::ItemPose {
+        position: Vec3::X,
+        ..start
+    };
+    let mut trace = TriggerPath::new(start, Vec3::ZERO, &shape);
+    trace.record(start, Vec3::ZERO, &shape, 0.25);
+    trace.record(end, Vec3::ZERO, &shape, 0.75);
+    let body = trace.snapshot(1, end, Vec3::ZERO, &shape, 0.1);
+    assert_eq!(
+        body.path(),
+        &[Vec3::ZERO, Vec3::ZERO, Vec3::X, Vec3::X],
+        "stationary time is part of the path"
+    );
+    assert_eq!(
+        body.path_times(),
+        &[0.0_f64, 0.25_f64, 0.75_f64, 1.0_f64],
+        "each tick and frame tail retain their clock"
+    );
+}

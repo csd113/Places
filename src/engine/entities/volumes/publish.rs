@@ -7,7 +7,7 @@ use std::sync::{
     atomic::{AtomicBool, Ordering as AtomicOrdering},
 };
 
-use super::{Edge, OccupantId};
+use super::{CrossingTime, Edge, OccupantId};
 use crate::engine::entities::events::{EventKind, EventQueue, EventRecord};
 use crate::engine::entities::id::EntityHandle;
 use crate::engine::level::{ActionDef, EventBindingDef, EventKindName, TriggerOccupancyDef};
@@ -44,12 +44,21 @@ impl PendingVisit {
     fn live(&self) -> bool {
         self.0.strong_count() != 0
     }
+
+    fn belongs_to(&self, visit: &TriggerVisit) -> bool {
+        std::ptr::eq(self.0.as_ptr(), Arc::as_ptr(&visit.0))
+    }
 }
 
 impl PartialEq for PendingVisit {
     fn eq(&self, other: &Self) -> bool {
         Weak::ptr_eq(&self.0, &other.0)
     }
+}
+
+pub(super) enum VisitOwner {
+    Aggregate,
+    Actor(OccupantId),
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -101,6 +110,46 @@ impl VisitSet {
         }
     }
 
+    pub(super) fn owner(&self, visit: &TriggerVisit) -> Option<VisitOwner> {
+        if self
+            .aggregate
+            .as_ref()
+            .is_some_and(|pending| pending.belongs_to(visit))
+        {
+            Some(VisitOwner::Aggregate)
+        } else {
+            self.actors
+                .iter()
+                .find(|(_, pending)| pending.belongs_to(visit))
+                .map(|(actor, _)| VisitOwner::Actor(*actor))
+        }
+    }
+
+    pub(super) fn restore(&mut self, occupant: Option<OccupantId>) -> Option<TriggerVisit> {
+        if !self.tracks_audio {
+            return None;
+        }
+        if let Some(actor) = occupant {
+            if let Some(visit) = self
+                .actors
+                .iter()
+                .find(|(existing, _)| *existing == actor)
+                .and_then(|(_, pending)| pending.upgrade())
+            {
+                return Some(visit);
+            }
+            let visit = TriggerVisit::default();
+            self.actors.push((actor, PendingVisit::new(&visit)));
+            Some(visit)
+        } else if let Some(visit) = self.aggregate.as_ref().and_then(PendingVisit::upgrade) {
+            Some(visit)
+        } else {
+            let visit = TriggerVisit::default();
+            self.aggregate = Some(PendingVisit::new(&visit));
+            Some(visit)
+        }
+    }
+
     pub(super) fn transition(
         &mut self,
         occupancy: TriggerOccupancyDef,
@@ -131,7 +180,7 @@ impl VisitSet {
 }
 
 struct Crossing {
-    time: f64,
+    time: CrossingTime,
     order: usize,
     record: EventRecord,
 }
@@ -139,7 +188,7 @@ struct Crossing {
 impl Ord for Crossing {
     fn cmp(&self, other: &Self) -> Ordering {
         self.time
-            .total_cmp(&other.time)
+            .cmp(other.time)
             .then_with(|| self.order.cmp(&other.order))
     }
 }

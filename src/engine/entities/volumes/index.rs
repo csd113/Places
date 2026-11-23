@@ -53,6 +53,7 @@ struct WatchedEntity {
     previous: Option<(EntityHandle, Vec3)>,
     sample: Option<EntityHandle>,
     path: Vec<Vec3>,
+    times: Vec<f64>,
     traced: bool,
     physical: bool,
 }
@@ -114,6 +115,7 @@ impl TriggerIndex {
                                 previous: None,
                                 sample: None,
                                 path: Vec::new(),
+                                times: Vec::new(),
                                 traced: false,
                                 physical: false,
                             });
@@ -235,12 +237,14 @@ impl TriggerIndex {
         }
     }
 
-    pub fn route_path(&mut self, id: &str, from: Vec3) -> Option<&mut Vec<Vec3>> {
+    pub fn route_path(&mut self, id: &str, from: Vec3) -> Option<(&mut Vec<Vec3>, &mut Vec<f64>)> {
         let watch = self.watchers.get_mut(*self.watch_by_id.get(id)?)?;
         watch.path.clear();
         watch.path.push(from);
+        watch.times.clear();
+        watch.times.push(0.0_f64);
         watch.traced = true;
-        Some(&mut watch.path)
+        Some((&mut watch.path, &mut watch.times))
     }
 
     pub fn entities(
@@ -270,11 +274,21 @@ impl TriggerIndex {
             {
                 if watch.path.first() != Some(&start) {
                     watch.path.insert(0, start);
+                    watch.times.insert(0, 0.0_f64);
+                }
+                if watch.times.last().is_some_and(|time| *time < 1.0_f64) {
+                    watch.path.push(to);
+                    watch.times.push(1.0_f64);
                 }
             } else {
                 watch.path.clear();
-                watch.path.extend(from.filter(|_| !seed));
+                watch.times.clear();
+                if let Some(start) = from.filter(|_| !seed) {
+                    watch.path.push(start);
+                    watch.times.push(0.0_f64);
+                }
                 watch.path.push(to);
+                watch.times.push(1.0_f64);
             }
             let Some((low, high)) = path_bounds(&watch.path) else {
                 continue;
@@ -295,9 +309,9 @@ impl TriggerIndex {
         self.candidates.sort_unstable();
     }
 
-    pub fn entity_sample(&self, watch: usize) -> Option<(EntityHandle, &[Vec3])> {
+    pub fn entity_sample(&self, watch: usize) -> Option<(EntityHandle, &[Vec3], &[f64])> {
         let entry = self.watchers.get(watch)?;
-        Some((entry.sample?, &entry.path))
+        Some((entry.sample?, &entry.path, &entry.times))
     }
 
     pub fn finish_volume(&mut self, slot: usize, inside: bool) {

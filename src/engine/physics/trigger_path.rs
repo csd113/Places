@@ -27,6 +27,7 @@ pub struct ItemTriggerBody {
     pub up_y: f32,
     path: [Vec3; MAX_TRIGGER_PATH_POINTS],
     centre_path: [Vec3; MAX_TRIGGER_PATH_POINTS],
+    times: [f64; MAX_TRIGGER_PATH_POINTS],
     path_len: u8,
 }
 
@@ -36,6 +37,14 @@ impl ItemTriggerBody {
     #[must_use]
     pub fn path(&self) -> &[Vec3] {
         self.path
+            .get(..usize::from(self.path_len))
+            .unwrap_or_default()
+    }
+
+    /// Frame fractions of the fixed solver ticks shared by both paths.
+    #[must_use]
+    pub fn path_times(&self) -> &[f64] {
+        self.times
             .get(..usize::from(self.path_len))
             .unwrap_or_default()
     }
@@ -52,6 +61,7 @@ impl ItemTriggerBody {
 pub(super) struct TriggerPath {
     origins: [Vec3; MAX_TRIGGER_PATH_POINTS],
     centres: [Vec3; MAX_TRIGGER_PATH_POINTS],
+    times: [f64; MAX_TRIGGER_PATH_POINTS],
     len: u8,
     rotation: Quat,
     last: ItemPose,
@@ -65,6 +75,7 @@ impl TriggerPath {
         Self {
             origins: [origin; MAX_TRIGGER_PATH_POINTS],
             centres: [centre; MAX_TRIGGER_PATH_POINTS],
+            times: [0.0; MAX_TRIGGER_PATH_POINTS],
             len: 1,
             rotation: initial.rotation,
             last: initial,
@@ -77,17 +88,34 @@ impl TriggerPath {
         current: ItemPose,
         center: Vec3,
         shape: &rapier3d::prelude::SharedShape,
+        time: f32,
     ) {
-        if current == self.last {
-            return;
-        }
-        self.rotated |= current.rotation != self.rotation;
-        if let Some(destination) = self.origins.get_mut(usize::from(self.len)) {
+        let index = usize::from(self.len);
+        let previous = index.saturating_sub(1);
+        let (origin, centre) = if current == self.last {
+            let Some((&origin, &centre)) =
+                self.origins.get(previous).zip(self.centres.get(previous))
+            else {
+                return;
+            };
+            (origin, centre)
+        } else {
             let origin = add(current.position, current.rotation.mul_vec3(center));
-            *destination = origin;
-            if let Some(centre) = self.centres.get_mut(usize::from(self.len)) {
-                *centre = point(shape.compute_aabb(&pose(origin, current.rotation)).center());
-            }
+            (
+                origin,
+                point(shape.compute_aabb(&pose(origin, current.rotation)).center()),
+            )
+        };
+        if let Some(((origin_slot, centre_slot), time_slot)) = self
+            .origins
+            .get_mut(index)
+            .zip(self.centres.get_mut(index))
+            .zip(self.times.get_mut(index))
+        {
+            *origin_slot = origin;
+            *centre_slot = centre;
+            *time_slot = f64::from(time);
+            self.rotated |= current.rotation != self.rotation;
             self.len = self.len.saturating_add(1);
             self.last = current;
         }
@@ -114,16 +142,21 @@ impl TriggerPath {
         };
         let mut path = self.origins;
         let mut centre_path = self.centres;
+        let mut times = self.times;
         let mut path_len = self.len;
         let last_index = usize::from(path_len.saturating_sub(1));
-        if (path
-            .get(last_index)
-            .is_some_and(|previous| *previous != origin)
+        if ((path_len > 1 && times.get(last_index).is_some_and(|time| *time < 1.0_f64))
+            || path
+                .get(last_index)
+                .is_some_and(|previous| *previous != origin)
             || centre_path
                 .get(last_index)
                 .is_some_and(|previous| *previous != centre))
-            && let Some(origin_destination) = path.get_mut(usize::from(path_len))
+            && let Some((origin_destination, time_destination)) = path
+                .get_mut(usize::from(path_len))
+                .zip(times.get_mut(usize::from(path_len)))
         {
+            *time_destination = 1.0_f64;
             *origin_destination = origin;
             if let Some(centre_destination) = centre_path.get_mut(usize::from(path_len)) {
                 *centre_destination = centre;
@@ -164,6 +197,7 @@ impl TriggerPath {
             up_y: current.rotation.mul_vec3(Vec3::Y).y,
             path,
             centre_path,
+            times,
             path_len,
         }
     }

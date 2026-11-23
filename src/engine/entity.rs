@@ -381,7 +381,7 @@ impl EntityRoute {
     /// [`ENTITY_MAX_STEP_S`] so a frame hitch never skips the route across a
     /// wall or a floor edge.
     pub fn advance(&self, state: &mut RouteState, delta_seconds: f32, world: &RouteWorld<'_>) {
-        self.advance_with_trace(state, delta_seconds, world, |_| {});
+        self.advance_with_trace(state, delta_seconds, world, |_, _| {});
     }
 
     pub(crate) fn advance_with_trace(
@@ -389,7 +389,7 @@ impl EntityRoute {
         state: &mut RouteState,
         delta_seconds: f32,
         world: &RouteWorld<'_>,
-        mut accepted_position: impl FnMut(Vec3),
+        mut accepted_position: impl FnMut(Vec3, f64),
     ) {
         if state.finished {
             return;
@@ -412,9 +412,12 @@ impl EntityRoute {
             reason = "Simulation delta is capped at 0.1 seconds; ceil produces a positive integer of at most six substeps."
         )]
         let count = substeps as u32;
-        for _ in 0..count {
+        for step in 0..count {
             self.advance_substep(state, substep, world);
-            accepted_position(state.position);
+            accepted_position(
+                state.position,
+                f64::from(step.saturating_add(1)) / f64::from(count),
+            );
             if state.blocked || state.finished {
                 break;
             }

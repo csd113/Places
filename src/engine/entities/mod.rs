@@ -473,7 +473,8 @@ pub struct EntityWorld {
     transition_targets: std::collections::BTreeSet<String>,
     scripts: crate::engine::scripting::ScriptRuntime,
     script_event: Option<EventRecord>,
-    trigger_loops: std::collections::BTreeMap<EntityHandle, volumes::TriggerVisit>,
+    trigger_loops: std::collections::BTreeMap<EntityHandle, audio::OwnedTriggerLoop>,
+    pending_checkpoint_loops: Vec<audio::PendingCheckpointLoop>,
     pub(crate) script_player: Vec3,
     pub(crate) script_form: Option<String>,
     pub(crate) script_held_item: Option<String>,
@@ -626,6 +627,7 @@ impl EntityWorld {
             scripts: crate::engine::scripting::ScriptRuntime::default(),
             script_event: None,
             trigger_loops: std::collections::BTreeMap::new(),
+            pending_checkpoint_loops: Vec::new(),
             script_player: Vec3::ZERO,
             script_form: None,
             script_held_item: None,
@@ -3427,7 +3429,7 @@ impl EntityWorld {
                 report.actions_run = report.actions_run.saturating_add(1);
                 if owned_visit
                     .as_ref()
-                    .is_some_and(volumes::TriggerVisit::exit_dropped)
+                    .is_some_and(audio::OwnedTriggerLoop::exit_dropped)
                 {
                     return;
                 }
@@ -5346,8 +5348,11 @@ impl EntityWorld {
                 let before = state.position;
                 let before_yaw = state.yaw;
                 let trace = self.trigger_index.route_path(&route.instance_id, before);
-                if let Some(path) = trace {
-                    route.advance_with_trace(state, delta, world, |position| path.push(position));
+                if let Some((path, times)) = trace {
+                    route.advance_with_trace(state, delta, world, |position, fraction| {
+                        path.push(position);
+                        times.push(fraction);
+                    });
                 } else {
                     route.advance(state, delta, world);
                 }
