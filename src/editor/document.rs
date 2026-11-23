@@ -101,6 +101,12 @@ impl Document {
         Self::open_with_budget(path, MAX_DOCUMENT_HEAP_CHARGE)
     }
 
+    pub(super) fn open_with_recovery(path: &Path) -> Result<Self, String> {
+        let mut document = Self::open(path)?;
+        document.recovery_notice = member_publication::recover(&mut document);
+        Ok(document)
+    }
+
     fn open_with_budget(path: &Path, heap_budget: usize) -> Result<Self, String> {
         let (project, manifest_bytes) = ProjectFolder::open_snapshot(path)?;
         let selected = LevelDocument::open(&project, None, |charge| {
@@ -110,7 +116,7 @@ impl Document {
                 Ok(())
             }
         })?;
-        let mut document = Self {
+        Ok(Self {
             project,
             scripts: BTreeMap::new(),
             manifest_bytes,
@@ -118,9 +124,7 @@ impl Document {
             selected,
             other_levels: BTreeMap::new(),
             heap_budget,
-        };
-        document.recovery_notice = member_publication::recover(&mut document);
-        Ok(document)
+        })
     }
 
     pub(super) fn recovery_notice(&self) -> Option<&str> {

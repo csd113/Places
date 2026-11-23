@@ -62,12 +62,16 @@ fn pending_import_recovers_without_original_and_compiler_sees_exact_completed_in
     let expected_source = read(&origin.root().join(member.source.as_str()))?;
     let expected_mode = read(&origin.root().join(mode.project_path()?.as_str()))?;
     fs::remove_dir_all(origin.root()).map_err(|error| error.to_string())?;
+    let inspected = Document::open(&target_path)?;
+    assert!(inspected.manifest().level(Some("imported")).is_err());
+    assert!(target_path.join(PENDING_NAME).exists());
+    assert!(!target_path.join(member.source.as_str()).exists());
     let before = ProjectFolder::open(&target_path)?;
     let prior = crate::engine::package::project::snapshot(&before, &|| Ok(()))?;
     assert_eq!(before.manifest().levels.len(), 1);
     assert!(!prior.contains_key(&member.source));
 
-    let mut reopened = Document::open(&target_path.join(MANIFEST_NAME))?;
+    let mut reopened = Document::open_with_recovery(&target_path.join(MANIFEST_NAME))?;
     assert_eq!(
         reopened.recovery_notice(),
         Some("Recovered a pending Add/Import")
@@ -83,7 +87,13 @@ fn pending_import_recovers_without_original_and_compiler_sees_exact_completed_in
     assert_eq!(compiled.get(&member.source), Some(&expected_source));
     assert_eq!(compiled.get(&mode.project_path()?), Some(&expected_mode));
     assert!(!target_path.join(PENDING_NAME).exists());
-    assert_eq!(Document::open(&target_path)?.manifest().levels.len(), 2);
+    assert_eq!(
+        Document::open_with_recovery(&target_path)?
+            .manifest()
+            .levels
+            .len(),
+        2
+    );
     Ok(())
 }
 
@@ -110,7 +120,7 @@ fn pending_starter_resumes_after_source_publication_and_retires_after_commit() -
     let _copied = fs::copy(origin.root().join(member.source.as_str()), &destination)
         .map_err(|error| error.to_string())?;
     let writer = super::lock(target.root())?;
-    let busy = Document::open(target.root())?;
+    let busy = Document::open_with_recovery(target.root())?;
     assert!(
         busy.recovery_notice()
             .is_some_and(|notice| notice.contains("Another editor"))
@@ -118,7 +128,7 @@ fn pending_starter_resumes_after_source_publication_and_retires_after_commit() -
     assert_eq!(read(&target.root().join(MANIFEST_NAME))?, old_manifest);
     drop(writer);
 
-    let reopened = Document::open(target.root())?;
+    let reopened = Document::open_with_recovery(target.root())?;
     assert_eq!(reopened.manifest().level(Some("starter"))?, &member);
     assert_eq!(read(&destination)?, source);
 
@@ -131,7 +141,7 @@ fn pending_starter_resumes_after_source_publication_and_retires_after_commit() -
         &member,
         &source,
     )?;
-    let committed = Document::open(target.root())?;
+    let committed = Document::open_with_recovery(target.root())?;
     assert_eq!(committed.recovery_notice(), None);
     assert_eq!(read(&target.root().join(MANIFEST_NAME))?, new_manifest);
     assert_eq!(committed.manifest().levels.len(), 2);
@@ -154,7 +164,7 @@ fn recovery_preserves_manifest_source_and_record_when_conflicts_are_unverified()
     let _copied = fs::copy(target.root().join("levels/entry.json"), &destination)
         .map_err(|error| error.to_string())?;
     let existing = read(&destination)?;
-    let blocked = Document::open(target.root())?;
+    let blocked = Document::open_with_recovery(target.root())?;
     assert!(
         blocked
             .recovery_notice()
@@ -167,7 +177,7 @@ fn recovery_preserves_manifest_source_and_record_when_conflicts_are_unverified()
     fs::remove_file(&destination).map_err(|error| error.to_string())?;
     target.update_manifest("name", "External edit")?;
     let edited = read(&manifest_path)?;
-    let stale = Document::open(target.root())?;
+    let stale = Document::open_with_recovery(target.root())?;
     assert!(
         stale
             .recovery_notice()
@@ -182,7 +192,7 @@ fn recovery_preserves_manifest_source_and_record_when_conflicts_are_unverified()
         .get(..record.len().saturating_sub(1))
         .ok_or("Missing record")?;
     fs::write(&pending_path, truncated).map_err(|error| error.to_string())?;
-    let damaged = Document::open(target.root())?;
+    let damaged = Document::open_with_recovery(target.root())?;
     assert!(
         damaged
             .recovery_notice()
@@ -218,7 +228,7 @@ fn ordinary_import_failure_cancels_restart_intent() -> Result<(), String> {
     fs::remove_dir(&conflicting).map_err(|error| error.to_string())?;
     assert!(!target.root().join(PENDING_NAME).exists());
     assert!(
-        Document::open(target.root())?
+        Document::open_with_recovery(target.root())?
             .manifest()
             .level(Some("imported"))
             .is_err()

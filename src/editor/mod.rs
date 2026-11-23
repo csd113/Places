@@ -157,7 +157,7 @@ impl App {
         }
     }
     fn load(&mut self, path: &Path) -> Result<(), String> {
-        let document = Document::open(path)?;
+        let document = Document::open_with_recovery(path)?;
         if let Some(player) = self
             .play
             .as_mut()
