@@ -529,6 +529,87 @@ fn sequence_link_waits_for_shared_budget_and_resumes_without_replay() -> Result<
     Ok(())
 }
 
+// Four bounded Luau calls create real recurring pressure from the earlier run.
+// Native markers also witness the visit order and the resumable tails.
+#[test]
+fn waiting_sequence_gets_a_call_under_sustained_earlier_sequence_pressure() -> Result<(), String> {
+    let mut level = fixture()?;
+    let sequences: Vec<crate::engine::entities::sequences::SequenceDef> =
+        serde_json::from_str(r#"[
+          {"id":"loop","looped":true,"steps":[
+            {"step":"wait","seconds":0.125},
+            {"step":"action","action":{"action":"show_message","title":"loop prefix","lines":["Marker"]}},
+            {"step":"action","action":{"action":"run_script","script":"scripts/control.luau","handler":"burn"}},
+            {"step":"action","action":{"action":"run_script","script":"scripts/control.luau","handler":"burn"}},
+            {"step":"action","action":{"action":"run_script","script":"scripts/control.luau","handler":"burn"}},
+            {"step":"action","action":{"action":"run_script","script":"scripts/control.luau","handler":"burn"}},
+            {"step":"action","action":{"action":"show_message","title":"loop suffix","lines":["Marker"]}}
+          ]},
+          {"id":"later","steps":[
+            {"step":"action","action":{"action":"show_message","title":"later prefix","lines":["Marker"]}},
+            {"step":"action","action":{"action":"run_script","script":"scripts/control.luau","handler":"hint"}},
+            {"step":"action","action":{"action":"show_message","title":"later suffix","lines":["Marker"]}}
+          ]}
+        ]"#).map_err(|problem| problem.to_string())?;
+    level.sequences.extend(sequences);
+    let mut world = EntityWorld::from_level(&level);
+    assert!(
+        world.start_sequence("late", "loop"),
+        "start the looping run first"
+    );
+    assert!(world.start_sequence("item", "later"), "admit the later run");
+    let first = tick(&mut world, &level, 0.125);
+    assert_eq!(
+        first.sequences_completed, 0,
+        "the later linked action must wait"
+    );
+    assert_eq!(
+        titles(&mut world),
+        ["loop prefix", "loop suffix", "later prefix"],
+        "the initial frame follows the existing visit order"
+    );
+    assert_eq!(
+        world
+            .script_resources()
+            .get("frame_actions")
+            .and_then(serde_json::Value::as_u64),
+        Some(128),
+        "the first loop consumed the entire action allowance"
+    );
+
+    let resumed = tick(&mut world, &level, 0.125);
+    assert_eq!(
+        resumed.sequences_completed, 1,
+        "the later run gets a turn under pressure"
+    );
+    assert_eq!(
+        titles(&mut world),
+        ["loop prefix", "fresh hint", "later suffix"],
+        "the earlier run is still visited first and the later tail executes once"
+    );
+    let _finish_loop = tick(&mut world, &level, 0.125);
+    assert_eq!(
+        titles(&mut world),
+        ["loop suffix"],
+        "the earlier tail resumes without replay"
+    );
+    let again = tick(&mut world, &level, 0.125);
+    assert_eq!(
+        again.sequences_completed, 0,
+        "the later run has already completed"
+    );
+    assert_eq!(
+        titles(&mut world),
+        ["loop prefix", "loop suffix"],
+        "the earlier loop keeps running and the later link never replays"
+    );
+    assert!(
+        !world.script_failed(),
+        "budget contention leaves the module healthy"
+    );
+    Ok(())
+}
+
 #[test]
 fn admitted_sequence_resumes_then_commits_cooldown_and_reset_cancels_a_tail() -> Result<(), String>
 {

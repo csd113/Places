@@ -113,11 +113,19 @@ impl EntityWorld {
     }
 
     pub(super) fn has_waiting_sequence_script(&self) -> bool {
-        self.sequence_runs.iter().any(|run| {
-            run.waiting_for_script
-                && self.store.contains(run.owner)
-                && !self.sequence_owner_held(run.owner)
-        })
+        self.sequence_script_waiter().is_some()
+    }
+
+    fn sequence_script_waiter(&self) -> Option<u64> {
+        self.sequence_runs
+            .iter()
+            .filter(|run| {
+                run.script_wait_ticks > 0
+                    && self.store.contains(run.owner)
+                    && !self.sequence_owner_held(run.owner)
+            })
+            .min_by_key(|run| (std::cmp::Reverse(run.script_wait_ticks), run.revision))
+            .map(|run| run.revision)
     }
 
     /// Advances only the runs present at the start of this simulation tick.
@@ -135,7 +143,13 @@ impl EntityWorld {
             .iter()
             .map(|run| (run.owner, run.revision))
             .collect();
+        // Keep the normal visit order and protect the last call allowance
+        // until the oldest waiting run reaches its turn.
+        let mut waiter = self.sequence_script_waiter();
         for (owner, revision) in scheduled {
+            if waiter == Some(revision) {
+                waiter = None;
+            }
             let Some(mut run) = self
                 .sequence_run_index(owner, revision)
                 .and_then(|index| self.sequence_runs.get(index))
@@ -161,7 +175,7 @@ impl EntityWorld {
             }
             if !run.finished && !run.stopped {
                 run.step_time += ctx.delta_seconds;
-                self.tick_sequence_steps(&mut run, ctx, tick);
+                self.tick_sequence_steps(&mut run, ctx, tick, waiter.is_some());
             }
             self.finish_sequence_tick(run, tick);
             if tick.player_reset {
@@ -176,6 +190,7 @@ impl EntityWorld {
         run: &mut SequenceRuntime,
         ctx: &WorldContext<'_>,
         tick: &mut WorldTick,
+        reserve_waiting_call: bool,
     ) {
         let Some((definition_index, definition)) = self
             .sequences
@@ -200,7 +215,9 @@ impl EntityWorld {
                 break;
             };
             let advance = match step {
-                SequenceStepDef::Action { action } => self.tick_sequence_action(run, &action, tick),
+                SequenceStepDef::Action { action } => {
+                    self.tick_sequence_action(run, &action, tick, reserve_waiting_call)
+                }
                 SequenceStepDef::Camera {
                     seconds,
                     motion,
@@ -270,14 +287,17 @@ impl EntityWorld {
         run: &mut SequenceRuntime,
         action: &ActionDef,
         tick: &mut WorldTick,
+        reserve_waiting_call: bool,
     ) -> bool {
         if run.step_ran {
             return false;
         }
         if let ActionDef::RunScript { script, handler: _ } = action
-            && self.scripts.defer_linked_call(script, true)
+            && self
+                .scripts
+                .defer_resumable_call(script, reserve_waiting_call)
         {
-            run.waiting_for_script = true;
+            run.script_wait_ticks = run.script_wait_ticks.saturating_add(1);
             return false;
         }
         run.step_ran = true;

@@ -466,6 +466,18 @@ impl ScriptRuntime {
             // Ordinary event links keep the original partial frame allowance.
             self.calls < MAX_CALLS && self.actions < MAX_ACTIONS && self.elapsed < FRAME_DEADLINE
         };
+        self.linked_call_blocked(path, available)
+    }
+
+    pub(crate) fn defer_resumable_call(
+        &self,
+        path: &ProjectPath,
+        reserve_following_call: bool,
+    ) -> bool {
+        self.linked_call_blocked(path, self.has_full_allowance(reserve_following_call))
+    }
+
+    fn linked_call_blocked(&self, path: &ProjectPath, available: bool) -> bool {
         !available
             && self
                 .modules
