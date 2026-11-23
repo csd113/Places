@@ -18,6 +18,9 @@ fn fixture() -> Result<LevelDef, String> {
         "props":[
           {"id":"retired","model":"core:rubber_duck","x":2,"z":1,"bindings":[
             {"on":"interact","actions":[{"action":"show_message","title":"retired","lines":["Marker"]}]}]},
+          {"id":"late","model":"core:rubber_duck","x":2,"z":2,
+            "components":[{"component":"interactable"}],"bindings":[
+            {"on":"interact","actions":[{"action":"show_message","title":"late","lines":["Marker"]}]}]},
           {"id":"item","model":"core:rubber_duck","x":1,"z":1,
             "components":[{"component":"state","name":"count","value":0}],
             "bindings":[
@@ -51,6 +54,10 @@ fn fixture() -> Result<LevelDef, String> {
                     for _ = 1,32 do api.set_state("item","count",0) end
                 end,
                 linked=function() end,
+                linked_effect=function(api,event)
+                    assert(event.kind == "object_state" and event.key == "count")
+                    api.message("linked effect",{"Marker"})
+                end,
                 hint=function(api) api.message("fresh hint",{"Marker"}) end,
                 timer_first=function(api,event)
                     assert(event.kind == "timer" and event.subject == "once" and event.key == "once")
@@ -295,6 +302,229 @@ fn admitted_timer_resumes_binding_and_keeps_its_synchronous_child_slot() -> Resu
         world.timers.get("once").map(|timer| timer.fires),
         Some(4),
         "repeat fires again on the original schedule"
+    );
+    Ok(())
+}
+
+// The native interaction goes through its real enqueue-and-pump path with
+// an expired budget. Only the held slot distinguishes it from a free FIFO slot.
+#[test]
+fn suspended_terminal_keeps_the_child_slot_against_a_later_interaction() -> Result<(), String> {
+    let level = fixture()?;
+    let mut world = EntityWorld::from_level(&level);
+    let _start = world.dispatch_on(
+        "once",
+        &[ActionDef::StartTimer {
+            target: None,
+            seconds: None,
+            repeat: None,
+        }],
+    );
+    world.begin_script_frame();
+    spend_calls(&mut world, 4)?;
+    world.tick_timers(0.125, &mut WorldTick::default());
+    let item = world.handle_of("item").ok_or("Missing fixture entity")?;
+    assert!(
+        world.emit(EventKind::Interact, item, "tail", None),
+        "existing tail fits"
+    );
+    fill_queue(&mut world, "fill")?;
+    let _first = world.dispatch_queued_events();
+    assert_eq!(
+        titles(&mut world),
+        ["timer prefix"],
+        "yield before any child"
+    );
+    assert_eq!(
+        world.events().len(),
+        EventQueue::MAX_QUEUED_EVENTS.saturating_sub(1),
+        "only the terminal has left the FIFO"
+    );
+    let target = world.interactables.index_of("late");
+    assert!(
+        world
+            .dispatch_interaction_from(target, Some(Vec3::ZERO))
+            .is_some(),
+        "later interaction reached the native event producer"
+    );
+    assert_eq!(
+        world.events().dropped(),
+        1,
+        "the later interaction cannot take the child's slot"
+    );
+
+    world.begin_script_frame();
+    let _second = world.dispatch_queued_events();
+    assert_eq!(
+        titles(&mut world),
+        ["timer middle", "timer script", "timer suffix", "tail"],
+        "existing events remain ahead of the child and the late event never runs"
+    );
+    for _ in 0..16_u8 {
+        let _drain = world.dispatch_queued_events();
+    }
+    assert_eq!(
+        titles(&mut world),
+        ["child"],
+        "the formerly fitting child is delivered once"
+    );
+    assert_eq!(
+        world.events().dropped(),
+        1,
+        "the resumed child was admitted"
+    );
+    Ok(())
+}
+
+// This ordinary child binding uses real host actions and tests the residual
+// budget, which the full-call guard previously confused with exhaustion.
+#[test]
+fn linked_child_uses_partial_budget_and_only_commits_once_when_run() -> Result<(), String> {
+    let mut level = fixture()?;
+    let child = level
+        .props
+        .iter_mut()
+        .find(|prop| prop.id.as_deref() == Some("item"))
+        .and_then(|prop| {
+            prop.bindings
+                .iter_mut()
+                .find(|binding| binding.key.as_deref() == Some("count"))
+        })
+        .ok_or("Missing child binding")?;
+    child.once = true;
+    child.cooldown_seconds = 1.0;
+    child.actions = vec![ActionDef::RunScript {
+        script: control()?,
+        handler: "linked_effect".into(),
+    }];
+
+    let mut world = EntityWorld::from_level(&level);
+    let item = world.handle_of("item").ok_or("Missing fixture entity")?;
+    world.begin_script_frame();
+    spend_calls(&mut world, 4)?;
+    assert!(
+        world.emit(EventKind::ObjectState, item, "count", None),
+        "first child is admitted"
+    );
+    let _exhausted = world.dispatch_queued_events();
+    assert!(
+        titles(&mut world).is_empty(),
+        "fully spent frame cannot call the script"
+    );
+    assert!(
+        world.bindings.iter().any(|binding| binding.owner == item
+            && binding.once
+            && !binding.fired
+            && binding.cooldown_remaining <= 0.0),
+        "a skipped call consumes neither once nor cooldown"
+    );
+
+    world.begin_script_frame();
+    spend_calls(&mut world, 3)?;
+    let _one = world.dispatch_on(
+        "item",
+        &[ActionDef::RunScript {
+            script: control()?,
+            handler: "hint".into(),
+        }],
+    );
+    assert_eq!(
+        titles(&mut world),
+        ["fresh hint"],
+        "fixture has spent 97 actions"
+    );
+    assert!(
+        world.emit(EventKind::ObjectState, item, "count", None),
+        "second child is admitted"
+    );
+    let _partial = world.dispatch_queued_events();
+    assert_eq!(
+        titles(&mut world),
+        ["linked effect"],
+        "one real host action fits the partial budget"
+    );
+    assert!(
+        world.bindings.iter().any(|binding| binding.owner == item
+            && binding.once
+            && binding.fired
+            && binding.cooldown_remaining > 0.0),
+        "successful linked call commits both protections"
+    );
+    assert!(
+        world.emit(EventKind::ObjectState, item, "count", None),
+        "third child is admitted"
+    );
+    let _repeat = world.dispatch_queued_events();
+    assert!(
+        titles(&mut world).is_empty(),
+        "the completed once binding cannot replay"
+    );
+    Ok(())
+}
+
+// A waiting step shares the VM with a recurring update. The second frame
+// remains under enough pressure that the update would otherwise take its slot.
+#[test]
+fn sequence_link_waits_for_shared_budget_and_resumes_without_replay() -> Result<(), String> {
+    let mut level = fixture()?;
+    let source = level
+        .script_sources
+        .first_mut()
+        .ok_or("Missing fixture script")?;
+    source.source = r#"
+        local steps = 0
+        return {
+            burn=function(api) for _=1,32 do api.set_state("item","count",0) end end,
+            update=function(api) api.message("update",{"Marker"}) end,
+            step=function(api,event)
+                assert(event.subject == "item")
+                steps += 1
+                assert(steps == 1)
+                api.message("step",{"Marker"})
+            end,
+        }
+    "#
+    .into();
+    level.sequences.push(serde_json::from_str(r#"{"id":"script_step","steps":[
+        {"step":"action","action":{"action":"show_message","title":"prefix","lines":["Marker"]}},
+        {"step":"action","action":{"action":"run_script","script":"scripts/control.luau","handler":"step"}},
+        {"step":"action","action":{"action":"show_message","title":"suffix","lines":["Marker"]}}
+    ]}"#).map_err(|problem| problem.to_string())?);
+    let mut world = EntityWorld::from_level(&level);
+    assert!(
+        world.start_sequence("item", "script_step"),
+        "start the audited sequence"
+    );
+    world.begin_script_frame();
+    spend_calls(&mut world, 4)?;
+    let blocked = tick(&mut world, &level, 0.125);
+    assert_eq!(
+        blocked.sequences_completed, 0,
+        "the sequence remains on the linked step"
+    );
+    assert_eq!(titles(&mut world), ["prefix"], "only the prefix executes");
+    assert!(
+        !world.script_failed(),
+        "shared exhaustion does not disable the recurring module"
+    );
+
+    world.begin_script_frame();
+    spend_calls(&mut world, 3)?;
+    let resumed = tick(&mut world, &level, 0.125);
+    assert_eq!(
+        resumed.sequences_completed, 1,
+        "the waiting step gets the next available call"
+    );
+    assert_eq!(
+        titles(&mut world),
+        ["step", "suffix"],
+        "resume executes the ordered tail once"
+    );
+    let _later = tick(&mut world, &level, 0.125);
+    assert_eq!(
+        titles(&mut world),
+        ["update"],
+        "the healthy recurring callback still runs"
     );
     Ok(())
 }

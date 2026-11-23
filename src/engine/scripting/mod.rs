@@ -436,13 +436,37 @@ impl ScriptRuntime {
     /// A resumable callback needs its full allowance before entering Luau.
     /// Once it runs, closure mutations and genuine VM failures cannot be retried.
     pub(crate) fn has_callback_budget(&self) -> bool {
-        self.calls < MAX_CALLS
-            && MAX_ACTIONS.saturating_sub(self.actions) >= MAX_ACTIONS_PER_CALL
-            && self.elapsed <= FRAME_DEADLINE.saturating_sub(CALL_DEADLINE)
+        self.has_full_allowance(false)
     }
 
-    pub(crate) fn defer_linked_call(&self, path: &ProjectPath) -> bool {
-        !self.has_callback_budget()
+    fn has_full_allowance(&self, reserve_following_call: bool) -> bool {
+        let extra_actions = if reserve_following_call {
+            MAX_ACTIONS_PER_CALL
+        } else {
+            0
+        };
+        let extra_time = if reserve_following_call {
+            CALL_DEADLINE
+        } else {
+            Duration::ZERO
+        };
+        self.calls
+            .saturating_add(usize::from(reserve_following_call))
+            < MAX_CALLS
+            && MAX_ACTIONS.saturating_sub(self.actions)
+                >= MAX_ACTIONS_PER_CALL.saturating_add(extra_actions)
+            && self.elapsed
+                <= FRAME_DEADLINE.saturating_sub(CALL_DEADLINE.saturating_add(extra_time))
+    }
+
+    pub(crate) fn defer_linked_call(&self, path: &ProjectPath, resumable: bool) -> bool {
+        let available = if resumable {
+            self.has_callback_budget()
+        } else {
+            // Ordinary event links keep the original partial frame allowance.
+            self.calls < MAX_CALLS && self.actions < MAX_ACTIONS && self.elapsed < FRAME_DEADLINE
+        };
+        !available
             && self
                 .modules
                 .iter()
@@ -668,12 +692,13 @@ impl ScriptRuntime {
         handler: &str,
         world: &EntityWorld,
         delta: f32,
+        reserve_following_call: bool,
     ) -> Option<Vec<ActionDef>> {
         let module = self.modules.get_mut(index)?;
         if module.disabled {
             return Some(Vec::new());
         }
-        if !self.has_callback_budget() {
+        if !self.has_full_allowance(reserve_following_call) {
             self.next_automatic_module = index;
             return None;
         }

@@ -6,14 +6,15 @@ use super::{
 };
 use crate::engine::level::{ActionDef, MAX_BINDINGS_PER_ENTITY};
 
-/// The head event has already left the FIFO. Its freed slot remains available to
-/// synchronous children, just as it is during uninterrupted dispatch.
+/// The head event has left the FIFO. Its unused slot belongs to this dispatch
+/// across a yield so a later arrival cannot take its first child's slot.
 struct EventDispatch {
     event: EventRecord,
     // Owner-local positions survive compaction of other entities' bindings.
     matched: [Option<usize>; MAX_BINDINGS_PER_ENTITY],
     next_binding: usize,
     next_action: usize,
+    child_slot: bool,
 }
 
 #[derive(Default)]
@@ -50,6 +51,7 @@ impl EntityWorld {
             return;
         };
         if !self.event_is_live(&dispatch.event) {
+            self.events.hold_terminal_slot(false);
             return;
         }
         if tick.events_processed >= MAX_EVENTS_PER_TICK || !self.scripts.has_callback_budget() {
@@ -90,6 +92,7 @@ impl EntityWorld {
                 event,
                 next_binding: 0,
                 next_action: 0,
+                child_slot: terminal,
             };
             if !self.dispatch_event_bindings(&mut dispatch, tick, terminal) {
                 self.terminal_dispatch.pending = Some(dispatch);
@@ -143,7 +146,16 @@ impl EntityWorld {
         if !self.scripts.is_empty() {
             self.script_event = Some(dispatch.event.clone());
         }
+        let queued_before = self.events.len();
+        if terminal {
+            self.events.hold_terminal_slot(false);
+        }
         let complete = self.advance_event_bindings(dispatch, tick, terminal);
+        if terminal {
+            dispatch.child_slot &= self.events.len() == queued_before;
+            self.events
+                .hold_terminal_slot(!complete && dispatch.child_slot);
+        }
         self.script_event = None;
         complete
     }
@@ -177,14 +189,16 @@ impl EntityWorld {
                 continue;
             }
             let mut report = DispatchReport::default();
+            let mut binding_completed = true;
             for action in binding.actions.iter().skip(dispatch.next_action) {
                 if let ActionDef::RunScript { script, handler: _ } = action
-                    && self.scripts.defer_linked_call(script)
+                    && self.scripts.defer_linked_call(script, terminal)
                 {
                     if terminal {
                         tick.record_dispatch(&report);
                         return false;
                     }
+                    binding_completed = false;
                     continue;
                 }
                 self.run_action(
@@ -201,7 +215,7 @@ impl EntityWorld {
                 }
             }
             tick.record_dispatch(&report);
-            if let Some(entry) = self.bindings.get_mut(index) {
+            if binding_completed && let Some(entry) = self.bindings.get_mut(index) {
                 entry.fired = true;
                 entry.cooldown_remaining = binding.cooldown_seconds;
                 if binding.cooldown_seconds > 0.0 {

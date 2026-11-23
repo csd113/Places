@@ -18,6 +18,7 @@ use crate::engine::entity::{
     ENTITY_FACE_EPS_RAD, ENTITY_MAX_STEP_S, ENTITY_STEP_HEIGHT_M,
     ENTITY_TURN_RATE_DEGREES_PER_SECOND, angle_difference, turn_toward,
 };
+use crate::engine::level::ActionDef;
 
 impl EntityWorld {
     pub(super) fn start_sequence(&mut self, id: &str, sequence: &str) -> bool {
@@ -104,6 +105,21 @@ impl EntityWorld {
             .position(|run| run.owner == owner && run.revision == revision)
     }
 
+    fn sequence_owner_held(&self, owner: EntityHandle) -> bool {
+        self.ai.sequence_held(owner)
+            || self
+                .physics_actors
+                .contains_key(self.id_of(owner).unwrap_or_default())
+    }
+
+    pub(super) fn has_waiting_sequence_script(&self) -> bool {
+        self.sequence_runs.iter().any(|run| {
+            run.waiting_for_script
+                && self.store.contains(run.owner)
+                && !self.sequence_owner_held(run.owner)
+        })
+    }
+
     /// Advances only the runs present at the start of this simulation tick.
     /// Actions may stop or replace any of them; newly started runs wait until
     /// the following tick, independent of their owner or insertion order.
@@ -130,11 +146,7 @@ impl EntityWorld {
             if !self.store.contains(owner) {
                 run.stop();
             }
-            if self.ai.sequence_held(owner)
-                || self
-                    .physics_actors
-                    .contains_key(self.id_of(owner).unwrap_or_default())
-            {
+            if self.sequence_owner_held(owner) {
                 if run.cinematic.is_some() && !run.finished {
                     run.stop();
                 } else if !run.finished {
@@ -188,21 +200,7 @@ impl EntityWorld {
                 break;
             };
             let advance = match step {
-                SequenceStepDef::Action { action } => {
-                    if run.step_ran {
-                        break;
-                    }
-                    run.step_ran = true;
-                    let mut report = DispatchReport::default();
-                    let origin = self
-                        .components
-                        .transforms
-                        .get(run.owner)
-                        .map(|pose| pose.position);
-                    self.run_action(&action, Some(run.owner), origin, &mut report, 1);
-                    merge_action_report(tick, &report);
-                    true
-                }
+                SequenceStepDef::Action { action } => self.tick_sequence_action(run, &action, tick),
                 SequenceStepDef::Camera {
                     seconds,
                     motion,
@@ -265,6 +263,33 @@ impl EntityWorld {
                 break;
             }
         }
+    }
+
+    fn tick_sequence_action(
+        &mut self,
+        run: &mut SequenceRuntime,
+        action: &ActionDef,
+        tick: &mut WorldTick,
+    ) -> bool {
+        if run.step_ran {
+            return false;
+        }
+        if let ActionDef::RunScript { script, handler: _ } = action
+            && self.scripts.defer_linked_call(script, true)
+        {
+            run.waiting_for_script = true;
+            return false;
+        }
+        run.step_ran = true;
+        let mut report = DispatchReport::default();
+        let origin = self
+            .components
+            .transforms
+            .get(run.owner)
+            .map(|pose| pose.position);
+        self.run_action(action, Some(run.owner), origin, &mut report, 1);
+        merge_action_report(tick, &report);
+        true
     }
 
     fn finish_sequence_tick(&mut self, run: SequenceRuntime, tick: &mut WorldTick) {

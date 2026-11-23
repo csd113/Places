@@ -145,6 +145,7 @@ pub struct EventQueue {
     records: VecDeque<(EventRecord, bool)>,
     /// Pushes refused since the last [`Self::clear`].
     dropped: usize,
+    reserved_terminal_slots: usize,
 }
 
 impl EventQueue {
@@ -170,6 +171,7 @@ impl EventQueue {
         Self {
             records: VecDeque::new(),
             dropped: 0,
+            reserved_terminal_slots: 0,
         }
     }
 
@@ -187,7 +189,7 @@ impl EventQueue {
     }
 
     fn push_dispatch(&mut self, record: EventRecord, terminal: bool) -> bool {
-        if self.records.len() >= Self::MAX_QUEUED_EVENTS {
+        if self.remaining_capacity() == 0 {
             self.dropped = self.dropped.saturating_add(1);
             return false;
         }
@@ -207,7 +209,15 @@ impl EventQueue {
     /// Space available for an atomic producer batch.
     #[must_use]
     pub fn remaining_capacity(&self) -> usize {
-        Self::MAX_QUEUED_EVENTS.saturating_sub(self.records.len())
+        Self::MAX_QUEUED_EVENTS
+            .saturating_sub(self.records.len())
+            .saturating_sub(self.reserved_terminal_slots)
+    }
+
+    // A suspended terminal dispatch holds the slot its own pop freed until
+    // its first synchronous child uses it or the dispatch ends.
+    pub(super) fn hold_terminal_slot(&mut self, held: bool) {
+        self.reserved_terminal_slots = usize::from(held);
     }
 
     /// Records an atomically refused batch without inserting a partial prefix.
@@ -237,6 +247,7 @@ impl EventQueue {
     pub fn clear(&mut self) {
         self.records.clear();
         self.dropped = 0;
+        self.reserved_terminal_slots = 0;
     }
 
     /// Pushes refused since the last [`Self::clear`].

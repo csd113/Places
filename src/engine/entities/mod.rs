@@ -4527,9 +4527,12 @@ impl EntityWorld {
     }
 
     fn tick_script_callbacks(&mut self, delta: f32, tick: &mut WorldTick) {
+        let reserve_sequence_call = self.has_waiting_sequence_script();
         let mut runtime = std::mem::take(&mut self.scripts);
         for (index, handler) in runtime.automatic().into_iter().flatten() {
-            let Some(actions) = runtime.call_automatic(index, handler, self, delta) else {
+            let Some(actions) =
+                runtime.call_automatic(index, handler, self, delta, reserve_sequence_call)
+            else {
                 break;
             };
             let report = self.dispatch_actions(&actions, None);
