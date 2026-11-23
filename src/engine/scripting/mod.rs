@@ -41,6 +41,9 @@ const VM_BYTES: usize = 2 * 1024 * 1024;
 const MAX_HANDLERS: usize = 64;
 const MAX_CALLS: usize = 64;
 const MAX_ACTIONS: usize = 128;
+const MAX_ACTIONS_PER_CALL: usize = 32;
+const FRAME_DEADLINE: Duration = Duration::from_millis(8);
+const CALL_DEADLINE: Duration = Duration::from_millis(2);
 const MAX_NATIVE_CALLS: usize = 256;
 const MAX_DIAGNOSTICS: usize = 32;
 
@@ -350,6 +353,8 @@ pub struct ScriptRuntime {
     calls: usize,
     actions: usize,
     elapsed: Duration,
+    frame_prepared: bool,
+    next_automatic_module: usize,
 }
 
 impl ScriptRuntime {
@@ -390,7 +395,9 @@ impl ScriptRuntime {
         self.modules.clear();
         self.diagnostics.clear();
         self.admission_failed = false;
-        self.begin_tick();
+        self.reset_budget();
+        self.frame_prepared = false;
+        self.next_automatic_module = 0;
         if self.sources.len() > MAX_MODULES {
             self.admission_failed = true;
             self.note("Luau module budget exceeded".into());
@@ -407,10 +414,39 @@ impl ScriptRuntime {
         }
     }
 
+    /// Input handlers and simulation share one fresh budget for a presented frame.
+    pub(crate) const fn begin_frame(&mut self) {
+        self.reset_budget();
+        self.frame_prepared = true;
+    }
+
     pub const fn begin_tick(&mut self) {
+        if !self.frame_prepared {
+            self.reset_budget();
+        }
+        self.frame_prepared = false;
+    }
+
+    const fn reset_budget(&mut self) {
         self.calls = 0;
         self.actions = 0;
         self.elapsed = Duration::ZERO;
+    }
+
+    /// A resumable callback needs its full allowance before entering Luau.
+    /// Once it runs, closure mutations and genuine VM failures cannot be retried.
+    pub(crate) fn has_callback_budget(&self) -> bool {
+        self.calls < MAX_CALLS
+            && MAX_ACTIONS.saturating_sub(self.actions) >= MAX_ACTIONS_PER_CALL
+            && self.elapsed <= FRAME_DEADLINE.saturating_sub(CALL_DEADLINE)
+    }
+
+    pub(crate) fn defer_linked_call(&self, path: &ProjectPath) -> bool {
+        !self.has_callback_budget()
+            && self
+                .modules
+                .iter()
+                .any(|module| module.path == *path && !module.disabled)
     }
 
     #[must_use]
@@ -472,9 +508,7 @@ impl ScriptRuntime {
         if module.disabled {
             return Vec::new();
         }
-        if self.calls >= MAX_CALLS
-            || self.actions >= MAX_ACTIONS
-            || self.elapsed >= Duration::from_millis(8)
+        if self.calls >= MAX_CALLS || self.actions >= MAX_ACTIONS || self.elapsed >= FRAME_DEADLINE
         {
             module.disabled = true;
             let message = format!(
@@ -490,7 +524,9 @@ impl ScriptRuntime {
         let notices = Mutex::new(Vec::new());
         let completion = Cell::new(campaign::CampaignChange::None);
         let native_calls = Cell::new(0usize);
-        let remaining = MAX_ACTIONS.saturating_sub(self.actions).min(32);
+        let remaining = MAX_ACTIONS
+            .saturating_sub(self.actions)
+            .min(MAX_ACTIONS_PER_CALL);
         let result = module.lua.scope(|scope| {
             let host = api::host(
                 &module.lua,
@@ -530,7 +566,7 @@ impl ScriptRuntime {
             // script execution. Its cost still counts against the frame total.
             deadline(
                 &module.lua,
-                Duration::from_millis(2).min(Duration::from_millis(8).saturating_sub(self.elapsed)),
+                CALL_DEADLINE.min(FRAME_DEADLINE.saturating_sub(self.elapsed)),
             );
             function.call::<()>((host, event))
         });
@@ -588,22 +624,31 @@ impl ScriptRuntime {
             .collect()
     }
 
-    /// Automatic handlers run in declared source order on playing ticks only.
-    /// Readonly validated exports cannot change, so tokens need no VM lookup.
+    /// Resume the first missed module with this tick's inputs, then wrap once.
+    /// A start is consumed only when its callback is admitted.
     pub(crate) fn automatic(&mut self) -> [Option<AutomaticCall>; AUTOMATIC_SLOTS] {
         let mut handlers = [None; AUTOMATIC_SLOTS];
         let mut next = 0_usize;
-        for (index, module) in self.modules.iter_mut().enumerate() {
+        let count = self.modules.len();
+        for index in (0..count)
+            .cycle()
+            .skip(self.next_automatic_module)
+            .take(count)
+        {
+            let Some(module) = self.modules.get_mut(index) else {
+                continue;
+            };
             if module.disabled {
                 continue;
             }
             if !module.started {
-                module.started = true;
-                if module.start.is_some()
-                    && let Some(slot) = handlers.get_mut(next)
-                {
-                    *slot = Some((index, "start"));
-                    next = next.saturating_add(1);
+                if module.start.is_some() {
+                    if let Some(slot) = handlers.get_mut(next) {
+                        *slot = Some((index, "start"));
+                        next = next.saturating_add(1);
+                    }
+                } else {
+                    module.started = true;
                 }
             }
             if module.update.is_some()
@@ -613,7 +658,31 @@ impl ScriptRuntime {
                 next = next.saturating_add(1);
             }
         }
+        self.next_automatic_module = 0;
         handlers
+    }
+
+    pub(crate) fn call_automatic(
+        &mut self,
+        index: usize,
+        handler: &str,
+        world: &EntityWorld,
+        delta: f32,
+    ) -> Option<Vec<ActionDef>> {
+        let module = self.modules.get_mut(index)?;
+        if module.disabled {
+            return Some(Vec::new());
+        }
+        if !self.has_callback_budget() {
+            self.next_automatic_module = index;
+            return None;
+        }
+        if handler == "start"
+            && let Some(starting) = self.modules.get_mut(index)
+        {
+            starting.started = true;
+        }
+        Some(self.call_index(index, handler, world, None, None, delta))
     }
 }
 

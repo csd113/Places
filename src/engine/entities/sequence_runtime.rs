@@ -299,12 +299,11 @@ impl EntityWorld {
             {
                 self.ai.complete_script_move(run.owner, def.after_move);
             }
-            let _event_queued = self.emit_depth(
+            let _event_queued = self.emit_terminal(
                 EventKind::SequenceComplete,
                 run.owner,
                 &run.sequence,
                 Some(run.owner),
-                1,
             );
             tick.sequences_completed = tick.sequences_completed.saturating_add(1);
         }

@@ -939,6 +939,7 @@ impl FrameLoop<'_> {
         self.perf_overlay.set_gpu_timing(self.renderer.gpu_timing());
         self.perf_overlay.update(self.game.delta_seconds());
 
+        self.game.entities_mut().begin_script_frame();
         self.trace.record("event_pump", self.load_generation, "");
         self.pump_events();
         if !self.game.is_running() {

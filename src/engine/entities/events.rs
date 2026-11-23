@@ -142,7 +142,7 @@ pub struct EventRecord {
 #[derive(Clone, Debug, Default)]
 pub struct EventQueue {
     /// Queued occurrences, oldest first.
-    records: VecDeque<EventRecord>,
+    records: VecDeque<(EventRecord, bool)>,
     /// Pushes refused since the last [`Self::clear`].
     dropped: usize,
 }
@@ -178,16 +178,29 @@ impl EventQueue {
     /// A refused push leaves the queue untouched and increments the drop
     /// counter; the caller reports and counts it.
     pub fn push(&mut self, record: EventRecord) -> bool {
+        self.push_dispatch(record, false)
+    }
+
+    /// Admits a producer's one-shot timer or sequence completion to the same FIFO.
+    pub(super) fn push_terminal(&mut self, record: EventRecord) -> bool {
+        self.push_dispatch(record, true)
+    }
+
+    fn push_dispatch(&mut self, record: EventRecord, terminal: bool) -> bool {
         if self.records.len() >= Self::MAX_QUEUED_EVENTS {
             self.dropped = self.dropped.saturating_add(1);
             return false;
         }
-        self.records.push_back(record);
+        self.records.push_back((record, terminal));
         true
     }
 
     /// Removes and returns the oldest record.
     pub fn pop(&mut self) -> Option<EventRecord> {
+        self.pop_dispatch().map(|(record, _terminal)| record)
+    }
+
+    pub(super) fn pop_dispatch(&mut self) -> Option<(EventRecord, bool)> {
         self.records.pop_front()
     }
 
@@ -205,7 +218,7 @@ impl EventQueue {
     /// The oldest record without removing it.
     #[must_use]
     pub fn peek(&self) -> Option<&EventRecord> {
-        self.records.front()
+        self.records.front().map(|(record, _terminal)| record)
     }
 
     /// Number of queued records.
@@ -241,7 +254,7 @@ impl EventQueue {
     pub fn drain_stale(&mut self, generation: u64) -> usize {
         let before = self.records.len();
         self.records
-            .retain(|record| record.generation == generation);
+            .retain(|(record, _terminal)| record.generation == generation);
         before.saturating_sub(self.records.len())
     }
 }

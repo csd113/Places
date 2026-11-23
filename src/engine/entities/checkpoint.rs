@@ -73,7 +73,7 @@ pub(crate) fn state_value(scalar: &StateValue) -> Result<(), String> {
 impl EntityWorld {
     #[must_use]
     pub fn checkpoint_events_settled(&self) -> bool {
-        self.events.is_empty() && self.commands.is_empty()
+        self.events.is_empty() && !self.terminal_dispatch.is_pending() && self.commands.is_empty()
     }
 
     fn checkpoint_ready(&self) -> Result<(), String> {
@@ -84,8 +84,7 @@ impl EntityWorld {
         {
             return Err("Whole-prey capture capability does not support checkpoints yet".into());
         }
-        if !self.events.is_empty()
-            || !self.commands.is_empty()
+        if !self.checkpoint_events_settled()
             || !self.moves.is_empty()
             || !self.sequence_runs.is_empty()
         {
@@ -339,7 +338,7 @@ impl EntityWorld {
 
     fn publish_checkpoint(&mut self, time: f32) {
         self.sim_time = time;
-        self.events.clear();
+        self.clear_event_dispatch();
         self.health_events.clear();
         self.commands.clear();
         self.rebuild_door_colliders();

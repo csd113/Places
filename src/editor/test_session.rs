@@ -216,6 +216,7 @@ impl Session {
         renderer: &mut Renderer,
         audio: &mut AudioSystem,
     ) -> Result<(), String> {
+        self.game.entities_mut().begin_script_frame();
         self.reconcile_cinematic_input();
         if self.speech.subtitles.guidance_requested.is_some() {
             self.game.request_hint();

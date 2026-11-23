@@ -62,6 +62,15 @@ fn taps_repeats_and_screen_resets_share_one_press_contract() {
             "OS repeat must not fabricate a fresh press"
         );
     }
+    assert_eq!(
+        pressed_key(&key_event(Keycode::F1, true, false)),
+        Some(Keycode::F1),
+        "a fresh F1 press requests guidance"
+    );
+    assert!(
+        pressed_key(&key_event(Keycode::F1, true, true)).is_none(),
+        "a held F1 key cannot request another hint"
+    );
     let repeated = key_event(Keycode::Return, true, true);
     assert!(
         pressed_key(&repeated).is_none(),

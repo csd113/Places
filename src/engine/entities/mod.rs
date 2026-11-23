@@ -35,6 +35,7 @@ pub mod developer;
 mod elevators;
 pub mod encounter;
 mod environment_flags;
+mod event_dispatch;
 pub mod events;
 pub mod feltling;
 mod feltlings;
@@ -47,6 +48,9 @@ mod light_power;
 pub mod passengers;
 mod posed_actor_reset;
 mod ragdoll;
+#[cfg(test)]
+#[path = "../tests/script_scheduling.rs"]
+mod script_scheduling_tests;
 mod sequence_runtime;
 pub mod sequences;
 pub mod spawn;
@@ -514,6 +518,7 @@ pub struct EntityWorld {
     cooling_bindings: Vec<usize>,
     binding_index_state: BindingIndexState,
     events: EventQueue,
+    terminal_dispatch: event_dispatch::TerminalDispatch,
     commands: Vec<WorldCommand>,
     /// Weather selection belongs to this loaded session, never saved settings.
     weather_strength: f32,
@@ -663,6 +668,7 @@ impl EntityWorld {
             cooling_bindings: Vec::new(),
             binding_index_state: BindingIndexState::Current,
             events: EventQueue::new(),
+            terminal_dispatch: event_dispatch::TerminalDispatch::default(),
             commands: Vec::new(),
             weather_strength: 0.0,
             weather_target: 0.0,
@@ -755,7 +761,7 @@ impl EntityWorld {
         self.clear_scripted_poses();
         self.entity_frames.clear();
         self.sequence_runs.clear();
-        self.events.clear();
+        self.clear_event_dispatch();
         self.commands.clear();
         self.weather_strength = 0.0;
         self.weather_target = 0.0;
@@ -937,7 +943,7 @@ impl EntityWorld {
         self.spawn_groups.reset();
         self.reset_bindings();
         self.clear_scripted_poses();
-        self.events.clear();
+        self.clear_event_dispatch();
         self.stimuli.clear();
         self.sim_time = 0.0;
         self.reset_ai_controllers();
@@ -2490,7 +2496,30 @@ impl EntityWorld {
         actor: Option<EntityHandle>,
         depth: u8,
     ) -> bool {
-        self.events.push(EventRecord {
+        let record = self.event_record(kind, subject, key, actor, depth);
+        self.events.push(record)
+    }
+
+    fn emit_terminal(
+        &mut self,
+        kind: EventKind,
+        subject: EntityHandle,
+        key: &str,
+        actor: Option<EntityHandle>,
+    ) -> bool {
+        let record = self.event_record(kind, subject, key, actor, 1);
+        self.events.push_terminal(record)
+    }
+
+    fn event_record(
+        &self,
+        kind: EventKind,
+        subject: EntityHandle,
+        key: &str,
+        actor: Option<EntityHandle>,
+        depth: u8,
+    ) -> EventRecord {
+        EventRecord {
             origin: actor
                 .and_then(|handle| self.components.transforms.get(handle))
                 .map(|pose| pose.position),
@@ -2500,7 +2529,7 @@ impl EntityWorld {
             key: key.to_string(),
             actor,
             depth,
-        })
+        }
     }
 
     /// Runs the interaction on the aimed-at instance, if any.
@@ -3788,10 +3817,15 @@ impl EntityWorld {
                 continue;
             };
             let id = runtime.def.id.clone();
+            let repeat = runtime.repeat();
             let Some(handle) = self.handle_of(&id) else {
                 continue;
             };
-            let _event_queued = self.emit_depth(EventKind::Timer, handle, &id, None, 1);
+            let _event_queued = if repeat {
+                self.emit_depth(EventKind::Timer, handle, &id, None, 1)
+            } else {
+                self.emit_terminal(EventKind::Timer, handle, &id, None)
+            };
         }
     }
 
@@ -3890,112 +3924,6 @@ impl EntityWorld {
     }
 
     // ---- events --------------------------------------------------------
-
-    fn pump_events(&mut self, tick: &mut WorldTick) {
-        while !self.events.is_empty() && tick.events_processed < MAX_EVENTS_PER_TICK {
-            let wave = self.events.len();
-            for _ in 0..wave {
-                if tick.events_processed >= MAX_EVENTS_PER_TICK {
-                    // Keep the bounded tail for the next pump. In particular an
-                    // already accepted exit must not lose its cleanup action.
-                    break;
-                }
-                let Some(event) = self.events.pop() else {
-                    break;
-                };
-                tick.events_processed = tick.events_processed.saturating_add(1);
-                if event.generation != self.generation || !self.store.contains(event.subject) {
-                    continue;
-                }
-                if u32::from(event.depth) >= MAX_CHAIN_DEPTH {
-                    tick.events_dropped = tick.events_dropped.saturating_add(1);
-                    warn_once(
-                        "event-chain-depth",
-                        format!(
-                            "[entities] event chain reached the depth limit ({MAX_CHAIN_DEPTH}); offending occurrence dropped"
-                        ),
-                    );
-                    continue;
-                }
-                if !self.scripts.is_empty() {
-                    self.script_event = Some(event.clone());
-                }
-                self.run_bindings(&event, tick, event.depth);
-                self.script_event = None;
-                if tick.player_reset {
-                    return;
-                }
-            }
-        }
-        self.compact_bindings();
-    }
-
-    fn run_bindings(&mut self, event: &EventRecord, tick: &mut WorldTick, depth: u8) {
-        // Resolve only this owner's bounded authored binding list. Conditions
-        // are captured before actions mutate state, preserving one-toggle rules.
-        let mut matched = [None; crate::engine::level::MAX_BINDINGS_PER_ENTITY];
-        let mut next = 0usize;
-        for index in self
-            .bindings_by_owner
-            .get(&event.subject)
-            .into_iter()
-            .flat_map(|indices| indices.iter())
-            .copied()
-        {
-            let Some(binding) = self.bindings.get(index) else {
-                continue;
-            };
-            if binding.on != event.kind
-                || binding.key.as_ref().is_some_and(|key| key != &event.key)
-                || !binding
-                    .when
-                    .iter()
-                    .all(|condition| self.condition_holds(condition))
-            {
-                continue;
-            }
-            if let Some(slot) = matched.get_mut(next) {
-                *slot = Some(index);
-                next = next.saturating_add(1);
-            }
-        }
-        for index in matched.into_iter().flatten() {
-            let Some(binding) = self.bindings.get(index).cloned() else {
-                continue;
-            };
-            if binding.fired && binding.once {
-                continue;
-            }
-            if binding.cooldown_remaining > 0.0 {
-                continue;
-            }
-            let mut report = DispatchReport::default();
-            for action in &binding.actions {
-                self.run_action(
-                    action,
-                    Some(event.subject),
-                    event.origin,
-                    &mut report,
-                    depth,
-                );
-                if report.player_reset {
-                    tick.player_reset = true;
-                    break;
-                }
-            }
-            tick.record_dispatch(&report);
-            if let Some(entry) = self.bindings.get_mut(index) {
-                entry.fired = true;
-                entry.cooldown_remaining = binding.cooldown_seconds;
-                if binding.cooldown_seconds > 0.0 {
-                    self.cooling_bindings.push(index);
-                }
-            }
-            if tick.player_reset {
-                return;
-            }
-        }
-    }
 
     /// Evaluates one condition against the current world.
     #[must_use]
@@ -4574,12 +4502,20 @@ impl EntityWorld {
         self.scripts.diagnostics()
     }
 
+    /// Begins the shared script budget before native frame input is dispatched.
+    pub(crate) const fn begin_script_frame(&mut self) {
+        self.scripts.begin_frame();
+    }
+
     /// Optional player-requested guidance uses the same scoped VM/action budgets.
     /// True requests the caller's shared player/world reset lifecycle.
     pub fn request_hint(&mut self) -> bool {
         let mut runtime = std::mem::take(&mut self.scripts);
         let mut player_reset = false;
         for path in runtime.hints() {
+            if !runtime.has_callback_budget() {
+                break;
+            }
             let actions = runtime.call(&path, "hint", self, None, None, 0.0);
             if self.dispatch_actions(&actions, None).player_reset {
                 player_reset = true;
@@ -4588,6 +4524,21 @@ impl EntityWorld {
         }
         self.scripts = runtime;
         player_reset
+    }
+
+    fn tick_script_callbacks(&mut self, delta: f32, tick: &mut WorldTick) {
+        let mut runtime = std::mem::take(&mut self.scripts);
+        for (index, handler) in runtime.automatic().into_iter().flatten() {
+            let Some(actions) = runtime.call_automatic(index, handler, self, delta) else {
+                break;
+            };
+            let report = self.dispatch_actions(&actions, None);
+            tick.record_dispatch(&report);
+            if tick.player_reset {
+                break;
+            }
+        }
+        self.scripts = runtime;
     }
 
     /// Advances the whole runtime by one frame.
@@ -4626,25 +4577,16 @@ impl EntityWorld {
         self.spawns_this_tick = 0;
         self.scripts.begin_tick();
         if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
-            let mut runtime = std::mem::take(&mut self.scripts);
-            let automatic = runtime.automatic();
-            for (index, handler) in automatic.into_iter().flatten() {
-                let actions =
-                    runtime.call_index(index, handler, self, None, None, ctx.delta_seconds);
-                let report = self.dispatch_actions(&actions, None);
-                tick.record_dispatch(&report);
-                if tick.player_reset {
-                    break;
-                }
-            }
-            self.scripts = runtime;
+            self.sim_time += ctx.delta_seconds;
+            self.tick_bindings(ctx.delta_seconds);
+            self.schedule_pending_terminal_event(&mut tick);
             if tick.player_reset {
                 return tick;
             }
-        }
-        if ctx.delta_seconds.is_finite() && ctx.delta_seconds > 0.0 {
-            self.sim_time += ctx.delta_seconds;
-            self.tick_bindings(ctx.delta_seconds);
+            self.tick_script_callbacks(ctx.delta_seconds, &mut tick);
+            if tick.player_reset {
+                return tick;
+            }
             self.tick_timers(ctx.delta_seconds, &mut tick);
             self.tick_sequences(ctx, &mut tick);
             if tick.player_reset {
@@ -4804,7 +4746,8 @@ impl EntityWorld {
         }
         tick.events_processed = tick
             .events_processed
-            .saturating_add(outcome.transitions.min(MAX_EVENTS_PER_TICK));
+            .saturating_add(outcome.transitions)
+            .min(MAX_EVENTS_PER_TICK);
     }
 
     fn guest_ambient(&self) -> Vec<guest_acoustics::Ambient> {
