@@ -137,6 +137,7 @@ impl AssetInputs {
     pub(super) fn check(&self) -> Result<(), String> {
         self.check_reads()?;
         super::progress::check_cancelled()?;
+        self.reads.check_validation_models()?;
         let catalog = read_confined(
             &self.root,
             &self.root.join(CATALOG_FILE_NAME),

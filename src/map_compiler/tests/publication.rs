@@ -265,6 +265,51 @@ fn asset_drift_preserves_the_previous_archive_after_encoding() -> Result<(), Str
 }
 
 #[test]
+fn door_model_captured_before_dependency_collection_stays_bound_to_validation() -> Result<(), String>
+{
+    use super::super::AssetInputs;
+    use crate::engine::assets::read_asset_bytes;
+    use crate::engine::package::DependencyKind;
+
+    let root = fixture()?;
+    drop(asset_fixture(&root.0)?);
+    let assets = AssetInputs::read(&root.0)?;
+    let name = "door.glb";
+    let model = assets.root().join(name);
+    fs::write(&model, b"original").map_err(|error| error.to_string())?;
+    let _scope = assets.scope();
+    let reads = crate::engine::assets::reads::current().ok_or("Missing asset scope")?;
+
+    reads.capture_validation_model(name)?;
+    assert_eq!(
+        read_asset_bytes(&model, 8).map_err(|error| error.to_string())?,
+        b"original",
+    );
+    assert!(assets.check().is_ok());
+    fs::write(&model, b"switched").map_err(|error| error.to_string())?;
+    assert!(
+        assets
+            .dependency(DependencyKind::Model, name, &mut Vec::new())
+            .is_err_and(|error| error.contains("Conflicting asset identities"))
+    );
+
+    // A different member can be validated from the same project without
+    // appearing in the selected member's package dependency list.
+    let other_member_assets = AssetInputs::read(&root.0)?;
+    let _other_member_scope = other_member_assets.scope();
+    let other_member_reads =
+        crate::engine::assets::reads::current().ok_or("Missing asset scope")?;
+    other_member_reads.capture_validation_model(name)?;
+    fs::write(&model, b"original").map_err(|error| error.to_string())?;
+    assert!(
+        other_member_assets
+            .check()
+            .is_err_and(|error| error.contains(name))
+    );
+    Ok(())
+}
+
+#[test]
 fn captured_catalog_drives_lighting_and_probe_reuse_independently() -> Result<(), String> {
     use super::super::{
         AssetInputs, BuildInputs, LightmapQuality, collect_dependencies, fingerprint,

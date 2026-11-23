@@ -5,13 +5,14 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, Mutex};
 
-use crate::engine::package::hash::sha256_hex;
+use crate::engine::package::{DependencyKind, PackageDependency, dependencies, hash::sha256_hex};
 
 #[derive(Debug)]
 pub struct AssetReads {
     root: PathBuf,
     expected: Mutex<BTreeMap<PathBuf, Option<String>>>,
     failure: Mutex<Option<String>>,
+    validation_models: Mutex<BTreeMap<String, PackageDependency>>,
 }
 
 impl AssetReads {
@@ -20,6 +21,7 @@ impl AssetReads {
             root,
             expected: Mutex::default(),
             failure: Mutex::default(),
+            validation_models: Mutex::default(),
         })
     }
 
@@ -36,6 +38,51 @@ impl AssetReads {
             drop(expected.insert(relative.into(), sha256));
         }
         drop(expected);
+        Ok(())
+    }
+
+    /// Door rig validation runs while editable sources are read, before the
+    /// compiler can enumerate the completed level's normal dependencies.
+    pub(crate) fn capture_validation_model(&self, path: &str) -> Result<(), String> {
+        let mut models = self
+            .validation_models
+            .lock()
+            .map_err(|error| error.to_string())?;
+        if models.contains_key(path) {
+            return Ok(());
+        }
+        let asset_path = self.root.join(path);
+        let kind = DependencyKind::Model;
+        let (bytes, sha256) = dependencies::identity(&self.root, path, kind)
+            .map_err(|error| self.reject(&asset_path, &error).to_string())?;
+        self.remember(Path::new(path), Some(sha256.clone()))
+            .map_err(|error| self.reject(&asset_path, &error).to_string())?;
+        drop(models.insert(
+            path.into(),
+            PackageDependency {
+                kind,
+                path: path.into(),
+                bytes,
+                sha256,
+            },
+        ));
+        drop(models);
+        Ok(())
+    }
+
+    /// Project source snapshots may validate doors outside the selected member.
+    pub(crate) fn check_validation_models(&self) -> Result<(), String> {
+        let models = self
+            .validation_models
+            .lock()
+            .map_err(|error| error.to_string())?;
+        for model in models.values() {
+            dependencies::validate(&self.root, model).map_err(|error| {
+                self.reject(&self.root.join(&model.path), &error)
+                    .to_string()
+            })?;
+        }
+        drop(models);
         Ok(())
     }
 
