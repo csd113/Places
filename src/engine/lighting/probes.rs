@@ -20,14 +20,6 @@
 //! brightness, colour and directional character reach a character exactly as
 //! they reach the walls.
 
-#![allow(
-    clippy::missing_const_for_fn,
-    clippy::option_if_let_else,
-    clippy::suboptimal_flops,
-    clippy::too_many_lines,
-    reason = "Preserve floating-point evaluation order and cohesive runtime sampling routines."
-)]
-
 use crate::engine::lighting::lightmap::LightmapTexel;
 
 /// Magic of the compiled probe-field record.
@@ -82,7 +74,7 @@ impl ProbeSample {
 
     /// The probe's stored values as a lightmap texel.
     #[must_use]
-    pub fn texel(self) -> LightmapTexel {
+    pub const fn texel(self) -> LightmapTexel {
         LightmapTexel {
             irradiance: self.irradiance,
             direction: self.direction,
@@ -148,6 +140,34 @@ pub struct ProbeField {
     pub switchable_indirect: Vec<ProbeSwitchableField>,
 }
 
+/// Centre of one lattice axis with the same rounding for baking and sampling.
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Separate multiply and add preserve the baked centres used for room labels and exact sample hits."
+)]
+pub(super) const fn lattice_axis_centre(min: f32, index: f32, cell: f32) -> f32 {
+    min + (index + 0.5) * cell
+}
+
+/// The serialized field stores x fastest, followed by y and z.
+fn probe_index([x, y, z]: [usize; 3], [nx, ny, nz]: [usize; 3]) -> Option<usize> {
+    if x >= nx || y >= ny || z >= nz {
+        return None;
+    }
+    z.checked_mul(ny)?
+        .checked_add(y)?
+        .checked_mul(nx)?
+        .checked_add(x)
+}
+
+#[expect(
+    clippy::suboptimal_flops,
+    reason = "Round the weighted coefficient before adding it in candidate order."
+)]
+const fn accumulate_coefficient(total: &mut f64, weight: f64, coefficient: f64) {
+    *total += weight * coefficient;
+}
+
 impl ProbeField {
     /// The stable source IDs whose baked direct energy is replaced at runtime.
     #[must_use]
@@ -174,8 +194,11 @@ impl ProbeField {
             *index = f32::from(u16::try_from(coordinate).ok()?);
         }
         let position = std::array::from_fn(|axis| {
-            self.min.get(axis).copied().unwrap_or(0.0)
-                + (indices.get(axis).copied().unwrap_or(0.0) + 0.5) * self.cell_m
+            lattice_axis_centre(
+                self.min.get(axis).copied().unwrap_or(0.0),
+                indices.get(axis).copied().unwrap_or(0.0),
+                self.cell_m,
+            )
         });
         position
             .iter()
@@ -233,24 +256,17 @@ impl ProbeField {
         for z in 0..dims[2] {
             for y in 0..dims[1] {
                 for x in 0..dims[0] {
-                    let Some(index) = z
-                        .checked_mul(dims[1])
-                        .and_then(|value| value.checked_add(y))
-                        .and_then(|value| value.checked_mul(dims[0]))
-                        .and_then(|value| value.checked_add(x))
-                    else {
+                    let Some(index) = probe_index([x, y, z], dims) else {
                         continue;
                     };
                     let position = [
-                        self.min[0] + (x as f32 + 0.5) * self.cell_m,
-                        self.min[1] + (y as f32 + 0.5) * self.cell_m,
-                        self.min[2] + (z as f32 + 0.5) * self.cell_m,
+                        lattice_axis_centre(self.min[0], x as f32, self.cell_m),
+                        lattice_axis_centre(self.min[1], y as f32, self.cell_m),
+                        lattice_axis_centre(self.min[2], z as f32, self.cell_m),
                     ];
                     if let Some(probe) = self.probes.get_mut(index) {
-                        probe.room = match room_of(position) {
-                            Some(room) => i32::try_from(room).unwrap_or(i32::MAX),
-                            None => -1_i32,
-                        };
+                        probe.room = room_of(position)
+                            .map_or(-1_i32, |room| i32::try_from(room).unwrap_or(i32::MAX));
                     }
                 }
             }
@@ -260,15 +276,7 @@ impl ProbeField {
     /// The probe at a lattice position, if inside the grid.
     #[must_use]
     pub fn probe(&self, x: usize, y: usize, z: usize) -> Option<ProbeSample> {
-        let dims = self.dims_usize();
-        if x >= dims[0] || y >= dims[1] || z >= dims[2] {
-            return None;
-        }
-        let index = z
-            .checked_mul(dims[1])?
-            .checked_add(y)?
-            .checked_mul(dims[0])?
-            .checked_add(x)?;
+        let index = probe_index([x, y, z], self.dims_usize())?;
         self.probes.get(index).copied()
     }
 
@@ -319,8 +327,8 @@ impl ProbeField {
                 .zip(&mut moment)
                 .zip(probe.irradiance.into_iter().zip(probe.direction))
             {
-                *energy_slot += weight * f64::from(irradiance);
-                *moment_slot += weight * f64::from(direction);
+                accumulate_coefficient(energy_slot, weight, f64::from(irradiance));
+                accumulate_coefficient(moment_slot, weight, f64::from(direction));
             }
         })?;
         if sum <= 0.0_f64 {
@@ -373,8 +381,16 @@ impl ProbeField {
                     .zip(probe.irradiance.into_iter().zip(probe.direction))
                     .zip(local.irradiance.into_iter().zip(local.direction))
                 {
-                    *energy_slot += weight * (f64::from(irradiance) - f64::from(direct_energy));
-                    *moment_slot += weight * (f64::from(direction) - f64::from(direct_moment));
+                    accumulate_coefficient(
+                        energy_slot,
+                        weight,
+                        f64::from(irradiance) - f64::from(direct_energy),
+                    );
+                    accumulate_coefficient(
+                        moment_slot,
+                        weight,
+                        f64::from(direction) - f64::from(direct_moment),
+                    );
                 }
             }
         })?;
@@ -466,8 +482,16 @@ impl ProbeField {
                 .zip(probe.irradiance.into_iter().zip(probe.direction))
                 .zip(local_energy.into_iter().zip(local_moment))
             {
-                *energy_slot += weight * (f64::from(irradiance) - f64::from(direct_energy));
-                *moment_slot += weight * (f64::from(direction) - f64::from(direct_moment));
+                accumulate_coefficient(
+                    energy_slot,
+                    weight,
+                    f64::from(irradiance) - f64::from(direct_energy),
+                );
+                accumulate_coefficient(
+                    moment_slot,
+                    weight,
+                    f64::from(direction) - f64::from(direct_moment),
+                );
             }
             for plane in &self.switchable_indirect {
                 if enabled(plane.light_index)
@@ -478,8 +502,8 @@ impl ProbeField {
                         .zip(&mut moment)
                         .zip(value.irradiance.into_iter().zip(value.direction))
                     {
-                        *energy_slot += weight * f64::from(irradiance);
-                        *moment_slot += weight * f64::from(direction);
+                        accumulate_coefficient(energy_slot, weight, f64::from(irradiance));
+                        accumulate_coefficient(moment_slot, weight, f64::from(direction));
                     }
                 }
             }
@@ -567,6 +591,10 @@ impl ProbeField {
         candidates
     }
 
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep exact-centre precedence, ordered candidate visits and fallback checks in one traversal."
+    )]
     fn visit_candidates<F, A>(
         &self,
         position: [f32; 3],
@@ -634,11 +662,7 @@ impl ProbeField {
             for z in ranges[2].0..=ranges[2].1 {
                 for y in ranges[1].0..=ranges[1].1 {
                     for x in ranges[0].0..=ranges[0].1 {
-                        let id = z
-                            .checked_mul(dims[1])?
-                            .checked_add(y)?
-                            .checked_mul(dims[0])?
-                            .checked_add(x)?;
+                        let id = probe_index([x, y, z], dims)?;
                         let probe = *self.probes.get(id)?;
                         if !probe.is_valid() || room_label.is_some_and(|r| r != probe.room) {
                             continue;
@@ -658,8 +682,9 @@ impl ProbeField {
                             clippy::as_conversions,
                             reason = "Serialized lattice axes are capped at 64; larger in-memory u32 axes retain the same rounded f32 coordinates used by assign_rooms."
                         )]
-                        let centre =
-                            |index: usize, min: f32| min + (index as f32 + 0.5) * self.cell_m;
+                        let centre = |index: usize, min: f32| {
+                            lattice_axis_centre(min, index as f32, self.cell_m)
+                        };
                         let world_position = [centre(x, min_x), centre(y, min_y), centre(z, min_z)];
                         if d2 >= 4.0_f64
                             || (pass == 0_i32
@@ -753,6 +778,10 @@ impl ProbeField {
         clippy::cast_precision_loss,
         clippy::as_conversions,
         reason = "All axis counts are checked to be 1..=64 before the f32 extent calculation, so the integer conversions are exact."
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep admission, payload sizing and ordered record encoding together."
     )]
     pub fn write(&self) -> Result<Vec<u8>, String> {
         if !self.is_consistent() {
@@ -882,6 +911,10 @@ impl ProbeField {
         clippy::cast_precision_loss,
         clippy::as_conversions,
         reason = "Decoded axis counts are validated to be 1..=64 before the f32 extent calculation, so the integer conversions are exact."
+    )]
+    #[expect(
+        clippy::too_many_lines,
+        reason = "Keep bounded header, payload and trailing-byte admission in record order."
     )]
     pub fn read(bytes: &[u8]) -> Result<Self, String> {
         if u64::try_from(bytes.len()).unwrap_or(u64::MAX) > MAX_PROBE_FIELD_BYTES {
@@ -1171,7 +1204,8 @@ impl ProbeSample {
             .map(|value| f64::from(*value).powi(2))
             .sum::<f64>()
             .sqrt();
-        if moment > mean * (1.0_f64 + 32.0_f64 * f64::from(f32::EPSILON)) {
+        let rounding_margin = 32.0_f64 * f64::from(f32::EPSILON);
+        if moment > mean * (1.0_f64 + rounding_margin) {
             return Err("probe field moment exceeds its irradiance energy".to_string());
         }
         if self.axis.iter().any(|value| !(0.0..=1.0).contains(value)) {
@@ -1261,11 +1295,11 @@ impl<'a> Cursor<'a> {
         Ok(f32::from_bits(self.u32()?))
     }
 
-    fn remaining(&self) -> usize {
+    const fn remaining(&self) -> usize {
         self.bytes.len().saturating_sub(self.at)
     }
 
-    fn is_at_end(&self) -> bool {
+    const fn is_at_end(&self) -> bool {
         self.remaining() == 0
     }
 }

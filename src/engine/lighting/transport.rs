@@ -69,7 +69,7 @@ use crate::engine::lighting::lightmap::{
     Chart, LightmapFailure, LightmapPatch, LightmapTexel, PatchKind,
 };
 use crate::engine::lighting::probes::{
-    ProbeDirectField, ProbeField, ProbeSample, ProbeSwitchableField,
+    ProbeDirectField, ProbeField, ProbeSample, ProbeSwitchableField, lattice_axis_centre,
 };
 use crate::engine::lighting::{AMBIENT_LEVEL, LevelLighting, LightFalloff, LightShape};
 
@@ -150,7 +150,7 @@ pub fn soft_clip(color: [f32; 3]) -> [f32; 3] {
 
 /// One channel of [`soft_clip`], as a scalar.
 #[must_use]
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "The calibrated shoulder uses separate multiply and add rounding, matching the display tone map."
 )]
@@ -521,7 +521,7 @@ impl PreparedEmitter {
         }
     }
 
-    #[allow(
+    #[expect(
         clippy::imprecise_flops,
         reason = "The fixture falloff and reach check use the existing squared sum and square root rounding."
     )]
@@ -677,7 +677,7 @@ impl TransportEmitter {
     }
 
     /// Distance from `point` to the emitter's horizontal footprint, in metres.
-    #[allow(
+    #[expect(
         clippy::imprecise_flops,
         reason = "The fixture falloff and reach check use the existing squared sum and square root rounding."
     )]
@@ -769,7 +769,7 @@ impl TransportEmitter {
     /// Integrate actual incoming directions instead of normalizing their sum.
     /// The calibrated fixture falloff remains one source-wide scalar; only the
     /// per-tap visibility, coverage and cosine are integrated independently.
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "Surface and probe callers provide distinct receiver positions, ray origins, optional normals, transmission and tap budgets to this shared integration."
     )]
@@ -1082,14 +1082,10 @@ impl ProbeLattice {
             .fold(1_usize, |count, dim| count.saturating_mul(*dim))
     }
 
-    #[allow(
-        clippy::suboptimal_flops,
-        reason = "Probe lattice centres retain separate multiply and add rounding used to assign probe rooms."
-    )]
     fn position(self, index: usize) -> [f32; 3] {
         let indices = <[usize; 3]>::from(lattice_from_index(index, self.dims))
             .map(|value| f32::from(u16::try_from(value).unwrap_or(u16::MAX)));
-        let centre = |axis_index, min| min + (axis_index + 0.5) * self.cell;
+        let centre = |axis_index, min| lattice_axis_centre(min, axis_index, self.cell);
         [
             centre(indices[0], self.min[0]),
             centre(indices[1], self.min[1]),
@@ -1414,7 +1410,7 @@ fn chart_fill_eligibility(charts: &[(LightmapPatch, Chart)]) -> impl Iterator<It
 /// joins the unchanged physical solve with a continuous first derivative.
 /// The output slope is always at least one half, unlike a hard minimum which
 /// erases every gradient below its threshold. Zero targets preserve darkness.
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "The authored fill curve retains its rounded cutoff and separates the multiply from subtraction."
 )]
@@ -1590,10 +1586,6 @@ fn probe_room_counts(
     counts
 }
 
-#[allow(
-    clippy::suboptimal_flops,
-    reason = "Rounding the phase shift before addition preserves probe positions and room-coverage ties."
-)]
 fn choose_probe_phase(
     original: ProbeLattice,
     room_count: usize,
@@ -1617,6 +1609,10 @@ fn choose_probe_phase(
                 if x == 0.0 && y == 0.0 && z == 0.0 {
                     continue;
                 }
+                #[expect(
+                    clippy::suboptimal_flops,
+                    reason = "Rounding the phase shift before addition preserves probe positions and room-coverage ties."
+                )]
                 let candidate = ProbeLattice {
                     min: [
                         original.min[0] + x * original.cell,
@@ -1663,10 +1659,6 @@ fn choose_probe_phase(
     clippy::cast_sign_loss,
     clippy::as_conversions,
     reason = "Finite extents and positive spacing yield axis counts clamped to 1..=64 before truncation; the resulting small counts convert exactly back to f32 for centering."
-)]
-#[allow(
-    clippy::suboptimal_flops,
-    reason = "Centre placement retains separately rounded products and subtraction to preserve exact probe locations."
 )]
 fn probe_lattice<'a>(
     positions: impl IntoIterator<Item = &'a [f32; 3]>,
@@ -1715,7 +1707,12 @@ fn probe_lattice<'a>(
     // Keep every axis centered in the authored bounds, including an axis
     // smaller than a cell after a large world forces coarser spacing.
     for ((low, high), count) in min.iter_mut().zip(max).zip(dims) {
-        *low = f32::midpoint(*low, high) - 0.5 * count as f32 * cell;
+        #[expect(
+            clippy::suboptimal_flops,
+            reason = "Centre placement retains separately rounded products and subtraction to preserve exact probe locations."
+        )]
+        let lower_bound = f32::midpoint(*low, high) - 0.5 * count as f32 * cell;
+        *low = lower_bound;
     }
     Some((min, cell, dims))
 }
@@ -2188,10 +2185,6 @@ impl TransportScene {
     /// endpoint has a floating-point reconstruction allowance, so an emitter
     /// lying on its own face does not shadow itself after ray normalization.
     #[must_use]
-    #[allow(
-        clippy::suboptimal_flops,
-        reason = "The endpoint guard rounds the offset before subtraction to preserve ray acceptance at the segment end."
-    )]
     pub fn occluded(&self, a: [f32; 3], b: [f32; 3]) -> bool {
         let direction = sub(b, a);
         let distance = length(direction);
@@ -2202,6 +2195,10 @@ impl TransportScene {
         let endpoint_scale = b
             .iter()
             .fold(distance.max(1.0), |scale, value| scale.max(value.abs()));
+        #[expect(
+            clippy::suboptimal_flops,
+            reason = "The endpoint guard rounds the offset before subtraction to preserve ray acceptance at the segment end."
+        )]
         let max_t = distance - SURFACE_OFFSET_M * endpoint_scale;
         if max_t <= 0.0 {
             return false;
@@ -2895,7 +2892,7 @@ impl TransportScene {
         )
     }
 
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "The solve stage receives existing per-pass buffers, counters and cancellation by reference so its caller owns their lifetimes across passes."
     )]
@@ -2991,7 +2988,7 @@ impl TransportScene {
         )
     }
 
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "Finish owns the final field while borrowing the aligned direct field, receivers and optional probe publication slot."
     )]
@@ -3102,7 +3099,7 @@ impl TransportScene {
         }
     }
 
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "Each bounce sequence works from borrowed receivers and cache plus an owned accumulator field and explicit cancellation."
     )]
@@ -3309,15 +3306,18 @@ impl TransportScene {
         // Visibility-supported fill is independent per texel. Share the
         // immutable scene and preserve each texel's exact arithmetic order.
         crate::engine::progress::stage("receiver recovery");
-        #[allow(
-            clippy::indexing_slicing,
-            reason = "The parallel map emits only indices below texels.len(); the checks above require all four arrays to have exactly that length."
-        )]
         parallel_map(texels.len(), workers, cancel, |index| {
-            let mut texel = texels[index];
-            let receiver = &receivers[index];
-            let target = self.receiver_target[index];
-            if eligible[index] {
+            #[expect(
+                clippy::indexing_slicing,
+                reason = "The scheduler emits indices below texels.len(), and the checks above require all four arrays to have that length."
+            )]
+            let (mut texel, receiver, target, fill) = (
+                texels[index],
+                &receivers[index],
+                self.receiver_target[index],
+                eligible[index],
+            );
+            if fill {
                 self.apply_receiver_fill(&mut texel, receiver, target);
             }
             texel
@@ -3376,7 +3376,7 @@ impl TransportScene {
     /// which is the historical "an interior has no sky" behaviour — and a ray
     /// that hits a surface contributes that surface's solved outgoing radiance
     /// times its albedo, weighted by the sample's solid angle.
-    #[allow(
+    #[expect(
         clippy::too_many_arguments,
         reason = "The per-order gather explicitly shares aligned receivers, previous values and cache with workers and cancellation."
     )]
@@ -3682,10 +3682,6 @@ fn audit_stage(
 
 /// Opt-in stage measurements before display compression, grouped by room and
 /// architectural family. Area weighting prevents tiny charts dominating a report.
-#[allow(
-    clippy::suboptimal_flops,
-    reason = "Multiply and accumulation remain separate so audited room totals preserve their existing rounding."
-)]
 fn audit_stage_metrics(
     stage: &str,
     charts: &[(LightmapPatch, Chart)],
@@ -3707,7 +3703,8 @@ fn audit_stage_metrics(
             let light = texel.light_at(receiver.normal);
             let luma = channel_luminance(light);
             entry.0 += receiver.area;
-            entry.1 += receiver.area * luma;
+            let weighted_luma = receiver.area * luma;
+            entry.1 += weighted_luma;
             entry.2 = entry.2.max(luma);
             // At 1.4 the calibrated shoulder retains <5% of an input
             // gradient. Report lost lighting contrast, not emissive pixels.
@@ -3995,7 +3992,7 @@ fn accumulate_surface_lobe(
     accumulate_surface_energy(&mut accumulator.surface_light, weight, cosine);
 }
 
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "Per-channel products are rounded before they enter the existing irradiance sum."
 )]
@@ -4043,7 +4040,7 @@ fn compress_surface(accumulator: &Accumulator, normal: [f32; 3]) -> LightmapTexe
 }
 
 /// Floating-point encoding tolerance, independent of artistic brightness.
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "Keep the original rounding of the absolute-plus-relative energy tolerance."
 )]
@@ -4094,7 +4091,7 @@ fn compress(accumulator: &Accumulator) -> LightmapTexel {
 /// Per-channel luminance weights used only for thresholds and filtering.
 const LUMA: [f32; 3] = [0.2126, 0.7152, 0.0722];
 
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "The ordered channel products and additions retain their current rounding for energy comparisons."
 )]
@@ -4119,7 +4116,7 @@ fn channel_luminance(color: [f32; 3]) -> f32 {
 /// Returns [`LightmapFailure::InvalidConfig`] for an empty or unaddressable
 /// receiver set and propagates cancellation as a fill failure.
 // one bake, every input explicit
-#[allow(
+#[expect(
     clippy::too_many_arguments,
     reason = "Probe baking borrows the aligned surface/cache inputs and keeps bake budget, cancellation and base-field policy explicit."
 )]
@@ -4505,7 +4502,7 @@ pub const PROBE_CLEARANCE_M: f32 = 0.05;
     clippy::as_conversions,
     reason = "The private caller enumerates 512 probe rays, so pair is 0..255 and half is 256; their f32 conversions are exact."
 )]
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "Round the squared vertical component before computing the existing sampling radius."
 )]
@@ -4627,23 +4624,13 @@ impl<'a> SurfaceCacheTarget<'a> {
 }
 
 impl RadianceCache {
-    #[allow(
-        clippy::suboptimal_flops,
-        reason = "Cache representative selection depends on the existing rounding of the ordered sum of squared distances."
-    )]
     fn build(receivers: &[TransportReceiver], triangles: &[TransportTriangle]) -> Self {
         let mut min = [f32::INFINITY; 3];
         let mut max = [f32::NEG_INFINITY; 3];
         for receiver in receivers {
-            for axis in 0..3 {
-                if let (Some(value), Some(low), Some(high)) = (
-                    receiver.position.get(axis),
-                    min.get_mut(axis),
-                    max.get_mut(axis),
-                ) {
-                    *low = low.min(*value);
-                    *high = high.max(*value);
-                }
+            for ((value, low), high) in receiver.position.into_iter().zip(&mut min).zip(&mut max) {
+                *low = low.min(value);
+                *high = high.max(value);
             }
         }
         if !min[0].is_finite() {
@@ -4692,6 +4679,10 @@ impl RadianceCache {
                 continue;
             };
             let centre = cell_centre(cell_index, min, cell_m, dims);
+            #[expect(
+                clippy::suboptimal_flops,
+                reason = "Cache representative selection depends on the existing rounding of the ordered sum of squared distances."
+            )]
             let distance = (receiver.position[0] - centre[0]).powi(2)
                 + (receiver.position[1] - centre[1]).powi(2)
                 + (receiver.position[2] - centre[2]).powi(2);
@@ -5029,10 +5020,6 @@ fn same_lighting_plane(left: &TransportTriangle, right: &TransportTriangle) -> b
 }
 
 /// Adds one accumulator scaled by `weight` into `total`.
-#[allow(
-    clippy::suboptimal_flops,
-    reason = "Each accumulator preserves separate multiplication and addition and its existing channel order."
-)]
 fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
     for (channel, (surface_light, source_light)) in total
         .surface_light
@@ -5040,7 +5027,8 @@ fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
         .zip(value.surface_light)
         .enumerate()
     {
-        *surface_light += weight * source_light;
+        let scaled_surface_light = weight * source_light;
+        *surface_light += scaled_surface_light;
         if let (Some(slot), Some(source)) = (
             total.irradiance.get_mut(channel),
             value.irradiance.get(channel),
@@ -5068,10 +5056,6 @@ fn add_scaled(total: &mut Accumulator, value: &Accumulator, weight: f32) {
     clippy::arithmetic_side_effects,
     reason = "Private callers enumerate the radiance cache capped at 96 cells per axis, so coordinates convert exactly to f32; max(1) makes every decomposition divisor nonzero."
 )]
-#[allow(
-    clippy::suboptimal_flops,
-    reason = "Cell centres retain separate multiplication and addition rounding for spatial cache selection."
-)]
 fn cell_centre(index: usize, min: [f32; 3], cell: f32, dims: [usize; 3]) -> [f32; 3] {
     let mut remaining = index;
     let mut lattice = [0usize; 3];
@@ -5083,9 +5067,9 @@ fn cell_centre(index: usize, min: [f32; 3], cell: f32, dims: [usize; 3]) -> [f32
         remaining /= size;
     }
     [
-        min[0] + (lattice[0] as f32 + 0.5) * cell,
-        min[1] + (lattice[1] as f32 + 0.5) * cell,
-        min[2] + (lattice[2] as f32 + 0.5) * cell,
+        lattice_axis_centre(min[0], lattice[0] as f32, cell),
+        lattice_axis_centre(min[1], lattice[1] as f32, cell),
+        lattice_axis_centre(min[2], lattice[2] as f32, cell),
     ]
 }
 
@@ -5120,8 +5104,7 @@ fn cache_insertion_cell(
 /// The flat grid index of a lattice cell, or `None` when outside the grid.
 fn lattice_cell(lattice: [f32; 3], dims: [usize; 3]) -> Option<usize> {
     let mut index = 0usize;
-    for axis in 0..3 {
-        let value = lattice.get(axis).copied().unwrap_or(-1.0);
+    for (value, dim) in lattice.into_iter().zip(dims) {
         if !value.is_finite() || value < 0.0 {
             return None;
         }
@@ -5134,12 +5117,10 @@ fn lattice_cell(lattice: [f32; 3], dims: [usize; 3]) -> Option<usize> {
         // The value is finite and non-negative; the range check against `dims`
         // rejects anything that would truncate past the grid.
         let cell = value as usize;
-        if cell >= dims.get(axis).copied().unwrap_or(0) {
+        if cell >= dim {
             return None;
         }
-        index = index
-            .checked_mul(dims.get(axis).copied().unwrap_or(1))
-            .and_then(|base| base.checked_add(cell))?;
+        index = index.checked_mul(dim)?.checked_add(cell)?;
     }
     Some(index)
 }
@@ -5178,7 +5159,7 @@ fn next_unit(state: &mut u64) -> f32 {
 /// The Duff et al. branchless orthonormal basis keeps the sampling frame
 /// continuous across the normal's sign changes, so a chart boundary cannot
 /// produce a visible seam from the ray directions alone.
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "The signed basis keeps each multiply and add rounded separately."
 )]
@@ -5215,10 +5196,6 @@ fn surface_gather_rotation(point: [f32; 3], pass: u8) -> (f32, f32) {
     (std::f32::consts::TAU * next_unit(&mut state)).sin_cos()
 }
 
-#[allow(
-    clippy::suboptimal_flops,
-    reason = "Preserve the existing rounding of the two terms in the tangent-space rotation."
-)]
 fn gather_direction(
     normal: [f32; 3],
     axes: ([f32; 3], [f32; 3]),
@@ -5226,6 +5203,10 @@ fn gather_direction(
     rotation: (f32, f32),
 ) -> [f32; 3] {
     let (sin, cos) = rotation;
+    #[expect(
+        clippy::suboptimal_flops,
+        reason = "Preserve the existing rounding of the two terms in the tangent-space rotation."
+    )]
     let rotated = [
         local[0] * cos - local[1] * sin,
         local[0] * sin + local[1] * cos,
@@ -5250,7 +5231,7 @@ fn hemisphere_sequence(count: usize, pass: u8) -> Vec<[f32; 3]> {
         .collect()
 }
 
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "Round the squared cosine before deriving the original sample radius."
 )]
@@ -5264,7 +5245,7 @@ fn hemisphere_local(u1: f32, u2: f32) -> [f32; 3] {
     [x, y, cos_theta]
 }
 
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "Keep the existing order and separate rounding of the tangential and normal terms."
 )]
@@ -5407,7 +5388,7 @@ fn ray_slab_entry(
     slab_entry_rounded(node, origin, inverse, max_t, true, parallel)
 }
 
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "Conservative slab padding retains the existing separately rounded extent and endpoint."
 )]
@@ -5456,7 +5437,7 @@ fn slab_entry_rounded(
 }
 
 /// Squared distance from a point to an axis-aligned box (zero inside it).
-#[allow(
+#[expect(
     clippy::suboptimal_flops,
     reason = "Keep squared offsets and their ordered sum separately rounded for the radius test."
 )]
@@ -5565,13 +5546,9 @@ impl PreparedRay {
         ]
     }
 
-    #[allow(
+    #[expect(
         clippy::suboptimal_flops,
         reason = "Watertight edge and distance tests depend on separate rounding of products and their ordered sums."
-    )]
-    #[allow(
-        clippy::indexing_slicing,
-        reason = "The private ray constructor chooses a dominant axis in 0..3 and derives the two other axes modulo 3; these select the same three components on every triangle."
     )]
     fn corners(&self, corners: [[f32; 3]; 3]) -> Option<f32> {
         let project = |point: [f32; 3]| {
@@ -5580,15 +5557,17 @@ impl PreparedRay {
                 f64::from(point[1]) - self.origin[1],
                 f64::from(point[2]) - self.origin[2],
             ];
-            [
-                translated[self.horizontal] - self.shear_x * translated[self.dominant],
-                translated[self.vertical] - self.shear_y * translated[self.dominant],
-                translated[self.dominant],
-            ]
+            let dominant = *translated.get(self.dominant)?;
+            Some([
+                *translated.get(self.horizontal)? - self.shear_x * dominant,
+                *translated.get(self.vertical)? - self.shear_y * dominant,
+                dominant,
+            ])
         };
-        let a = project(corners[0]);
-        let b = project(corners[1]);
-        let c = project(corners[2]);
+        let [first, second, third] = corners;
+        let a = project(first)?;
+        let b = project(second)?;
+        let c = project(third)?;
         let edge_a = c[0] * b[1] - c[1] * b[0];
         let edge_b = a[0] * c[1] - a[1] * c[0];
         let edge_c = b[0] * a[1] - b[1] * a[0];
