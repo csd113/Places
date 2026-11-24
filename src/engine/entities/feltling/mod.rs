@@ -153,7 +153,7 @@ pub fn load(level: &LevelDef) -> Result<Vec<Feltling>, String> {
         if catalog.get(&prop.model).model.as_deref() != Some(MODEL) {
             return Err(format!("{id}: Feltling requires its canonical model"));
         }
-        let asset = assets.resolve(MODEL)?;
+        let asset = assets.resolve_for_rig_validation(MODEL)?;
         let mut animator =
             CharacterAnimator::new(&asset.model).ok_or("Feltling requires a skinned rig")?;
         validate_rig(&asset.model, &mut animator, &id)?;

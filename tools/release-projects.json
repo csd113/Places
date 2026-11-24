@@ -2,10 +2,6 @@
   "version": "0.14.0",
   "projects": [
     {
-      "source": "projects/backrooms",
-      "package": "backrooms.placesmap"
-    },
-    {
       "source": "projects/environments",
       "package": "environments.placesmap"
     },
@@ -24,10 +20,20 @@
     "archive/projects/shape-of-an-exit",
     "archive/projects/untitled-1792640069720",
     "archive/projects/relay-annex",
+    "archive/projects/backrooms",
     "development gyms, labs and review fixtures"
   ],
-  "note": "The bundled menu is a separate runtime dependency. Backrooms, the nine-member Quiet Collection, all four Beam chapters and the three-member Long Way Home form the release inventory. Archived projects and development fixtures remain excluded.",
+  "note": "The bundled menu is a separate runtime dependency. The nine-member Quiet Collection, all four Beam chapters and the three-member Long Way Home form the release inventory. Archived projects and development fixtures remain excluded.",
   "archived_projects": [
+    {
+      "source": "archive/projects/backrooms",
+      "former_source": "projects/backrooms",
+      "package": "backrooms.placesmap",
+      "project_id": "backrooms",
+      "level_ids": [
+        "the_backrooms"
+      ]
+    },
     {
       "source": "archive/projects/closing-time",
       "former_source": "projects/closing-time",

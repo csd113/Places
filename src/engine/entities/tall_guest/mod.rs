@@ -439,7 +439,7 @@ pub fn load(level: &LevelDef) -> Result<Vec<Guest>, String> {
                 "{id}: whole-prey capture requires the certified Tall Guest export"
             ));
         }
-        let asset = assets.resolve(&path)?;
+        let asset = assets.resolve_for_rig_validation(&path)?;
         let animator =
             CharacterAnimator::new(&asset.model).ok_or("Tall Guest requires a skinned rig")?;
         for (name, seconds) in CLIPS {

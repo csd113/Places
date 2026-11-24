@@ -162,7 +162,7 @@ class RepositoryTests(unittest.TestCase):
 
 class ShippedLevelTests(unittest.TestCase):
     def test_the_collection_contains_the_hub_and_every_environment(self):
-        self.assertEqual([identity for identity, _ in lineup()], ["environments", "backrooms"])
+        self.assertEqual([identity for identity, _ in lineup()], ["environments"])
         project = load_level(PACKAGE / "projects/environments/places.project.json")
         shipped = {
             entry["id"]: load_level(PACKAGE / "projects/environments" / entry["source"])
@@ -174,8 +174,8 @@ class ShippedLevelTests(unittest.TestCase):
             "the hub and eight environments are the complete editable collection",
         )
         self.assertEqual(
-            {path.stem for path in level_files()}, set(shipped) | {"the_backrooms"},
-            "the independent Backrooms map must remain in the curated lineup",
+            {path.stem for path in level_files()}, set(shipped),
+            "the curated lineup must contain only the Quiet Collection",
         )
         showcase = shipped["lantern_hollow"]
         self.assertEqual(showcase["id"], "lantern_hollow")

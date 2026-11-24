@@ -30,10 +30,7 @@ pub fn load(level: &crate::engine::level::LevelDef) -> Result<Vec<AnimatedDoor>,
             .get(&prop.model)
             .model
             .ok_or_else(|| format!("{id}: missing animated door model"))?;
-        if let Some(reads) = crate::engine::assets::reads::current() {
-            reads.capture_validation_model(&path)?;
-        }
-        let asset = assets.resolve(&path)?;
+        let asset = assets.resolve_for_rig_validation(&path)?;
         let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
         doors.push(AnimatedDoor::new(id, prop, base_y, &asset.model)?);
     }

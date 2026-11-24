@@ -23,7 +23,7 @@ intent. The old environment generators are historical reconstruction tools;
 their output does not own or regenerate the collection. They require an explicit
 scratch destination. Places Demo and Model Zoo remain frozen historical JSON
 under [`archive/levels/`](../archive/levels/). Beam remains active in the broader release inventory.
-Five retired projects retain complete editable content in
+Six retired projects retain complete editable content in
 [`archive/projects/`](../archive/projects/README.md). Development controls stay
 outside release discovery; their retained purposes are documented there too.
 

@@ -27,9 +27,9 @@ bowling lanes, cabinets, birthday room and restroom of **Cosmic Lanes & Arcade**
 
 Doors, switches, weather and occasional encounters give the spaces their own
 rhythms. Adjustable graphics and remappable controls let you settle into yours.
-The active standalone projects are **The Backrooms** and **It Only Exists in the
-Beam** (all four chapters). They remain independent of the collection.
-**Closing Time**, **One Guest Too Many**, **The Shape of an Exit**, **After Hours -
+The active standalone projects are **It Only Exists in the Beam** (all four
+chapters) and **The Long Way Home**. They remain independent of the collection.
+**The Backrooms**, **Closing Time**, **One Guest Too Many**, **The Shape of an Exit**, **After Hours -
 Rooms Beyond** and **Relay Annex** retain their complete editable sources in the
 [project archive](archive/projects/README.md), outside the current release inventory.
 

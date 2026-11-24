@@ -41,7 +41,7 @@ impl AssetReads {
         Ok(())
     }
 
-    /// Door rig validation runs while editable sources are read, before the
+    /// Rig validation runs while editable sources are read, before the
     /// compiler can enumerate the completed level's normal dependencies.
     pub(crate) fn capture_validation_model(&self, path: &str) -> Result<(), String> {
         let mut models = self
@@ -70,7 +70,7 @@ impl AssetReads {
         Ok(())
     }
 
-    /// Project source snapshots may validate doors outside the selected member.
+    /// Project source snapshots may validate rigs outside the selected member.
     pub(crate) fn check_validation_models(&self) -> Result<(), String> {
         let models = self
             .validation_models

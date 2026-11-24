@@ -361,6 +361,20 @@ impl PropAssets {
         self.textures.retain(|_, image| image.strong_count() > 0);
     }
 
+    /// Resolves a rig before the compiler has collected level dependencies.
+    ///
+    /// # Errors
+    /// Returns an error when capture or model loading fails.
+    pub(crate) fn resolve_for_rig_validation(
+        &mut self,
+        model_path: &str,
+    ) -> Result<Arc<LoadedPropAsset>, String> {
+        if let Some(reads) = crate::engine::assets::reads::current() {
+            reads.capture_validation_model(model_path)?;
+        }
+        self.resolve(model_path)
+    }
+
     /// Loads (or returns the cached) model for a catalogue `model` path.
     ///
     /// A model above the Places art budget still loads; it is logged once as a

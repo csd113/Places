@@ -35,12 +35,13 @@ editable project packages: compiler `import-project <package> --out <new-folder>
 recovers their authoring sources. Shared textures, models and audio stay with
 the app and are not duplicated in the levels download.
 
-The current gameplay inventory is `tools/release-projects.json`: four packages,
-17 member maps and 34 Static/Full variants: Backrooms, the nine-member Quiet
-Collection, all four Beam chapters and the three-member Long Way Home. Five retired projects retain their complete
-editable content in the [tracked archive](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/archive/projects/README.md). They are
-excluded together with development gyms, labs and fixtures. Existing user imports
-and published 0.13.0 downloads are preserved; archiving source does not uninstall maps.
+The current 0.14.0 gameplay inventory in `tools/release-projects.json` contains
+three packages, 16 member maps and 32 Static/Full variants. It includes the
+nine-member Quiet Collection, all four Beam chapters and the three-member Long
+Way Home. Backrooms and five other retired projects retain their complete
+editable content in the [tracked archive](https://github.com/csd113/Places/blob/0.14.0-dev/archive/projects/README.md).
+The inventory excludes archived projects, development gyms, labs and fixtures.
+Existing user imports and published 0.13.0 downloads remain available.
 The application-owned menu is separate from this gameplay inventory.
 
 Release builders stage the levels ZIP with the compiler that prepared its maps.
@@ -223,9 +224,9 @@ The maintained environment distribution is `environments.placesmap`: Central
 Hub plus eight destinations, with only the hub exposed in Explore. Each
 destination has a physical return door. The former eight standalone environment
 packages are retired; [the retirement inventory](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
-records their exact IDs. It Only Exists in the Beam and Backrooms remain separate
-active optional project packages. Closing Time and the other four retired projects
-are preserved in the [project archive](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/archive/projects/README.md).
+records their exact IDs. It Only Exists in the Beam and The Long Way Home remain
+separate active optional project packages. The Backrooms and the other retired
+projects are preserved in the [project archive](https://github.com/csd113/Places/blob/0.14.0-dev/archive/projects/README.md).
 
 Import an existing collection package using the matching player and resources:
 

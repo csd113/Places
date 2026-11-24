@@ -1,13 +1,14 @@
 # Archived Places projects
 
-These five projects left the active rotation during 0.13.1 development. Every
+The first five projects left the active rotation during 0.13.1 development. Every
 file was moved unchanged from source commit
 `68136b44f14f3abca83a0699e18f3e9032f9672f`: five project manifests, seven level
 JSON files, seven Luau modules, three thumbnails and three original READMEs.
 The original READMEs describe their delivery stage and may name their former
 `projects/` paths or local evidence that is absent from a fresh checkout.
-From the repository root, `shasum -a 256 -c archive/projects/SHA256SUMS` verifies
-all 25 preserved files against their pre-archive bytes.
+From the repository root, `shasum -a 256 -c archive/projects/SHA256SUMS` checks
+pre-archive hashes. The Closing Time, One Guest Too Many and Relay Annex README
+files changed after archival.
 
 | Project | Preserved folder | Former folder |
 | --- | --- | --- |
@@ -16,9 +17,11 @@ all 25 preserved files against their pre-archive bytes.
 | The Shape of an Exit | [shape-of-an-exit/](shape-of-an-exit/) | `projects/shape-of-an-exit` |
 | After Hours - Rooms Beyond | [untitled-1792640069720/](untitled-1792640069720/) | `projects/untitled-1792640069720` |
 | Relay Annex | [relay-annex/](relay-annex/) | `projects/relay-annex` |
+| The Backrooms | [backrooms/](backrooms/) | `projects/backrooms` |
 
-Beam stays active with all four chapters. Backrooms, the nine-map Quiet Collection,
-the bundled menu and development controls remain in `projects/`.
+The Backrooms moved into the archive during 0.14.0 development. Its shared
+environment assets remain available. Beam, The Long Way Home, the nine-map Quiet
+Collection, the bundled menu and development controls remain in `projects/`.
 
 ## Dependencies and discovery
 
@@ -31,8 +34,8 @@ do not target any archived member.
 
 The archive is tracked source, outside `levels/lineup.txt` and the active
 [`tools/release-projects.json`](../../tools/release-projects.json) allowlist.
-With the later Long Way Home addition, the release inventory has four packages,
-17 maps and 34 Static/Full variants.
+The current release inventory has three packages, 16 maps and 32 Static/Full
+variants.
 The levels ZIP requires exactly that inventory. Desktop packagers also reject
 the archived package names, project IDs and level IDs, including renamed bundles
 and standalone exports of archived members. The ordinary player still discovers
