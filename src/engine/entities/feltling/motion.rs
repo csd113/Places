@@ -74,13 +74,16 @@ fn leaf_path_blocked(leaf: &DoorCollider, from: Vec3, to: Vec3, radius: f32, hei
 // The normal live body is a square, even though the navigation class is a
 // disc. Use this same shape for player admission and release candidates.
 fn grounded_collider(position: Vec3) -> DoorCollider {
-    DoorCollider::from_pose(
-        [position.x - 0.40, position.y, position.z],
-        [1.0, 0.0],
-        0.80,
-        0.80,
-        0.80,
-    )
+    DoorCollider {
+        npc_body: true,
+        ..DoorCollider::from_pose(
+            [position.x - 0.40, position.y, position.z],
+            [1.0, 0.0],
+            0.80,
+            0.80,
+            0.80,
+        )
+    }
 }
 
 #[must_use]
@@ -106,13 +109,16 @@ impl Feltling {
                 .iter()
                 .copied()
                 .fold(Vec3::splat(f32::NEG_INFINITY), Vec3::max);
-            return Some(DoorCollider::from_pose(
-                [lo.x, lo.y, lo.z.midpoint(hi.z)],
-                [1.0, 0.0],
-                hi.x - lo.x,
-                hi.y - lo.y,
-                hi.z - lo.z,
-            ));
+            return Some(DoorCollider {
+                npc_body: true,
+                ..DoorCollider::from_pose(
+                    [lo.x, lo.y, lo.z.midpoint(hi.z)],
+                    [1.0, 0.0],
+                    hi.x - lo.x,
+                    hi.y - lo.y,
+                    hi.z - lo.z,
+                )
+            });
         }
         self.enabled()
             .then(|| grounded_collider(self.state.position))

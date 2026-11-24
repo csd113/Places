@@ -9,8 +9,9 @@ use glam::{Quat, Vec3};
 use rapier3d::parry::query::contact as shape_contact;
 use rapier3d::parry::utils::PoseOpt;
 use rapier3d::prelude::{
-    ColliderBuilder, ColliderHandle, ContactPair, IntegrationParameters, PhysicsWorld,
-    RigidBodyBuilder, RigidBodyHandle, SharedShape, SpringCoefficients, Vector,
+    ColliderBuilder, ColliderHandle, ContactPair, Group, IntegrationParameters, InteractionGroups,
+    InteractionTestMode, PhysicsWorld, RigidBodyBuilder, RigidBodyHandle, SharedShape,
+    SpringCoefficients, Vector,
 };
 use serde::{Serialize, Serializer};
 
@@ -43,6 +44,9 @@ const MAX_FRAME_SECONDS: f32 = 0.1;
 const MAX_IMPACTS: usize = 32;
 const MAX_CONTACT_PAIRS: usize = 256;
 const MAX_FIXED_PROP_SHAPES: usize = 1024;
+// Articulated ragdolls use bits 6 and above.
+const LOOSE_ITEM_GROUP: Group = Group::GROUP_5;
+const NPC_BODY_GROUP: Group = Group::GROUP_6;
 #[cfg(all(feature = "parallel-physics", not(target_arch = "wasm32")))]
 const MIN_PARALLEL_SOLVER_BODIES: usize = 128;
 
@@ -293,7 +297,7 @@ pub(super) struct Runtime {
     pub player_collider: ColliderHandle,
     player_height: f32,
     player_half: f32,
-    doors: Vec<RigidBodyHandle>,
+    doors: Vec<(RigidBodyHandle, bool)>,
     pub player_velocity: Vec3,
     pub(super) carry_follow_velocity: Vec3,
     previous_player: Option<Vec3>,
@@ -660,7 +664,13 @@ impl ItemWorld {
         .angular_damping(def.angular_damping)
         .ccd_enabled(def.motion == BodyMotion::Dynamic)
         .can_sleep(true);
+        let groups = if def.motion == BodyMotion::Dynamic {
+            InteractionGroups::new(LOOSE_ITEM_GROUP, Group::ALL, InteractionTestMode::And)
+        } else {
+            InteractionGroups::all()
+        };
         let collider = ColliderBuilder::new(shape.clone())
+            .collision_groups(groups)
             .mass_properties(physical_mass)
             // A small, scale-aware solver skin leaves the core shape clear of
             // resting contacts, so CCD can detect the next floor impact after
@@ -1532,26 +1542,33 @@ impl ItemWorld {
             .map(|body| point(body.translation()))
     }
 
-    /// Conservative current solver bounds used by AI movement and planning.
-    ///
-    /// Includes sleeping, dormant and held solids. Disabled recovery bodies do
-    /// not obstruct. At most [`super::MAX_BODIES`] live item bounds are visited;
-    /// this neither allocates nor rebuilds navigation or the physics broad phase.
+    /// Conservative current solver bounds for live solid items.
     pub fn navigation_obstacles(&self) -> impl Iterator<Item = WallAabb> + '_ {
+        self.item_obstacles().map(|(bounds, _)| bounds)
+    }
+
+    /// Each live item box and whether it blocks NPC locomotion. A held body
+    /// retains its authored motion type while the solver drives it kinematically.
+    pub(crate) fn item_obstacles(&self) -> impl Iterator<Item = (WallAabb, bool)> + '_ {
         self.runtime.iter().flat_map(|runtime| {
-            runtime.entries.values().filter_map(|entry| {
+            let held = runtime.held.as_ref().map(|held| held.key);
+            runtime.entries.iter().filter_map(move |(key, entry)| {
                 let collider = runtime.world.colliders.get(entry.collider)?;
                 if !collider.is_enabled() || collider.is_sensor() {
                     return None;
                 }
                 let bounds = collider.compute_aabb();
-                Some(WallAabb::with_y(
-                    bounds.mins.x,
-                    bounds.mins.y,
-                    bounds.mins.z,
-                    bounds.maxs.x - bounds.mins.x,
-                    bounds.maxs.y - bounds.mins.y,
-                    bounds.maxs.z - bounds.mins.z,
+                let blocks_npc = entry.motion != BodyMotion::Dynamic || held == Some(*key);
+                Some((
+                    WallAabb::with_y(
+                        bounds.mins.x,
+                        bounds.mins.y,
+                        bounds.mins.z,
+                        bounds.maxs.x - bounds.mins.x,
+                        bounds.maxs.y - bounds.mins.y,
+                        bounds.maxs.z - bounds.mins.z,
+                    ),
+                    blocks_npc,
                 ))
             })
         })
@@ -1926,7 +1943,7 @@ impl Runtime {
         for entry in self.entries.values() {
             refresh_collider(&mut self.world, entry.collider);
         }
-        for &handle in &self.doors {
+        for &(handle, _) in &self.doors {
             let collider = self
                 .world
                 .bodies
@@ -2018,11 +2035,28 @@ impl Runtime {
     }
 
     fn update_doors(&mut self, doors: &[DoorCollider], immediate: bool) {
-        if self.doors.len() != doors.len() {
-            for handle in self.doors.drain(..) {
+        if self.doors.len() != doors.len()
+            || self
+                .doors
+                .iter()
+                .zip(doors)
+                .any(|((_, npc), door)| *npc != door.npc_body)
+        {
+            for (handle, _) in self.doors.drain(..) {
                 let _removed = self.world.remove_body(handle);
             }
             for door in doors {
+                // Filter before narrow-phase contact so the proxy cannot wake
+                // loose props. Explicit held-item sweeps still query this geometry.
+                let groups = if door.npc_body {
+                    InteractionGroups::new(
+                        NPC_BODY_GROUP,
+                        Group::ALL & !LOOSE_ITEM_GROUP,
+                        InteractionTestMode::And,
+                    )
+                } else {
+                    InteractionGroups::all()
+                };
                 let (handle, _collider) = self.world.insert(
                     RigidBodyBuilder::kinematic_position_based().pose(door_pose(door)),
                     ColliderBuilder::cuboid(
@@ -2030,12 +2064,13 @@ impl Runtime {
                         door.height * 0.5,
                         door.thickness * 0.5,
                     )
+                    .collision_groups(groups)
                     .friction(0.7),
                 );
-                self.doors.push(handle);
+                self.doors.push((handle, door.npc_body));
             }
         }
-        for (&handle, door) in self.doors.iter().zip(doors) {
+        for (&(handle, _), door) in self.doors.iter().zip(doors) {
             if let Some(body) = self.world.bodies.get_mut(handle) {
                 let target = door_pose(door);
                 if immediate {

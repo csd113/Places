@@ -69,6 +69,7 @@ fn cluster_collider(indices: &[u16], vertices: &[Vec3]) -> Option<DoorCollider> 
         return None;
     }
     Some(DoorCollider {
+        npc_body: true,
         hinge_x: lo.x,
         hinge_y: lo.y,
         hinge_z: lo.z.midpoint(hi.z),

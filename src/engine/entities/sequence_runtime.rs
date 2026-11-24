@@ -425,7 +425,7 @@ impl EntityWorld {
                     radius,
                     lower,
                     swept_height,
-                    &self.navigation_obstacles,
+                    &self.item_obstacles.all,
                 )
             {
                 return Err("a solid blocks the path");

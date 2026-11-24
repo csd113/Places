@@ -711,8 +711,10 @@ pub struct AiTickContext<'a> {
     pub stimuli: &'a [Stimulus],
     /// Entities whose motion a running sequence owns this tick.
     pub scripted: &'a [EntityHandle],
-    /// Current bounded physics item boxes, collected once before this tick.
+    /// Physical boxes that obstruct NPC planning and locomotion.
     pub obstacles: &'a [WallAabb],
+    /// All live physics item boxes, including loose props, for sight and reach.
+    pub sight_obstacles: &'a [WallAabb],
     /// Bounded observed physical/object identities, refreshed at perception cadence.
     pub objects: &'a [tasks::AiObject],
     pub player_visible: &'a [EntityHandle],
@@ -3055,7 +3057,7 @@ fn can_catch(agent: &AiAgent, target: &AiTarget, ctx: &AiTickContext<'_>) -> boo
         ctx.index,
         ctx.walls,
         ctx.leaves,
-        ctx.obstacles,
+        ctx.sight_obstacles,
         from,
         to,
         false,

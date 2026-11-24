@@ -231,9 +231,7 @@ impl FrameLoop<'_> {
                 &snapshot.items,
                 super::item_runtime::player_context(&candidate),
             )?;
-            candidate
-                .entities_mut()
-                .set_navigation_obstacles(items.world.navigation_obstacles());
+            candidate.entities_mut().sync_item_obstacles(&items.world);
         } else if !snapshot.items.is_empty() {
             return Err("Checkpoint needs a fresh physical world".into());
         }

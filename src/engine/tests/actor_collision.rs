@@ -63,6 +63,7 @@ fn indexed_actor_poses_match_reverse_scan_with_generation_and_order_controls() -
         stimuli: &[],
         scripted: &[],
         obstacles: &[],
+        sight_obstacles: &[],
         objects: &[],
         player_visible: &[],
         use_acks: &[],

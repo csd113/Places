@@ -179,7 +179,8 @@ impl EntityWorld {
             let step = elevator.advance(ctx.delta_seconds, ctx.feet, |leaf| {
                 door_pose_hits_player(leaf, ctx.feet, ctx.body_height, ctx.body_half)
                     || self
-                        .navigation_obstacles
+                        .item_obstacles
+                        .all
                         .iter()
                         .any(|wall| door_pose_hits_box(leaf, wall))
                     || self.ai.agents().iter().any(|agent| {

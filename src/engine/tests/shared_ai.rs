@@ -81,6 +81,7 @@ impl Fixture {
                 stimuli: &self.noises,
                 scripted,
                 obstacles: &self.obstacles,
+                sight_obstacles: &self.obstacles,
                 objects: &self.objects,
                 player_visible: &[],
                 use_acks: &self.acks,

@@ -372,6 +372,11 @@ impl Runtime {
         let Some(receiver) = self.world.colliders.get(target) else {
             return false;
         };
+        let incoming_groups = incoming.collision_groups();
+        // Match the solver when admitting the receiver and checking obstructions.
+        if !incoming_groups.test(receiver.collision_groups()) {
+            return false;
+        }
         let receiver_time = cast_shapes_nonlinear(
             motion,
             incoming.shape(),
@@ -390,7 +395,9 @@ impl Runtime {
                 && handle != target
                 && !self.is_quiet_support(sweep, motion, incoming, collider)
         };
-        let filter = query_filter().predicate(&outside_pair);
+        let filter = query_filter()
+            .groups(incoming_groups)
+            .predicate(&outside_pair);
         self.world
             .cast_shape_nonlinear(motion, incoming.shape(), 0.0, receiver_time, false, filter)
             .is_none_or(|(_, hit)| hit.time_of_impact + 1.0e-5 >= receiver_time)

@@ -316,6 +316,8 @@ pub struct DoorCollider {
     pub thickness: f32,
     /// Leaf height above [`Self::hinge_y`].
     pub height: f32,
+    /// Whether this box represents an NPC body in the physics solver.
+    pub(crate) npc_body: bool,
 }
 
 impl DoorCollider {
@@ -384,6 +386,7 @@ impl DoorCollider {
             width,
             thickness,
             height,
+            npc_body: false,
         }
     }
 

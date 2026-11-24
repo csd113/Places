@@ -89,6 +89,10 @@ Lighting ownership remains open for UV sampling and occlusion, switchable contri
 ### 13. [GitHub #60: NPCs pass through loose physics props](https://github.com/csd113/Places/issues/60)
 After the NPC blocking fixes and their native checks, exclude only loose movable physics props from NPC path planning and movement collision. NPCs must not push the prop or wake it. Walls, doors, fixed props, actors, held props and player interaction keep their existing behavior. Verify on a compact editor-authored route with both loose clutter and a genuine obstruction; no mass thresholds or new authoring options.
 
+**Complete.** In the Razer native run, the NPC passed one and two sleeping props (2 kg and 500 kg) without moving or waking them. Another actor and the locked door blocked passage. The unlocked door opened and allowed passage. Focused Rust checks confirmed held props still block NPCs and that a moving prop wakes a dormant prop through an NPC proxy while a closed door shields it.
+
+Pursuit and wrong-floor behavior passed natively. Finding 48 passed its focused Rust test and remains unverified natively. Independent Sol Medium review, 23 focused tests, strict workspace Clippy, and the locked all-features release build passed. The workspace suite had 692 passes and the inherited NPC carry-reset failure.
+
 ### 14. [GitHub #62: Import multiple compiled maps from one local ZIP](https://github.com/csd113/Places/issues/62)
 Build on the existing single-map importer. Find nested `.placesmap` members, ignore unrelated entries, and reuse normal per-map validation and conflict rules without overwriting installed maps. Bound archive expansion and entry count and reject unsafe paths without extracting arbitrary files. Valid maps may succeed despite invalid siblings; report imported and skipped items and reasons. Local compiled-map ZIPs only; no mods, map servers or automatic downloads.
 

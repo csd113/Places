@@ -192,7 +192,7 @@ fn sight_target(agent: &AiAgent, ctx: &AiTickContext<'_>) -> Option<Perceived> {
             ctx.index,
             ctx.walls,
             ctx.leaves,
-            ctx.obstacles,
+            ctx.sight_obstacles,
             eye,
             gaze,
             false,

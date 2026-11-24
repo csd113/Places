@@ -4,12 +4,14 @@
 
 use glam::Vec3;
 
+use crate::engine::physics::{BodyMotion, ItemWorld, PhysicsDef};
+
 use crate::engine::ai::movement::{AgentMove, MoveStep};
 use crate::engine::ai::{AiBehavior, AiDef, AiOutcome, AiState, AiTarget, AiTickContext, AiWorld};
 use crate::engine::collision::{DoorCollider, WallAabb};
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::Doors;
-use crate::engine::entities::id::EntityHandle;
+use crate::engine::entities::{EntityWorld, WorldContext, id::EntityHandle};
 use crate::engine::level::{LevelDef, WalkableCeiling, WalkableFloor};
 use crate::engine::nav::{
     NavAgentProfile, NavDoorState, NavMesh, NavScratch, NoDoors, PathQuery, PathResult,
@@ -121,11 +123,89 @@ impl Fixture {
             stimuli: &self.noises,
             scripted,
             obstacles: &self.obstacles,
+            sight_obstacles: &self.obstacles,
             objects: &[],
             player_visible: &[],
             use_acks: &[],
         }
     }
+}
+
+// The real obstacle handoff and a five-cell corridor catch accidental filtering
+// of held props, or filtering only planning or only movement. Two bounded
+// controller runs use one body and no asset loading or map bake.
+#[test]
+fn loose_item_allows_npc_travel_until_the_player_holds_it() -> Result<(), String> {
+    let level = LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,"id":"loose_item_lane","name":"Loose item lane",
+        "spawn":{"x":0.5,"z":0.5},"rooms":[{"width":5,"depth":1,"height":3}],
+        "props":[{"id":"walker","model":"mannequin","x":0.5,"z":0.5,"solid":false,
+          "components":[{"component":"nav_agent","radius":0.4,"speed_mps":1.25},
+            {"component":"ai","behavior":"idler","walk_speed":1.25,"sight_range":0,"hearing_range":0}]}]}"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let floor = WalkableFloor::from_level(&level);
+    let nav = NavMesh::from_record(grid(5, 1, &[0, 1, 2, 3, 4]))?;
+    let index = CollisionIndex::empty();
+    let feet = Vec3::new(2.5, 0.0, 3.5);
+    let ctx = WorldContext {
+        delta_seconds: 0.1,
+        player_walk_speed: 3.75,
+        feet_from: feet,
+        feet,
+        eye: Vec3::new(2.5, 1.6, 3.5),
+        body_height: 1.8,
+        body_half: 0.4,
+        form_model: None,
+        walls: &[],
+        index: &index,
+        floor: &floor,
+        nav: Some(&nav),
+    };
+    let mut items = ItemWorld::default();
+    items.spawn_authored(
+        1,
+        &PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            pickup: true,
+            ..PhysicsDef::default()
+        },
+        (Vec3::new(-0.4, 0.0, -0.4), Vec3::new(0.4, 0.8, 0.4)),
+        Vec3::new(2.5, 0.0, 0.5),
+        0.0,
+        1.0,
+    )?;
+    let run = |bodies: &ItemWorld| -> Result<f32, String> {
+        let mut world = EntityWorld::from_level(&level);
+        world.sync_item_obstacles(bodies);
+        assert!(
+            world.set_ai_navigation_goal("walker", Vec3::new(4.5, 0.0, 0.5)),
+            "the walker should accept a navigation goal"
+        );
+        for _ in 0_i32..48_i32 {
+            let _step = world.tick(&ctx);
+        }
+        let walker = world.ai().agent("walker").ok_or("Missing lane walker")?;
+        Ok(walker.position.x)
+    };
+    let initial = items.body_center(1).ok_or("Missing lane blocker")?;
+    assert!(
+        run(&items)? > 4.2,
+        "loose box must allow a complete crossing"
+    );
+    assert!(
+        items.body_is_dormant(1),
+        "the crossing must not wake the box"
+    );
+    assert_eq!(items.body_center(1), Some(initial), "the box must not move");
+
+    let eye = Vec3::new(2.5, 1.0, 1.5);
+    assert!(
+        items.pickup(1, eye, (initial - eye).normalize(), 0.0),
+        "player pickup must remain available for the same body"
+    );
+    assert!(run(&items)? < 2.1, "the held box must block this crossing");
+    Ok(())
 }
 
 fn register(world: &mut AiWorld, slot: u32, def: AiDef, position: Vec3) -> EntityHandle {

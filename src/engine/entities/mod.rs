@@ -462,6 +462,19 @@ enum WeatherEndpoints {
     Continuous,
 }
 
+#[derive(Default)]
+struct ItemObstacles {
+    all: Vec<WallAabb>,
+    locomotion: Vec<WallAabb>,
+}
+
+impl ItemObstacles {
+    fn clear(&mut self) {
+        self.all.clear();
+        self.locomotion.clear();
+    }
+}
+
 /// The whole runtime for one loaded world.
 pub struct EntityWorld {
     health_settings: crate::engine::health::HealthSettings,
@@ -540,7 +553,7 @@ pub struct EntityWorld {
     ai_object_cursor: usize,
     ai_use_acks: Vec<crate::engine::ai::tasks::UseAck>,
     /// Current bounded physical-item bounds, shared by AI queries and motion.
-    navigation_obstacles: Vec<WallAabb>,
+    item_obstacles: ItemObstacles,
     moves: Vec<MoveGoal>,
     /// Entities spawned at runtime and still alive, in spawn order.
     live_spawns: Vec<EntityHandle>,
@@ -688,7 +701,7 @@ impl EntityWorld {
             ai_observation_version: 0,
             ai_object_cursor: 0,
             ai_use_acks: Vec::new(),
-            navigation_obstacles: Vec::new(),
+            item_obstacles: ItemObstacles::default(),
             moves: Vec::new(),
             live_spawns: Vec::new(),
             dynamic_keys: Vec::new(),
@@ -790,7 +803,7 @@ impl EntityWorld {
         self.physics_reset_groups = level.physics_reset_groups().map(str::to_string).collect();
         self.authored_physics.clear();
         self.clear_ai_observations();
-        self.navigation_obstacles.clear();
+        self.item_obstacles.clear();
         self.live_spawns.clear();
         self.dynamic_keys.clear();
         self.next_dynamic_key = 1;
@@ -2232,7 +2245,8 @@ impl EntityWorld {
                     drop(
                         fields.insert(
                             "obstacles".into(),
-                            self.navigation_obstacles
+                            self.item_obstacles
+                                .all
                                 .iter()
                                 .map(|bounds| {
                                     serde_json::json!([
@@ -4587,7 +4601,7 @@ impl EntityWorld {
                     ctx.index,
                     ctx.walls,
                     &script_leaves,
-                    &self.navigation_obstacles,
+                    &self.item_obstacles.all,
                     ctx.eye,
                     torso,
                     false,
@@ -4660,11 +4674,29 @@ impl EntityWorld {
         tick
     }
 
-    /// Publishes current physical solids before the next AI simulation tick.
-    pub fn set_navigation_obstacles(&mut self, obstacles: impl Iterator<Item = WallAabb>) {
-        self.navigation_obstacles.clear();
-        self.navigation_obstacles
+    /// Publishes current physical solids and the subset used for NPC locomotion.
+    pub(crate) fn sync_item_obstacles(&mut self, items: &crate::engine::physics::ItemWorld) {
+        self.item_obstacles.clear();
+        for (bounds, blocks_npc) in items
+            .item_obstacles()
+            .take(crate::engine::physics::MAX_BODIES)
+        {
+            self.item_obstacles.all.push(bounds);
+            if blocks_npc {
+                self.item_obstacles.locomotion.push(bounds);
+            }
+        }
+    }
+
+    #[cfg(test)]
+    pub(crate) fn set_navigation_obstacles(&mut self, obstacles: impl Iterator<Item = WallAabb>) {
+        self.item_obstacles.all.clear();
+        self.item_obstacles
+            .all
             .extend(obstacles.take(crate::engine::physics::MAX_BODIES));
+        self.item_obstacles
+            .locomotion
+            .clone_from(&self.item_obstacles.all);
     }
 
     /// Assigns a developer inspection goal to a live agent using normal motion.
@@ -4719,7 +4751,8 @@ impl EntityWorld {
             targets: &targets,
             stimuli: &stimuli,
             scripted: &scripted,
-            obstacles: &self.navigation_obstacles,
+            obstacles: &self.item_obstacles.locomotion,
+            sight_obstacles: &self.item_obstacles.all,
             objects: &self.ai_objects,
             player_visible: &self.script_visible.iter().copied().collect::<Vec<_>>(),
             use_acks: &self.ai_use_acks,
@@ -4921,11 +4954,11 @@ impl EntityWorld {
                 ambient: &ambient,
                 doors: &self.doors,
                 leaves: &leaves,
-                solids: &self.navigation_obstacles,
+                solids: &self.item_obstacles.all,
             };
             let was_capturing = guest.capture.is_some();
             if !was_capturing {
-                guest.tick(ctx, &leaves, &self.navigation_obstacles, &stimuli, &scene);
+                guest.tick(ctx, &leaves, &self.item_obstacles, &stimuli, &scene);
                 if let Some(key) = guest.prey_key()
                     && let Some((id, _, _)) = prey_handles
                         .iter()
@@ -4960,7 +4993,7 @@ impl EntityWorld {
                 let target = identity.and_then(|(id, _, _)| {
                     self.feltlings.iter_mut().find(|prey| prey.state.id == *id)
                 });
-                let events = guest.tick_capture(ctx, &leaves, &self.navigation_obstacles, target);
+                let events = guest.tick_capture(ctx, &leaves, &self.item_obstacles.all, target);
                 if let Some((id, _, handle)) = identity {
                     prey_events.push((guest.state.id.clone(), id.clone(), key, *handle, events));
                 }
@@ -5148,7 +5181,7 @@ impl EntityWorld {
         let index = ctx.index;
         let walls = ctx.walls;
         let agents = self.ai.agents();
-        let obstacles = &self.navigation_obstacles;
+        let obstacles = &self.item_obstacles.all;
         let guests = &self.guests;
         let feltlings = &self.feltlings;
         let mut moved = self.doors.advance(ctx.delta_seconds, |_, candidate| {

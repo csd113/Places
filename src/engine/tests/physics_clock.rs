@@ -5,6 +5,7 @@ use glam::Vec3;
 use crate::engine::physics::{
     BodyMotion, BodySnapshot, FIXED_STEP, ItemWorld, PhysicsDef, PlayerContext,
 };
+use crate::engine::{collision::DoorCollider, level::LevelDef};
 
 fn player() -> PlayerContext {
     PlayerContext {
@@ -45,6 +46,111 @@ fn body(world: &ItemWorld, key: u64) -> Result<BodySnapshot, String> {
         .into_iter()
         .find(|body| body.key == key)
         .ok_or_else(|| format!("body {key} disappeared"))
+}
+
+// A single settled body distinguishes immunity to NPC proxies from disabling
+// kinematic contacts in general. This uses only a flat floor and fixed steps.
+#[test]
+fn npc_proxy_passes_a_sleeping_item_while_a_door_still_pushes_it() -> Result<(), String> {
+    let level = LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,"id":"proxy_contact",
+        "name":"Proxy contact","spawn":{"x":0.5,"z":-0.5},
+        "rooms":[{"x":0,"z":-4,"width":5,"depth":4,"height":3}]}"#,
+    )
+    .map_err(|error| error.to_string())?;
+    let mut world = ItemWorld::from_level(&level, &[]);
+    let context = player();
+    spawn(&mut world, 1, Vec3::new(2.0, 0.1, -2.0))?;
+    for _ in 0_i32..240_i32 {
+        world.step(FIXED_STEP, context, &[]);
+    }
+    let resting = body(&world, 1)?;
+    assert!(
+        resting.sleeping,
+        "item must be asleep before a body crosses"
+    );
+
+    let proxy = |step: u8, npc_body| DoorCollider {
+        npc_body,
+        ..DoorCollider::from_pose(
+            [f32::from(step).mul_add(0.1, 1.0), 0.0, -2.0],
+            [1.0, 0.0],
+            0.25,
+            0.5,
+            0.8,
+        )
+    };
+    for step in 0..=16 {
+        world.step(FIXED_STEP, context, &[proxy(step, true)]);
+        let item = body(&world, 1)?;
+        assert!(item.sleeping, "NPC contact must never wake the item");
+        assert_eq!(
+            item.pose, resting.pose,
+            "NPC contact must not move the item"
+        );
+    }
+    for step in 0..=16 {
+        world.step(FIXED_STEP, context, &[proxy(step, false)]);
+    }
+    let pushed = body(&world, 1)?;
+    assert!(
+        pushed.pose.position.x > 2.15,
+        "the same sweep by a mechanism must push the item"
+    );
+    Ok(())
+}
+
+// One fixed step per case checks the wake sweep ahead of CCD. One further
+// step through the NPC proxy checks that the solver transfers motion.
+#[test]
+fn incoming_prop_wakes_dormant_prop_through_npc_proxy_but_not_through_door() -> Result<(), String> {
+    for npc_body in [false, true] {
+        let mut world = ItemWorld::default();
+        spawn(&mut world, 1, Vec3::new(1.0, 1.0, -2.0))?;
+        world.spawn_authored(
+            2,
+            &dynamic_profile(),
+            (Vec3::splat(-0.1), Vec3::splat(0.1)),
+            Vec3::new(1.31, 1.0, -2.0),
+            0.0,
+            1.0,
+        )?;
+        let resting = body(&world, 2)?.pose;
+        let barrier = DoorCollider {
+            npc_body,
+            ..DoorCollider::from_pose([1.2, 0.6, -2.2], [0.0, 1.0], 0.4, 0.025, 0.8)
+        };
+        assert!(
+            world.set_fixture_velocity(1, Vec3::new(18.0, 0.0, 0.0), Vec3::ZERO),
+            "launch the incoming prop before the fixed step"
+        );
+
+        world.step(FIXED_STEP, player(), &[barrier]);
+
+        let receiver = body(&world, 2)?;
+        if npc_body {
+            assert!(
+                !receiver.dormant,
+                "the incoming prop must wake the receiver before CCD"
+            );
+            world.step(FIXED_STEP, player(), &[barrier]);
+            let struck = body(&world, 2)?;
+            assert!(
+                struck.linear_velocity.x > 0.1,
+                "the incoming prop must impart motion to the receiver: {struck:?}"
+            );
+        } else {
+            assert!(
+                receiver.dormant,
+                "the real door must shield the dormant receiver"
+            );
+            assert_eq!(
+                receiver.pose, resting,
+                "the blocked impact must leave it in place"
+            );
+        }
+    }
+    Ok(())
 }
 
 #[test]

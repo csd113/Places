@@ -594,7 +594,7 @@ impl EntityWorld {
             ctx.index,
             ctx.walls,
             self.door_colliders(),
-            &self.navigation_obstacles,
+            &self.item_obstacles.all,
             Vec3::new(position.x, position.y + 1.0, position.z),
             Vec3::new(goal.x, goal.y + 1.0, goal.z),
             false,

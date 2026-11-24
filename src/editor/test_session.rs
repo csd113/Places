@@ -234,7 +234,7 @@ impl Session {
         }
         self.game
             .entities_mut()
-            .set_navigation_obstacles(self.physics.world.navigation_obstacles());
+            .sync_item_obstacles(&self.physics.world);
         self.game.update_player_movement_with_items(
             self.input.state_mut(),
             &self.settings,

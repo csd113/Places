@@ -32,7 +32,7 @@ impl EntityWorld {
                         .filter_map(|(other, body)| (other != index).then_some(*body).flatten()),
                 );
                 let _released =
-                    prey.release_at(position, yaw, ctx, &leaves, &self.navigation_obstacles);
+                    prey.release_at(position, yaw, ctx, &leaves, &self.item_obstacles.all);
             }
         }
     }
@@ -60,7 +60,7 @@ impl EntityWorld {
                     .enumerate()
                     .filter_map(|(other, body)| (other != index).then_some(*body).flatten()),
             );
-            let mut solids = self.navigation_obstacles.clone();
+            let mut solids = self.item_obstacles.locomotion.clone();
             solids.push(player_bounds(ctx));
             feltling.tick(ctx, &self.doors, &leaves, &solids);
             if let Some(body) = bodies.get_mut(index) {
@@ -228,7 +228,7 @@ impl EntityWorld {
                     .filter(|other| other.state.id != actor.state.id)
                     .filter_map(Feltling::collider),
             );
-            let mut solids = self.navigation_obstacles.clone();
+            let mut solids = self.item_obstacles.locomotion.clone();
             solids.push(player_bounds(ctx));
             if !actor.clear(ctx, &leaves, &solids) {
                 return Err(format!(

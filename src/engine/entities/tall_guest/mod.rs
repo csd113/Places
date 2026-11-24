@@ -1890,14 +1890,16 @@ impl Guest {
     /// One bounded simulation interval, including live doors, solids and player
     /// occupancy. A failed candidate retains the last actual pose; it cannot
     /// change scale, teleport, disable collision or freeze evidence age.
-    pub fn tick(
+    pub(super) fn tick(
         &mut self,
         ctx: &WorldContext<'_>,
         leaves: &[DoorCollider],
-        solids: &[WallAabb],
+        obstacles: &super::ItemObstacles,
         stimuli: &[Stimulus],
         prop_scene: &dyn prop_track::Scene,
     ) {
+        let solids = &obstacles.locomotion;
+        let sight_solids = &obstacles.all;
         let dt = ctx.delta_seconds.clamp(0.0, 0.1);
         if dt <= 0.0 {
             return;
@@ -1923,11 +1925,11 @@ impl Guest {
         if self.state.voice.is_some() && self.state.clock >= self.state.voice_until {
             self.voice(None, 0.0);
         }
-        self.sense(ctx, leaves, solids, prop_scene);
+        self.sense(ctx, leaves, sight_solids, prop_scene);
         self.heard(stimuli, prop_scene);
         self.sense_prop(prop_scene, ctx);
         self.choose_intent();
-        self.constrain_prediction(ctx, leaves, solids, prop_scene);
+        self.constrain_prediction(ctx, leaves, sight_solids, prop_scene);
         if matches!(
             self.state.intent,
             Intent::EscapeFrustration | Intent::Disabled
@@ -1946,7 +1948,7 @@ impl Guest {
             left -= sub;
             self.safe_step(ctx, leaves, solids, sub, prop_scene);
         }
-        self.check_attack(ctx, leaves, solids, prop_scene);
+        self.check_attack(ctx, leaves, sight_solids, prop_scene);
         self.maintain_voice();
     }
 

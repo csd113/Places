@@ -825,7 +825,7 @@ fn use_point(
             ctx.index,
             ctx.walls,
             ctx.leaves,
-            ctx.obstacles,
+            ctx.sight_obstacles,
             eye,
             contact,
             delivery_body.or(Some(contact)),

@@ -122,7 +122,7 @@ impl EntityWorld {
                     leaves.extend_from_slice(body);
                 }
             }
-            guest.validate_restored_pose(ctx, &leaves, &self.navigation_obstacles)?;
+            guest.validate_restored_pose(ctx, &leaves, &self.item_obstacles.locomotion)?;
         }
         self.refresh_guest_colliders();
         self.rebuild_entity_frames();

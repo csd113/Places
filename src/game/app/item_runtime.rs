@@ -644,7 +644,7 @@ impl FrameLoop<'_> {
         self.observe_held_item();
         self.game
             .entities_mut()
-            .set_navigation_obstacles(self.items.world.navigation_obstacles());
+            .sync_item_obstacles(&self.items.world);
         if self.window_focused
             && !self.cinematic_controls_blocked()
             && self.load_intent.is_none()
