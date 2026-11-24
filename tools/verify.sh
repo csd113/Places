@@ -17,7 +17,7 @@ python3 tools/entities/check_clip_boundaries.py
 # must match what those tools emit today.
 python3 tools/levels/build_outdoor_fixture.py --check
 python3 tools/levels/compile.py --list-json
-./target/release/places-compile check-project projects/environments --asset-root assets
+./target/release/places-map-compiler check-project projects/environments --asset-root assets
 python3 tools/levels/build_lighting_quality.py --check
 python3 tools/textures/frutiger_aero_art.py --check
 python3 tools/levels/build_capacity_fixtures.py --check
@@ -34,7 +34,7 @@ case "${PLACES_VERIFY_ALL_MAPS:-0}" in
   1)
     map_gate_root="target/verification/map-regression-$(date -u +%Y%m%dT%H%M%SZ)-$$"
     python3 tools/bench/regression_maps.py --run-packages \
-      --compiler target/release/places-compile --out "$map_gate_root" \
+      --compiler target/release/places-map-compiler --out "$map_gate_root" \
       --prepared-root target/verification/maps --install-source-packages
     ;;
   *)

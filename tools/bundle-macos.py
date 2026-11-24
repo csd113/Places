@@ -69,7 +69,7 @@ def inspect(binaries: list[Path]) -> tuple[Path, dict[Path, str]]:
 def bundle(flat: Path, app: Path) -> None:
     if sys.platform != 'darwin':
         raise ValueError('macOS runtime bundling must run on macOS')
-    names = [name for name in ('places', 'places-compile', 'places-editor') if (flat / name).is_file()]
+    names = [name for name in ('places', 'places-map-compiler', 'places-editor') if (flat / name).is_file()]
     source, originals = inspect([flat / name for name in names])
     minimum = max((minimum_macos(binary) for binary in [source, *originals]), key=version_key)
     supplied = os.environ.get('PLACES_SDL_LICENSE')

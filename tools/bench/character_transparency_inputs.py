@@ -2,7 +2,7 @@
 """Write twelve small native BLEND controls into a new, explicit directory.
 
 This developer operation never bakes maps or runs in CI. Build its JSON sources
-with places-compile --variants static,full into an isolated state root. It reuses
+with places-map-compiler --variants static,full into an isolated state root. It reuses
 the preserved #24 control and existing assets; no images or models are generated.
 """
 import argparse

@@ -155,11 +155,11 @@ def _write_level(root: str, level: dict) -> None:
     playable levels directory.
     """
     compiler = os.environ.get(
-        "PLACES_COMPILE_BIN", os.path.join(ROOT, "target", "release", "places-compile")
+        "PLACES_COMPILE_BIN", os.path.join(ROOT, "target", "release", "places-map-compiler")
     )
     if not os.path.isfile(compiler):
         raise unittest.SkipTest(
-            "no release compiler at target/release/places-compile; "
+            "no release compiler at target/release/places-map-compiler; "
             "run `cargo build --release` first"
         )
     sources = os.path.join(root, "sources")
@@ -191,7 +191,7 @@ def _write_level(root: str, level: dict) -> None:
         check=False,
     )
     if result.returncode != 0:
-        raise AssertionError(f"places-compile failed for {level['id']}:\n{result.stdout}")
+        raise AssertionError(f"places-map-compiler failed for {level['id']}:\n{result.stdout}")
 
 
 def _primary_level() -> dict:

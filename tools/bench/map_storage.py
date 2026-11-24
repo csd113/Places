@@ -4,9 +4,9 @@
 The optional shuffle experiment uses stdlib zlib, with a matching unshuffled
 control. It reconstructs and hashes every original atlas byte. It is NOT a
 runtime-loadable format or a production encoder. Output belongs in ignored
-tools/bench/results/, never docs/. Native codec repacks use the package-repack tool binary
-(`cargo build --release --bin package-repack`).
-Inputs must first pass native places-compile validation; this diagnostic tool
+tools/bench/results/, never docs/. Native codec repacks use
+`places-map-compiler --debug repack`.
+Inputs must first pass native places-map-compiler validation; this diagnostic tool
 does not duplicate all native archive/semantic security checks.
 """
 from __future__ import annotations
@@ -37,7 +37,7 @@ def checked_archive(path):
         archive.close()
         raise ValueError(
             'This ordinary-map storage/delivery diagnostic does not analyze shared project bundles; '
-            'use places-compile validate and the collection acceptance tools for the complete project.'
+            'use places-map-compiler validate and the collection acceptance tools for the complete project.'
         )
     if len(names) > 512 or len(names) != len(set(names)):
         raise ValueError("entry count or duplicate names")

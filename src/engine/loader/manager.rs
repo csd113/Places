@@ -741,7 +741,7 @@ impl LevelManager {
             if extension == "json" || extension == "zip" {
                 return Err(format!(
                     "{} is an authoring source. Compile it first with \
-                     `places-compile build {}` and import the resulting .placesmap",
+                     `places-map-compiler build {}` and import the resulting .placesmap",
                     source_path.display(),
                     source_path.display()
                 ));
@@ -1000,7 +1000,7 @@ impl LevelManager {
                         format!("import-source:{}", path.display()),
                         format!(
                             "[levels] {} is an authoring source; compile it with \
-                             `places-compile build {}` and import the .placesmap",
+                             `places-map-compiler build {}` and import the .placesmap",
                             path.display(),
                             path.display()
                         ),

@@ -129,7 +129,7 @@ def main():
     ap=argparse.ArgumentParser(description=__doc__)
     ap.add_argument('--out',type=Path,required=True)
     ap.add_argument('--binary',type=Path,default=REPO/'target/debug/places')
-    ap.add_argument('--compiler',type=Path,default=REPO/'target/debug/places-compile')
+    ap.add_argument('--compiler',type=Path,default=REPO/'target/debug/places-map-compiler')
     ap.add_argument('--profiles',default='high,medium,low')
     ap.add_argument('--workers',type=int,default=12)
     ap.add_argument('--levels',default='')

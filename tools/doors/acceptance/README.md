@@ -33,7 +33,7 @@ quality switches; `native-npc-flashlight` covers closed/open route clearance and
 real flashlight geometry; `native-culling-final` covers open-leaf bounds.
 
 For the editor, launch `places-editor <out>/editor-project --asset-root <assets>
---compiler <current places-compile> --game <current places> --verify-script
+--compiler <current places-map-compiler> --game <current places> --verify-script
 <out>/native-editor-final/script.json --capture-dir <out>/native-editor-final`.
 After it saves, launch the reopen and Scene-select scripts against that same
 private editor project. The supplied `script.output` paths are rewritten by the

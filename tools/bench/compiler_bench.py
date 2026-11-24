@@ -119,7 +119,7 @@ def save_report(path, report):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places-compile")
+    parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places-map-compiler")
     parser.add_argument("--out", type=Path, required=True)
     parser.add_argument("--maps", nargs="+", default=["tests/fixtures/levels/test_room.json",
                         "tests/fixtures/levels/material_transport.json", "tests/fixtures/levels/architecture_after.json"])

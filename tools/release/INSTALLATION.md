@@ -52,19 +52,36 @@ Windows even with matching source. For example, after preparing maps on Mac:
 
 ```sh
 python3 tools/package-levels.py /path/to/ReleaseMaps \
-  /path/to/Places-0.13.1-Levels.zip --compiler /path/to/preparing/places-compile
+  /path/to/Places-0.13.1-Levels.zip --compiler /path/to/preparing/places-map-compiler
 ```
 
-The Windows application package needs its own native game/editor/compiler and
-a menu prepared with that Windows compiler. From the matching source checkout:
+Each application package needs its own native game/editor/compiler and a menu
+export prepared by that same release compiler. Open the unchanged saved
+`projects/menu` in Places Editor and choose **Project > Export all levels +
+sources**. Use the resulting Static/Full `.placesmap` as the packager's
+`--menu-package` input. Keep the checkout's bundled runtime menu unchanged.
+Run the local preparation and packaging commands from the root of the matching
+source checkout.
+
+Keep the matching SDL3 and DXC runtime DLLs beside the compiler while it
+prepares the menu. The runtime directory supplied to the packager must contain
+those DLLs and the required Windows runtime files and notices.
 
 ```powershell
-C:\Validated\places-compile.exe build projects\menu --out C:\Exports\menu.placesmap `
-  --asset-root assets --variants static,full
+C:\Validated\places-editor.exe projects\menu --asset-root "$PWD\assets"
+# In the editor, export to C:\Exports\menu.placesmap.
 python tools/package-windows.py --with-editor --bin-dir C:\Validated `
   --runtime-dir C:\Exports\Runtime --sdl-license C:\Dev\SDL3\LICENSE.txt `
   --menu-package C:\Exports\menu.placesmap `
   C:\Exports\Windows
+```
+
+On macOS, after building the native release executables:
+
+```sh
+target/release/places-editor projects/menu
+# In the editor, export to the absolute path for target/menu.placesmap.
+sh tools/package.sh --with-editor --menu-package target/menu.placesmap /path/to/new-export-parent
 ```
 
 The levels packager never bakes: it validates every archive record and dependency,
@@ -73,8 +90,8 @@ lighting, and refuses extra/missing packages or an existing output. `LEVELS.json
 records source/compiler/catalog identities, membership, sizes and SHA-256 hashes.
 The outer ZIP stores the already-compressed packages unchanged. Use the Windows
 packager without `--maps` for this release layout; `--maps` remains an explicit
-developer combined-install export option. On Mac, `sh tools/package.sh
---with-editor <new-export-parent>` stages its app resources without gameplay maps.
+developer combined-install export option. Both commands above stage the app
+without gameplay maps.
 Native Mac build, launch, dependency/signing and same-levels-ZIP acceptance are
 required on the Mac; Windows preparation or cross-compilation cannot establish
 those results. A compiler preparation fingerprint can include its host target;
@@ -90,7 +107,7 @@ packaging must use the matching final native tools and runtime dependencies.
 ```text
 Places/
   places                     places.exe on Windows
-  places-compile             optional authoring tool
+  places-map-compiler             optional authoring tool
   places-editor              optional basic authoring application
   lib/libSDL3.0.dylib         macOS runtime, included by the exporter
   SDL3-LICENSE.txt            license for the exact bundled SDL runtime
@@ -108,12 +125,13 @@ under `Contents/Resources/`. Unix prefix layouts may use `bin/places` alongside
 `share/places/assets/`. These paths are discovered from the executable, never
 from the process working directory. No writes are required in the installation.
 
-`sh tools/package.sh [--with-compiler | --with-editor] [--maps <directory>] <export-parent>`
+`sh tools/package.sh [--with-compiler | --with-editor] [--menu-package <file>] [--maps <directory>] <export-parent>`
 stages the flat layout and Mac bundle from existing release binaries. It copies
 licenses, sound credits and runtime resources, excludes source artwork/masters,
 and includes no maps unless explicitly requested. Every export needs the matching
 release compiler to validate the bundled menu against final staged assets and
-current menu source. The compiler is included in the payload only when requested.
+current menu source. Use `--menu-package` when the checkout's menu does not match
+the host compiler. The compiler is included in the payload only when requested.
 `--maps` validates existing
 packages against the staged assets; it does not bake maps. `--with-editor` includes
 the compiler, player and editor instructions. On macOS the exporter copies the
@@ -146,7 +164,7 @@ successful installation is not exhaustive gameplay acceptance.
 
 Extract the entire `Places-0.13.0-Windows.zip`, keep its `Places` folder together,
 and open `Places/places.exe`. Open `Places/places-editor.exe` for the editor;
-`Places/places-compile.exe` is the offline compiler and offers its native GUI
+`Places/places-map-compiler.exe` is the offline compiler and offers its native GUI
 with the `gui` argument. The x64 player requires Windows and a Direct3D 12 GPU.
 Rust, Python and the repository are not runtime dependencies.
 
@@ -165,12 +183,15 @@ The current three-project release inventory is explicit in `tools/release-projec
 exports retain their normal Static and Full variants. Explore lists project
 entries, and authored transitions reach their internal members.
 
-On Windows, use the native exporter after building matching binaries and preparing
-the selected map directory. `--with-editor` includes both editor and compiler:
+On Windows, run the native exporter from the checkout root. Use the same
+`C:\Validated` binaries and prepared menu as in the example above, plus a
+directory of verified gameplay packages. `--with-editor` includes both editor
+and compiler:
 
 ```powershell
-python tools/package-windows.py --with-editor --maps C:\Exports\ReleaseMaps `
+python tools/package-windows.py --with-editor --bin-dir C:\Validated `
   --runtime-dir C:\Exports\Runtime --sdl-license C:\Dev\SDL3\LICENSE.txt `
+  --menu-package C:\Exports\menu.placesmap --maps C:\Exports\ReleaseMaps `
   C:\Exports\Candidate
 ```
 
@@ -195,11 +216,15 @@ or a public release.
 
 ## macOS launch
 
-Build and export from the checkout, retaining the existing verified collection:
+Build and export from the checkout root, retaining the verified collection in
+`assets/levels`. Prepare the menu with the same newly built release tools as
+in the macOS menu-export example above:
 
 ```sh
 cargo build --locked --release --workspace --all-features
-sh tools/package.sh --with-editor --maps assets/levels "$HOME/Places Exports/0.13.0"
+# Export the menu from the editor to the absolute path for target/menu.placesmap.
+sh tools/package.sh --with-editor --menu-package target/menu.placesmap \
+  --maps assets/levels "$HOME/Places Exports/0.13.0"
 ```
 
 Keep the entire `Places` directory together when moving it. Launch the direct
@@ -235,9 +260,10 @@ PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places --import /absolute/path/
 PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub ./target/release/places
 ```
 
-For an installation export, use `sh tools/package.sh --maps assets/levels
-<export-parent>` after the existing verified collection is installed in that
-directory. This validates and copies packages without baking. Include the
+For an installation export, use the [macOS combined-install command](#macos-launch)
+from the checkout root once the verified collection is in `assets/levels` and
+the matching prepared menu is available. This validates and copies packages
+without baking. Include the
 `environments/janitor_closet/` resources used by Pool; the exporter now carries them alongside
 the other catalog resources. Keep user-imported maps and recovery copies intact;
 the repository retirement does not delete anyone's installed user maps.
@@ -371,7 +397,7 @@ follows the native filesystem; Windows/Linux native path acceptance is still due
 Use `paths::assets()`, `paths::user()` and `paths::initialize_user()`; do not add
 another resolver. `UserPaths::projects()` is a default folder, not a project
 manifest. Keep `ProjectFolder::open` and confined `ProjectPath` source resolution.
-Save validated authoring documents atomically, then invoke `places-compile build
+Save validated authoring documents atomically, then invoke `places-map-compiler build
 <project> --level <id> --out <explicit-output.placesmap>`; installed compiler
 discovery works without `--asset-root`. `BuildRequest.asset_root` should come from
 the same resolver. The default output still uses `project::output_path`.

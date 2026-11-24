@@ -20,9 +20,9 @@ loads the prepared external packages. See
 
 ```sh
 cargo build --release --bins --features visual-diagnostics
-target/release/places-compile build levels/places_demo.json --out assets/levels/places_demo.placesmap
-target/release/places-compile build levels/lantern_hollow.json --out assets/levels/lantern_hollow.placesmap
-target/release/places-compile build levels/home_showcase.json --out assets/levels/home_showcase.placesmap
+target/release/places-map-compiler build levels/places_demo.json --out assets/levels/places_demo.placesmap
+target/release/places-map-compiler build levels/lantern_hollow.json --out assets/levels/lantern_hollow.placesmap
+target/release/places-map-compiler build levels/home_showcase.json --out assets/levels/home_showcase.placesmap
 ```
 
 The capture tool refuses to overwrite existing images. Sequence capture paths

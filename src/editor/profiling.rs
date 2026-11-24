@@ -1,5 +1,4 @@
-//! Opt-in CPU operation probe for `editor-profile --responsiveness PROJECT`.
-//! No window, GPU, map bake, save, or automatic test/CI invocation.
+//! Opt-in CPU editor diagnostics. No window, GPU or map bake.
 
 mod document_session;
 
@@ -10,7 +9,7 @@ pub fn document_session(path: &Path, level: &str) -> Result<Value, String> {
     document_session::run(path, level)
 }
 
-use std::{hint::black_box, path::Path, time::Instant};
+use std::{hint::black_box, io::Write as _, path::Path, time::Instant};
 
 use serde_json::{Value, json};
 use sha2::{Digest as _, Sha256};
@@ -166,4 +165,83 @@ pub fn preview_audit(path: &Path, level: &str) -> Result<Value, String> {
     let mut document = Document::open(path)?;
     document.select_level(level)?;
     super::viewport::preview::audit::run(document.level())
+}
+
+fn measure_result(mut work: impl FnMut() -> Result<(), String>, count: u16) -> Result<f64, String> {
+    let start = Instant::now();
+    for _ in 0..count {
+        work()?;
+    }
+    Ok(start.elapsed().as_secs_f64() * 1000.0 / f64::from(count))
+}
+
+pub(super) fn debug_cli(args: &[String]) -> Result<(), String> {
+    let value = match args {
+        [mode, path] if mode == "profile" => return profile(Path::new(path)),
+        [mode, path] if mode == "responsiveness" => responsiveness(Path::new(path))?,
+        [mode, path, level] if mode == "document-session" => {
+            document_session(Path::new(path), level)?
+        }
+        [mode, path, level] if mode == "preview-audit" => preview_audit(Path::new(path), level)?,
+        _ => return Err("Use --debug profile|responsiveness <project> or --debug document-session|preview-audit <project> <level>".into()),
+    };
+    writeln!(std::io::stdout().lock(), "{value}").map_err(|error| error.to_string())
+}
+
+fn profile(path: &Path) -> Result<(), String> {
+    let opening = measure_result(
+        || {
+            let _opened = black_box(Document::open(path)?);
+            Ok(())
+        },
+        10,
+    )?;
+    let mut doc = Document::open(path)?;
+    let ids: Vec<_> = doc.level_ids().map(str::to_owned).collect();
+    let switches = measure_result(
+        || {
+            for id in &ids {
+                doc.select_level(id)?;
+            }
+            Ok(())
+        },
+        20,
+    )? / f64::from(u16::try_from(ids.len()).map_err(|e| e.to_string())?);
+    doc.select_level(ids.get(1).ok_or("Needs multiple maps")?)?;
+    let objects = measure(
+        || {
+            let _objects = black_box(doc.objects());
+        },
+        1000,
+    );
+    let dirty = measure(
+        || {
+            let _dirty = black_box(doc.is_dirty());
+        },
+        1000,
+    );
+    let pose = doc.transform(ObjectId::Prop(0))?;
+    let edits = measure_result(
+        || {
+            let mut next = pose;
+            next.yaw_degrees += 5.0;
+            doc.set_transform(ObjectId::Prop(0), next)?;
+            let _undo = doc.undo();
+            Ok(())
+        },
+        20,
+    )?;
+    let history = measure(
+        || {
+            let _redo = doc.redo();
+            let _undo = doc.undo();
+        },
+        20,
+    );
+    let save = measure_result(|| doc.save_all(), 5)?;
+    writeln!(std::io::stdout(),
+        "{}",
+        serde_json::json!({"kind":"cpu_document_latency_ms","open":opening,"switch_cached":switches,"scene_list":objects,"dirty_check":dirty,"edit_and_undo":edits,"redo_and_undo":history,"save_clean":save,"object_count":doc.objects().len()})
+    ).map_err(|error|error.to_string())?;
+    Ok(())
 }

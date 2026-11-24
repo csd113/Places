@@ -46,9 +46,9 @@ lists all eight superseded standalone IDs and the preserved recovery material.
 For an explicit project export or native compiler selection:
 
 ```sh
-./target/release/places-compile export-project projects/environments \
+./target/release/places-map-compiler export-project projects/environments \
   --out assets/levels/environments.placesmap --asset-root assets --workers 8
-./target/release/places-compile verify projects/environments --level office \
+./target/release/places-map-compiler verify projects/environments --level office \
   --package assets/levels/environments.placesmap --asset-root assets --require-current
 ```
 

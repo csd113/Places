@@ -19,7 +19,7 @@ from pathlib import Path
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--compiler', type=Path, default=Path('target/release/places-compile'))
+    parser.add_argument('--compiler', type=Path, default=Path('target/release/places-map-compiler'))
     parser.add_argument('--asset-root', type=Path, default=Path('assets'))
     parser.add_argument('--project', type=Path, action='append', default=[])
     parser.add_argument('--report', type=Path)

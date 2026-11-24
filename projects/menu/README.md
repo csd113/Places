@@ -54,25 +54,29 @@ repeatable. Native recordings establish appearance and behavior; capture-free
 VSync-off runs establish performance separately, with actual presentation mode
 and drawable size recorded. Source implementation is not native acceptance.
 
-Bake explicitly with the release compiler and native GPU support:
+Prepare the unchanged saved project in the native release editor, with its
+matching map compiler beside it and native GPU support available. Open
+`projects/menu`, choose **Project > Export all levels + sources**, and export
+to the absolute path for `local/menu.placesmap`. The editor prepares the
+normal Static and Full variants. To verify the export independently:
 
 ```sh
-places-compile build projects/menu --out local/menu.placesmap --asset-root assets --variants static,full --workers 6
-places-compile validate local/menu.placesmap --asset-root assets
-places-compile verify projects/menu --package local/menu.placesmap --asset-root assets --require-current
+places-map-compiler validate local/menu.placesmap --asset-root assets
+places-map-compiler verify projects/menu --level places_menu --package local/menu.placesmap --asset-root assets --require-current
 ```
 
-Only after verification, copy the package to `assets/shared/menu/scene.bin`.
-Cargo and ordinary tests do not bake this scene. It is a tracked application
-resource and works without gameplay maps or a source checkout. It never appears
-as an Explore entry.
+For local packaging, pass `--menu-package local/menu.placesmap` to either host
+packager. Both verify the staged copy against the final payload and current
+source. There is no need to replace the tracked `assets/shared/menu/scene.bin`.
+Cargo and ordinary tests do not bake this scene. It works without gameplay maps
+or a source checkout and never appears as an Explore entry.
 
 
 ## Runtime storage migration (2026-10-24)
 
 The actual `assets/shared/menu/scene.bin` was migrated losslessly from the preserved
 17,025,419-byte runtime package to 15,558,745 bytes using supported compact
-`places-compile optimize-storage`, without rebaking. Binary ZIP transport uses
+`places-map-compiler optimize-storage`, without rebaking. Binary ZIP transport uses
 Zstd method 93, lightmaps use PLC1 revision 2, and cost-selected prop recipes remain
 PPS1 revision 2. Full/Static decoded records, scripts, dependencies and original
 build-input provenance are exact; native matched appearance and representative

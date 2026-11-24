@@ -5,7 +5,7 @@ fixed ghost opacity/overlap controls, absent-instance zero comparison and routed
 proximity fade. They are explicit developer diagnostics, outside automatic CI,
 Rust tests and the release lineup. Do not bake a shipped collection for them.
 
-Compile one source with `places-compile build <source> --out <new-package>
+Compile one source with `places-map-compiler build <source> --out <new-package>
 --asset-root assets --workers 1 --variants static,full`, then install that package
 under an isolated state root's `levels/` directory. The internal level IDs remain
 `issue24_ghost_controls`, `issue24_ghost_absent`, `issue24_ghost_motion` and

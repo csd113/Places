@@ -17,7 +17,7 @@ from curated_maps import ROOT, level_views, lineup, project_manifest, source_lev
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--compiler', type=Path, default=ROOT / 'target/release/places-compile')
+    parser.add_argument('--compiler', type=Path, default=ROOT / 'target/release/places-map-compiler')
     parser.add_argument('--output', type=Path, default=ROOT / 'assets/levels')
     parser.add_argument('--workers', type=int, default=8)
     parser.add_argument('--check', action='store_true', help='Require current full packages; do not rebuild')

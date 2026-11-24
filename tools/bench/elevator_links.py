@@ -77,7 +77,7 @@ def author(args):
 
 
 def main():
-    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--out',type=Path,required=True);parser.add_argument('--mode',choices=['groups','demo'],default='groups');parser.add_argument('--run',action='store_true');parser.add_argument('--editor',type=Path,default=ROOT/'target/debug/places-editor');parser.add_argument('--compiler',type=Path,default=ROOT/'target/debug/places-compile');args=parser.parse_args()
+    parser=argparse.ArgumentParser(description=__doc__);parser.add_argument('--out',type=Path,required=True);parser.add_argument('--mode',choices=['groups','demo'],default='groups');parser.add_argument('--run',action='store_true');parser.add_argument('--editor',type=Path,default=ROOT/'target/debug/places-editor');parser.add_argument('--compiler',type=Path,default=ROOT/'target/debug/places-map-compiler');args=parser.parse_args()
     out,project,script=author(args)
     if args.run:
         with (out/'editor.log').open('w') as log:

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Sequential isolated lossless campaign; never bake or replace production maps.
 
-Build with cargo build --release --bin package-repack first. Originals must be locally trusted. Native validation,
+Build with cargo build --release --bin places-map-compiler first. Originals must be locally trusted. Native validation,
 exact baseline repack, on-disk factoring reconstruction, deterministic native
 codec outputs and original-file preservation are checked. Research ZIPs remain
 unplayable; timing is offline, not a browser/runtime result.
@@ -27,13 +27,14 @@ def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('packages', type=Path, nargs='+')
     parser.add_argument('--out', type=Path, required=True, help='new ignored campaign directory')
-    parser.add_argument('--repack', type=Path, default=ROOT / 'target/release/package-repack')
+    executable = 'places-map-compiler.exe' if os.name == 'nt' else 'places-map-compiler'
+    parser.add_argument('--compiler', type=Path, default=ROOT / 'target/release' / executable)
     args = parser.parse_args()
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
-    repack = str(args.repack.resolve())
-    compiler = str(ROOT / 'target/release/places-compile')
-    report = dict(platform=platform.platform(), repacker_sha256=digest(Path(repack)),
+    compiler = str(args.compiler.resolve())
+    repack = [compiler, '--debug', 'repack']
+    report = dict(platform=platform.platform(),
                   compiler_sha256=digest(Path(compiler)), records=[],
                   note='Warm OS caches, sequential release offline work. RSS is whole process.')
 
@@ -79,10 +80,10 @@ def main():
             raise ValueError('original dependencies are not intact; not a current runtime candidate')
         for level in (6, 9):
             candidate = out / f'{label}-{level}.placesmap'
-            row[f'deflate{level}'] = run(label+f'-pack{level}', [repack, str(source), str(candidate), str(level)])
+            row[f'deflate{level}'] = run(label+f'-pack{level}', [*repack, str(source), str(candidate), str(level)])
             if level == 6 and digest(candidate) != identity:
                 raise ValueError('baseline native level-6 repack differs')
-            row[f'read{level}'] = [run(label+f'-read{level}-{repeat}', [repack, '--read-only', str(candidate)])
+            row[f'read{level}'] = [run(label+f'-read{level}-{repeat}', [compiler, '--debug', 'package-read', str(candidate)])
                                    for repeat in range(3)]
             candidate.unlink()  # Task-owned temporary: receipts preserve evidence.
         store = out / f'{label}-factor-store.zip'
@@ -93,7 +94,7 @@ def main():
         candidates = []
         for repeat in range(2):
             candidate = out / f'{label}-factor{repeat}.zip'
-            row[f'factor_pack{repeat}'] = run(label+f'-factor-pack{repeat}', [repack, str(store), str(candidate), '6'])
+            row[f'factor_pack{repeat}'] = run(label+f'-factor-pack{repeat}', [*repack, str(store), str(candidate), '6'])
             proof = out / f'{label}-proof{repeat}.json'
             row[f'factor_verify{repeat}'] = run(label+f'-factor-verify{repeat}',
                                               ['python3', 'tools/bench/map_delivery.py', str(source),

@@ -7,14 +7,14 @@ silently stamp the actual Places version; Explore details show the package relea
 
 Run `places-editor` with the external `assets/` payload described in
 [INSTALLATION.md](INSTALLATION.md). First-person quick testing runs entirely
-inside the editor. Keep `places-compile` beside it for final builds and use
+inside the editor. Keep `places-map-compiler` beside it for final builds and use
 `places` to check exported projects. No map bake is required to compile an application.
 
 ```sh
 /path/to/places-editor /path/to/project
 /path/to/places-editor --new /existing/parent/my-room
 /path/to/places-editor /path/to/project --level entry \
-  --compiler /path/to/places-compile --game /path/to/places
+  --compiler /path/to/places-map-compiler --game /path/to/places
 ```
 
 All tools share installation/user-path resolution and preserve the launch
@@ -159,7 +159,7 @@ repeatable checks of unbundled direct executables when desktop automation cannot
 address their windows.
 
 For an explicit CPU authoring comparison, run
-`editor-profile --document-session /absolute/isolated-project LEVEL_ID`.
+`places-editor --debug document-session /absolute/isolated-project LEVEL_ID`.
 Use a disposable copy: the probe edits, exercises 64 retained revisions,
 saves and reopens that copy. It reports individual wall move/resize, available
 door/light transform, material, undo/redo and switch timings with exact source
@@ -596,11 +596,11 @@ internal destination for transitions, direct diagnostic selection and import
 conflict checks. Map settings, Allowed transitions, Map crosshair and Explore menu
 have separate controls; the selected-level image remains in its dedicated sheet.
 
-For explicit CPU latency checks, run `editor-profile PATH_TO_ISOLATED_PROJECT`.
+For explicit CPU latency checks, run `places-editor --debug profile PATH_TO_ISOLATED_PROJECT`.
 It reports document operations and performs reversible in-memory transform/history
 work. Native `--verify-script` recipes retain per-action handler and idle-wait
 milliseconds in `timings.jsonl`. Neither is an FPS benchmark or a CI map bake.
-`editor-profile --responsiveness PATH_TO_ISOLATED_PROJECT` additionally measures
+`places-editor --debug responsiveness PATH_TO_ISOLATED_PROJECT` additionally measures
 cold/warm picker and thumbnail operations, safety scans, Inspect/Environment CPU
 preparation and exact transform/history restoration against the real project.
 It checks picker results against the uncached filter across themes, types and

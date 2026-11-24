@@ -1,15 +1,16 @@
 #!/bin/sh
-# package.sh [--check-destination] [--with-compiler | --with-editor] [--maps directory] [output-root]
+# package.sh [--check-destination] [--with-compiler | --with-editor] [--menu-package file] [--maps directory] [output-root]
 #
 # Stages a clean Places resource payload from a host release binary.
 #
 # Default exports contain no maps. --maps explicitly includes external compiled
 # packages from one directory; it never fetches or compiles map sources.
+# --menu-package supplies a current host-built menu export without changing the checkout.
 # Resource layout (writable state is created in platform user storage):
 #
 #   <output-root>/Places/
 #       places              the executable (built as `places`)
-#       places-compile      optional --with-compiler, same resource discovery
+#       places-map-compiler      optional --with-compiler, same resource discovery
 #       places-editor       optional --with-editor (includes compiler)
 #       lib/                bundled SDL3 on macOS
 #       assets/             catalog, gameplay profiles, levels, models, textures, decals
@@ -41,6 +42,7 @@ REPO=$(cd "$(dirname "$0")/.." && pwd)
 OUT="$REPO/target/package"
 CHECK_ONLY=0
 MAPS=""
+MENU_PACKAGE=""
 WITH_COMPILER=0
 WITH_EDITOR=0
 while [ $# -gt 0 ]; do
@@ -48,6 +50,14 @@ while [ $# -gt 0 ]; do
     --check-destination) CHECK_ONLY=1 ;;
     --with-compiler) WITH_COMPILER=1 ;;
     --with-editor) WITH_EDITOR=1; WITH_COMPILER=1 ;;
+    --menu-package)
+        shift
+        if [ $# -eq 0 ] || [ -z "$1" ] || [ -n "$MENU_PACKAGE" ]; then
+            echo 'package.sh: --menu-package needs one file and may be used once' >&2
+            exit 2
+        fi
+        MENU_PACKAGE=$1
+        ;;
     --maps)
         shift
         if [ $# -eq 0 ] || [ -n "$MAPS" ]; then
@@ -156,9 +166,9 @@ if [ ! -x "$BIN" ]; then
     exit 1
 fi
 # Every export validates its application-owned menu, even with zero gameplay maps.
-[ -x "$REPO/target/release/places-compile" ] || fail "menu validation needs the matching release places-compile binary"
+[ -x "$REPO/target/release/places-map-compiler" ] || fail "menu validation needs the matching release places-map-compiler binary"
 if [ "$WITH_COMPILER" = 1 ]; then
-    [ -x "$REPO/target/release/places-compile" ] || fail "release places-compile not found; build the workspace first"
+    [ -x "$REPO/target/release/places-map-compiler" ] || fail "release places-map-compiler not found; build the workspace first"
 fi
 if [ "$WITH_EDITOR" = 1 ]; then
     [ -x "$REPO/target/release/places-editor" ] || fail "release places-editor not found; build the workspace first"
@@ -166,8 +176,11 @@ fi
 
 if [ -n "$MAPS" ]; then
     [ -d "$MAPS" ] || fail "map directory does not exist: $MAPS"
-    [ -x "$REPO/target/release/places-compile" ] || fail "--maps validation needs the release places-compile binary"
+    [ -x "$REPO/target/release/places-map-compiler" ] || fail "--maps validation needs the release places-map-compiler binary"
     MAPS=$(cd -P "$MAPS" && pwd -P)
+fi
+if [ -n "$MENU_PACKAGE" ]; then
+    [ -f "$MENU_PACKAGE" ] || fail "--menu-package must be an existing project export"
 fi
 
 echo "packaging Places $VERSION -> $OUT_ABS"
@@ -202,7 +215,7 @@ mkdir -p "$STAGE/Places" "$STAGE/Places.app/Contents/MacOS" "$STAGE/Places.app/C
 # The flat distribution: executable beside its asset root.
 cp "$BIN" "$STAGE/Places/$NAME"
 if [ "$WITH_COMPILER" = 1 ]; then
-    cp "$REPO/target/release/places-compile" "$STAGE/Places/places-compile"
+    cp "$REPO/target/release/places-map-compiler" "$STAGE/Places/places-map-compiler"
 fi
 if [ "$WITH_EDITOR" = 1 ]; then
     cp "$REPO/target/release/places-editor" "$STAGE/Places/places-editor"
@@ -226,17 +239,20 @@ for directory in shared environments entities diagnostic; do
 done
 rm -rf "$STAGE/Places/assets/shared/branding"
 find "$STAGE/Places/assets" -type f \( -name '.DS_Store' -o -name '*_master.png' -o -name '*.blend' -o -name '*.blend1' -o -name '*.xcf' -o -name 'CABINET_ARTWORK_PROMPTS.md' \) -delete
-python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-compile" \
+if [ -n "$MENU_PACKAGE" ]; then
+    cp -- "$MENU_PACKAGE" "$STAGE/Places/assets/shared/menu/scene.bin"
+fi
+python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-map-compiler" \
     --assets "$STAGE/Places/assets" --project "$REPO/projects/menu"
 if [ -n "$MAPS" ]; then
     python3 "$REPO/tools/export-maps.py" "$MAPS" "$STAGE/Places" \
-        "$REPO/target/release/places-compile"
+        "$REPO/target/release/places-map-compiler"
 fi
 
 # The macOS bundle: the same payload under Contents/Resources.
 cp "$BIN" "$STAGE/Places.app/Contents/MacOS/$NAME"
 if [ "$WITH_COMPILER" = 1 ]; then
-    cp "$REPO/target/release/places-compile" "$STAGE/Places.app/Contents/MacOS/places-compile"
+    cp "$REPO/target/release/places-map-compiler" "$STAGE/Places.app/Contents/MacOS/places-map-compiler"
 fi
 if [ "$WITH_EDITOR" = 1 ]; then
     cp "$REPO/target/release/places-editor" "$STAGE/Places.app/Contents/MacOS/places-editor"
@@ -261,7 +277,7 @@ cp -R "$STAGE/Places/assets" "$STAGE/Places.app/Contents/Resources/assets"
 cp -R "$STAGE/Places/docs" "$STAGE/Places.app/Contents/Resources/docs"
 cp "$STAGE/Places/README.md" "$REPO/LICENSE" "$REPO/THIRD_PARTY_LICENSES.txt" "$STAGE/Places.app/Contents/Resources/"
 
-python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-compile" \
+python3 "$REPO/tools/verify-menu.py" --compiler "$REPO/target/release/places-map-compiler" \
     --assets "$STAGE/Places.app/Contents/Resources/assets" --project "$REPO/projects/menu"
 if [ "$(uname -s)" = Darwin ]; then
     python3 "$REPO/tools/bundle-macos.py" "$STAGE/Places" "$STAGE/Places.app"

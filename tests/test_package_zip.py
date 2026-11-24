@@ -49,13 +49,14 @@ class PackageZipTests(unittest.TestCase):
             outputs = []
 
             def decode(command, **kwargs):
-                output = Path(command[2]);outputs.append(output)
-                self.assertEqual(command, [str(reader), str(path.resolve()), str(output), "1"])
+                output = Path(command[4]);outputs.append(output)
+                self.assertEqual(command, [str(reader), "--debug", "repack",
+                                          str(path.resolve()), str(output), "1"])
                 with zipfile.ZipFile(output, "w", compression=zipfile.ZIP_DEFLATED) as archive:
                     archive.writestr("blobs/data", b"small exact fixture")
                 return subprocess.CompletedProcess(command, 0, "{}", "")
 
-            with mock.patch.dict(os.environ, PLACES_PACKAGE_REPACK=str(reader)), mock.patch("subprocess.run", side_effect=decode) as decoder:
+            with mock.patch.dict(os.environ, PLACES_COMPILER=str(reader)), mock.patch("subprocess.run", side_effect=decode) as decoder:
                 with PackageZip(path) as archive:
                     self.assertEqual(archive.read("blobs/data"), b"small exact fixture")
                     with archive.open(archive.getinfo("blobs/data")) as stream:
@@ -72,7 +73,7 @@ class PackageZipTests(unittest.TestCase):
                 outputs = []
 
                 def fail(command, **kwargs):
-                    output = Path(command[2]);outputs.append(output)
+                    output = Path(command[4]);outputs.append(output)
                     if changed:
                         with zipfile.ZipFile(output, "w") as archive:
                             archive.writestr("blobs/data", b"substituted")
@@ -80,7 +81,7 @@ class PackageZipTests(unittest.TestCase):
                         output.write_bytes(b"partial")
                     return subprocess.CompletedProcess(command, 0 if changed else 1, "", "window bound refused")
 
-                with mock.patch.dict(os.environ, PLACES_PACKAGE_REPACK=str(reader)), mock.patch("subprocess.run", side_effect=fail):
+                with mock.patch.dict(os.environ, PLACES_COMPILER=str(reader)), mock.patch("subprocess.run", side_effect=fail):
                     with PackageZip(path) as archive:
                         with self.assertRaises(zipfile.BadZipFile):
                             archive.read("blobs/data")

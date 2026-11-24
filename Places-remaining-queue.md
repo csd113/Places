@@ -105,6 +105,8 @@ Independent Sol Medium review, strict workspace Clippy, the locked all-features 
 ### 15. Reduce Places to three buildable executables
 Keep exactly `places` (game), `places-editor`, and `places-map-compiler` (rename existing `places-compile`). Remove extra build targets and their exclusive code, flags and dependencies rather than hiding them behind aliases or features. Put diagnostics worth retaining on the owning binary as `--debug <mode>`, off by default. Update build/package scripts and CI, then check Cargo metadata, package contents and relevant CLI behavior. No separate debug binaries or task writeups.
 
+**Complete.** Cargo metadata confirms exactly three executables. Independent Sol Medium review, strict workspace Clippy, and the locked all-features release build passed. The native Windows editor exported the saved menu through the renamed compiler, and Windows packaging verified the current menu and included all three executables with no gameplay maps. macOS menu routing and rollback were checked with shell fixtures, not on a native Mac.
+
 ### 16. Move HVAC duct join metadata into the editor
 Move `tools/props/backrooms_phase6/duct_join_metadata.json` beside `src/editor/ducts.rs` or into an editor-owned data subdirectory. Update the `include_str!` path and any live tooling paths. Preserve the JSON bytes and existing duct snapping behavior. Verify a focused `places-editor` build and a representative duct join through preview and apply.
 

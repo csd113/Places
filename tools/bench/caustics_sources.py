@@ -933,7 +933,7 @@ def main() -> int:
     mode.add_argument("--author", type=Path, help="write disposable fixture JSON and compiler command manifest")
     mode.add_argument("--run", help="run one named case from the authored manifest")
     parser.add_argument("--fixtures", type=Path, default=ROOT / "local/caustics-0.11.0/controls")
-    parser.add_argument("--compiler", type=Path, default=ROOT / "target/release/places-compile")
+    parser.add_argument("--compiler", type=Path, default=ROOT / "target/release/places-map-compiler")
     parser.add_argument("--binary", type=Path, default=ROOT / "target/release/places")
     parser.add_argument("--package", type=Path, help="override this case's explicitly built package")
     parser.add_argument("--asset-root", type=Path, default=ROOT, help="root containing the matching assets directory")

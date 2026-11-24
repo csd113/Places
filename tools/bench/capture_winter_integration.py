@@ -77,9 +77,9 @@ def main() -> None:
             source.write_text(json.dumps(build_severe_review(json.loads(
                 (ROOT / 'levels/winter.json').read_text())), indent=2) + '\n')
             package = diagnostic / 'blizzard_review.placesmap'
-            subprocess.run([str(ROOT / 'target/release/places-compile'), 'build', str(source),
+            subprocess.run([str(ROOT / 'target/release/places-map-compiler'), 'build', str(source),
                             '--out', str(package), '--asset-root', str(ROOT / 'assets')], check=True)
-        subprocess.run([str(ROOT / 'target/release/places-compile'), 'verify', str(source),
+        subprocess.run([str(ROOT / 'target/release/places-map-compiler'), 'verify', str(source),
                         '--package', str(package), '--require-current'], check=True)
         for quality in args.qualities.split(','):
             out = args.out.resolve() / mode / quality

@@ -38,7 +38,7 @@ class FrameTimeIdentityTests(unittest.TestCase):
             with mock.patch.object(zipfile.ZipFile, "read", side_effect=NotImplementedError), \
                  mock.patch.object(FRAME.subprocess, "run", return_value=subprocess.CompletedProcess([], 0, identity + "\n", "")) as invoke:
                 self.assertEqual(FRAME.package_manifest_identity(package, "member", Path("bounded-reader")), identity)
-                self.assertEqual(invoke.call_args.args[0], ["bounded-reader", "--manifest-identity", str(package), "member"])
+                self.assertEqual(invoke.call_args.args[0], ["bounded-reader", "--debug", "manifest-identity", str(package), "member"])
                 invoke.return_value.stdout = "wrong member receipt"
                 with self.assertRaises(ValueError):
                     FRAME.package_manifest_identity(package, "member", Path("bounded-reader"))

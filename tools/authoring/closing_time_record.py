@@ -30,7 +30,7 @@ def run(name):
                                    stdout=log,stderr=log)
         try:
             result=subprocess.run([str(PAYLOAD/'places-editor'),str(ROOT/'archive/projects/closing-time'),
-                '--compiler',str(PAYLOAD/'places-compile'),'--game',str(PAYLOAD/'places'),
+                '--compiler',str(PAYLOAD/'places-map-compiler'),'--game',str(PAYLOAD/'places'),
                 '--verify-script',str(script)],env=env,stdout=log,stderr=log,timeout=900)
         finally:
             recording.send_signal(signal.SIGINT)

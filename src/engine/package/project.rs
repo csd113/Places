@@ -47,7 +47,7 @@ fn deserialize_release_project<'de, D: serde::Deserializer<'de>>(
     let raw = serde_json::Value::deserialize(deserializer)?;
     if raw.get("package_version").is_none() {
         return Err(D::Error::custom(
-            "compiled project is missing package_version; recompile with the current places-compile",
+            "compiled project is missing package_version; recompile with the current places-map-compiler",
         ));
     }
     serde_json::from_value(raw).map_err(D::Error::custom)
@@ -76,11 +76,11 @@ pub(crate) fn read_index_metadata<R: Read + Seek>(
     let bytes = reader.read_entry(INDEX, super::MAX_MANIFEST_BYTES)?;
     crate::engine::project::check_editable_source(&bytes)?;
     let index: ProjectPackage = serde_json::from_slice(&bytes).map_err(|e| {
-        format!("Invalid project package: {e}; recompile with the current places-compile")
+        format!("Invalid project package: {e}; recompile with the current places-map-compiler")
     })?;
     if index.schema != "places-project-package" || index.package_format != PROJECT_FORMAT_VERSION {
         return Err(
-            "Unsupported project package schema/version; recompile with the current places-compile"
+            "Unsupported project package schema/version; recompile with the current places-map-compiler"
                 .into(),
         );
     }

@@ -42,6 +42,7 @@ pub mod geometry_check;
 pub mod gui;
 pub mod navigation;
 mod navigation_cache;
+mod package_debug;
 mod probes;
 pub mod progress;
 pub mod project;
@@ -90,7 +91,7 @@ use crate::engine::render::{
 };
 
 /// The compiler's product identity, for `created_by`.
-pub const COMPILER_NAME: &str = concat!("places-compile ", env!("CARGO_PKG_VERSION"));
+pub const COMPILER_NAME: &str = concat!("places-map-compiler ", env!("CARGO_PKG_VERSION"));
 
 /// Shared maximum CPU allocation for one offline compiler process.
 pub const MAX_WORKERS: usize = 12;

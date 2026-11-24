@@ -14,7 +14,7 @@ F supplies a flashlight for material inspection in darkness. The rack/sink have
 open compounds for rigid items; their authored player boxes are conservative.
 The sink's player height is the .89 m rim, below its decorative faucet.
 
-Build/export explicitly with `places-compile export-project`; this project is
+Build/export explicitly with `places-map-compiler export-project`; this project is
 never a required test or CI bake. Runtime assets live under
 `assets/environments/janitor_closet/`, profiles under `assets/gameplay.json`, and editable
 Blender/GIMP source/checklists are preserved in the Downloads integration folder.

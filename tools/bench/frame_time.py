@@ -66,8 +66,8 @@ def digest(path: Path) -> str:
 
 def bounded_manifest_identity(package: Path, level: str, reader: Path | None) -> str:
     """Use the production window/output checks on every Python version."""
-    reader = reader or ROOT / "target/release" / ("package-repack.exe" if os.name == "nt" else "package-repack")
-    result = subprocess.run([str(reader), "--manifest-identity", str(package), level],
+    reader = reader or ROOT / "target/release" / ("places-map-compiler.exe" if os.name == "nt" else "places-map-compiler")
+    result = subprocess.run([str(reader), "--debug", "manifest-identity", str(package), level],
                             check=True, capture_output=True, text=True)
     identity = result.stdout.strip()
     if not re.fullmatch(r"[0-9a-f]{64}", identity):
@@ -209,7 +209,7 @@ def main() -> None:
     binary = args.binary.resolve(strict=True)
     asset_root = args.asset_root.resolve(strict=True)
     package = (args.package or asset_root / "assets/levels" / f"{args.level}.placesmap").resolve(strict=True)
-    manifest_identity = package_manifest_identity(package, args.level, args.binary.resolve().parent / ("package-repack.exe" if os.name == "nt" else "package-repack"))
+    manifest_identity = package_manifest_identity(package, args.level, args.binary.resolve().parent / ("places-map-compiler.exe" if os.name == "nt" else "places-map-compiler"))
     out = args.out.resolve()
     out.mkdir(parents=True, exist_ok=False)
     if args.package:

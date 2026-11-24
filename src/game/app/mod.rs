@@ -5647,6 +5647,9 @@ fn dispatch_list_levels_cli(args: &[String]) -> Result<bool, String> {
 /// # Errors
 /// Returns an error when the input is malformed, out of bounds or unsupported.
 pub fn run(args: &[String]) -> Result<(), Box<dyn std::error::Error>> {
+    if super::movement_probe::dispatch_debug(args)? {
+        return Ok(());
+    }
     let preparation = crate::engine::assets::validate_installation()
         .and_then(|()| crate::engine::paths::initialize_user().map(|_| ()));
     if let Err(message) = preparation {

@@ -462,16 +462,15 @@ struct Options {
     performance_test: bool,
 }
 
-fn options() -> Result<Option<Options>, String> {
+fn options(mut args: impl Iterator<Item = String>) -> Result<Option<Options>, String> {
     let mut options = Options::default();
-    let mut args = std::env::args().skip(1);
     while let Some(arg) = args.next() {
         match arg.as_str() {
             "--help" | "-h" => {
                 use std::io::Write;
                 let _written = writeln!(
                     std::io::stdout(),
-                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH] [--performance-test]\nNative project editor. Built-in assets only. See docs/EDITOR.md in the application package or tools/release/EDITOR.md in the source checkout for controls."
+                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH] [--performance-test]\nplaces-editor --debug profile|responsiveness <project>\nplaces-editor --debug document-session|preview-audit <project> <level>\nNative project editor. Built-in assets only. See docs/EDITOR.md in the application package or tools/release/EDITOR.md in the source checkout for controls."
                 );
                 return Ok(None);
             }
@@ -781,7 +780,13 @@ fn application(options: Options) -> Result<(), String> {
 /// Starts the separate native editor application.
 #[must_use = "use the editor exit status to report success or failure"]
 pub fn run() -> std::process::ExitCode {
-    match options().and_then(|value| value.map_or(Ok(()), application)) {
+    let mut args = std::env::args().skip(1).peekable();
+    let outcome = if args.next_if(|argument| argument == "--debug").is_some() {
+        profiling::debug_cli(&args.collect::<Vec<_>>())
+    } else {
+        options(args).and_then(|value| value.map_or(Ok(()), application))
+    };
+    match outcome {
         Ok(()) => std::process::ExitCode::SUCCESS,
         Err(error) => {
             logging::warn(format!("Editor: {error}"));

@@ -38,7 +38,7 @@ impl ToolPaths {
             })
         };
         Ok(Self {
-            compiler: tool_override("PLACES_COMPILER", sibling("places-compile"))?,
+            compiler: tool_override("PLACES_COMPILER", sibling("places-map-compiler"))?,
             game: tool_override("PLACES_GAME", sibling("places"))?,
         })
     }

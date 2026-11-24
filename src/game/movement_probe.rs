@@ -5,13 +5,33 @@ use glam::{Vec2, Vec3};
 use std::io::Write;
 use std::path::Path;
 
+pub(super) fn dispatch_debug(args: &[String]) -> Result<bool, String> {
+    const USAGE: &str = "places --debug movement-replay <gym-level.json> <new-output-directory>";
+    match args {
+        [help] if matches!(help.as_str(), "--help" | "-h") => {
+            writeln!(
+                std::io::stdout().lock(),
+                "places [--list-levels | --paths | --import <file.placesmap|file.zip>]\n{USAGE}"
+            )
+            .map_err(|error| error.to_string())?;
+            Ok(true)
+        }
+        [flag, mode, source, out] if flag == "--debug" && mode == "movement-replay" => {
+            run(Path::new(source), Path::new(out))?;
+            Ok(true)
+        }
+        [flag, ..] if flag == "--debug" => Err(format!("Usage: {USAGE}")),
+        _ => Ok(false),
+    }
+}
+
 /// Save deterministic per-command trajectories through an ordinary editor map.
 /// # Errors
 /// Returns source-validation or output I/O failures without modifying the map.
 pub fn run(source: &Path, out: &Path) -> Result<(), String> {
     let level = LevelDef::from_json(&std::fs::read_to_string(source).map_err(|e| e.to_string())?)
         .map_err(|e| e.to_string())?;
-    std::fs::create_dir_all(out).map_err(|e| e.to_string())?;
+    std::fs::create_dir(out).map_err(|e| e.to_string())?;
     let cases = [
         ("acceleration-stop", 4.0, 25.0, 0.0, 0.0, 0_u8),
         ("reversal", 4.0, 25.0, 0.0, 0.0, 1),

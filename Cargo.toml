@@ -11,11 +11,6 @@ publish = false
 # required inputs to the engine/compiler crate or its source distribution.
 exclude = ["levels/**", "assets/levels/**"]
 
-# Explicit developer tool; retained from the former Cargo example.
-[[bin]]
-name = "package-repack"
-path = "tools/rust/package_repack/main.rs"
-
 [features]
 # Development-only native diagnostic views; the normal build retains the exact
 # production WGSL and does not carry the selector or diagnostic shader branch.
@@ -174,57 +169,3 @@ panic = "unwind"
 # remains the performance reference for deliberate map/compiler campaigns.
 [profile.dev]
 opt-level = 1
-
-# Explicit developer operation probe; never runs as part of tests or CI.
-[[bin]]
-name = "editor-profile"
-path = "tools/rust/editor-profile/main.rs"
-
-# Explicit legacy migration and diagnostics, never a map-baking CI test.
-[[bin]]
-name = "environment-import-audit"
-path = "tools/rust/environment-import-audit/main.rs"
-
-# Explicit collection route acceptance; no lighting bake, no automatic CI run.
-[[bin]]
-name = "collection-quest-check"
-path = "tools/rust/collection-quest-check/main.rs"
-
-# Explicit CPU command replay; never bakes a map during tests or CI.
-[[bin]]
-name = "places-movement-check"
-path = "tools/rust/movement-check/main.rs"
-
-# Explicit native device, allocator and lifecycle audit; never runs in CI.
-[[bin]]
-name = "places-audio-audit"
-path = "tools/rust/audio-audit/main.rs"
-
-# Explicit native Rust heap/process attribution; never runs in CI or tests.
-[[bin]]
-name = "places-memory-audit"
-path = "tools/rust/memory-audit/main.rs"
-test = false
-bench = false
-
-# Explicit correctness/economics experiment; never a production bake backend.
-[[bin]]
-name = "places-lighting-gpu-probe"
-path = "tools/rust/lighting-gpu-probe/main.rs"
-test = false
-bench = false
-
-# Explicit native Tall Guest geometry/aim evidence; never a Cargo test or map bake.
-[[bin]]
-name = "places-tall-guest-pose-check"
-path = "tools/rust/tall-guest-pose-check/main.rs"
-test = false
-bench = false
-
-
-# Explicit native CPU Feltling import/lifecycle replay; no map bake or Cargo test.
-[[bin]]
-name = "places-feltling-check"
-path = "tools/rust/feltling-check/main.rs"
-test = false
-bench = false

@@ -1,7 +1,7 @@
 """ZIP views for explicit developer tools, using bounded Rust for method 93.
 
 Legacy reads and all writes retain stdlib behavior. A Zstandard payload read
-creates one temporary exact-record Deflate copy through package-repack, then
+creates one temporary exact-record Deflate copy through the map compiler, then
 reuses it until close. Accounting still observes original names, sizes and
 compression methods. This is tooling compatibility, not the game's loader or
 a performance measurement of the temporary re-encoding. Close entry streams
@@ -80,10 +80,10 @@ class PackageZip(zipfile.ZipFile):
             return self._decoded
         if not self.filename or not Path(self.filename).is_file():
             raise zipfile.BadZipFile("bounded Zstandard tooling requires a saved package path")
-        executable = "package-repack.exe" if os.name == "nt" else "package-repack"
-        reader = Path(os.environ.get("PLACES_PACKAGE_REPACK", ROOT / "target/release" / executable))
+        executable = "places-map-compiler.exe" if os.name == "nt" else "places-map-compiler"
+        reader = Path(os.environ.get("PLACES_COMPILER", ROOT / "target/release" / executable))
         if not reader.is_file():
-            raise zipfile.BadZipFile("build package-repack or set PLACES_PACKAGE_REPACK for bounded Zstandard reads")
+            raise zipfile.BadZipFile("build places-map-compiler or set PLACES_COMPILER for bounded Zstandard reads")
         scratch = tempfile.TemporaryDirectory(prefix="places-package-read-")
         decoded = None
         try:
@@ -91,7 +91,7 @@ class PackageZip(zipfile.ZipFile):
             source = Path(self.filename).resolve()
             if self._source is not None and archive_identity(source.stat()) != self._identity:
                 raise zipfile.BadZipFile("package path changed since opening the archive")
-            result = subprocess.run([str(reader), str(source), str(output), "1"],
+            result = subprocess.run([str(reader), "--debug", "repack", str(source), str(output), "1"],
                                     capture_output=True, text=True, check=False)
             self.verify_source_identity()
             if self._source is not None and archive_identity(source.stat()) != self._identity:

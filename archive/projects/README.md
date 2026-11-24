@@ -59,7 +59,7 @@ an existing destination, avoiding a merge into unrelated work:
 ```sh
 python3 -c 'import shutil,sys; shutil.copytree(sys.argv[1], sys.argv[2])' \
   archive/projects/closing-time /tmp/places-closing-time-restored
-target/release/places-compile check-project /tmp/places-closing-time-restored \
+target/release/places-map-compiler check-project /tmp/places-closing-time-restored \
   --asset-root "$PWD/assets"
 PLACES_ASSET_ROOT="$PWD/assets" target/release/places-editor \
   /tmp/places-closing-time-restored
@@ -70,7 +70,7 @@ script paths and thumbnail paths unchanged. An explicit `export-project` can
 produce a playable/recoverable package for manual use; no export is needed to
 open or edit the source. Baking is an opt-in native operation, never part of
 archive verification. Existing source-bearing packages can also be recovered
-with `places-compile import-project PACKAGE --out NEW_FOLDER`.
+with `places-map-compiler import-project PACKAGE --out NEW_FOLDER`.
 
 To return a project to the release rotation, move its complete folder back to
 its former location, remove its `archived_projects` record/exclusion from

@@ -101,7 +101,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             menu = source / 'assets/shared/menu/scene.bin'
             menu.parent.mkdir(parents=True)
             menu.write_bytes(b'menu fixture')
-            compiler = source / 'target/release/places-compile'
+            compiler = source / 'target/release/places-map-compiler'
             compiler.write_text('#!/bin/sh\nprintf \'%s\\n\' \'{"dependencies_intact":true}\'\n')
             compiler.chmod(0o755)
             output = root / 'export'
@@ -112,7 +112,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
             self.assertFalse((source / 'levels').exists())
-            self.assertFalse((output / 'Places/places-compile').exists(), 'validator need not be exported')
+            self.assertFalse((output / 'Places/places-map-compiler').exists(), 'validator need not be exported')
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
                 # Protect project-license custody in the existing tiny export
                 # fixture, with no additional bake or native-process cost.
@@ -132,32 +132,43 @@ class PackageDestinationGuardTests(unittest.TestCase):
                 self.assertEqual((payload / 'docs/INSTALLATION.md').read_text(), 'installation fixture')
                 self.assertEqual((payload / 'README.md').read_text(), '[Installation](docs/INSTALLATION.md)\n')
                 self.assertEqual(list(payload.rglob('*.placesmap')), [])
-            compiler = source / 'target/release/places-compile'
+            compiler = source / 'target/release/places-map-compiler'
             previous_menu = (output / 'Places/assets/shared/menu/scene.bin').read_bytes()
-            compiler.write_text('#!/bin/sh\nexit 9\n')
-            rejected = subprocess.run(['sh', str(source / 'tools/package.sh'), str(output)],
+            # The optional host export is only copied into the stage. A stale
+            # selection must still fail the verify gate before either layout is published.
+            prepared = root / 'prepared menu.placesmap'
+            prepared.write_bytes(b'host menu fixture')
+            compiler.write_text('#!/bin/sh\n'
+                                'if [ "$1" = verify ]; then exit 9; fi\n'
+                                'printf \'%s\\n\' \'{"dependencies_intact":true}\'\n')
+            rejected = subprocess.run(['sh', str(source / 'tools/package.sh'),
+                                       '--menu-package', str(prepared), str(output)],
                                       text=True, capture_output=True, timeout=30, check=False)
             self.assertNotEqual(rejected.returncode, 0)
-            self.assertEqual((output / 'Places/assets/shared/menu/scene.bin').read_bytes(), previous_menu)
+            for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
+                self.assertEqual((payload / 'assets/shared/menu/scene.bin').read_bytes(), previous_menu)
             self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
             compiler.write_text('#!/bin/sh\nprintf \'%s\\n\' \'{"dependencies_intact":true}\'\n')
             compiler.chmod(0o755)
             with_compiler = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-compiler', str(output)],
                                            text=True, capture_output=True, timeout=30, check=False)
             self.assertEqual(with_compiler.returncode, 0, with_compiler.stdout + with_compiler.stderr)
-            for binary in (output / 'Places/places-compile', output / 'Places.app/Contents/MacOS/places-compile'):
+            for binary in (output / 'Places/places-map-compiler', output / 'Places.app/Contents/MacOS/places-map-compiler'):
                 self.assertEqual(binary.read_bytes(), compiler.read_bytes())
             editor = source / 'target/release/places-editor'
             editor.write_text('#!/bin/sh\nexit 0\n')
             editor.chmod(0o755)
-            with_editor = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-editor', str(output)],
+            with_editor = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-editor',
+                                          '--menu-package', str(prepared), str(output)],
                                          text=True, capture_output=True, timeout=30, check=False)
             self.assertEqual(with_editor.returncode, 0, with_editor.stdout + with_editor.stderr)
+            self.assertEqual(menu.read_bytes(), previous_menu)
             for binary in (output / 'Places/places-editor', output / 'Places.app/Contents/MacOS/places-editor'):
                 self.assertEqual(binary.read_bytes(), editor.read_bytes())
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
                 self.assertEqual((payload / 'docs/EDITOR.md').read_text(), 'editor fixture')
                 self.assertEqual((payload / 'assets/editor/fixture.png').read_bytes(), b'editor preview fixture')
+                self.assertEqual((payload / 'assets/shared/menu/scene.bin').read_bytes(), prepared.read_bytes())
             # Force the second publication rename to fail. Both previous
             # products must survive, not just unrelated export-root siblings.
             for product in ('Places', 'Places.app'):

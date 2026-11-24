@@ -3,5 +3,5 @@
 set -eu
 REPO=$(CDPATH= cd -- "$(dirname -- "$0")/.." && pwd)
 cd "$REPO"
-cargo build --locked --release --bin places-compile
+cargo build --locked --release --bin places-map-compiler
 exec python3 tools/levels/compile.py "$@"

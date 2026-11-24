@@ -30,7 +30,7 @@ Compile a positive fixture to isolated state to inspect it:
 
 ```sh
 mkdir -p /tmp/places-fixture/levels
-./target/release/places-compile build tests/fixtures/levels/test_room.json \
+./target/release/places-map-compiler build tests/fixtures/levels/test_room.json \
   --out /tmp/places-fixture/levels/test_room.placesmap --asset-root assets
 PLACES_STATE_ROOT=/tmp/places-fixture PLACES_LEVEL=test_room ./target/release/places
 ```

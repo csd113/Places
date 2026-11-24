@@ -28,7 +28,7 @@ def verify(installation: Path, project: Path, package: Path, output: Path) -> No
     installed = work / 'Installed Places ü'
     shutil.copytree(installation, installed)
     player = installed / ('places.exe' if sys.platform == 'win32' else 'places')
-    compiler = installed / ('places-compile.exe' if sys.platform == 'win32' else 'places-compile')
+    compiler = installed / ('places-map-compiler.exe' if sys.platform == 'win32' else 'places-map-compiler')
     state = work / 'User Data ü'
     launch = work / 'empty launch'
     launch.mkdir()

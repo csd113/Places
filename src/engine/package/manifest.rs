@@ -247,7 +247,9 @@ impl Manifest {
         archive_names: &[String],
     ) -> Result<Self, String> {
         let manifest: Self = serde_json::from_slice(bytes).map_err(|error| {
-            format!("invalid package manifest: {error}; recompile with the current places-compile")
+            format!(
+                "invalid package manifest: {error}; recompile with the current places-map-compiler"
+            )
         })?;
         manifest.validate_metadata(archive_names)?;
         Ok(manifest)
@@ -269,7 +271,7 @@ impl Manifest {
     fn validate_metadata(&self, archive_names: &[String]) -> Result<(), String> {
         if self.schema != super::PACKAGE_SCHEMA {
             return Err(
-                "unsupported package schema; recompile this map with the current places-compile"
+                "unsupported package schema; recompile this map with the current places-map-compiler"
                     .to_string(),
             );
         }

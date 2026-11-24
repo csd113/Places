@@ -8,7 +8,7 @@
 //! captures) concurrently, then hands the frame loop a world it can install.
 //! Geometry emission, the lighting bake, chart planning, atlas filling, probe
 //! capture and static collision derivation all happen offline in
-//! `places-compile`.
+//! `places-map-compiler`.
 use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, AtomicU8, Ordering};
 use std::sync::{Arc, mpsc};
@@ -1255,7 +1255,7 @@ fn ensure_variant_supported(
     Err(format!(
         "package '{}' ({}) has no '{}' lightmap variant; it provides {}. \
          Choose a Lighting setting it provides, or rebuild it with \
-         'places-compile build <source> --variants off,full'",
+         'places-map-compiler build <source> --variants off,full'",
         manifest.id,
         entry.path.display(),
         quality.name(),

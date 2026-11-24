@@ -445,7 +445,7 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
         .map_err(|error| format!("package '{NAME}' is malformed: {error}"))?;
     if !matches!(inputs.revision, 1 | 2) {
         return Err(format!(
-            "package '{NAME}' revision {} is unsupported; rebuild with places-compile",
+            "package '{NAME}' revision {} is unsupported; rebuild with places-map-compiler",
             inputs.revision
         ));
     }
@@ -470,7 +470,7 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
             8 * 1024 * 1024,
         )?;
         if !expected.matches_installed(level, &catalog_bytes, &inputs.catalog_sha256)? {
-            return Err("Package referenced catalog definitions changed; rebuild this level with places-compile".into());
+            return Err("Package referenced catalog definitions changed; rebuild this level with places-map-compiler".into());
         }
         return Ok(());
     }
@@ -479,7 +479,7 @@ fn check_catalog_build_input<R: std::io::Read + std::io::Seek>(
     if actual != inputs.catalog_sha256 {
         return Err(format!(
             "package catalog.json SHA-256 changed (recorded {}, installed {actual}); \
-             rebuild this package against the installed catalog with places-compile",
+             rebuild this package against the installed catalog with places-map-compiler",
             inputs.catalog_sha256
         ));
     }

@@ -133,7 +133,7 @@ def package() -> None:
     uploads.mkdir(parents=True, exist_ok=True)
     stage = OUTPUT / 'stage'
     suffix = '.exe' if os.name == 'nt' else ''
-    compiler = ROOT / f'target/release/places-compile{suffix}'
+    compiler = ROOT / f'target/release/places-map-compiler{suffix}'
     if os.name == 'nt':
         runtime = Path(os.environ['PLACES_WINDOWS_RUNTIME'])
         # Headless reflection capture requires DXC beside the compiler, not only
@@ -152,19 +152,15 @@ def package() -> None:
             '--runtime-dir', runtime, '--sdl-license', runtime / 'SDL3-LICENSE.txt',
             '--menu-package', menu)
     else:
-        bundled = ROOT / 'assets/shared/menu/scene.bin'
-        original = bundled.read_bytes()
-        try:
-            shutil.copyfile(menu, bundled)
-            run('sh', ROOT / 'tools/package.sh', '--with-editor', stage)
-        finally:
-            bundled.write_bytes(original)
+        run('sh', ROOT / 'tools/package.sh', '--with-editor', '--menu-package', menu, stage)
         run('codesign', '--verify', '--deep', '--strict', stage / 'Places.app')
     # Smoke command-line discovery away from the checkout with no asset override.
     environment = {k: v for k, v in os.environ.items() if not k.startswith('PLACES_')}
     with tempfile.TemporaryDirectory(prefix='places-release-smoke-') as scratch:
         environment['PLACES_STATE_ROOT'] = scratch
-        for binary, flag in [('places', '--list-levels'), ('places-compile', '--help')]:
+        for binary, flag in [
+            ('places', '--list-levels'), ('places-editor', '--help'), ('places-map-compiler', '--help')
+        ]:
             run(stage / f'Places/{binary}{suffix}', flag, cwd=scratch, env=environment)
     archive = uploads / f"Places-{info['version']}-{platform}.zip"
     archive_payload(stage, archive)

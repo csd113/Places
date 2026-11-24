@@ -64,7 +64,7 @@ def main() -> int:
     if args.diagnostics:
         copies.append(('places-diagnostics', args.diagnostics))
     if args.compiler:
-        copies.append(('places-compile', args.compiler))
+        copies.append(('places-map-compiler', args.compiler))
     copies.extend((library.name, library) for library in args.runtime_library)
     copies.extend(('assets/'+dependency['path'], ROOT/'assets'/dependency['path']) for dependency in dependencies)
     copies.extend(('assets/'+str(relative), ROOT/'assets'/relative) for relative in extra_assets

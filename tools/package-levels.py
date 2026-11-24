@@ -108,7 +108,7 @@ def package_levels(source: Path, output: Path, compiler: Path, assets: Path) -> 
                 'levels directory shown by places --paths. Keep shared runtime assets\n'
                 'with the application. Do not extract the individual .placesmap archives.\n'
                 'Each package contains recoverable editable project sources; use\n'
-                'places-compile import-project <package> --out <new-project-folder>.\n'
+                'places-map-compiler import-project <package> --out <new-project-folder>.\n'
                 'The application already bundles its main menu. Archived projects and\n'
                 'developer fixtures are excluded. This archive contains no application binaries.\n')
         # A hard-link publication is atomic and refuses a concurrent existing file.
@@ -120,7 +120,7 @@ def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('maps', type=Path)
     parser.add_argument('output', type=Path)
-    parser.add_argument('--compiler', type=Path, default=ROOT / ('target/release/places-compile.exe' if os.name == 'nt' else 'target/release/places-compile'))
+    parser.add_argument('--compiler', type=Path, default=ROOT / ('target/release/places-map-compiler.exe' if os.name == 'nt' else 'target/release/places-map-compiler'))
     parser.add_argument('--asset-root', type=Path, default=ROOT / 'assets')
     args = parser.parse_args()
     print(json.dumps(package_levels(args.maps.resolve(), args.output.absolute(), args.compiler.resolve(), args.asset_root.resolve()), indent=2))

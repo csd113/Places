@@ -174,7 +174,7 @@ impl Renderer {
 
     /// Builds a window-free renderer for the offline probe capture.
     ///
-    /// Used only by `places-compile`: the player always owns a window. The
+    /// Used only by `places-map-compiler`: the player always owns a window. The
     /// returned renderer can install a prepared world, capture its reflection
     /// probes and read them back; it never presents.
     ///

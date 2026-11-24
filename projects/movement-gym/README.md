@@ -11,7 +11,7 @@ air strafes and jump timing. East lanes contain the 16-riser stair flight
 The west overhead slab at X4-8/Z30-34 has a 1.0 m underside for blocked unduck.
 All records use existing editor geometry and existing PNG-backed materials.
 
-Run `places-movement-check projects/movement-gym/levels/movement_gym.json
+Run `places --debug movement-replay projects/movement-gym/levels/movement_gym.json
 <new-output-directory>` to save 17 deterministic command trajectories. Each
 JSONL row distinguishes feet, eye, hull top, velocity and grounded state.
 They are engine trajectories, not measured retail Portal trajectories.

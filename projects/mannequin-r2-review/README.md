@@ -14,7 +14,7 @@ dispatch or runtime IK is implemented. Source alignment/reference data remains
 in the complete approved delivery. This fixture does not certify those future
 controllers or arbitrary crossfades.
 
-Build explicitly with `places-compile export-project projects/mannequin-r2-review
+Build explicitly with `places-map-compiler export-project projects/mannequin-r2-review
 --out <path>.placesmap --asset-root assets --variants static`. Launch the direct
 `places` executable with repository assets and isolated state. The delivered
 launcher provides the exact runnable package.

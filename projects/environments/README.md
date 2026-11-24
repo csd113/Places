@@ -69,7 +69,7 @@ This uses the accepted package installed as `assets/levels/environments.placesma
 Only export again after editing the authoritative project:
 
 ```sh
-./target/release/places-compile export-project projects/environments \
+./target/release/places-map-compiler export-project projects/environments \
   --out assets/levels/environments.placesmap --asset-root assets --variants off --workers 6
 ```
 

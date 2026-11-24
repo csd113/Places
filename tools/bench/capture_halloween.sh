@@ -1,7 +1,7 @@
 #!/bin/sh
 # Captures the Halloween entities fixture in motion from the real renderer.
 #
-# The fixture level is compiled with places-compile; this script stages the
+# The fixture level is compiled with places-map-compiler; this script stages the
 # package into its own scratch state root and captures a fixed view set at
 # several frame numbers, so every capture is a genuine frame of the running
 # simulation (jump arc, ghost fade cycle, skeleton gait) rather than a posed
@@ -15,7 +15,7 @@
 # and its light pool can differ by a frame of motion. The manifest records the
 # exact spawn/camera/frame of every capture.
 #
-#     cargo run --release --bin places-compile -- build \
+#     cargo run --release --bin places-map-compiler -- build \
 #         tests/fixtures/levels/halloween_entities.json \
 #         --out target/halloween/halloween_entities.placesmap
 #     sh tools/bench/capture_halloween.sh

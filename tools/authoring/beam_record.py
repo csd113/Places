@@ -17,7 +17,7 @@ def run(name):
  with (BASE/f'{name}.log').open('w') as log:
   record=subprocess.Popen(['/usr/sbin/screencapture','-v','-D','1',str(out)],stdout=log,stderr=log)
   try:
-   result=subprocess.run([str(PAYLOAD/'places-editor'),str(Path(os.environ.get('PLACES_EDITOR_PROJECT',str(ROOT/'projects/beam')))),'--compiler',str(PAYLOAD/'places-compile'),'--game',str(PAYLOAD/'places'),'--verify-script',str(recipe)],env=env,stdout=log,stderr=subprocess.STDOUT,timeout=900)
+   result=subprocess.run([str(PAYLOAD/'places-editor'),str(Path(os.environ.get('PLACES_EDITOR_PROJECT',str(ROOT/'projects/beam')))),'--compiler',str(PAYLOAD/'places-map-compiler'),'--game',str(PAYLOAD/'places'),'--verify-script',str(recipe)],env=env,stdout=log,stderr=subprocess.STDOUT,timeout=900)
   finally:record.send_signal(signal.SIGINT);record.wait(timeout=20)
  receipt={'phase':name,'exit_code':result.returncode,'video':str(out),'input':str(recipe),'method':'Actual visible native controls through ordinary input handlers; genuine screen capture.'}
  (BASE/f'{name}-receipt.json').write_text(json.dumps(receipt,indent=2)+'\n')

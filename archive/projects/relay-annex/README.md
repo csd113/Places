@@ -29,7 +29,7 @@ To compile a fresh package using your built tools (requires native Metal on Mac
 for the compiler's offline probes):
 
 ```sh
-PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places-compile export-project \
+PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places-map-compiler export-project \
   projects/relay-annex --out /tmp/Relay-Annex.placesmap --workers 6
 PLACES_ASSET_ROOT="$PWD/assets" ./target/release/places --import /tmp/Relay-Annex.placesmap
 PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=relay_intake ./target/release/places

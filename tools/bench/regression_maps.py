@@ -201,7 +201,7 @@ def run_packages(rows: list[dict], compiler: Path, out: Path,
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--out", type=Path, help="New campaign directory; required for --run-packages")
-    parser.add_argument("--compiler", type=Path, default=ROOT / "target/release/places-compile")
+    parser.add_argument("--compiler", type=Path, default=ROOT / "target/release/places-map-compiler")
     parser.add_argument("--prepared-root", type=Path,
                         help="Stable fixture package directory for safe unchanged reuse; receipts remain under new --out")
     parser.add_argument("--install-source-packages", action="store_true",

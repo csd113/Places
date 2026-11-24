@@ -1,4 +1,4 @@
-//! `places-compile`: the offline Places map compiler.
+//! `places-map-compiler`: the offline Places map compiler.
 //!
 //! Explicit workflow only: edit source -> compile changed content -> launch.
 //! Building never happens inside `cargo run`, `build.rs`, `cargo check` or the
@@ -7,44 +7,47 @@
 //!
 //! Exit codes: `0` success, `1` operation failure, `2` usage error.
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 use std::process::ExitCode;
 
 use crate::engine::quality::LightmapQuality;
 use crate::map_compiler::{self as compiler, BuildRequest};
 use compiler::progress::{Mode, Session};
 
-use super::gui;
+use super::{gui, package_debug};
 
 const USAGE: &str = "\
-places-compile: build and inspect Places map packages (.placesmap)
+places-map-compiler: build and inspect Places map packages (.placesmap)
 
 USAGE:
-  places-compile gui [source.json] [--out <package>] [--asset-root <dir>]
+  places-map-compiler gui [source.json] [--out <package>] [--asset-root <dir>]
                        [--workers N]
-  places-compile build <source.json|project> [--level <id>] [--out <package>] [--variants static,full]
+  places-map-compiler build <source.json|project> [--level <id>] [--out <package>] [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
                        [--progress auto|plain|off] [--events]
-  places-compile build-collection <dir> [--variants static,full]
+  places-map-compiler build-collection <dir> [--variants static,full]
                        [--asset-root <dir>] [--workers N] [--force] [--json]
                        [--progress auto|plain|off]
-  places-compile build-project <project> --out <existing-directory>
+  places-map-compiler build-project <project> --out <existing-directory>
                        [--asset-root <dir>] [--variants static,full] [--workers N]
                        [--force] [--json] [--progress auto|plain|off]
-  places-compile export-project <project> --out <project.placesmap> [build options]
-  places-compile optimize-storage <package> --out <NEW-package> [--asset-root <dir>] [--compact] [--json|--events]
-  places-compile import-project <project.placesmap> --out <NEW-project-folder> [--events]
-  places-compile check-project <project> [--events] [--asset-root <dir>]
-  places-compile migrate-project <project> [--asset-root <dir>]
-  places-compile validate <package> [--asset-root <dir>] [--json]
-  places-compile inspect <package> [--json]
-  places-compile export-lighting <package> --out <new-directory>
+  places-map-compiler export-project <project> --out <project.placesmap> [build options]
+  places-map-compiler optimize-storage <package> --out <NEW-package> [--asset-root <dir>] [--compact] [--json|--events]
+  places-map-compiler import-project <project.placesmap> --out <NEW-project-folder> [--events]
+  places-map-compiler check-project <project> [--events] [--asset-root <dir>]
+  places-map-compiler migrate-project <project> [--asset-root <dir>]
+  places-map-compiler validate <package> [--asset-root <dir>] [--json]
+  places-map-compiler inspect <package> [--json]
+  places-map-compiler export-lighting <package> --out <new-directory>
                        [--variants static,full] [--json]
-  places-compile verify <source.json|project> [--level <id>] --package <package> [--asset-root <dir>] [--json]
+  places-map-compiler verify <source.json|project> [--level <id>] --package <package> [--asset-root <dir>] [--json]
                        [--require-current]
-  places-compile verify-project <project> --package <package> [--asset-root <dir>] [--json]
+  places-map-compiler verify-project <project> --package <package> [--asset-root <dir>] [--json]
                        [--require-current]
-  places-compile --help | --version
+  places-map-compiler --debug repack <package> <new-package> <deflate-level 1..9>
+  places-map-compiler --debug package-read <package>
+  places-map-compiler --debug manifest-identity <package> <level>
+  places-map-compiler --help | --version
 
 OPTIONS:
   --level <id>        Select a declared project level (default: entry_level).
@@ -99,14 +102,14 @@ pub fn run() -> ExitCode {
         Ok(()) => ExitCode::SUCCESS,
         Err(CliError::Usage(message)) => {
             emit_failure(machine, compiler::events::Outcome::Failed, &message);
-            eprintln!("places-compile: {message}");
+            eprintln!("places-map-compiler: {message}");
             eprintln!();
             eprint!("{USAGE}");
             ExitCode::from(2)
         }
         Err(CliError::Failure(message)) => {
             emit_failure(machine, compiler::events::Outcome::Failed, &message);
-            eprintln!("places-compile: {message}");
+            eprintln!("places-map-compiler: {message}");
             ExitCode::FAILURE
         }
         Err(CliError::Interrupted) => {
@@ -115,7 +118,7 @@ pub fn run() -> ExitCode {
                 compiler::events::Outcome::Cancelled,
                 "build cancelled",
             );
-            eprintln!("places-compile: build interrupted");
+            eprintln!("places-map-compiler: build interrupted");
             ExitCode::from(130)
         }
     }
@@ -135,6 +138,29 @@ enum CliError {
     Usage(String),
     Failure(String),
     Interrupted,
+}
+
+fn dispatch_debug(args: &[String]) -> Result<(), CliError> {
+    let result = match args {
+        [mode, input, output, level] if mode == "repack" => {
+            let deflate_level = level
+                .parse::<i64>()
+                .ok()
+                .filter(|value| (1..=9).contains(value))
+                .ok_or_else(|| CliError::Usage("Deflate level must be 1 through 9".into()))?;
+            package_debug::repack(Path::new(input), Path::new(output), deflate_level)
+        }
+        [mode, input] if mode == "package-read" => package_debug::read_only(Path::new(input)),
+        [mode, input, level] if mode == "manifest-identity" => {
+            package_debug::manifest_identity(Path::new(input), level)
+        }
+        _ => {
+            return Err(CliError::Usage(
+                "Expected a debug mode and its exact operands".into(),
+            ));
+        }
+    };
+    result.map_err(|error| CliError::Failure(error.to_string()))
 }
 
 impl From<String> for CliError {
@@ -315,6 +341,7 @@ fn dispatch(args: &[String]) -> Result<(), CliError> {
             println!("{}", compiler::COMPILER_NAME);
             return Ok(());
         }
+        "--debug" => return dispatch_debug(args.get(1..).unwrap_or_default()),
         _ => {}
     }
     let rest = args.get(1..).unwrap_or_default();

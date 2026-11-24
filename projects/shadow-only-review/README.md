@@ -23,7 +23,7 @@ Rebuild with direct executables if needed:
 
 ```sh
 cargo build --locked --release --workspace --all-features
-target/release/places-compile export-project projects/shadow-only-review --out /tmp/Shadow-Gallery.placesmap --asset-root assets --workers 8
+target/release/places-map-compiler export-project projects/shadow-only-review --out /tmp/Shadow-Gallery.placesmap --asset-root assets --workers 8
 PLACES_ASSET_ROOT="$PWD/assets" PLACES_STATE_ROOT=/tmp/places-shadow-review target/release/places --import /tmp/Shadow-Gallery.placesmap
 PLACES_ASSET_ROOT="$PWD/assets" PLACES_STATE_ROOT=/tmp/places-shadow-review PLACES_LEVEL=room_1792320687064 target/release/places
 ```

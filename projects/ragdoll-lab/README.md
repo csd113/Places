@@ -44,7 +44,7 @@ Pause, time scale and single-step use the existing physics clock.
 Build and validate explicitly, outside Cargo tests/CI:
 
 ```sh
-target/release/places-compile build projects/ragdoll-lab --out local/ragdoll-lab.placesmap
+target/release/places-map-compiler build projects/ragdoll-lab --out local/ragdoll-lab.placesmap
 python3 tools/bench/ragdoll.py --package local/ragdoll-lab.placesmap \
   --out local/ragdoll-demo-new --case demo --video
 ```

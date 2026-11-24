@@ -2,7 +2,7 @@
 """Opt-in direct-binary door-only / predator acceptance, with tiny fixtures.
 
 --write-fixtures writes editable sources only. Export each chosen project with
-places-compile explicitly; this tool never builds Rust or bakes shipped maps.
+places-map-compiler explicitly; this tool never builds Rust or bakes shipped maps.
 """
 import argparse
 import copy

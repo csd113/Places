@@ -103,7 +103,7 @@ an Immediate run plateauing at that refresh remains inconclusive.
 
 ```sh
 mkdir -p local/verification/navigation
-target/release/places-compile build tests/fixtures/levels/navigation_layers.json \
+target/release/places-map-compiler build tests/fixtures/levels/navigation_layers.json \
     --variants static --out local/verification/navigation/navigation_layers.placesmap
 python3 tools/bench/navigation_acceptance.py --binary target/release/places \
     --package local/verification/navigation/navigation_layers.placesmap \
@@ -134,7 +134,7 @@ It never builds Rust or bakes shipped maps. Prepare only the tiny sources:
 
 ```sh
 python3 tools/bench/elevator_doors.py --write-fixtures local/door-fixtures
-target/release/places-compile export-project local/door-fixtures/monster \
+target/release/places-map-compiler export-project local/door-fixtures/monster \
     --out local/door-monster.placesmap --variants static,full --workers 1
 python3 tools/bench/elevator_doors.py --binary target/release/places \
     --package local/door-monster.placesmap --out local/door-monster-check --mode monster
@@ -180,7 +180,7 @@ ordinary and disconnected-room cases use logged acceptance player poses.
 
 ```sh
 python3 tools/bench/predator_search.py --write-fixtures local/search-fixtures
-target/release/places-compile export-project local/search-fixtures/elevator \
+target/release/places-map-compiler export-project local/search-fixtures/elevator \
     --out local/search-elevator.placesmap --variants static,full --workers 1
 python3 tools/bench/predator_search.py --binary target/release/places \
     --package local/search-elevator.placesmap --out local/search-check --mode elevator
@@ -199,16 +199,16 @@ clean-build measurements without reducing any quality settings. Sampling is a
 separate diagnostic run and must not be included in performance medians.
 
 ```sh
-python3 tools/bench/compiler_compare.py --baseline baseline/places-compile \
-    --optimized target/release/places-compile --out tools/bench/results/compiler-paired \
+python3 tools/bench/compiler_compare.py --baseline baseline/places-map-compiler \
+    --optimized target/release/places-map-compiler --out tools/bench/results/compiler-paired \
     --repeat 3 --label "documented desktop background load; own jobs sequential"
-python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
+python3 tools/bench/compiler_bench.py --binary target/release/places-map-compiler \
     --out tools/bench/results/compiler-clean --repeat 3 \
     --maps tests/fixtures/levels/test_room.json tests/fixtures/levels/material_transport.json
-python3 tools/bench/compiler_bench.py --binary target/release/places-compile \
+python3 tools/bench/compiler_bench.py --binary target/release/places-map-compiler \
     --out tools/bench/results/compiler-scaling --repeat 3 --workers 1 2 4 8 12 \
     --maps tests/fixtures/levels/test_room.json
-python3 tools/bench/compiler_incremental.py --binary target/release/places-compile \
+python3 tools/bench/compiler_incremental.py --binary target/release/places-map-compiler \
     --out target/verification/compiler-audit/incremental --repeat 3 --expect-metadata-reuse
 python3 tools/bench/compare_packages.py baseline.placesmap candidate.placesmap
 python3 -m unittest discover -s tests -p test_compiler_bench.py
@@ -630,7 +630,7 @@ machine report to ignored `target/verification/domestic-model-remake/geometry-va
 
 The [Stage 6 contracts](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/art-style/stage6/contracts.md) document source,
 resolved dependency, catalogue, tool and capture identity. `cache_decisions` in
-`places-compile --json` names package/prepared hits, misses and bypass reasons.
+`places-map-compiler --json` names package/prepared hits, misses and bypass reasons.
 `--force` remains the independent full path. Build a changed model from its real
 PNG/source before compiling: GLB embeds the runtime image.
 

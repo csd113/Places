@@ -93,10 +93,10 @@ def main() -> int:
         raise ValueError('Windows runtime notices are missing; supply --runtime-notices or <runtime-dir>/licenses')
     binaries = ['places.exe']
     if args.with_compiler or args.with_editor:
-        binaries.append('places-compile.exe')
+        binaries.append('places-map-compiler.exe')
     if args.with_editor:
         binaries.append('places-editor.exe')
-    if not (args.bin_dir/'places-compile.exe').is_file():
+    if not (args.bin_dir/'places-map-compiler.exe').is_file():
         raise ValueError('Bundled menu validation requires the matching compiler in --bin-dir')
     if args.menu_package and not args.menu_package.is_file():
         raise ValueError('--menu-package must be an existing project export')
@@ -144,14 +144,14 @@ def main() -> int:
         spec = importlib.util.spec_from_file_location('places_verify_menu', ROOT/'tools/verify-menu.py')
         menu_validation = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(menu_validation)
-        menu_validation.verify_menu((args.bin_dir/'places-compile.exe').resolve(), assets.resolve(), ROOT/'projects/menu')
+        menu_validation.verify_menu((args.bin_dir/'places-map-compiler.exe').resolve(), assets.resolve(), ROOT/'projects/menu')
         menu = dict(source='projects/menu', package=str(args.menu_package.resolve()) if args.menu_package else 'assets/shared/menu/scene.bin',
                     sha256=digest(assets/'shared/menu/scene.bin'), current=True)
         if args.maps:
             spec = importlib.util.spec_from_file_location('places_export_maps', ROOT/'tools/export-maps.py')
             module = importlib.util.module_from_spec(spec)
             spec.loader.exec_module(module)
-            module.export_maps(args.maps.resolve(), stage, (args.bin_dir/'places-compile.exe').resolve())
+            module.export_maps(args.maps.resolve(), stage, (args.bin_dir/'places-map-compiler.exe').resolve())
         git_head = subprocess.check_output(['git','rev-parse','HEAD'], cwd=ROOT, text=True).strip()
         dirty = subprocess.check_output(['git','status','--porcelain=v1'], cwd=ROOT, text=True).splitlines()
         provenance = dict(version=version, platform='windows-x86_64', source_head=git_head,
