@@ -110,6 +110,8 @@ Keep exactly `places` (game), `places-editor`, and `places-map-compiler` (rename
 ### 16. Move HVAC duct join metadata into the editor
 Move `tools/props/backrooms_phase6/duct_join_metadata.json` beside `src/editor/ducts.rs` or into an editor-owned data subdirectory. Update the `include_str!` path and any live tooling paths. Preserve the JSON bytes and existing duct snapping behavior. Verify a focused `places-editor` build and a representative duct join through preview and apply.
 
+**Complete.** The editor now owns the byte-identical metadata. On the Razer, Preview left the source unchanged, Apply joined the equal-scale short and straight duct flanges, and one Undo restored the saved pose. The focused editor build and duct test, strict workspace Clippy, locked all-features release build, and independent Sol Medium review passed.
+
 ### 17. Remove the `tools/` directory
 The goal is to delete `tools/` outright, not tidy it or move it wholesale. Treat legacy files as removable by default. Delete obsolete Blender/Python model and asset generators and their exclusive helpers, fixtures, benchmarks, and tests in bulk. Current models were authored by hand; do not regenerate or audit the assets. A reference from another old script, test, or CI job is not evidence of a current need.
 

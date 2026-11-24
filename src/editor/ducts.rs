@@ -26,10 +26,8 @@ type Kit = BTreeMap<String, [Port; 2]>;
 fn kit() -> Result<&'static Kit, String> {
     static KIT: OnceLock<Result<Kit, String>> = OnceLock::new();
     KIT.get_or_init(|| {
-        serde_json::from_str(include_str!(
-            "../../tools/props/backrooms_phase6/duct_join_metadata.json"
-        ))
-        .map_err(|error| format!("Cannot read duct connector metadata: {error}"))
+        serde_json::from_str(include_str!("duct_join_metadata.json"))
+            .map_err(|error| format!("Cannot read duct connector metadata: {error}"))
     })
     .as_ref()
     .map_err(Clone::clone)
