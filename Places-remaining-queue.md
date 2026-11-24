@@ -60,6 +60,14 @@ Start with the current build, known report details, and any compatible package o
 ## Shared bakes and lighting sign-off
 
 ### 11. Rebuild and verify only the maps needed for the remaining checks
+**Complete for shared exports.** At `c5e5dfd`, the Razer native editor exported
+one three-member Long Way Home archive and one nine-member Quiet Collection
+archive. All 12 members passed strict currentness and archive validation, with
+Static and Full variants and a Full atlas for each. Backrooms source is archived
+and its environment assets remain available. Independent review cleared the
+export gate. The exact Danger gameplay check for #53 and lighting acceptance
+for #55 remain open.
+
 Settle compiler changes first. Pin one compiler revision and matching assets; validate provenance, package integrity, and intended quality. Deduplicate requested checks across issues and use compatible evidence where available, but don't keep disposable bakes or rebuild a map merely to regenerate a report.
 - **Backrooms.** Prior Razer Full bake stopped around 52% of direct work after about 54 minutes without an archive or resume checkpoint. Archive the Backrooms level and remove it from the active compile and review pool. Keep the Backrooms environment assets available.
 - **Quiet collection:** One current nine-member Full collection should support Arcade UV and ordinary-wall control, elevator destination/return, and relevant memory/transition comparisons. Don’t repeat eight separate bakes if one qualifying collection will do.
