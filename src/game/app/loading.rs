@@ -289,7 +289,7 @@ pub struct PreparedWorld {
 }
 
 #[derive(Clone)]
-struct Control {
+pub(super) struct Control {
     cancelled: Arc<AtomicBool>,
     phase: Arc<AtomicU8>,
     budget: Arc<crate::engine::resources::DecodeBudget>,
@@ -297,6 +297,10 @@ struct Control {
     cancelled_micros: Arc<std::sync::atomic::AtomicU64>,
 }
 impl Control {
+    pub(super) fn enter_budget(&self) -> crate::engine::resources::DecodeScope {
+        crate::engine::resources::enter(Some(Arc::clone(&self.budget)))
+    }
+
     fn new() -> Self {
         let cancelled = Arc::new(AtomicBool::new(false));
         Self {
@@ -342,7 +346,7 @@ enum Message<I, O> {
 }
 
 /// Scheduling stays generic so cancellation tests never need a renderer, assets, or real bake.
-struct Worker<I, O> {
+pub(super) struct Worker<I, O> {
     sender: Option<mpsc::SyncSender<Message<I, O>>>,
     receiver: Option<mpsc::Receiver<Finished<O>>>,
     handle: Option<JoinHandle<()>>,
@@ -351,7 +355,7 @@ struct Worker<I, O> {
     running: Option<(u64, Control)>,
 }
 impl<I: Send + 'static, O: Send + 'static> Worker<I, O> {
-    fn spawn(
+    pub(super) fn spawn(
         mut work: impl FnMut(I, &Control) -> Result<Option<O>, String> + Send + 'static,
     ) -> Result<Self, String> {
         let (sender, requests) = mpsc::sync_channel::<Message<I, O>>(1);
@@ -395,7 +399,7 @@ impl<I: Send + 'static, O: Send + 'static> Worker<I, O> {
         })
     }
 
-    fn request(&mut self, input: I) -> Result<u64, String> {
+    pub(super) fn request(&mut self, input: I) -> Result<u64, String> {
         if self.sender.is_none() {
             return Err("Level preparation is shutting down".to_string());
         }
@@ -447,7 +451,7 @@ impl<I: Send + 'static, O: Send + 'static> Worker<I, O> {
         Ok(())
     }
 
-    fn poll(&mut self) -> Option<(u64, Result<O, String>)> {
+    pub(super) fn poll(&mut self) -> Option<(u64, Result<O, String>)> {
         let received = self.receiver.as_ref()?.try_recv();
         match received {
             Ok(done) => {
@@ -513,7 +517,7 @@ impl<I: Send + 'static, O: Send + 'static> Worker<I, O> {
     }
 }
 impl<I, O> Worker<I, O> {
-    fn shutdown(&mut self) {
+    pub(super) fn shutdown(&mut self) {
         self.pending = None;
         if let Some((_, control)) = &self.running {
             control.cancel();
@@ -521,10 +525,10 @@ impl<I, O> Worker<I, O> {
         self.sender = None;
         self.receiver = None;
     }
-    fn is_finished(&self) -> bool {
+    pub(super) fn is_finished(&self) -> bool {
         self.handle.as_ref().is_none_or(JoinHandle::is_finished)
     }
-    fn join_finished(&mut self) -> Result<bool, String> {
+    pub(super) fn join_finished(&mut self) -> Result<bool, String> {
         if !self.is_finished() {
             return Ok(false);
         }

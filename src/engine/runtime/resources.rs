@@ -102,6 +102,13 @@ pub fn admission_scope() -> DecodeScope {
         DecodeBudget::new(Arc::new(AtomicBool::new(false)))
     })))
 }
+/// Independent admission for one batch member while retaining job cancellation.
+pub fn batch_member_scope() -> DecodeScope {
+    enter(Some(DecodeBudget::new(current().map_or_else(
+        || Arc::new(AtomicBool::new(false)),
+        |budget| Arc::clone(&budget.cancelled),
+    ))))
+}
 pub fn checkpoint() -> Result<(), String> {
     CURRENT.with(|current| {
         if let Some(budget) = current.borrow().as_ref() {

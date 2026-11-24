@@ -23,7 +23,7 @@ fn full_error_pages_retain_long_unicode_paths_and_own_input() {
             .collect::<String>()
     );
     let mut ui = UiState::new();
-    ui.set_status(message, true);
+    ui.set_status(message.clone(), true);
     for _ in 0_u8..100 {
         ui.scroll_details(1);
     }
@@ -46,6 +46,10 @@ fn full_error_pages_retain_long_unicode_paths_and_own_input() {
         layout.hit_test([300.0, 216.0]).map(|hit| hit.intent),
         Some(MenuIntent::Page(1))
     );
+    ui.set_import_report(message);
+    ui.scroll_details(1);
+    assert_eq!(ui.status_page, 1);
+    assert!(ui.status_is_modal() && !ui.status_is_error);
 }
 #[test]
 fn large_explore_collections_keep_actions_and_selected_card_reachable() {
@@ -80,8 +84,13 @@ fn large_explore_collections_keep_actions_and_selected_card_reachable() {
     );
     assert_eq!(
         empty.rows.len(),
-        3,
-        "empty collections retain Import, Folder and Back"
+        4,
+        "empty collections retain the picker, folder actions and Back"
+    );
+    assert_eq!(
+        empty.hit_test([40.0, 225.0]).map(|hit| hit.index),
+        Some(0),
+        "the visible picker must activate the first trailing action"
     );
 }
 
@@ -227,11 +236,11 @@ fn odd_grid_rows_reach_pinned_actions_and_scroll_the_selected_card() {
     assert!(ui.level_scroll > 0);
     ui.level_select_idx = 1;
     ui.move_level_row(true);
-    assert_eq!(ui.level_select_idx, 7);
+    assert_eq!(ui.level_select_idx, 8);
     ui.level_entries.clear();
     ui.level_select_idx = 0;
     ui.move_level_row(true);
-    assert_eq!(ui.level_select_idx, 2);
+    assert_eq!(ui.level_select_idx, 3);
 }
 
 // The long warning must remain reachable and must not cover the Back button.

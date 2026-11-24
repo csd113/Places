@@ -120,7 +120,7 @@ impl<R: Read + Seek> PackageReader<R> {
         // The raw central directory is validated before the ZIP crate builds
         // its name-keyed index: that index silently collapses exact duplicate
         // names, so a duplicate can only be seen here.
-        let directory = scan_central_directory(&mut reader)?;
+        let directory = scan_central_directory(&mut reader, DirectoryKind::Package)?;
         let archive = zip::ZipArchive::new(reader)
             .map_err(|error| OpenError::NotArchive(error.to_string()))?;
         if archive.len() != directory.names.len() {
@@ -377,7 +377,10 @@ fn copy_record<R: Read + Seek>(
     clippy::too_many_lines,
     reason = "one cohesive structural scan of the archive directory"
 )] // one cohesive structural scan of the archive directory
-fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryIndex, OpenError> {
+fn scan_central_directory<R: Read + Seek>(
+    reader: &mut R,
+    kind: DirectoryKind,
+) -> Result<DirectoryIndex, OpenError> {
     /// End-of-central-directory record size without a comment.
     const EOCD_SIZE: u64 = 22;
     /// Largest accepted comment search window (max comment + EOCD).
@@ -448,9 +451,13 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryInd
             "ZIP64 archives are not supported by this format".to_string(),
         ));
     }
-    if usize::from(entries) > MAX_ENTRIES {
+    let max_entries = match kind {
+        DirectoryKind::Package => MAX_ENTRIES,
+        DirectoryKind::MapZip(max_entries) => max_entries,
+    };
+    if usize::from(entries) > max_entries {
         return Err(OpenError::NotArchive(format!(
-            "archive has {entries} entries (limit {MAX_ENTRIES})"
+            "archive has {entries} entries (limit {max_entries})"
         )));
     }
     let cd_size = u64::from(field(12));
@@ -498,7 +505,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryInd
             ));
         }
         let flags = u16::from_le_bytes([header_bytes[8], header_bytes[9]]);
-        if flags & 0x0041 != 0 {
+        if flags & 0x0041 != 0 && matches!(kind, DirectoryKind::Package) {
             return Err(OpenError::NotArchive(
                 "Encrypted archive entries are not supported".into(),
             ));
@@ -538,7 +545,7 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryInd
         let entry_name = std::str::from_utf8(raw_name).map_err(|error| {
             OpenError::NotArchive(format!("entry name is not valid UTF-8: {error}"))
         })?;
-        if entry_name.ends_with('/') {
+        if entry_name.ends_with('/') && matches!(kind, DirectoryKind::Package) {
             return Err(OpenError::NotArchive(format!(
                 "archive contains a directory entry '{entry_name}'"
             )));
@@ -550,13 +557,22 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryInd
             header_bytes[41],
         ]);
         let unix_mode = external >> 16_i32;
-        if unix_mode & 0o170_000 == 0o120_000 {
+        if unix_mode & 0o170_000 == 0o120_000 && matches!(kind, DirectoryKind::Package) {
             return Err(OpenError::NotArchive(format!(
                 "archive contains a symbolic link '{entry_name}'"
             )));
         }
-        let name = normalize_entry_name(entry_name)
-            .ok_or_else(|| OpenError::NotArchive(format!("unsafe entry name '{entry_name}'")))?;
+        let name = match kind {
+            DirectoryKind::Package => normalize_entry_name(entry_name).ok_or_else(|| {
+                OpenError::NotArchive(format!("unsafe entry name '{entry_name}'"))
+            })?,
+            DirectoryKind::MapZip(_) => {
+                let relative = entry_name.strip_suffix('/').unwrap_or(entry_name);
+                let _safe = crate::engine::project::ProjectPath::new(relative.to_string())
+                    .map_err(|error| OpenError::NotArchive(error.escape_debug().to_string()))?;
+                entry_name.to_string()
+            }
+        };
         total = total.saturating_add(u64::from(uncompressed));
         names.push(name);
         cursor = name_end
@@ -574,6 +590,17 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryInd
             "archive contains duplicate entry '{}'",
             pair.first().map_or("", String::as_str)
         )));
+    }
+    if matches!(kind, DirectoryKind::MapZip(_)) {
+        if total > MAX_PROJECT_TRANSPORT_BYTES {
+            return Err(OpenError::NotArchive(format!(
+                "archive declares {total} expanded bytes (limit {MAX_PROJECT_TRANSPORT_BYTES})"
+            )));
+        }
+        return Ok(DirectoryIndex {
+            names,
+            requires_project_validation: false,
+        });
     }
     let is_project = names
         .binary_search_by(|name| name.as_str().cmp(project::INDEX))
@@ -598,6 +625,31 @@ fn scan_central_directory<R: Read + Seek>(reader: &mut R) -> Result<DirectoryInd
         requires_project_validation: is_project
             && (total > MAX_TOTAL_BYTES || file_len > MAX_TRANSPORT_BYTES),
     })
+}
+
+#[derive(Clone, Copy)]
+enum DirectoryKind {
+    Package,
+    MapZip(usize),
+}
+
+/// Runs the bounded directory scan before the ZIP library allocates its index.
+pub(crate) fn open_map_zip(
+    mut input: std::fs::File,
+    max_entries: usize,
+) -> Result<zip::ZipArchive<std::fs::File>, String> {
+    let directory = scan_central_directory(&mut input, DirectoryKind::MapZip(max_entries))
+        .map_err(|error| error.to_string())?;
+    let archive = zip::ZipArchive::new(input).map_err(|error| error.to_string())?;
+    let mut indexed_names = archive.file_names_raw().collect::<Vec<_>>();
+    indexed_names.sort_unstable();
+    if !indexed_names
+        .into_iter()
+        .eq(directory.names.iter().map(String::as_bytes))
+    {
+        return Err("ZIP directory and entry index disagree".into());
+    }
+    Ok(archive)
 }
 
 struct DirectoryIndex {

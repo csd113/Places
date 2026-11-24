@@ -10,7 +10,7 @@ use crate::game::settings::{KeyBindings, Settings, WindowMode};
 mod health;
 pub use health::append_player_health;
 mod menu;
-pub(crate) use menu::level_icon_bounds;
+pub(crate) use menu::{LEVEL_IMPORT_ACTIONS, level_icon_bounds};
 mod subtitles;
 pub(crate) use subtitles::Subtitles;
 mod pointer;
@@ -173,6 +173,7 @@ pub struct UiState {
     /// True when [`Self::status_message`] describes a failure, so screens can
     /// colour it without parsing their own text.
     pub status_is_error: bool,
+    pub(crate) import_report: Option<()>,
     /// Admission recovery offers an explicit unload/restart instead of discarding play.
     pub load_retry: Option<()>,
     pub level_entries: Vec<String>,
@@ -207,7 +208,17 @@ impl UiState {
         self.load_retry = None;
         self.status_message = Some(message.into());
         self.status_is_error = is_error;
+        self.import_report = None;
         self.status_page = 0;
+    }
+
+    pub(crate) fn set_import_report(&mut self, message: String) {
+        self.set_status(message, false);
+        self.import_report = Some(());
+    }
+
+    pub(crate) const fn status_is_modal(&self) -> bool {
+        self.status_is_error || self.import_report.is_some()
     }
 
     /// Logs recoverable prop/physics problems while making their modal opt-in.
@@ -223,6 +234,7 @@ impl UiState {
         self.load_retry = None;
         self.status_message = None;
         self.status_is_error = false;
+        self.import_report = None;
     }
 
     pub fn cancel_rebinding(&mut self) {
@@ -268,6 +280,7 @@ fn ui_signature(
     ui_state.rebinding_action.hash(&mut hasher);
     ui_state.status_message.as_deref().hash(&mut hasher);
     ui_state.status_is_error.hash(&mut hasher);
+    ui_state.import_report.hash(&mut hasher);
     ui_state.load_retry.hash(&mut hasher);
     ui_state.level_entries.hash(&mut hasher);
     ui_state.import_directory.hash(&mut hasher);

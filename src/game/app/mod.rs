@@ -13,6 +13,7 @@ mod item_input;
 mod item_runtime;
 mod loading;
 mod mannequin_bowling;
+mod map_import;
 mod ragdoll_runtime;
 mod startup;
 mod tools;
@@ -60,9 +61,6 @@ static LAST_MENU_VIGNETTE: std::sync::atomic::AtomicI64 = std::sync::atomic::Ato
 
 /// Items in the fixed pause menu: Resume, Settings, Return to Main Menu.
 const PAUSE_MENU_ITEM_COUNT: usize = 3;
-
-/// Items after the installed levels: Import, Open Import Folder, Back.
-const LEVEL_SELECT_TRAILING_ITEMS: usize = 3;
 
 /// Previous index in a `len`-item cyclic list, wrapping to the last item.
 const fn menu_prev(index: usize, len: usize) -> usize {
@@ -729,6 +727,7 @@ struct FrameLoop<'a> {
     /// and `main` exits with this message.
     fatal_error: Option<String>,
     loader: loading::Loader,
+    map_import: map_import::MapImport,
     load_intent: Option<LoadIntent>,
     elevator_arrival: Option<super::elevator_transport::Arrival>,
     elevator_cargo: elevator_cargo::Ledger,
@@ -818,12 +817,14 @@ impl FrameLoop<'_> {
         );
         self.audio.finish();
         self.loader.shutdown();
+        self.map_import.shutdown();
         if let Some(actions) = &mut self.actions {
             actions.shutdown();
         }
         self.trace
             .record("shutdown_requested", self.load_generation, "");
         while !self.loader.is_finished()
+            || !self.map_import.is_finished()
             || self
                 .actions
                 .as_ref()
@@ -861,6 +862,9 @@ impl FrameLoop<'_> {
             std::thread::sleep(std::time::Duration::from_millis(16));
         }
         if let Err(error) = self.loader.join_finished() {
+            self.fatal_error = Some(error);
+        }
+        if let Err(error) = self.map_import.join_finished() {
             self.fatal_error = Some(error);
         }
         if let Some(actions) = &mut self.actions
@@ -990,6 +994,7 @@ impl FrameLoop<'_> {
         }
         self.apply_pending_settings();
         self.advance_loading();
+        self.poll_map_import();
         // An asynchronous graphics transition (an uncached lightmap fill) can
         // finish on any frame, so the subtle status hint is refreshed every
         // frame; it is two enum checks when nothing is in flight.
@@ -2814,6 +2819,10 @@ impl FrameLoop<'_> {
             return true;
         }
 
+        if self.map_import.busy() {
+            return true;
+        }
+
         if self.handle_menu_pointer(event) {
             return true;
         }
@@ -2941,7 +2950,7 @@ impl FrameLoop<'_> {
     fn handle_menu_details_key(&mut self, event: &Event) -> bool {
         if self.ui_state.resume_offer.is_none()
             && self.game.app_state() == AppState::LevelSelect
-            && !self.ui_state.status_is_error
+            && !self.ui_state.status_is_modal()
             && !self.ui_state.loading_map
             && matches!(
                 event,
@@ -3162,7 +3171,7 @@ impl FrameLoop<'_> {
             }
             return;
         }
-        if self.ui_state.status_is_error {
+        if self.ui_state.status_is_modal() {
             if self.ui_state.load_retry.is_some() && matches!(nav, MenuNavEvent::Activate) {
                 self.retry_after_unload();
                 return;
@@ -3238,7 +3247,7 @@ impl FrameLoop<'_> {
             .ui_state
             .level_entries
             .len()
-            .saturating_add(LEVEL_SELECT_TRAILING_ITEMS);
+            .saturating_add(ui::LEVEL_IMPORT_ACTIONS.len());
         match (self.game.app_state(), up) {
             (AppState::MainMenu, true) => {
                 self.ui_state.main_menu_idx =
@@ -3508,10 +3517,12 @@ impl FrameLoop<'_> {
     fn refresh_level_entries(&mut self) {
         self.ui_state.description_index = None;
         self.ui_state.level_entries = level_entry_names(self.level_manager);
-        self.ui_state.level_select_idx = self
-            .ui_state
-            .level_select_idx
-            .min(self.ui_state.level_entries.len().saturating_add(2));
+        self.ui_state.level_select_idx = self.ui_state.level_select_idx.min(
+            self.ui_state
+                .level_entries
+                .len()
+                .saturating_add(ui::LEVEL_IMPORT_ACTIONS.len().saturating_sub(1)),
+        );
         self.ui_state.keep_selection_visible(AppState::LevelSelect);
     }
 
@@ -3526,9 +3537,9 @@ impl FrameLoop<'_> {
                     self.offer_checkpoint(entry);
                 }
             }
-            // `Import Levels`.
-            Ordering::Equal => self.import_levels(),
-            Ordering::Greater if selected == num_levels.saturating_add(1) => {
+            Ordering::Equal => self.choose_import_file(),
+            Ordering::Greater if selected == num_levels.saturating_add(1) => self.import_levels(),
+            Ordering::Greater if selected == num_levels.saturating_add(2) => {
                 if let Err(error) = open_import_folder() {
                     self.ui_state.set_status(error, true);
                 }
@@ -4787,7 +4798,7 @@ impl FrameLoop<'_> {
             && self.ui_state.resume_offer.is_none()
             && !self.ui_state.loading_map
             && self.ui_state.details_open.is_none()
-            && !self.ui_state.status_is_error
+            && !self.ui_state.status_is_modal()
             && self.ui_state.credits.is_none()
             && self.startup == StartupPhase::Ready
         {
@@ -5579,10 +5590,15 @@ fn dispatch_paths_cli(args: &[String]) -> Result<bool, String> {
     }
     if args.first().is_some_and(|arg| arg == "--import") {
         let [_, source] = args else {
-            return Err("Usage: places --import <file.placesmap>".into());
+            return Err("Usage: places --import <file.placesmap|file.zip>".into());
         };
         let mut manager = loader::LevelManager::new()?;
-        let import = manager.import_file(Path::new(source))?;
+        let path = Path::new(source);
+        if loader::is_map_zip(path) {
+            println!("{}", manager.import_zip(path)?);
+            return Ok(true);
+        }
+        let import = manager.import_file(path)?;
         println!(
             "{}\t{}\t{}",
             import.entry.id,
@@ -5706,7 +5722,6 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
     let mut ui_cache = UiGeometryCache::new();
     let mut ui_scratch: Vec<Vertex> = Vec::new();
     let mut applied_filtering = settings.texture_filtering.clone();
-    let mut capture_path = capture_path_from_env();
 
     let audio = audio_runtime::Audio::new(started.ready.audio, &sdl_context);
     timing.step("audio");
@@ -5741,7 +5756,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         ui_cache: &mut ui_cache,
         ui_scratch: &mut ui_scratch,
         applied_filtering: &mut applied_filtering,
-        capture_path: &mut capture_path,
+        capture_path: &mut capture_path_from_env(),
         capture_at_frame: capture_frame_from_env(),
         capture_at_seconds: capture_time_from_env(),
         state_log: &mut state_log,
@@ -5754,6 +5769,7 @@ fn run_player(interrupted: bool) -> Result<(), Box<dyn std::error::Error>> {
         window_focused: true,
         fatal_error: None,
         loader: started.loader,
+        map_import: map_import::MapImport::default(),
         load_intent: None,
         elevator_arrival: None,
         elevator_cargo: elevator_cargo::Ledger::default(),

@@ -4,7 +4,9 @@ use std::path::PathBuf;
 use std::sync::Arc;
 
 mod manager;
+mod map_zip;
 pub use manager::{ImportCounts, ImportOutcome, ImportedPackage, LevelManager};
+pub(crate) use map_zip::is_zip as is_map_zip;
 mod validation;
 pub(super) use validation::props::validate_prop_physics;
 pub(crate) use validation::validation_has_checkpoints;

@@ -16,6 +16,7 @@ const MUTED: [f32; 3] = [0.65, 0.65, 0.59];
 const ACCENT: [f32; 3] = [1.0, 0.86, 0.25];
 const LEFT: f32 = 36.0;
 const RIGHT: f32 = 444.0;
+pub const LEVEL_IMPORT_ACTIONS: [&str; 4] = ["Import file", "Scan folder", "Open folder", "Back"];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub struct MenuRect {
@@ -243,7 +244,7 @@ fn base_layout(state: AppState, ui: &UiState) -> MenuLayout {
             && ui.level_select_idx < ui.level_entries.len())
         .then_some(()),
         load_retry: ui.load_retry,
-        overlay: if ui.status_is_error {
+        overlay: if ui.status_is_modal() {
             Some(true)
         } else if ui.credits.is_some() {
             Some(false)
@@ -323,10 +324,7 @@ pub fn menu_layout(
                 entry.bounds.right = entry.bounds.left + 196.0;
                 layout.rows.push(entry);
             }
-            for (position, label) in ["Import levels", "Import folder", "Back"]
-                .into_iter()
-                .enumerate()
-            {
+            for (position, label) in LEVEL_IMPORT_ACTIONS.into_iter().enumerate() {
                 let mut entry = row(
                     total.saturating_add(position),
                     label.to_string(),
@@ -334,8 +332,8 @@ pub fn menu_layout(
                     218.0,
                     18.0,
                 );
-                entry.bounds.left = row_y(position, 142.0, 30.0);
-                entry.bounds.right = entry.bounds.left + 134.0;
+                entry.bounds.left = row_y(position, 104.0, 30.0);
+                entry.bounds.right = entry.bounds.left + 98.0;
                 layout.rows.push(entry);
             }
             if total > 4 {
@@ -560,7 +558,7 @@ fn draw_rows(vertices: &mut Vec<Vertex>, layout: &MenuLayout, state: AppState, u
             let width = if main {
                 140.0
             } else if state == AppState::LevelSelect && ui.resume_offer.is_none() {
-                126.0
+                bounds.right - bounds.left - 16.0
             } else if entry.value.is_empty() {
                 360.0
             } else {
@@ -970,9 +968,7 @@ pub(super) fn geometry(
         );
     }
     if let Some(message) = &ui.status_message {
-        if ui.status_is_error {
-            draw_error(&mut vertices, ui);
-        } else {
+        if !ui.status_is_modal() {
             draw_status(&mut vertices, message, false);
         }
     } else if state == AppState::MainMenu {
@@ -998,7 +994,7 @@ pub(super) fn geometry(
         small_line(&mut vertices, legend, 250.0, MUTED);
     }
     draw_modals(&mut vertices, ui);
-    if ui.status_is_error {
+    if ui.status_is_modal() {
         draw_error(&mut vertices, ui);
     }
 
@@ -1010,13 +1006,13 @@ fn draw_empty_state(vertices: &mut Vec<Vertex>, state: AppState, ui: &UiState) {
         small_line(vertices, "No maps installed.", 108.0, MUTED);
         small_line(
             vertices,
-            "Copy compiled .placesmap files to Import.",
+            "Import a compiled .placesmap or a ZIP of maps.",
             124.0,
             MUTED,
         );
         small_line(
             vertices,
-            "Then choose Import levels to install them.",
+            "Or copy .placesmap files to Import, then scan the folder.",
             136.0,
             MUTED,
         );
@@ -1166,10 +1162,11 @@ impl UiState {
     pub(crate) fn move_level_row(&mut self, up: bool) {
         let total = self.level_entries.len();
         let selected = self.level_select_idx;
+        let back = LEVEL_IMPORT_ACTIONS.len().saturating_sub(1);
         self.level_select_idx = if total == 0 {
             if up {
-                selected.checked_sub(1).unwrap_or(2)
-            } else if selected < 2 {
+                selected.checked_sub(1).unwrap_or(back)
+            } else if selected < back {
                 selected.saturating_add(1)
             } else {
                 0
@@ -1180,7 +1177,7 @@ impl UiState {
             if selected >= 2 {
                 selected.saturating_sub(2)
             } else {
-                total.saturating_add(2)
+                total.saturating_add(back)
             }
         } else {
             selected.saturating_add(2).min(total)
@@ -1234,7 +1231,7 @@ impl UiState {
     }
 
     pub fn scroll_details(&mut self, direction: i32) {
-        if self.status_is_error {
+        if self.status_is_modal() {
             let maximum = wrap(self.status_message.as_deref().unwrap_or(""), 56)
                 .len()
                 .div_ceil(12)
@@ -1255,7 +1252,7 @@ impl UiState {
     }
 
     pub fn scroll_menu(&mut self, state: AppState, direction: i32) {
-        if self.status_is_error {
+        if self.status_is_modal() {
             self.scroll_details(direction);
             return;
         }
@@ -1409,7 +1406,9 @@ fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
     );
     draw_text(
         vertices,
-        if ui.load_retry.is_some() {
+        if ui.import_report.is_some() {
+            "MAP IMPORT RESULTS"
+        } else if ui.load_retry.is_some() {
             "MAP NEEDS A FRESH START"
         } else {
             "SOMETHING WENT WRONG"
@@ -1417,7 +1416,11 @@ fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
         36.0,
         30.0,
         1.5,
-        [1.0, 0.63, 0.45],
+        if ui.import_report.is_some() {
+            ACCENT
+        } else {
+            [1.0, 0.63, 0.45]
+        },
     );
     let lines = wrap(
         ui.status_message.as_deref().unwrap_or("Please try again."),
@@ -1462,7 +1465,11 @@ fn draw_error(vertices: &mut Vec<Vertex>, ui: &UiState) {
     add_rect(vertices, 36.0, 232.0, 444.0, 252.0, [0.22, 0.21, 0.15]);
     draw_text(
         vertices,
-        "Enter / Esc: dismiss and try again",
+        if ui.import_report.is_some() {
+            "Enter / Esc: close"
+        } else {
+            "Enter / Esc: dismiss and try again"
+        },
         46.0,
         238.0,
         0.875,

@@ -754,7 +754,30 @@ impl LevelManager {
             .file_name()
             .ok_or_else(|| "Invalid file name".to_string())?;
         let portable_name = file_name.to_str().ok_or("Import file name must be UTF-8")?;
+        self.install_import(portable_name, None, || {
+            crate::engine::package::archive::open_file(source_path)
+        })
+    }
+
+    /// ZIP members may add maps, but a replacement requires an explicit
+    /// single-package import. Identical, intact installs remain a no-op.
+    pub(super) fn import_zip_member(
+        &mut self,
+        name: &str,
+        size: u64,
+        input: &mut impl Read,
+    ) -> Result<ImportedPackage, String> {
+        self.install_import(name, Some(size), || Ok(input))
+    }
+
+    fn install_import<R: Read>(
+        &mut self,
+        portable_name: &str,
+        zip_member_size: Option<u64>,
+        open: impl FnOnce() -> Result<R, String>,
+    ) -> Result<ImportedPackage, String> {
         let _validated = crate::engine::project::ProjectPath::new(portable_name.to_string())?;
+        let file_name = std::ffi::OsStr::new(portable_name);
         fs::create_dir_all(&self.levels_dir)
             .map_err(|error| format!("Failed to create levels directory: {error}"))?;
         let target_path = self.levels_dir.join(file_name);
@@ -777,9 +800,21 @@ impl LevelManager {
         }
         self.refresh();
         // Admission resolves the stable package ID, independent of an incoming rename.
-        let (opened, plan) = import_package(source_path, &target_path, |staged_path| {
-            self.accept_import(staged_path, &target_path)
-        })?;
+        let (opened, plan) = import_package(
+            open()?,
+            &target_path,
+            zip_member_size,
+            |staged_path| {
+                let plan = self.accept_import(staged_path, &target_path)?;
+                if zip_member_size.is_some()
+                    && plan.previous_hash.is_some()
+                    && plan.outcome != ImportOutcome::Unchanged
+                {
+                    return Err("Would replace an installed map. Import this .placesmap on its own to update it.".into());
+                }
+                Ok(plan)
+            },
+        )?;
         self.refresh();
         Ok(ImportedPackage {
             entry: LevelEntry {
@@ -997,16 +1032,18 @@ fn validate_unchanged_installation(path: &Path) -> Result<(), String> {
 }
 
 fn import_package(
-    source: &Path,
+    mut input: impl Read,
     named_target: &Path,
+    zip_member_size: Option<u64>,
     accept: impl FnOnce(&Path) -> Result<ImportPlan, String>,
 ) -> Result<(OpenedPackage, ImportPlan), String> {
-    let mut input = crate::engine::package::archive::open_file(source)?;
     let (temporary, output) = create_temporary(named_target)?;
-    let staged = stage_import(&mut input, output, &temporary)
+    let staged = stage_import(&mut input, output, &temporary, zip_member_size)
         .map_err(|error| cleanup_failed_write(&temporary, error))?;
     let plan = accept(&temporary).map_err(|error| cleanup_failed_write(&temporary, error))?;
     drop(input);
+    crate::engine::resources::checkpoint()
+        .map_err(|error| cleanup_failed_write(&temporary, error))?;
     publish_import(&temporary, &plan)?;
     Ok((staged, plan))
 }
@@ -1051,9 +1088,10 @@ fn publish_import(temporary: &Path, plan: &ImportPlan) -> Result<(), String> {
 
 /// Owns and closes the write handle before validation or temporary cleanup.
 fn stage_import(
-    input: &mut fs::File,
+    input: &mut impl Read,
     mut output: fs::File,
     temporary: &Path,
+    zip_member_size: Option<u64>,
 ) -> Result<OpenedPackage, String> {
     let copied = std::io::copy(
         &mut input.take(MAX_IMPORT_BYTES.saturating_add(1)),
@@ -1065,6 +1103,13 @@ fn stage_import(
             temporary.display()
         )
     })?;
+    if let Some(expected) = zip_member_size
+        && copied != expected
+    {
+        return Err(format!(
+            "ZIP member declares {expected} bytes but decoded {copied} bytes"
+        ));
+    }
     if copied > MAX_IMPORT_BYTES {
         return Err(format!(
             "Import source grew beyond the byte limit ({MAX_IMPORT_BYTES})"
