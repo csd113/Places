@@ -129,6 +129,10 @@ impl App {
                                 "exit_volume"
                             })
                         }
+                        GameplaySetting::EscalatorDirection => {
+                            use crate::engine::escalator::Direction::{Down, Up};
+                            json!(if current == json!(Down) { Up } else { Down })
+                        }
                         _ => json!(!current.as_bool().unwrap_or(false)),
                     };
                     doc.set_gameplay_value(id, setting, value, &self.catalog)?;

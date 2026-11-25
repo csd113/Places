@@ -67,6 +67,7 @@ pub(super) enum Action {
     Reuse(super::reuse::Command),
     Author(super::authoring::Command),
     Elevator(super::elevators::Command),
+    Escalator(super::escalators::Command),
     Project,
     ProjectField(super::projects::Field),
     ProjectApply,

@@ -209,11 +209,11 @@ fn object_essentials(
             *top += ROW;
         }
         ObjectId::Prop(index) => {
-            let model = app
+            let selected_prop = app
                 .document
                 .as_ref()
-                .and_then(|document| document.level().props.get(index))
-                .map_or("Model", |prop| prop.model.as_str());
+                .and_then(|document| document.level().props.get(index));
+            let model = selected_prop.map_or("Model", |prop| prop.model.as_str());
             row_button(
                 vertices,
                 hits,
@@ -222,6 +222,20 @@ fn object_essentials(
                 Action::Assets,
                 editable,
             );
+            if let Some(definition) = selected_prop.and_then(|prop| prop.escalator.as_ref()) {
+                use crate::engine::escalator::Direction;
+                row_button(
+                    vertices,
+                    hits,
+                    top,
+                    match definition.direction {
+                        Direction::Up => "Direction: Up",
+                        Direction::Down => "Direction: Down",
+                    },
+                    Action::GameSetting(Setting::EscalatorDirection),
+                    editable,
+                );
+            }
             row_button(
                 vertices,
                 hits,

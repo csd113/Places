@@ -40,12 +40,72 @@ struct WalkableRamp {
     floor_y: f32,
     /// Derived from the placement, not a change to the compiled floor wire format.
     belt: Option<usize>,
+    overlay: bool,
 }
 
 impl WalkableRamp {
     /// World Y of the sloped surface at `(x, z)`.
     fn height_at(&self, x: f32, z: f32) -> f32 {
         self.floor_y + self.surface.offset_at(x, z)
+    }
+
+    fn body_limit(&self, head: f32) -> f32 {
+        if self.overlay {
+            head + crate::engine::escalator::SHELL_DEPTH
+        } else {
+            f32::INFINITY
+        }
+    }
+
+    fn crossing(&self, start: f32, end: f32, y: f32) -> Option<f32> {
+        let rise = self.surface.rise();
+        (rise.abs() > crate::engine::collision::CONTACT_EPS).then(|| {
+            let fraction = ((y - self.floor_y - self.surface.base_offset()) / rise).clamp(0.0, 1.0);
+            (end - start).mul_add(fraction, start)
+        })
+    }
+
+    fn visit_contour(
+        &self,
+        at: f32,
+        backing: f32,
+        outward: f32,
+        visit: &mut impl FnMut(&WallAabb, glam::Vec2),
+    ) {
+        let (x0, x1, z0, z1) = self.surface.bounds();
+        match self.surface.axis() {
+            WallAxis::X => visit(
+                &WallAabb::with_y(at, backing, z0, 0.0, 0.0, z1 - z0),
+                glam::Vec2::new(outward, 0.0),
+            ),
+            WallAxis::Z => visit(
+                &WallAabb::with_y(x0, backing, at, x1 - x0, 0.0, 0.0),
+                glam::Vec2::new(0.0, outward),
+            ),
+        }
+    }
+
+    fn underside(&self, point: glam::Vec2, radius: f32, feet: f32, square: bool) -> Option<f32> {
+        if !self.overlay {
+            return None;
+        }
+        let (x0, x1, z0, z1) = self.surface.bounds();
+        let x = point.x.clamp(x0, x1);
+        let z = point.y.clamp(z0, z1);
+        let dx = (x - point.x).abs();
+        let dz = (z - point.y).abs();
+        if (if square { dx.max(dz) } else { dx.hypot(dz) }) >= radius {
+            return None;
+        }
+        let low_x = (point.x - radius).clamp(x0, x1);
+        let high_x = (point.x + radius).clamp(x0, x1);
+        let low_z = (point.y - radius).clamp(z0, z1);
+        let high_z = (point.y + radius).clamp(z0, z1);
+        let bottom = self
+            .height_at(low_x, low_z)
+            .min(self.height_at(high_x, high_z))
+            - crate::engine::escalator::SHELL_DEPTH;
+        (bottom > feet + crate::engine::collision::CONTACT_EPS).then_some(bottom)
     }
 }
 
@@ -207,6 +267,38 @@ enum StairSampling {
     PitchLine,
 }
 
+enum RoomSurface<'a> {
+    Flat(f32),
+    Ramp(&'a WalkableRamp),
+    Stair(&'a WalkableStair),
+}
+
+impl RoomSurface<'_> {
+    fn height_at(&self, x: f32, z: f32, sampling: StairSampling) -> f32 {
+        match self {
+            Self::Flat(y) => *y,
+            Self::Ramp(ramp) => ramp.height_at(x, z),
+            Self::Stair(stair) => match sampling {
+                StairSampling::Stepped => stair.height_at(x, z),
+                StairSampling::PitchLine => stair.pitch_height_at(x, z),
+            },
+        }
+    }
+
+    fn is_graded(&self, x: f32, z: f32) -> bool {
+        match self {
+            Self::Flat(_) => false,
+            Self::Ramp(ramp) => ramp.surface.rise().abs() > crate::engine::collision::CONTACT_EPS,
+            Self::Stair(stair) => {
+                // The pitch line levels off on the final tread.
+                let surface = &stair.surface;
+                surface.step_index(surface.fraction_at(x, z))
+                    < surface.step_count().saturating_sub(1)
+            }
+        }
+    }
+}
+
 impl WalkableFloor {
     /// Retained room and nested surface storage for the prepared-world cache.
     #[must_use]
@@ -247,7 +339,7 @@ impl WalkableFloor {
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
         let surfaces = LevelSurfaces::new(level);
-        let powered_lanes = crate::engine::escalator::support_lanes(level, &surfaces);
+        let tread_strips = escalator_strips(level, &surfaces);
         let mut rooms = Vec::with_capacity(surfaces.rooms().len());
         for (index, room) in surfaces.rooms().iter().enumerate() {
             let (x0, x1, z0, z1) = room.bounds();
@@ -277,18 +369,17 @@ impl WalkableFloor {
                     surface: ramp.surface(),
                     floor_y,
                     belt: None,
+                    overlay: false,
                 })
                 .chain(
-                    powered_lanes
+                    tread_strips
                         .iter()
-                        .enumerate()
-                        .filter(|(_, (owner, _))| *owner == index)
-                        .flat_map(|(slot, (_, lane))| {
-                            lane.ramps(floor_y).map(|surface| WalkableRamp {
-                                surface,
-                                floor_y,
-                                belt: Some(slot),
-                            })
+                        .filter(|(_, strip)| strip.room == index)
+                        .map(|&(slot, strip)| WalkableRamp {
+                            surface: strip.surface,
+                            floor_y,
+                            belt: Some(slot),
+                            overlay: strip.overlay,
                         }),
                 )
                 .collect();
@@ -321,22 +412,16 @@ impl WalkableFloor {
     /// decoding, without altering the compiled floor codec or older maps.
     pub(crate) fn bind_escalator_lanes(&mut self, level: &LevelDef) {
         let surfaces = LevelSurfaces::new(level);
-        for (slot, (owner, lane)) in crate::engine::escalator::support_lanes(level, &surfaces)
-            .into_iter()
-            .enumerate()
-        {
-            let Some(room) = self.rooms.get_mut(owner) else {
-                continue;
-            };
-            for surface in lane.ramps(room.floor_y) {
-                if let Some(ramp) = room
+        for (slot, strip) in escalator_strips(level, &surfaces) {
+            if let Some(room) = self.rooms.get_mut(strip.room)
+                && let Some(ramp) = room
                     .ramps
                     .iter_mut()
                     .rev()
-                    .find(|ramp| ramp.surface == surface)
-                {
-                    ramp.belt = Some(slot);
-                }
+                    .find(|ramp| ramp.surface == strip.surface)
+            {
+                ramp.belt = Some(slot);
+                ramp.overlay = strip.overlay;
             }
         }
     }
@@ -432,6 +517,13 @@ impl WalkableFloor {
             if let Some(height) = Self::room_height_at(room, x, z, StairSampling::PitchLine) {
                 visit(height);
             }
+            for ramp in room
+                .ramps
+                .iter()
+                .filter(|ramp| ramp.overlay && ramp.surface.contains(x, z))
+            {
+                visit(ramp.height_at(x, z));
+            }
         }
         for cabin in &self.cabins {
             let local = cabin.local(glam::Vec3::new(x, cabin.origin.y, z));
@@ -445,10 +537,17 @@ impl WalkableFloor {
     #[must_use]
     pub(crate) fn walk_surface_sloped(&self, x: f32, z: f32, y: f32) -> bool {
         self.rooms.iter().any(|room| {
-            Self::room_height_at(room, x, z, StairSampling::PitchLine)
+            room.ramps.iter().any(|ramp| {
+                ramp.overlay
+                    && ramp.surface.contains(x, z)
+                    && (ramp.height_at(x, z) - y).abs() <= crate::engine::collision::STEP_EPS
+            }) || (Self::room_height_at(room, x, z, StairSampling::PitchLine)
                 .is_some_and(|height| (height - y).abs() <= crate::engine::collision::STEP_EPS)
-                && (room.ramps.iter().any(|ramp| ramp.surface.contains(x, z))
-                    || room.stairs.iter().any(|stair| stair.surface.contains(x, z)))
+                && (room
+                    .ramps
+                    .iter()
+                    .any(|ramp| !ramp.overlay && ramp.surface.contains(x, z))
+                    || room.stairs.iter().any(|stair| stair.surface.contains(x, z))))
         })
     }
 
@@ -530,6 +629,20 @@ impl WalkableFloor {
 
     pub(crate) fn escalator_under_point(&self, feet: glam::Vec3) -> Option<usize> {
         let eps = crate::engine::escalator::SUPPORT_EPS;
+        if let Some(slot) = self
+            .rooms
+            .iter()
+            .flat_map(|room| &room.ramps)
+            .find_map(|ramp| {
+                (ramp.overlay
+                    && ramp.surface.contains(feet.x, feet.z)
+                    && (ramp.height_at(feet.x, feet.z) - feet.y).abs() <= eps)
+                    .then_some(ramp.belt)
+                    .flatten()
+            })
+        {
+            return Some(slot);
+        }
         let room = self.rooms.iter().find(|room| {
             Self::room_height_at(room, feet.x, feet.z, StairSampling::PitchLine)
                 .is_some_and(|height| (height - feet.y).abs() <= eps)
@@ -641,8 +754,10 @@ impl WalkableFloor {
         for room in &self.rooms {
             for ramp in &room.ramps {
                 let backing = room.floor_y + ramp.surface.low_offset().min(0.0);
+                let limit = ramp.body_limit(feet + height);
                 if feet + height <= backing + crate::engine::collision::CONTACT_EPS
                     || room.floor_y + ramp.surface.high_offset() <= threshold
+                    || room.floor_y + ramp.surface.low_offset() >= limit
                 {
                     continue;
                 }
@@ -652,33 +767,26 @@ impl WalkableFloor {
                     WallAxis::Z => (z0, z1),
                 };
                 let rise = ramp.surface.rise();
-                let fraction = if rise.abs() > crate::engine::collision::CONTACT_EPS {
-                    ((threshold - room.floor_y - ramp.surface.base_offset()) / rise).clamp(0.0, 1.0)
-                } else {
-                    0.0
-                };
-                let crossing = (end - start).mul_add(fraction, start);
+                let crossing = ramp.crossing(start, end, threshold).unwrap_or(start);
                 // An airborne body can enter the rising slope from *inside*
                 // the footprint. Perimeter faces alone cannot catch it. The
                 // contour at the feet plane closes that horizontal section of
                 // the wedge; walking continues to use its legal step rule.
-                if step <= 0.0 && fraction > 0.0 && fraction < 1.0 {
-                    let outward = -rise.signum();
-                    match ramp.surface.axis() {
-                        WallAxis::X => visit(
-                            &WallAabb::with_y(crossing, backing, z0, 0.0, 0.0, z1 - z0),
-                            glam::Vec2::new(outward, 0.0),
-                        ),
-                        WallAxis::Z => visit(
-                            &WallAabb::with_y(x0, backing, crossing, x1 - x0, 0.0, 0.0),
-                            glam::Vec2::new(0.0, outward),
-                        ),
-                    }
+                if step <= 0.0 && crossing > start && crossing < end {
+                    ramp.visit_contour(crossing, backing, -rise.signum(), &mut visit);
+                }
+                let ceiling_crossing = ramp.crossing(start, end, limit);
+                if ramp.overlay
+                    && let Some(at) = ceiling_crossing.filter(|v| *v > start && *v < end)
+                {
+                    // From below, this is the point where the fitted shell
+                    // meets the head rather than an invisible full-height rim.
+                    ramp.visit_contour(at, backing, rise.signum(), &mut visit);
                 }
                 let (low, high) = if rise > 0.0 {
-                    (crossing, end)
+                    (crossing, ceiling_crossing.unwrap_or(end))
                 } else if rise < 0.0 {
-                    (start, crossing)
+                    (ceiling_crossing.unwrap_or(start), crossing)
                 } else {
                     (start, end)
                 };
@@ -691,7 +799,8 @@ impl WalkableFloor {
                             );
                         }
                         for (x, normal) in [(x0, -glam::Vec2::X), (x1, glam::Vec2::X)] {
-                            if ramp.height_at(x, z0) > threshold {
+                            let top = ramp.height_at(x, z0);
+                            if top > threshold && top < limit {
                                 visit(&WallAabb::with_y(x, backing, z0, 0.0, 0.0, z1 - z0), normal);
                             }
                         }
@@ -704,7 +813,8 @@ impl WalkableFloor {
                             );
                         }
                         for (z, normal) in [(z0, -glam::Vec2::Y), (z1, glam::Vec2::Y)] {
-                            if ramp.height_at(x0, z) > threshold {
+                            let top = ramp.height_at(x0, z);
+                            if top > threshold && top < limit {
                                 visit(&WallAabb::with_y(x0, backing, z, x1 - x0, 0.0, 0.0), normal);
                             }
                         }
@@ -725,7 +835,21 @@ impl WalkableFloor {
         self.rooms
             .iter()
             .filter_map(|room| Self::room_underside_disc(room, point, radius, feet))
+            .chain(self.overlay_undersides(point, radius, feet, false))
             .min_by(f32::total_cmp)
+    }
+
+    fn overlay_undersides(
+        &self,
+        point: glam::Vec2,
+        radius: f32,
+        feet: f32,
+        square: bool,
+    ) -> impl Iterator<Item = f32> + '_ {
+        self.rooms
+            .iter()
+            .flat_map(|room| &room.ramps)
+            .filter_map(move |ramp| ramp.underside(point, radius, feet, square))
     }
 
     fn room_underside_disc(
@@ -785,6 +909,7 @@ impl WalkableFloor {
                     })
                     .filter(|height| *height > feet + crate::engine::collision::CONTACT_EPS)
             })
+            .chain(self.overlay_undersides(point, radius, feet, true))
             .min_by(f32::total_cmp)
     }
 
@@ -817,7 +942,8 @@ impl WalkableFloor {
         // Reach is measured against the real tread, not the smoothing pitch
         // line. A legal first riser must remain climbable when that line has
         // already advanced partway toward the next nosing.
-        self.rooms
+        let base = self
+            .rooms
             .iter()
             .filter_map(|room| {
                 let tread = Self::room_height_at(room, x, z, StairSampling::Stepped)?;
@@ -829,7 +955,37 @@ impl WalkableFloor {
                 })
             })
             .max_by(|a, b| a.0.total_cmp(&b.0))
-            .and_then(|(_, pitch)| pitch)
+            .and_then(|(_, pitch)| pitch);
+        base.into_iter()
+            .chain(self.overlay_heights(x, z).filter(|height| *height <= max_y))
+            .max_by(f32::total_cmp)
+    }
+
+    /// Exact architectural footing and whether its support line is graded.
+    /// Runtime room-edge tolerance may bridge a seam, but must not invent a deck.
+    pub(crate) fn attachment_surface_below(
+        &self,
+        x: f32,
+        z: f32,
+        max_y: f32,
+    ) -> Option<(f32, bool)> {
+        const ROUNDING: f32 = 0.000_01;
+        self.rooms
+            .iter()
+            .filter(|room| {
+                ((room.x0 - ROUNDING)..=(room.x1 + ROUNDING)).contains(&x)
+                    && ((room.z0 - ROUNDING)..=(room.z1 + ROUNDING)).contains(&z)
+            })
+            .filter_map(|room| {
+                let (surface, room_x, room_z) = Self::room_surface_at(room, x, z)?;
+                (surface.height_at(room_x, room_z, StairSampling::Stepped) <= max_y).then(|| {
+                    (
+                        surface.height_at(room_x, room_z, StairSampling::PitchLine),
+                        surface.is_graded(room_x, room_z),
+                    )
+                })
+            })
+            .max_by(|(a, _), (b, _)| a.total_cmp(b))
     }
 
     fn resolve_height_below(
@@ -842,6 +998,7 @@ impl WalkableFloor {
         self.rooms
             .iter()
             .filter_map(|room| Self::room_height_at(room, x, z, sampling))
+            .chain(self.overlay_heights(x, z))
             .filter(|height| *height <= max_y)
             .max_by(f32::total_cmp)
     }
@@ -853,6 +1010,17 @@ impl WalkableFloor {
         self.rooms
             .iter()
             .find_map(|room| Self::room_height_at(room, x, z, stair_sampling))
+            .into_iter()
+            .chain(self.overlay_heights(x, z))
+            .max_by(f32::total_cmp)
+    }
+
+    fn overlay_heights(&self, x: f32, z: f32) -> impl Iterator<Item = f32> + '_ {
+        self.rooms
+            .iter()
+            .flat_map(|room| &room.ramps)
+            .filter(move |ramp| ramp.overlay && ramp.surface.contains(x, z))
+            .map(move |ramp| ramp.height_at(x, z))
     }
 
     fn room_height_at(
@@ -861,6 +1029,11 @@ impl WalkableFloor {
         z: f32,
         stair_sampling: StairSampling,
     ) -> Option<f32> {
+        let (surface, room_x, room_z) = Self::room_surface_at(room, x, z)?;
+        Some(surface.height_at(room_x, room_z, stair_sampling))
+    }
+
+    fn room_surface_at(room: &WalkableRoom, x: f32, z: f32) -> Option<(RoomSurface<'_>, f32, f32)> {
         if !x.is_finite() || !z.is_finite() {
             return None;
         }
@@ -880,9 +1053,9 @@ impl WalkableFloor {
             .ramps
             .iter()
             .rev()
-            .find(|ramp| ramp.surface.contains(room_x, room_z))
+            .find(|ramp| !ramp.overlay && ramp.surface.contains(room_x, room_z))
         {
-            return Some(ramp.height_at(room_x, room_z));
+            return Some((RoomSurface::Ramp(ramp), room_x, room_z));
         }
         if let Some(stair) = room
             .stairs
@@ -890,10 +1063,7 @@ impl WalkableFloor {
             .rev()
             .find(|stair| stair.surface.contains(room_x, room_z))
         {
-            return Some(match stair_sampling {
-                StairSampling::Stepped => stair.height_at(room_x, room_z),
-                StairSampling::PitchLine => stair.pitch_height_at(room_x, room_z),
-            });
+            return Some((RoomSurface::Stair(stair), room_x, room_z));
         }
         for region in room.regions.iter().rev() {
             if room_x >= region.x0
@@ -901,10 +1071,10 @@ impl WalkableFloor {
                 && room_z >= region.z0
                 && room_z <= region.z1
             {
-                return Some(region.y);
+                return Some((RoomSurface::Flat(region.y), room_x, room_z));
             }
         }
-        Some(room.floor_y)
+        Some((RoomSurface::Flat(room.floor_y), room_x, room_z))
     }
 
     /// Encodes this floor model into a compiled collision record: the room
@@ -945,6 +1115,22 @@ impl WalkableFloor {
             cabins: Vec::new(),
         })
     }
+}
+
+fn escalator_strips(
+    level: &LevelDef,
+    surfaces: &LevelSurfaces<'_>,
+) -> Vec<(usize, crate::engine::escalator::SupportStrip)> {
+    crate::engine::escalator::support_lanes(level, surfaces)
+        .into_iter()
+        .enumerate()
+        .flat_map(|(slot, (owner, lane))| {
+            lane.support_strips(level, owner)
+                .into_iter()
+                .flatten()
+                .map(move |strip| (slot, strip))
+        })
+        .collect()
 }
 
 /// The collision-record entry bound as a `u64` reader limit.
@@ -1086,6 +1272,7 @@ fn read_walkable_ramp(reader: &mut Reader<'_>) -> Result<WalkableRamp, String> {
         },
         floor_y,
         belt: None,
+        overlay: false,
     })
 }
 

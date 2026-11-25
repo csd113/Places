@@ -499,6 +499,7 @@ impl Viewport {
             mesh: Arc::clone(self.play_mesh.as_ref()?),
             objects: Arc::clone(&self.objects),
             doors: Arc::clone(&self.play_doors),
+            floor: self.play_floor.clone(),
         })
     }
 

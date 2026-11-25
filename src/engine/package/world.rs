@@ -353,6 +353,16 @@ pub(crate) fn validate_semantics_for_project(
     {
         return Err("Animated solid mechanisms require animated-door-v1 capability".into());
     }
+    if crate::engine::escalator::requires_fit_capability(level)
+        && !manifest
+            .required_capabilities
+            .iter()
+            .any(|capability| capability == crate::engine::escalator::CAPABILITY)
+    {
+        return Err(
+            "Custom escalators require escalator-fit-v1 capability; rebuild this package".into(),
+        );
+    }
     validate_required_capabilities(level, manifest)?;
     validate_shadow_only(level, manifest)?;
     validate_item_receipts(level, manifest)?;

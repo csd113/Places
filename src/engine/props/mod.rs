@@ -194,6 +194,7 @@ pub struct PropAssets {
     model_identities: HashMap<String, String>,
     root: Option<PathBuf>,
     models: HashMap<String, Result<Arc<LoadedPropAsset>, String>>,
+    escalator_fits: HashMap<(String, u32), Weak<LoadedPropAsset>>,
     /// Weak ownership permits inactive request images to disappear while
     /// equal family atlases share one decoded allocation across model paths.
     textures: HashMap<(u32, u32, String), Weak<crate::engine::materials::RawImage>>,
@@ -228,6 +229,7 @@ impl PropAssets {
         Self {
             root: resolve_prop_root(),
             models: HashMap::new(),
+            escalator_fits: HashMap::new(),
             textures: HashMap::new(),
             inputs: HashMap::new(),
             character_textures: HashMap::new(),
@@ -242,6 +244,7 @@ impl PropAssets {
         Self {
             root: Some(root.into()),
             models: HashMap::new(),
+            escalator_fits: HashMap::new(),
             textures: HashMap::new(),
             inputs: HashMap::new(),
             character_textures: HashMap::new(),
@@ -400,6 +403,30 @@ impl PropAssets {
             drop(self.models.insert(model_path.to_string(), result.clone()));
         }
         result
+    }
+
+    pub(crate) fn resolve_placement(
+        &mut self,
+        path: &str,
+        prop: &crate::engine::level::PropDef,
+    ) -> Result<Arc<LoadedPropAsset>, String> {
+        use crate::engine::escalator::{Dimensions, fit_model};
+        let source = self.resolve(path)?;
+        let Some(definition) = prop.escalator.as_ref().filter(|def| def.custom_rise()) else {
+            return Ok(source);
+        };
+        let key = (path.to_string(), definition.rise.to_bits());
+        self.escalator_fits
+            .retain(|_, entry| entry.strong_count() > 0);
+        if let Some(asset) = self.escalator_fits.get(&key).and_then(Weak::upgrade) {
+            return Ok(asset);
+        }
+        let asset = Arc::new(LoadedPropAsset {
+            model_path: path.to_string(),
+            model: fit_model(&source.model, Dimensions::new(definition.rise)?)?,
+        });
+        drop(self.escalator_fits.insert(key, Arc::downgrade(&asset)));
+        Ok(asset)
     }
 
     fn load(&mut self, model_path: &str) -> Result<Arc<LoadedPropAsset>, String> {

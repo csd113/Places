@@ -49,6 +49,9 @@ impl Document {
     /// Reads the contextual property without replacing unsupported source data.
     #[must_use]
     pub fn gameplay_value(&self, id: ObjectId, setting: GameplaySetting) -> Value {
+        if setting == GameplaySetting::EscalatorDirection {
+            return self.escalator_direction_value(id);
+        }
         if let Some(value) = self.spawn_zone_value(id, setting) {
             return value;
         }
@@ -122,6 +125,7 @@ impl Document {
                 GameplaySetting::Cooldown => json!(0.0_f32),
                 GameplaySetting::Aggregate => json!("per_actor"),
                 GameplaySetting::ExitEvent => json!("enter_volume"),
+                GameplaySetting::EscalatorDirection => Value::Null,
                 GameplaySetting::Red
                 | GameplaySetting::Green
                 | GameplaySetting::Blue
@@ -142,6 +146,17 @@ impl Document {
                 | GameplaySetting::ZoneWidth
                 | GameplaySetting::ZoneDepth => json!(false),
             })
+    }
+
+    fn escalator_direction_value(&self, id: ObjectId) -> Value {
+        let ObjectId::Prop(index) = id else {
+            return Value::Null;
+        };
+        self.level()
+            .props
+            .get(index)
+            .and_then(|prop| prop.escalator.as_ref())
+            .map_or(Value::Null, |definition| json!(definition.direction))
     }
 
     fn audio_setting(&self, id: ObjectId, setting: GameplaySetting) -> Option<Value> {
@@ -262,6 +277,8 @@ impl Document {
                 .and_then(Value::as_object_mut)
                 .ok_or("Enable physics first")?;
             drop(object.insert(setting.key().into(), value));
+        } else if setting == GameplaySetting::EscalatorDirection {
+            set_escalator_direction(&mut raw, id, value)?;
         } else if matches!(
             setting,
             GameplaySetting::Red | GameplaySetting::Green | GameplaySetting::Blue
@@ -372,6 +389,18 @@ impl Document {
     }
 }
 
+fn set_escalator_direction(raw: &mut Value, id: ObjectId, value: Value) -> Result<(), String> {
+    let ObjectId::Prop(_) = id else {
+        return Err("Belt direction belongs to an escalator".into());
+    };
+    let escalator = object_mut(raw, id)?
+        .get_mut("escalator")
+        .and_then(Value::as_object_mut)
+        .ok_or("Belt direction belongs to an escalator")?;
+    drop(escalator.insert(GameplaySetting::EscalatorDirection.key().into(), value));
+    Ok(())
+}
+
 fn set_physics_enabled(
     raw: &mut Value,
     level: &crate::engine::level::LevelDef,
@@ -473,6 +502,7 @@ fn resolved_light_value(
             | GameplaySetting::Solid
             | GameplaySetting::ShadowOnly
             | GameplaySetting::Bidirectional
+            | GameplaySetting::EscalatorDirection
             | GameplaySetting::Locked
             | GameplaySetting::Swing
             | GameplaySetting::Speed

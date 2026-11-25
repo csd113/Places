@@ -14,6 +14,7 @@ pub mod document;
 mod dragging;
 mod ducts;
 mod elevators;
+mod escalators;
 mod flicker;
 mod focus;
 mod game_modes;
@@ -29,6 +30,7 @@ pub mod process;
 #[doc(hidden)]
 pub mod profiling;
 mod projects;
+mod railings;
 mod reuse;
 pub mod safety;
 mod safety_actions;
@@ -101,6 +103,7 @@ struct App {
     last_play_trace: Option<PathBuf>,
     pending_play: Option<play_here::Intent>,
     play_floor_pick: bool,
+    escalator: Option<escalators::Draft>,
     project_operation: Option<projects::Operation>,
     project_import: Option<PathBuf>,
     sign_artwork: usize,
@@ -167,6 +170,7 @@ impl App {
         }
         self.pending_play = None;
         self.play_floor_pick = false;
+        self.escalator = None;
         self.lighting = lighting::Draft::default();
         self.bakes.invalidate();
         self.preview_audio.clear_world();
@@ -243,6 +247,7 @@ impl App {
         }
         self.pending_play = None;
         self.play_floor_pick = false;
+        self.escalator = None;
         self.lighting.preview_off = false;
         self.lighting.painting = false;
         self.viewport.set_focus(self.focus.clone());
@@ -575,6 +580,7 @@ fn create_app(
         mode_presets: Vec::new(),
         pending_play: None,
         play_floor_pick: false,
+        escalator: None,
         project_operation: None,
         project_import: None,
         sign_artwork: 0,

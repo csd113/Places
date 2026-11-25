@@ -753,6 +753,9 @@ fn build_inner(
     if level.stairs.iter().any(|stair| stair.reverse) {
         required.push("reverse-stairs-v1".into());
     }
+    if crate::engine::escalator::requires_fit_capability(&level) {
+        required.push(crate::engine::escalator::CAPABILITY.into());
+    }
     if level.encounter.is_some() || level.spawn_points.iter().any(|p| p.zone.is_some()) {
         required.push("encounter-v1".into());
     }

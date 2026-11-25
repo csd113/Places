@@ -114,7 +114,7 @@ pub(super) fn objects(
         let model = definition
             .model
             .as_deref()
-            .and_then(|path| assets.resolve(path).ok());
+            .and_then(|path| assets.resolve_placement(path, prop).ok());
         if let Some(asset) = model {
             let mut bounds = Aabb::EMPTY;
             let triangles = asset

@@ -16,6 +16,12 @@ static SEQUENCE: AtomicU64 = AtomicU64::new(0);
 struct Fixture(PathBuf);
 impl Fixture {
     fn new() -> Result<Self, String> {
+        Self::with_level(
+            &json!({"schema":"places-level","format_version":1_u32,"id":"entry","name":"Tiny gameplay","spawn":{"x":1_u32,"z":1_u32},"rooms":[{"width":8_u32,"depth":8_u32,"height":3_u32}],"props":[{"model":"core:chair","x":2_u32,"z":2_u32,"size":[0.5_f32,1_u32,0.5_f32],"future_capability":{"preserve":true}}]}),
+        )
+    }
+
+    fn with_level(level: &serde_json::Value) -> Result<Self, String> {
         let path = std::env::temp_dir().join(format!(
             "places-gameplay-editor-{}-{}",
             std::process::id(),
@@ -24,7 +30,11 @@ impl Fixture {
         fs::create_dir(&path).map_err(|e| e.to_string())?;
         fs::create_dir(path.join("levels")).map_err(|e| e.to_string())?;
         fs::write(path.join("places.project.json"),serde_json::to_vec(&json!({"schema":"places-project","project_format":1_u32,"id":"gameplay","name":"Tiny gameplay","entry_level":"entry","levels":[{"id":"entry","source":"levels/entry.json"}]})).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
-        fs::write(path.join("levels/entry.json"),serde_json::to_vec(&json!({"schema":"places-level","format_version":1_u32,"id":"entry","name":"Tiny gameplay","spawn":{"x":1_u32,"z":1_u32},"rooms":[{"width":8_u32,"depth":8_u32,"height":3_u32}],"props":[{"model":"core:chair","x":2_u32,"z":2_u32,"size":[0.5_f32,1_u32,0.5_f32],"future_capability":{"preserve":true}}]})).map_err(|e|e.to_string())?).map_err(|e|e.to_string())?;
+        fs::write(
+            path.join("levels/entry.json"),
+            serde_json::to_vec(level).map_err(|error| error.to_string())?,
+        )
+        .map_err(|error| error.to_string())?;
         Ok(Self(path))
     }
 }
@@ -32,6 +42,278 @@ impl Drop for Fixture {
     fn drop(&mut self) {
         let _removed = fs::remove_dir_all(&self.0);
     }
+}
+
+// The same small scene checks both real storeys, a gap narrower than the
+// old runtime rail sampling, and the editor's single save/history edit.
+#[test]
+fn railing_picker_keeps_upper_footing_and_rejects_gaps_and_air() -> Result<(), String> {
+    use crate::editor::railings::{candidate, snap_footing, validate_changed};
+    use crate::engine::level::WalkableFloor;
+    use glam::Vec3;
+
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Railing supports",
+        "spawn":{"x":1_u32,"z":1_u32},"rooms":[
+            {"width":8_u32,"depth":8_u32,"height":2.7_f32},
+            {"x":1_u32,"z":3.05_f32,"width":2.4_f32,"depth":2_u32,"floor_y":3_u32,"height":3_u32},
+            {"x":3.46_f32,"z":3.05_f32,"width":3_u32,"depth":2_u32,"floor_y":3_u32,"height":3_u32}
+        ]
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let raw = doc.raw().clone();
+    let floor = WalkableFloor::from_level(doc.level());
+    let snapped = snap_footing(
+        doc.level(),
+        &floor,
+        Vec3::new(1.22, 3.0004, 3.12),
+        Some(0.25),
+    );
+    assert!(
+        snapped[1].to_bits() == 3.0_f32.to_bits() && (snapped[2] - 3.05).abs() < 0.001,
+        "a near-edge pick snaps to the off-grid edge and the actual floor plane"
+    );
+    let same_side = snap_footing(doc.level(), &floor, Vec3::new(3.39, 3.0, 4.0), Some(0.5));
+    assert!(
+        (same_side[0] - 3.4).abs() < 0.001,
+        "snapping sticks to the edge on this side of the gap"
+    );
+    let middle = snap_footing(doc.level(), &floor, Vec3::new(2.17, 3.0, 4.07), Some(0.25));
+    assert!(
+        (middle[0] - 2.25).abs() < 0.001 && (middle[2] - 4.0).abs() < 0.001,
+        "a supported interior pick still follows the grid"
+    );
+    let corner = candidate(&doc, [1.0, 3.0, 3.05], &[], [2.4, 3.0, 3.75]);
+    assert!(
+        corner.is_err_and(|reason| reason.contains("post base")),
+        "a supported centre line does not excuse a mostly floating diagonal end post"
+    );
+    assert!(
+        candidate(&doc, [1.3, 3.0, 3.5], &[], [5.0, 3.0, 3.5]).is_err(),
+        "a thin hole in the upper walkway is not the lower floor"
+    );
+    assert!(
+        candidate(&doc, [1.3, 2.0, 3.5], &[], [2.5, 2.0, 3.5]).is_err(),
+        "midair never counts as a valid footing"
+    );
+    assert_eq!(doc.raw(), &raw, "failed previews do not write");
+    let (checked, _) = candidate(&doc, [1.3, 3.0, 3.05], &[], [3.1, 3.0, 3.05])?;
+    doc.apply_authoring_edit(&raw, checked)?;
+    let next = doc.raw().clone();
+    let (ground, _) = candidate(&doc, [1.0, 0.0, 1.0], &[], [3.0, 0.0, 1.0])?;
+    doc.apply_authoring_edit(&next, ground)?;
+    assert!(doc.undo(), "one path is one undo step");
+    let before_move = doc.raw().clone();
+    let mut moved = before_move.clone();
+    *moved.pointer_mut("/guardrails/0/y").ok_or("numeric base")? = json!(3.02_f32);
+    let raised = doc.validate_candidate(&moved)?;
+    assert!(
+        validate_changed(&raised, doc.level(), 0).is_err(),
+        "an explicit 2 cm height increase cannot float every post"
+    );
+    assert_eq!(doc.raw(), &before_move, "rejected height did not apply");
+    *moved.pointer_mut("/guardrails/0/y").ok_or("numeric base")? = json!(3.0_f32);
+    *moved.pointer_mut("/guardrails/0/x").ok_or("numeric x")? = json!(1.35_f32);
+    *moved
+        .pointer_mut("/guardrails/0/path/0/0")
+        .ok_or("numeric endpoint")? = json!(3.15_f32);
+    let shifted = doc.validate_candidate(&moved)?;
+    validate_changed(&shifted, doc.level(), 0)?;
+    doc.apply_authoring_edit(&before_move, moved)?;
+    doc.save()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(reopened.level().guardrails.len(), 1);
+    let rail = reopened.level().guardrails.first().ok_or("saved rail")?;
+    assert!(
+        rail.y.is_some_and(|base| (base - 3.0).abs() < 0.001),
+        "reopen preserves actual upper anchoring"
+    );
+    assert!(
+        (rail.x - 1.35).abs() < 0.001,
+        "an ordinary numeric move along the edge still persists"
+    );
+    Ok(())
+}
+
+// Tight flat contact must not apply to the height variation across a post
+// footprint on a ramp or to the established pitch line of a stair handrail.
+#[test]
+fn railing_still_accepts_ramp_and_stair_grade() -> Result<(), String> {
+    use crate::editor::railings::{candidate, validate_changed};
+
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Graded railings",
+        "spawn":{"x":1_u32,"z":1_u32},"rooms":[{"width":8_u32,"depth":8_u32,"height":3_u32}],
+        "ramps":[{"x":1_u32,"z":5_u32,"width":4_u32,"depth":2_u32,"rise":1_u32}],
+        "stairs":[{"x":1_u32,"z":2_u32,"width":4_u32,"depth":2_u32,"rise":1_u32,"steps":4_u32}]
+    }))?;
+    let doc = Document::open(&fixture.0)?;
+    let (_raw, _owner) = candidate(&doc, [1.5, 0.125, 6.0], &[], [4.5, 0.875, 6.0])?;
+    let mut stair = doc.raw().clone();
+    let _previous = stair.as_object_mut().ok_or("stair fixture")?.insert(
+        "guardrails".into(),
+        json!([{"x":2.25_f32,"y":0.5625_f32,"z":3.0_f32,"length":1_u32,"rise":0.25_f32}]),
+    );
+    validate_changed(&doc.validate_candidate(&stair)?, doc.level(), 0)?;
+    Ok(())
+}
+
+// The first room's roof is below this placement. The active upper roof,
+// not the first matching room in plan view, must decide whether it fits.
+#[test]
+fn railing_rejects_the_low_ceiling_on_its_actual_storey() -> Result<(), String> {
+    use crate::editor::railings::{candidate, validate_changed};
+
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Stacked railing clearance",
+        "spawn":{"x":1_u32,"z":1_u32},"rooms":[
+            {"width":8_u32,"depth":8_u32,"height":2.7_f32},
+            {"x":1_u32,"z":3_u32,"width":2.5_f32,"depth":2_u32,"floor_y":3_u32,"height":0.8_f32}
+        ]
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let raw = doc.raw().clone();
+    let blocked = candidate(&doc, [1.3, 3.0, 3.5], &[], [2.9, 3.0, 3.5]);
+    assert!(
+        blocked.is_err_and(|reason| reason.contains("ceiling")),
+        "the upper roof blocks Basic placement"
+    );
+    let (lower, _) = candidate(&doc, [1.3, 0.0, 3.5], &[], [2.9, 0.0, 3.5])?;
+    doc.apply_authoring_edit(&raw, lower)?;
+    let mut shortened = doc.level().clone();
+    let rail = shortened.guardrails.first_mut().ok_or("lower rail")?;
+    rail.y = Some(3.0);
+    rail.height = 0.5;
+    validate_changed(&shortened, doc.level(), 0)?;
+    let prior = shortened.clone();
+    shortened.guardrails.first_mut().ok_or("upper rail")?.height = 1.0;
+    assert!(
+        validate_changed(&shortened, &prior, 0).is_err(),
+        "a height-only change cannot skip the roof check"
+    );
+    Ok(())
+}
+
+// One editable-source write and semantic encode/decode guard the direction
+// against losing its instance scope or being dropped from a package.
+#[test]
+fn escalator_direction_defaults_and_roundtrips_authoring_and_runtime_semantics()
+-> Result<(), String> {
+    use crate::engine::escalator::Direction;
+
+    let rig = |x| {
+        json!({"model":"mall:escalator","x":x,"z":1_u32,"occludes":false,
+            "escalator":{"initial_running":true},
+            "components":[{"component":"animation","clip":"escalator_run","looped":true}]})
+    };
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Two belts",
+        "spawn":{"x":1_u32,"z":1_u32},
+        "rooms":[{"width":8_u32,"depth":10_u32,"height":6_u32}],
+        "floor_regions":[{"x":1_u32,"z":7.6_f32,"width":6_u32,"depth":2.4_f32,"offset_y":3_u32}],
+        "props":[rig(2_u32),rig(5_u32)]
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let catalog = AssetCatalog::builtin();
+    let selected = ObjectId::Prop(0);
+    let pose = doc.transform(selected)?;
+    assert_eq!(
+        doc.gameplay_value(selected, S::EscalatorDirection),
+        json!(Direction::Up)
+    );
+    assert!(
+        doc.set_gameplay_value(selected, S::EscalatorDirection, json!("sideways"), &catalog)
+            .is_err()
+    );
+    doc.set_gameplay_value(
+        selected,
+        S::EscalatorDirection,
+        json!(Direction::Down),
+        &catalog,
+    )?;
+    assert!(doc.undo(), "direction is an undoable inspector change");
+    assert_eq!(
+        doc.gameplay_value(selected, S::EscalatorDirection),
+        json!(Direction::Up)
+    );
+    assert!(doc.redo(), "redo restores the chosen direction");
+    doc.save()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(
+        reopened.transform(selected)?,
+        pose,
+        "direction never changes the placement"
+    );
+    assert_eq!(
+        reopened.gameplay_value(selected, S::EscalatorDirection),
+        json!(Direction::Down)
+    );
+
+    let bytes = crate::engine::canonical_json::canonical_json_bytes(reopened.level())?;
+    let semantics = crate::engine::package::semantics::parse(
+        std::str::from_utf8(&bytes).map_err(|error| error.to_string())?,
+    )?;
+    let directions: Vec<_> = semantics
+        .props
+        .iter()
+        .filter_map(|prop| prop.escalator.as_ref())
+        .map(|def| (def.direction, def.initial_running))
+        .collect();
+    assert_eq!(directions, [(Direction::Down, true), (Direction::Up, true)]);
+    Ok(())
+}
+
+// Exercise the same geometric fit and single commit used by native floor picks.
+// The small scene includes one non-default connection and a detached free base.
+#[test]
+fn escalator_native_authoring_fits_floor_picks_and_persists_free_length() -> Result<(), String> {
+    use crate::engine::escalator::{Dimensions, Fit, Placement};
+    use glam::Vec3;
+
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Escalator fits",
+        "spawn":{"x":1_u32,"z":1_u32},
+        "rooms":[{"width":9_u32,"depth":17_u32,"height":9_u32}],
+        "floor_regions":[
+            {"x":1.0_f32,"z":4.8_f32,"width":2_u32,"depth":3_u32,"offset_y":1.6_f32}
+        ]
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let lower = Vec3::new(1.9, 0.0, 0.6);
+    assert!(Fit::connect(doc.level(), lower, Vec3::new(6.0, 1.6, 5.4)).is_err());
+    let connected = Fit::connect(doc.level(), lower, Vec3::new(2.0, 1.6, 5.4))?;
+    let _up = doc.add_escalator(connected)?;
+    let free = Fit::free(
+        doc.level(),
+        Vec3::new(6.0, 0.7, 1.0),
+        0,
+        Dimensions::from_length(11.2)?,
+    )?;
+    let id = doc.add_escalator(free)?;
+    assert!(doc.undo(), "placement adds one undo record");
+    assert_eq!(doc.level().props.len(), 1);
+    assert!(doc.redo());
+    let transform = doc.transform(id)?;
+    doc.save()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(reopened.transform(id)?, transform);
+    let encoded = crate::engine::canonical_json::canonical_json_bytes(reopened.level())?;
+    let decoded = crate::engine::package::semantics::parse(
+        std::str::from_utf8(&encoded).map_err(|error| error.to_string())?,
+    )?;
+    crate::engine::escalator::validate(&decoded)?;
+    let rigs: Vec<_> = decoded
+        .props
+        .iter()
+        .filter_map(|prop| prop.escalator.as_ref())
+        .collect();
+    let [small, tall] = rigs.as_slice() else {
+        return Err("both escalators must persist".into());
+    };
+    assert_eq!(small.placement, Placement::Connected);
+    assert_eq!(tall.placement, Placement::Free);
+    assert!((small.rise - 1.6).abs() < 0.001 && (tall.rise - 5.0).abs() < 0.001);
+    Ok(())
 }
 
 #[test]

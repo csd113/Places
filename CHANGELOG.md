@@ -67,10 +67,10 @@ and linked reports retain historical implementation and validation details.
   asset IDs so authored maps still load.
 - Add the editable [Underground Mall](projects/underground-mall) project and Mall
   catalog, with a fluorescent concourse, polished tile, glass storefronts and a
-  small food court. The fixed-size Mall escalator stops and starts, carrying
-  players, NPCs and loose props uphill only to a landing 3 m higher. The Mall
-  security shutter stops when obstructed and can be reversed on demand. Authors
-  can wire both mechanisms to triggers in the editor.
+  small food court. The original Mall escalator still carries players, NPCs and
+  loose props uphill to a landing 3 m higher and can be stopped or started.
+  The Mall security shutter stops when obstructed and can be reversed on demand.
+  Authors can wire both mechanisms to triggers in the editor.
 - Stock the Mall catalog with Printed Mall Directory, Steel Clothing Rack,
   Retail Island Kiosk, Concourse Coffee Lightbox and three suspended signs
   named Blowout Sale Sign, Weekend Sale Sign and Final Markdown Sign. Pickups
@@ -105,6 +105,11 @@ outside that inventory.
 
 ### Editor, import and export
 
+- Place escalators in Basic by picking the lower and upper landings to fit the
+  run. Choose Up or Down independently of placement, or use Free Placement for
+  a custom length without attached landings.
+- Snap new railings to nearby visible floor and walkway edges in Basic. New
+  and moved railings require supported posts and enough ceiling clearance.
 - Show movable props at their authored positions in Edit mode. Use visible
   geometry when placing doors, and require the current preview before enabling
   viewport elevator tools. Keep the last accepted scene when Quick Test stops

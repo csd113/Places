@@ -224,6 +224,11 @@ fn primary_tools(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 (87.0, "Door", Action::Place(Tool::Door)),
                 (101.0, "Stairs >", Action::StairWizard),
                 (115.0, "Doorway opening", Action::Place(Tool::Doorway)),
+                (
+                    129.0,
+                    "Add escalator",
+                    Action::Escalator(crate::editor::escalators::Command::Connect),
+                ),
             ] {
                 button(
                     v,
@@ -249,6 +254,15 @@ fn primary_tools(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 [54.0, 59.0, 45.0, 11.0],
                 "Elevator",
                 Action::Elevator(crate::editor::elevators::Command::Place),
+                open,
+            );
+            crate::editor::escalators::draw_options(app, v, hits);
+            button(
+                v,
+                hits,
+                [5.0, 171.0, 94.0, 11.0],
+                "Place railing",
+                Action::Place(Tool::RailPath),
                 open,
             );
         }

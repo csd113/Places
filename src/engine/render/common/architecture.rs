@@ -2795,10 +2795,9 @@ fn emit_guardrail(
     // remainder must move the last regular post onto the run's end rather than
     // add a second post a few centimetres behind it — the doubled end post a
     // 2.5 m run at 1.2 m spacing used to draw at the stair head.
-    let spacing = rail.post_spacing();
     let post_half = crate::engine::level::GUARDRAIL_POST_SIZE_M * 0.5;
     let post_top_at = |along: f32| base_at(along) + top_height - top_thickness;
-    for at in guardrail_post_positions(run, spacing, post_half) {
+    for at in crate::engine::level::construction::rail_post_positions(rail) {
         if skip_start && at < 0.0001 {
             continue;
         }
@@ -2811,43 +2810,6 @@ fn emit_guardrail(
             context, buckets, scratch, post_key, post_tile, &frame, at, span[0], span[1], post_half,
         );
     }
-}
-
-/// The post positions of one guardrail run, resolved before any post is
-/// emitted.
-///
-/// Every `post_spacing` from the start, then the run's end when that leaves a
-/// real gap; when the remainder is shorter than a quarter bay (floored at two
-/// post widths), the last regular post moves onto the run's end instead, so a
-/// 2.5 m run at 1.2 m spacing no longer draws a doubled end post.
-fn guardrail_post_positions(run: f32, spacing: f32, post_half: f32) -> Vec<f32> {
-    let mut positions: Vec<f32> = Vec::with_capacity(64);
-    for index in 0..=512u32 {
-        let along = u32_to_f32(index) * spacing;
-        if along > run + 1e-3 {
-            break;
-        }
-        let at = along.min(run);
-        if positions
-            .last()
-            .is_none_or(|previous| at - previous >= post_half)
-        {
-            positions.push(at);
-        }
-    }
-    if let Some(last) = positions.last().copied()
-        && last < run - 1.0e-3
-    {
-        let crowded = (spacing * 0.25).max(post_half * 2.0);
-        if run - last < crowded {
-            if let Some(slot) = positions.last_mut() {
-                *slot = run;
-            }
-        } else if run - last > post_half {
-            positions.push(run);
-        }
-    }
-    positions
 }
 
 /// Emits one rail of a guardrail run: its top, its two sides and its two ends.

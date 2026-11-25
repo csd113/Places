@@ -8845,7 +8845,43 @@ impl LevelDef {
     fn collision_aabbs_impl(&self, explicit_fixed_shapes: bool) -> Vec<WallAabb> {
         let surfaces = LevelSurfaces::new(self);
         let mut aabbs = Vec::new();
+        self.append_wall_colliders(&surfaces, &mut aabbs);
+        let lanes = crate::engine::escalator::support_lanes(self, &surfaces);
+        for (room_index, room) in surfaces.rooms().iter().enumerate() {
+            let belts = || {
+                lanes
+                    .iter()
+                    .filter(move |&&(owner, lane)| lane.cuts_deck_in(room_index, owner))
+                    .map(|&(_, lane)| lane)
+            };
+            let grid = surfaces.floor_grid_with_cuts(
+                room,
+                belts().map(crate::engine::escalator::Lane::floor_cuts),
+            );
+            // Rims compare the actual walking support on either side. The
+            // escalator pitch line becomes flush before the authored +3 m
+            // deck. Using only the room floor here leaves a phantom curb.
+            grid.push_region_rims_with_support(
+                |x, z| surfaces.floor_y_at(x, z).unwrap_or(room.floor_y),
+                |x, z| belts().find_map(|lane| lane.support_height_at(x, z)),
+                &mut aabbs,
+            );
+        }
 
+        self.append_scenery_colliders(&surfaces, &mut aabbs, explicit_fixed_shapes);
+        aabbs
+    }
+
+    /// Canonical passage blockers for editors. The floor rims are deliberately
+    /// absent: a candidate belt determines which rims remain after placement.
+    pub(crate) fn placement_collision_aabbs(&self, surfaces: &LevelSurfaces<'_>) -> Vec<WallAabb> {
+        let mut aabbs = Vec::new();
+        self.append_wall_colliders(surfaces, &mut aabbs);
+        self.append_scenery_colliders(surfaces, &mut aabbs, false);
+        aabbs
+    }
+
+    fn append_wall_colliders(&self, surfaces: &LevelSurfaces<'_>, aabbs: &mut Vec<WallAabb>) {
         for wall in &self.walls {
             let (origin_x, origin_z) = wall.length_origin();
             let (min_x, max_x) = (
@@ -8886,29 +8922,14 @@ impl LevelDef {
                 }
             }
         }
+    }
 
-        let lanes = crate::engine::escalator::support_lanes(self, &surfaces);
-        for (room_index, room) in surfaces.rooms().iter().enumerate() {
-            let belts = || {
-                lanes
-                    .iter()
-                    .filter(move |&&(owner, _)| owner == room_index)
-                    .map(|&(_, lane)| lane)
-            };
-            let grid = surfaces.floor_grid_with_cuts(
-                room,
-                belts().map(crate::engine::escalator::Lane::floor_cuts),
-            );
-            // Rims compare the actual walking support on either side. The
-            // escalator pitch line becomes flush before the authored +3 m
-            // deck. Using only the room floor here leaves a phantom curb.
-            grid.push_region_rims_with_support(
-                |x, z| surfaces.floor_y_at(x, z).unwrap_or(room.floor_y),
-                |x, z| belts().find_map(|lane| lane.support_height_at(x, z)),
-                &mut aabbs,
-            );
-        }
-
+    fn append_scenery_colliders(
+        &self,
+        surfaces: &LevelSurfaces<'_>,
+        aabbs: &mut Vec<WallAabb>,
+        explicit_fixed_shapes: bool,
+    ) {
         // Architectural solids: half walls, columns, archway piers and
         // spandrels and guardrails are real barriers, so they collide exactly
         // like a wall slice. Thresholds and baseboards are deliberately absent:
@@ -8935,10 +8956,8 @@ impl LevelDef {
             if explicit_fixed_shapes && prop.has_fixed_physics_shape() {
                 continue;
             }
-            prop.push_solid_colliders(&surfaces, &mut aabbs);
+            prop.push_solid_colliders(surfaces, aabbs);
         }
-
-        aabbs
     }
 }
 

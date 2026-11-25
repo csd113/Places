@@ -407,6 +407,7 @@ impl App {
             || self.cinematic_action(action)?
             || self.stair_action(action)?
             || self.elevator_action(action)?
+            || self.escalator_action(action)?
             || self.authoring_action(action)?
             || self.project_action(action, window)?
             || self.script_action(action)?
@@ -477,18 +478,7 @@ impl App {
                         self.status = format!("Assigned material {id}");
                     }
                     Catalog::Models => {
-                        if let Some(selected @ super::document::ObjectId::Prop(_)) = self.selected {
-                            self.document
-                                .as_mut()
-                                .ok_or("Open a project first")?
-                                .set_gameplay_asset(selected, &id, &self.catalog)?;
-                            self.changed();
-                            self.status =
-                                format!("Assigned model {id}; Place chosen prop adds another.");
-                        } else {
-                            self.status = format!("Selected {id}; use Place chosen prop.");
-                        }
-                        self.prop = id;
+                        self.choose_prop_model(id)?;
                     }
                     Catalog::Fixtures => {
                         let selected = self
@@ -525,6 +515,25 @@ impl App {
             _ => return Ok(false),
         }
         Ok(true)
+    }
+
+    fn choose_prop_model(&mut self, id: String) -> Result<(), String> {
+        if id == crate::engine::escalator::MODEL {
+            self.prop = id;
+            return self.start_escalator(false);
+        }
+        if let Some(selected @ super::document::ObjectId::Prop(_)) = self.selected {
+            self.document
+                .as_mut()
+                .ok_or("Open a project first")?
+                .set_gameplay_asset(selected, &id, &self.catalog)?;
+            self.changed();
+            self.status = format!("Assigned model {id}; Place chosen prop adds another.");
+        } else {
+            self.status = format!("Selected {id}; use Place chosen prop.");
+        }
+        self.prop = id;
+        Ok(())
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
@@ -663,6 +672,9 @@ impl App {
     }
 
     fn add_safely(&mut self, kind: ObjectKind) -> Result<(), String> {
+        if kind == ObjectKind::Prop && self.prop == crate::engine::escalator::MODEL {
+            return self.start_escalator(false);
+        }
         match kind {
             ObjectKind::Wall => return self.start_placement(super::construction::Tool::Wall),
             ObjectKind::Door => return self.start_placement(super::construction::Tool::Door),
@@ -1010,17 +1022,7 @@ impl App {
                 self.changed();
                 self.status = format!("Assigned material {id}");
             } else {
-                if let Some(selected @ super::document::ObjectId::Prop(_)) = self.selected {
-                    self.document
-                        .as_mut()
-                        .ok_or("Open a project first")?
-                        .set_gameplay_asset(selected, &id, &self.catalog)?;
-                    self.changed();
-                    self.status = format!("Assigned model {id}; + Prop places another.");
-                } else {
-                    self.status = format!("Selected {id}; click + Prop to place it.");
-                }
-                self.prop = id;
+                self.choose_prop_model(id)?;
             }
         }
         self.popup = None;
@@ -1135,6 +1137,7 @@ impl App {
 
     const fn field_label(&self, field: usize) -> &'static str {
         match field {
+            super::escalators::LENGTH_FIELD => "Escalator length including plates (m)",
             20..=23 => "Room edge displacement (m)",
             11 => "Pitch (degrees)",
             12 => "Roll (degrees)",
@@ -1194,6 +1197,9 @@ impl App {
     pub(super) fn apply_field(&mut self, field: usize, mut value: f32) -> Result<(), String> {
         if !value.is_finite() {
             return Err("Enter a finite number".into());
+        }
+        if field == super::escalators::LENGTH_FIELD {
+            return self.set_escalator_length(value);
         }
         if field >= 100 {
             return self.apply_gameplay_number(field, value);

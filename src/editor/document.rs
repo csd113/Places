@@ -67,6 +67,34 @@ fn document_memory_error() -> String {
 }
 
 impl Document {
+    pub(super) fn add_escalator(
+        &mut self,
+        fit: crate::engine::escalator::Fit,
+    ) -> Result<ObjectId, String> {
+        use crate::engine::escalator::MODEL;
+        let mut raw = self.raw().clone();
+        let [x, world_y, z] = fit.origin.to_array();
+        let floor_y = crate::engine::level::LevelSurfaces::new(self.level())
+            .floor_y_at(x, z)
+            .ok_or("Escalator base must be inside the room")?;
+        let id = objects::add(
+            &mut raw,
+            self.level(),
+            ObjectKind::Prop,
+            [x, world_y - floor_y, z],
+            Some(MODEL),
+        )?;
+        objects::apply_mechanism_preset(&mut raw, id, MODEL)?;
+        let prop = objects::object_mut(&mut raw, id)?;
+        objects::set_number(prop, "rotation_degrees", fit.yaw);
+        drop(prop.insert(
+            "escalator".into(),
+            serde_json::json!({"rise":fit.dimensions.rise,"placement":fit.placement}),
+        ));
+        self.accept_edit(raw)?;
+        Ok(id)
+    }
+
     fn heap_charge(&self) -> usize {
         std::iter::once(&self.selected)
             .chain(self.other_levels.values())

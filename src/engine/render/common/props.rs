@@ -547,7 +547,7 @@ impl<'a> PropLightingMode<'a> {
 
 use crate::engine::spatial::CellKey;
 
-type PropVariantKey = (String, std::collections::BTreeMap<u16, String>);
+type PropVariantKey = (String, std::collections::BTreeMap<u16, String>, Option<u32>);
 type PropVariantCache =
     std::collections::HashMap<PropVariantKey, Arc<crate::engine::props::LoadedPropAsset>>;
 
@@ -1233,11 +1233,18 @@ fn resolve_prop_asset(
     if budget.0 >= crate::engine::level::MAX_LEVEL_PROP_VERTICES {
         return None;
     }
-    let variant_key = (model_path.clone(), prop.material_overrides.clone());
-    let resolved = assets.resolve(&model_path).and_then(|source| {
-        let asset = resolve_placed_asset(prop, &source, &variant_key, materials, variants)?;
-        Ok((source, asset))
-    });
+    let rise = prop
+        .escalator
+        .as_ref()
+        .filter(|def| def.custom_rise())
+        .map(|def| def.rise.to_bits());
+    let variant_key = (model_path.clone(), prop.material_overrides.clone(), rise);
+    let resolved = assets
+        .resolve_placement(&model_path, prop)
+        .and_then(|source| {
+            let asset = resolve_placed_asset(prop, &source, &variant_key, materials, variants)?;
+            Ok((source, asset))
+        });
     let (source, asset) = match resolved {
         Ok(placement) => placement,
         Err(error) => {

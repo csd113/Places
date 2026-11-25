@@ -434,6 +434,46 @@ pub fn rail_collision(rail: &GuardrailDef, level: &LevelDef) -> Vec<Architecture
     result
 }
 
+/// The post positions of one guardrail run, resolved before any post is
+/// emitted.
+///
+/// Every `post_spacing` from the start, then the run's end when that leaves a
+/// real gap; when the remainder is shorter than a quarter bay (floored at two
+/// post widths), the last regular post moves onto the run's end instead, so a
+/// 2.5 m run at 1.2 m spacing no longer draws a doubled end post.
+pub fn rail_post_positions(rail: &GuardrailDef) -> Vec<f32> {
+    let run = rail.length;
+    let spacing = rail.post_spacing();
+    let post_half = super::GUARDRAIL_POST_SIZE_M * 0.5;
+    let mut positions: Vec<f32> = Vec::with_capacity(64);
+    for index in 0..=512_u16 {
+        let along = f32::from(index) * spacing;
+        if along > run + 1e-3 {
+            break;
+        }
+        let at = along.min(run);
+        if positions
+            .last()
+            .is_none_or(|previous| at - previous >= post_half)
+        {
+            positions.push(at);
+        }
+    }
+    if let Some(last) = positions.last().copied()
+        && last < run - 1.0e-3
+    {
+        let crowded = (spacing * 0.25).max(post_half * 2.0);
+        if run - last < crowded {
+            if let Some(slot) = positions.last_mut() {
+                *slot = run;
+            }
+        } else if run - last > post_half {
+            positions.push(run);
+        }
+    }
+    positions
+}
+
 pub fn rail_neighbors(
     runs: &[GuardrailDef],
     index: usize,
@@ -852,9 +892,11 @@ fn validate_path_fit(
                         .into(),
                 );
             }
+            let base = run.base_y_at(&surfaces, at / run.length);
+            let roof = surfaces.ceiling_y_at(x, z);
             if surfaces.room_at(x, z).is_some_and(|r| !r.ceiling.is_open())
-                && surfaces.ceiling_y_at(x, z)
-                    < run.base_y_at(&surfaces, at / run.length) + rail.height
+                && roof > base
+                && roof < base + rail.height
             {
                 return Err(
                     "Railing/fence height intersects the room ceiling; lower its height".into(),

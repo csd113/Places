@@ -30,7 +30,9 @@ impl Tool {
     const fn hint(self) -> &'static str {
         match self {
             Self::Tunnel => "Click two mouth centres on one floor. Preview; Esc cancels.",
-            Self::RailPath => "Click start and path corners. Apply path commits; Esc cancels.",
+            Self::RailPath => {
+                "Click the floor or walkway edge, then each corner. Apply path to finish."
+            }
             Self::Wall => "Click start, then end. Walls snap to X/Z. Esc cancels.",
             Self::Doorway => "Click a wall: makes an opening only. Esc cancels.",
             Self::Door => "Click a wall or doorway: fits an interactive door. Esc cancels.",
@@ -132,7 +134,8 @@ impl App {
         Ok(())
     }
     pub(super) fn retire_construction(&mut self) {
-        if self.placement.take().is_some() {
+        let escalator = self.escalator.take().is_some();
+        if self.placement.take().is_some() || escalator {
             self.viewport.highlight(None, &[]);
         }
         self.wall_drag = None;
@@ -142,7 +145,25 @@ impl App {
         self.retire_construction();
         self.changed();
     }
-    fn placement_position(&self, point: [f32; 2]) -> Option<[f32; 3]> {
+    fn placement_position(&mut self, point: [f32; 2]) -> Option<[f32; 3]> {
+        if let Some(placement) = &mut self.placement
+            && placement.tool == Tool::RailPath
+        {
+            if placement.wall_picking.is_none() {
+                placement.wall_picking = self.viewport.wall_picking();
+            }
+            let picked = placement.wall_picking.as_ref().and_then(|scene| {
+                scene.railing_floor(
+                    self.document.as_ref()?.level(),
+                    self.viewport.ray(point)?,
+                    self.view.snap.then_some(self.step),
+                )
+            });
+            if picked.is_none() {
+                self.placement_error(super::railings::FOOTING_CUE);
+            }
+            return picked;
+        }
         if self
             .placement
             .as_ref()
@@ -243,7 +264,7 @@ impl App {
                         .placement
                         .as_ref()
                         .map_or_else(Vec::new, |p| p.points.clone());
-                    rail_candidate(doc, start, &points, end)
+                    super::railings::candidate(doc, start, &points, end)
                 }
             }
             Tool::Wall => {
@@ -514,7 +535,7 @@ impl App {
             .get(..p.points.len().saturating_sub(1))
             .unwrap_or_default();
         let doc = self.document.as_ref().ok_or("Open a project")?;
-        let (raw, _) = rail_candidate(doc, start, previous, end)?;
+        let (raw, _) = super::railings::candidate(doc, start, previous, end)?;
         self.check_focused_edit(&raw)?;
         let expected = doc.raw().clone();
         self.document
@@ -708,36 +729,6 @@ fn tunnel_candidate(
     drop(doc.validate_candidate(&raw)?);
     Ok((raw, ObjectId::Room(index)))
 }
-fn rail_candidate(
-    doc: &super::Document,
-    start: [f32; 3],
-    previous: &[[f32; 3]],
-    end: [f32; 3],
-) -> Result<(serde_json::Value, ObjectId), String> {
-    let mut raw = doc.raw().clone();
-    let path: Vec<_> = previous
-        .iter()
-        .copied()
-        .chain([end])
-        .map(|p| [p[0], p[2]])
-        .collect();
-    let rails = super::document::record_array_mut(&mut raw, "guardrails")?;
-    rails.push(serde_json::json!({"x":start[0],"z":start[2],"length":1_u32,"path":path,"height":1_u32,"post_spacing":1.2_f32}));
-    drop(doc.validate_candidate(&raw)?);
-    let owner = doc
-        .level()
-        .rooms
-        .iter()
-        .position(|r| {
-            start[0] >= r.x
-                && start[0] <= r.x + r.width
-                && start[2] >= r.z
-                && start[2] <= r.z + r.depth
-        })
-        .ok_or("Place railing on a room floor")?;
-    Ok((raw, ObjectId::Room(owner)))
-}
-
 fn light_candidate(
     doc: &super::Document,
     at: [f32; 3],

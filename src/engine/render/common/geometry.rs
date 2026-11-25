@@ -274,7 +274,7 @@ fn emit_floors(
         let room_patches = context.surfaces.patches_for_room(room);
         let belts: Vec<_> = lanes
             .iter()
-            .filter(|&&(owner, _)| owner == room_index)
+            .filter(|&&(owner, lane)| lane.cuts_deck_in(room_index, owner))
             .map(|&(_, lane)| lane)
             .collect();
         let grid = context

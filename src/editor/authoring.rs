@@ -929,6 +929,9 @@ impl App {
         if draft.tool == Tool::Room {
             validate_room_overlap(&level, draft.index)?;
         }
+        if matches!(draft.tool, Tool::Rail | Tool::RailPath) {
+            super::railings::validate_changed(&level, doc.level(), draft.index)?;
+        }
         if apply {
             self.viewport
                 .set_environment_preview(draft.environment_before);

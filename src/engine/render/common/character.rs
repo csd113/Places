@@ -223,7 +223,7 @@ fn character_claim_plan(
             }
             continue;
         }
-        let asset = match assets.resolve(&model_path) {
+        let asset = match assets.resolve_placement(&model_path, prop) {
             Ok(asset) => asset,
             Err(error) => {
                 assets.report_failure(&model_path, &error);

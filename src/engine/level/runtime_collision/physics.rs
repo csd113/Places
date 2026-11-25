@@ -303,7 +303,7 @@ impl WalkableFloor {
             prior_rooms.push((bounds, room.floor_y));
             // This is the same precedence as room_height_at: ramps, stairs,
             // then regions, with the latest authored entry in each class winning.
-            for ramp in room.ramps.iter().rev() {
+            for ramp in room.ramps.iter().rev().filter(|ramp| !ramp.overlay) {
                 consume_patch(
                     &mut remaining,
                     Rect::new(ramp.surface.bounds()),
@@ -351,6 +351,19 @@ impl WalkableFloor {
             );
             if barriers_needed && let Some(room_patches) = output.get(patch_start..) {
                 close_steps(room_patches, &mut barriers);
+            }
+            // Freestanding belts sit above the architectural floor. Their
+            // slabs don't consume it or produce a floor-region step face.
+            for ramp in room.ramps.iter().filter(|ramp| ramp.overlay) {
+                let overlay = Rect::new(ramp.surface.bounds());
+                consume_patch(
+                    &mut vec![overlay],
+                    overlay,
+                    |x, z| ramp.height_at(x, z),
+                    ramp.floor_y,
+                    ramp.belt,
+                    &mut output,
+                );
             }
         }
         (output, barriers)

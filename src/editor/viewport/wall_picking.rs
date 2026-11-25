@@ -1,4 +1,4 @@
-//! Door and doorway targeting against the accepted editing scene.
+//! Doorway and floor targeting against the accepted editing scene.
 
 use std::sync::Arc;
 
@@ -16,9 +16,26 @@ pub(in crate::editor) struct WallPicking {
     pub(in crate::editor::viewport) mesh: Arc<LevelMesh>,
     pub(in crate::editor::viewport) objects: Arc<[PickObject]>,
     pub(in crate::editor::viewport) doors: Arc<[DoorCollider]>,
+    pub(in crate::editor::viewport) floor: crate::engine::level::WalkableFloor,
 }
 
 impl WallPicking {
+    pub(in crate::editor) fn railing_floor(
+        &self,
+        level: &LevelDef,
+        ray: (Vec3, Vec3),
+        grid: Option<f32>,
+    ) -> Option<[f32; 3]> {
+        let hit =
+            play_picking::play_floor_hit(&self.mesh, &self.objects, &self.floor, &self.doors, ray)?;
+        Some(crate::editor::railings::snap_footing(
+            level,
+            &self.floor,
+            hit,
+            grid,
+        ))
+    }
+
     pub(in crate::editor) fn target(
         &self,
         level: &LevelDef,
