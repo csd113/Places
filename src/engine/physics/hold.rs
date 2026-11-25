@@ -239,7 +239,9 @@ fn carry_waypoint(
 fn blocking_player_item(runtime: &Runtime, handle: ColliderHandle, key: u64, frozen: bool) -> bool {
     runtime.entries.get(&key).is_some_and(|entry| {
         entry.collider == handle
-            && (frozen || entry.dormant || runtime.held.as_ref().is_some_and(|held| held.key == key))
+            && (frozen
+                || entry.dormant
+                || runtime.held.as_ref().is_some_and(|held| held.key == key))
     })
 }
 
@@ -414,7 +416,13 @@ impl ItemWorld {
             .intersect_aabb_conservative(bounds, filter)
             .filter_map(|(_, obstacle)| {
                 let hit = cast_shapes(
-                    &start, delta, &hull, obstacle.position(), Vector::ZERO, obstacle.shape(), options,
+                    &start,
+                    delta,
+                    &hull,
+                    obstacle.position(),
+                    Vector::ZERO,
+                    obstacle.shape(),
+                    options,
                 )
                 .ok()
                 .flatten()?;
@@ -434,9 +442,11 @@ impl ItemWorld {
         player: PlayerContext,
         slide: HeldPlayerSlide,
     ) -> (Vec3, f32, Option<HeldPlayerContact>) {
-        self.runtime.as_ref().map_or((player.eye, 1.0, None), |runtime| {
-            self.sweep_item_contact(runtime, previous, player, Some(slide))
-        })
+        self.runtime
+            .as_ref()
+            .map_or((player.eye, 1.0, None), |runtime| {
+                self.sweep_item_contact(runtime, previous, player, Some(slide))
+            })
     }
 
     fn sweep_item_contact(
@@ -468,9 +478,9 @@ impl ItemWorld {
         let sweep = |center, delta, sliding| {
             let blocking = |handle, collider: &Collider| {
                 collider.is_enabled()
-                    && runtime
-                        .key_for_collider(handle)
-                        .map_or(sliding, |key| blocking_player_item(runtime, handle, key, frozen))
+                    && runtime.key_for_collider(handle).map_or(sliding, |key| {
+                        blocking_player_item(runtime, handle, key, frozen)
+                    })
             };
             runtime.world.cast_shape(
                 &pose(center, Quat::IDENTITY),

@@ -244,7 +244,7 @@ fn member_current(
         assets,
         request.capture_probes,
     )
-        .is_ok_and(|report| report.current)
+    .is_ok_and(|report| report.current)
         && crate::engine::package::world::inspect_level(&request.out, id).is_ok_and(|manifest| {
             if request.compact
                 && !super::read_build_inputs(&request.out, &manifest)

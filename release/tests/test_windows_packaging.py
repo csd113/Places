@@ -24,7 +24,8 @@ class WindowsMenuGateTests(unittest.TestCase):
         # Existing real Windows acceptance covers the executable and real menu.
         # A few bytes exercise every local staging/rollback branch without a bake.
         with tempfile.TemporaryDirectory() as temporary:
-            root = Path(temporary)
+            # Match the packager's resolved destinations if Windows TEMP uses an 8.3 alias.
+            root = Path(temporary).resolve(strict=True)
             source = root / 'checkout'
             bins = root / 'native bins'
             runtime = root / 'runtime'
@@ -60,7 +61,7 @@ class WindowsMenuGateTests(unittest.TestCase):
 
                     def native(command, **options):
                         calls.append(command[1])
-                        self.assertEqual(Path(command[0]), bins / 'places-map-compiler.exe')
+                        self.assertTrue(Path(command[0]).samefile(bins / 'places-map-compiler.exe'))
                         assets = Path(command[command.index('--asset-root') + 1])
                         self.assertTrue(assets.is_relative_to(destination))
                         self.assertFalse(list(assets.rglob('*.xcf')))
