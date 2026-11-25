@@ -1,0 +1,16 @@
+{
+  "package_version": "1.0.0",
+  "schema": "places-project",
+  "project_format": 1,
+  "id": "room_1795600394949",
+  "name": "Underground Mall",
+  "description": "An underground concourse with glass-front retail, a small food court, and a working escalator and security grille.",
+  "entry_level": "room_1795600394949",
+  "levels": [
+    {
+      "id": "room_1795600394949",
+      "source": "levels/room_1795600394949.json",
+      "display_name": "Underground Mall"
+    }
+  ]
+}

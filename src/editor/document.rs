@@ -364,7 +364,7 @@ impl Document {
                 let physics = serde_json::to_value(profile).map_err(|error| error.to_string())?;
                 drop(objects::object_mut(&mut edited, id)?.insert("physics".into(), physics));
             }
-            objects::apply_door_preset(&mut edited, id, model)?;
+            objects::apply_mechanism_preset(&mut edited, id, model)?;
         }
         self.accept_edit(edited)?;
         Ok(id)

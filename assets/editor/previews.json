@@ -1872,6 +1872,81 @@
     "sha256": "3063fcf0a7c0b27a361838d879c8a65bb4f5fb303957d752644ad297e44fbc2d",
     "source": "environments/janitor_closet/models/wet_floor_sign.glb"
   },
+  "mall:escalator": {
+    "path": "editor/previews/1396501580d7369baa7cd7bc.png",
+    "sha256": "7ba97888e99e59ef5936af9f9dd65f0ef17cdcd6de085d8cb08f86f210591d05",
+    "source": "environments/mall/props/escalator.glb"
+  },
+  "mall:advertising_lightbox": {
+    "path": "editor/previews/2bdc57ebd6fb7e9d14e5fd18.png",
+    "sha256": "c6a6e6c57b205c59ca4544be5e94eecd92303cb2adcc41711bbb87090413e014",
+    "source": "environments/mall/props/advertising_lightbox.glb"
+  },
+  "mall:clothing_rack": {
+    "path": "editor/previews/dd0e4c5018a648408e15d9fd.png",
+    "sha256": "e4188f3cc022744ba71355ed72660179bc2555ea9383c1e6452a35436da54c67",
+    "source": "environments/mall/props/clothing_rack.glb"
+  },
+  "mall:crumpled_paper_ball": {
+    "path": "editor/previews/0b026bc740a95520f31dd6c9.png",
+    "sha256": "d80b6df10074408741b82adffde759b13d7dc442bd9deea27ff18caa26f2c719",
+    "source": "environments/mall/props/crumpled_paper_ball.glb"
+  },
+  "mall:crushed_cigarette_pack": {
+    "path": "editor/previews/1b8e74523162cfd7848fa334.png",
+    "sha256": "7ff39dc623615680e018d792ea589a2a02fac7ef3bf6b8414bdf04ee90198ab3",
+    "source": "environments/mall/props/crushed_cigarette_pack.glb"
+  },
+  "mall:food_court_tray": {
+    "path": "editor/previews/c00fb4746f106a846b2acf6d.png",
+    "sha256": "77052435683af4ec1d2fc09b49c04dd38c7ceb01668a55caa5835d44c5d7a32c",
+    "source": "environments/mall/props/food_court_tray.glb"
+  },
+  "mall:metal_ashtray": {
+    "path": "editor/previews/7a18af4e38e16e86a9df2a0e.png",
+    "sha256": "534a1239cf9f4e7c79da6bde8105011899e83ae31f9a05abf44c4529d236ea7c",
+    "source": "environments/mall/props/metal_ashtray.glb"
+  },
+  "mall:moulded_clothes_hanger": {
+    "path": "editor/previews/3d96ba83882539add5445865.png",
+    "sha256": "0116642cc026b550b320e6416091e88aac810a7e251083301b4c44bb6190bb1c",
+    "source": "environments/mall/props/moulded_clothes_hanger.glb"
+  },
+  "mall:print_directory_kiosk": {
+    "path": "editor/previews/72cf8bf53ad25f4ea4b7b7c3.png",
+    "sha256": "6e67d667274e4dfe05d72e89daf822bb42553b850818c93349f8397d29145e6a",
+    "source": "environments/mall/props/print_directory_kiosk.glb"
+  },
+  "mall:retail_island_kiosk": {
+    "path": "editor/previews/4c93661f2740acbafde6bdc5.png",
+    "sha256": "a7e9f3d7f37df8985e9ba6b6c0a0ffd2215928e91c1b41293f0f3eeae1cf39ac",
+    "source": "environments/mall/props/retail_island_kiosk.glb"
+  },
+  "mall:sale_sign_blowout": {
+    "path": "editor/previews/04966a926d3f9c5fab5a4b0d.png",
+    "sha256": "e802381fed085ba43d30f8fee54cc9c72c9ffe4cb77d80c0380f18cf65ec011c",
+    "source": "environments/mall/props/sale_sign_blowout.glb"
+  },
+  "mall:sale_sign_final_markdown": {
+    "path": "editor/previews/bbe42c6adab41a67d36f91a9.png",
+    "sha256": "f9a0affb1464e88a136cd6048ac7dc6c688bcd67fdb76b04c5c781c8ffc8b2df",
+    "source": "environments/mall/props/sale_sign_final_markdown.glb"
+  },
+  "mall:sale_sign_weekend": {
+    "path": "editor/previews/538b665c6c5971f26dd7c232.png",
+    "sha256": "7a1a0e1c0bf82ccb7282d5c862db7983197572a264abc8dbb90f3dec04fdb7d3",
+    "source": "environments/mall/props/sale_sign_weekend.glb"
+  },
+  "mall:takeaway_coffee_cup": {
+    "path": "editor/previews/313330db8076d4140ac26ed9.png",
+    "sha256": "aed7755ed61e908fc6a3ecc328a34c10b59e0399f3ec4030e37281a5851e92fd",
+    "source": "environments/mall/props/takeaway_coffee_cup.glb"
+  },
+  "mall:security_shutter": {
+    "path": "editor/previews/7854cb52f96e6d9c62685774.png",
+    "sha256": "e543a18454914d16ca785c547737af1f599c4458b383478d5607107ad34930c6",
+    "source": "environments/mall/props/security_shutter.glb"
+  },
   "maintenance:concrete_ceiling_01": {
     "path": "editor/previews/cfd814b91876e3302cacd6a7.png",
     "sha256": "cfd814b91876e3302cacd6a7a65a63dd06ba407c64003463ed8db68775b5bb15",

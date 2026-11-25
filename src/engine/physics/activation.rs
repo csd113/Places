@@ -96,6 +96,76 @@ impl ItemWorld {
 }
 
 impl Runtime {
+    /// A dormant or sleeping dynamic prop wakes only if an actual powered
+    /// tread supports it. Rapier otherwise never solves its new traction.
+    /// A close volume, platform edge, or side hit cannot supply activation.
+    pub(super) fn activate_tread_contacts(&mut self) {
+        if !self.floor_contacts.has_powered_tread() {
+            return;
+        }
+        let mut touching = [0_u64; MAX_BODIES];
+        let mut count = 0_usize;
+        for &handle in self.floor_contacts.tread_colliders() {
+            let Some(floor) = self.world.colliders.get(handle).filter(|c| c.is_enabled()) else {
+                continue;
+            };
+            let Some(lane) = self.floor_contacts.moving_tread(floor.user_data) else {
+                continue;
+            };
+            // One local broad-phase query per powered contact surface (normally
+            // one welded collider per belt), independent of the item registry size.
+            let bounds = floor.compute_aabb().loosened(CONTACT_MARGIN);
+            for (candidate, _) in self
+                .world
+                .intersect_aabb_conservative(bounds, query_filter())
+            {
+                let Some(key) = self.key_for_collider(candidate) else {
+                    continue;
+                };
+                let Some(entry) = self.entries.get(&key) else {
+                    continue;
+                };
+                if entry.collider != candidate
+                    || entry.motion != BodyMotion::Dynamic
+                    || entry.recovery.suspended
+                    || touching.get(..count).unwrap_or_default().contains(&key)
+                {
+                    continue;
+                }
+                let Some(body) = self.world.bodies.get(entry.body) else {
+                    continue;
+                };
+                if !entry.dormant && !body.is_sleeping() {
+                    continue;
+                }
+                let supported = contact(
+                    floor.position(),
+                    floor.shape(),
+                    body.position(),
+                    entry.shape.as_ref(),
+                    CONTACT_MARGIN,
+                )
+                .is_ok_and(|contact| {
+                    contact.is_some_and(|surface| {
+                        lane.tangent(point(surface.point1), point(surface.normal1))
+                            .is_some()
+                    })
+                });
+                if supported && let Some(slot) = touching.get_mut(count) {
+                    *slot = key;
+                    count = count.saturating_add(1);
+                }
+            }
+        }
+        // A body can overlap two tread AABBs. Queue it once, preserve stable
+        // key order, and only mutate Rapier after the queries release their borrows.
+        let pending = touching.get_mut(..count).unwrap_or_default();
+        pending.sort_unstable();
+        for &key in pending.iter() {
+            let _activated = self.activate_key(key);
+        }
+    }
+
     /// The controller stops just before dormant shapes, so waiting for a
     /// solver penetration can never wake them. Treat that same small contact
     /// gap as contact before the all-dormant fast path skips the solver.

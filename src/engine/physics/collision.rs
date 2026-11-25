@@ -1,6 +1,9 @@
 //! Static world construction and model-bound collision shapes.
 
+use std::collections::BTreeMap;
+
 use glam::{Quat, Vec3};
+use rapier3d::parry::shape::TriMeshFlags;
 use rapier3d::prelude::CoefficientCombineRule;
 use rapier3d::prelude::{
     ActiveHooks, Collider, ColliderBuilder, ColliderHandle, MassProperties, PhysicsWorld, Pose,
@@ -8,7 +11,7 @@ use rapier3d::prelude::{
 };
 
 use crate::engine::collision::{DoorCollider, WallAabb};
-use crate::engine::level::{WalkableCeiling, WalkableFloor};
+use crate::engine::level::{PhysicalPatch, WalkableCeiling, WalkableFloor};
 
 use super::config::{CompoundPart, PhysicsDef, PrimitiveShapeDef, ShapeDef};
 use super::surfaces::{FloorContactHooks, FloorSurfaces};
@@ -262,7 +265,12 @@ pub(super) fn install_static(
     }
     let (floors, barriers) = floor.physical_geometry();
     let ceilings = ceiling.physical_patches(&floors);
+    let mut belts = BTreeMap::<_, Vec<_>>::new();
     for patch in floors.into_iter().chain(ceilings) {
+        if let Some(slot) = patch.belt {
+            belts.entry(slot).or_default().push(patch);
+            continue;
+        }
         let (friction, combine, material_tag) = if patch.ceiling {
             (0.6, CoefficientCombineRule::Average, None)
         } else {
@@ -271,10 +279,10 @@ pub(super) fn install_static(
             (
                 friction,
                 CoefficientCombineRule::Multiply,
-                floor_contacts.register(material),
+                floor_contacts.register(material, None),
             )
         };
-        install_slab(
+        let _floor = install_slab(
             world,
             patch.corners,
             patch.backing,
@@ -282,6 +290,9 @@ pub(super) fn install_static(
             combine,
             material_tag,
         );
+    }
+    for (slot, patches) in belts {
+        install_tread(world, &patches, slot, surfaces, &mut floor_contacts);
     }
     for [a, b, c, d] in barriers {
         for [p, q, r] in [[a, b, c], [a, c, d]] {
@@ -300,6 +311,68 @@ pub(super) fn install_static(
     floor_contacts
 }
 
+/// Weld the pitch line across the approach, incline and crest. Separate
+/// convex wedges expose internal vertical faces at the change of grade. A
+/// tilted box can then wedge against the crest and sleep on a running belt.
+fn install_tread(
+    world: &mut PhysicsWorld,
+    patches: &[PhysicalPatch],
+    slot: usize,
+    surfaces: &FloorSurfaces,
+    contacts: &mut FloorContactHooks,
+) {
+    let Some(first) = patches.first() else {
+        return;
+    };
+    let mut vertices = Vec::with_capacity(patches.len().saturating_mul(4));
+    let mut triangles = Vec::with_capacity(patches.len().saturating_mul(2));
+    for patch in patches {
+        let Ok(a) = u32::try_from(vertices.len()) else {
+            return;
+        };
+        vertices.extend(patch.corners.map(vector));
+        let [b, c, d] = [
+            a.saturating_add(1),
+            a.saturating_add(2),
+            a.saturating_add(3),
+        ];
+        triangles.extend([[a, c, b], [a, d, c]]);
+    }
+    let material = surfaces.material(first.corners, first.room_floor_y);
+    let friction = material.base_friction;
+    let Some(tag) = contacts.register(material, Some(slot)) else {
+        return;
+    };
+    let Ok(builder) =
+        ColliderBuilder::trimesh_with_flags(vertices, triangles, TriMeshFlags::FIX_INTERNAL_EDGES)
+    else {
+        for patch in patches {
+            if let Some(handle) = install_slab(
+                world,
+                patch.corners,
+                patch.backing,
+                friction,
+                CoefficientCombineRule::Multiply,
+                Some(tag),
+            ) {
+                contacts.register_tread(handle);
+            }
+        }
+        return;
+    };
+    let handle = world.insert_collider(
+        builder
+            .user_data(tag)
+            .active_hooks(ActiveHooks::MODIFY_SOLVER_CONTACTS)
+            .friction(friction)
+            .friction_combine_rule(CoefficientCombineRule::Multiply)
+            .restitution(0.02),
+        None,
+    );
+    refresh_collider(world, handle);
+    contacts.register_tread(handle);
+}
+
 fn install_slab(
     world: &mut PhysicsWorld,
     corners: [Vec3; 4],
@@ -307,7 +380,7 @@ fn install_slab(
     friction: f32,
     combine: CoefficientCombineRule,
     material_tag: Option<u128>,
-) {
+) -> Option<ColliderHandle> {
     let [a, b, c, d] = corners;
     let vertices = [
         a,
@@ -322,21 +395,21 @@ fn install_slab(
     .map(vector);
     // Each authored planar patch is a convex slab/wedge. Its exact corners
     // retain slopes, risers and recesses without importing visual triangles.
-    if let Some(mut builder) = ColliderBuilder::convex_hull(&vertices) {
-        if let Some(tag) = material_tag {
-            builder = builder
-                .user_data(tag)
-                .active_hooks(ActiveHooks::MODIFY_SOLVER_CONTACTS);
-        }
-        let handle = world.insert_collider(
-            builder
-                .friction(friction)
-                .friction_combine_rule(combine)
-                .restitution(0.02),
-            None,
-        );
-        refresh_collider(world, handle);
+    let mut builder = ColliderBuilder::convex_hull(&vertices)?;
+    if let Some(tag) = material_tag {
+        builder = builder
+            .user_data(tag)
+            .active_hooks(ActiveHooks::MODIFY_SOLVER_CONTACTS);
     }
+    let handle = world.insert_collider(
+        builder
+            .friction(friction)
+            .friction_combine_rule(combine)
+            .restitution(0.02),
+        None,
+    );
+    refresh_collider(world, handle);
+    Some(handle)
 }
 
 pub(super) fn door_pose(door: &DoorCollider) -> Pose {

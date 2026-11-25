@@ -331,6 +331,7 @@ pub struct ItemWorld {
     walls: Vec<WallAabb>,
     floor: WalkableFloor,
     surfaces: FloorSurfaces,
+    belt_frame_seconds: Option<f32>,
     surface_materials: SurfaceMaterials,
     ceiling: WalkableCeiling,
     water: WaterVolumes,
@@ -352,6 +353,7 @@ impl Default for ItemWorld {
             walls: Vec::new(),
             floor: WalkableFloor::default(),
             surfaces: FloorSurfaces::default(),
+            belt_frame_seconds: None,
             surface_materials: SurfaceMaterials::default(),
             ceiling: WalkableCeiling::default(),
             water: WaterVolumes::default(),
@@ -447,6 +449,7 @@ impl ItemWorld {
             },
             floor: WalkableFloor::from_level(level),
             surfaces: FloorSurfaces::default(),
+            belt_frame_seconds: None,
             surface_materials: SurfaceMaterials::from_level(level),
             ceiling: WalkableCeiling::from_level(level),
             water: WaterVolumes::from_level(level),
@@ -1207,6 +1210,13 @@ impl ItemWorld {
         self.step_with_player_velocity(delta, player, doors, Vec3::ZERO);
     }
 
+    fn step_budget(&mut self, delta: f32) -> f32 {
+        self.belt_frame_seconds
+            .take()
+            .filter(|_| !self.simulation.paused)
+            .unwrap_or_else(|| self.scaled_delta(delta))
+    }
+
     /// Supplies resolved controller velocity for direct hand following.
     /// Drop velocity still comes from measured player displacement.
     pub(crate) fn step_with_player_velocity(
@@ -1217,7 +1227,7 @@ impl ItemWorld {
         player_velocity: Vec3,
     ) {
         self.stats = PhysicsStats::default();
-        let world_delta = self.scaled_delta(delta);
+        let world_delta = self.step_budget(delta);
         let Some(runtime) = self.runtime.as_mut() else {
             return;
         };
@@ -1245,6 +1255,7 @@ impl ItemWorld {
         runtime.refresh_queries();
         if interval > 0.0 {
             runtime.activate_player_contacts();
+            runtime.activate_tread_contacts();
         }
         if runtime.ragdolls.is_empty()
             && !runtime.entries.values().any(|entry| {
@@ -1399,6 +1410,21 @@ impl ItemWorld {
         if let Some(runtime) = self.runtime.as_mut() {
             runtime.wake_changed_water();
         }
+    }
+
+    /// Latch the shared frame power and budget. On solver steps, exact tread
+    /// contacts govern wake-up and traction, including on power changes.
+    pub(crate) fn sync_escalators(
+        &mut self,
+        escalators: &[crate::engine::escalator::Escalator],
+        frame_seconds: f32,
+    ) {
+        self.belt_frame_seconds = (!escalators.is_empty()).then_some(frame_seconds);
+        let Some(runtime) = self.runtime.as_mut() else {
+            return;
+        };
+        let ticking = frame_seconds > 0.0 && !self.simulation.paused;
+        runtime.floor_contacts.sync_escalators(escalators, ticking);
     }
 
     /// Exact live solver shape bounds, excluding temporal trigger envelopes.

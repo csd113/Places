@@ -120,6 +120,10 @@ impl PreparedPhysics {
 
     pub(super) fn step(&mut self, game: &mut Game, seconds: f32, renderer: &mut Renderer) {
         self.world.sync_water(&game.water);
+        self.world.sync_escalators(
+            game.entities().escalators(),
+            game.entities().escalator_frame_seconds(),
+        );
         self.world.step_with_player_velocity(
             seconds,
             player_context(game),

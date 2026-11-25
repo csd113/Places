@@ -37,7 +37,7 @@ pub use diagnostics::{logging, perf, progress};
 pub use entities::{carry as carry_visibility, feltling, tall_guest};
 pub use level::environment;
 pub(crate) use level::structure;
-pub use mechanisms::{animated_door, door, elevator};
+pub use mechanisms::{animated_door, door, elevator, escalator};
 pub use render::{font, weather};
 pub use rules::{game_mode, health, tools};
 pub(crate) use runtime::resources;

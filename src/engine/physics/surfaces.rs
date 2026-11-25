@@ -2,7 +2,7 @@
 
 use glam::Vec3;
 use rapier3d::prelude::{
-    CoefficientCombineRule, Collider, ContactModificationContext, PhysicsHooks,
+    CoefficientCombineRule, Collider, ColliderHandle, ContactModificationContext, PhysicsHooks,
 };
 
 use crate::engine::level::{LevelDef, ROOM_EDGE_EPS_M, RampSurface, StairSurface};
@@ -59,6 +59,7 @@ struct Override {
 pub(super) struct FloorMaterial {
     pub base_friction: f32,
     patches: Vec<(Rect, f32)>,
+    belt: Option<usize>,
 }
 
 impl FloorMaterial {
@@ -77,6 +78,8 @@ const FLOOR_MATERIAL_TAG: u128 = 1_u128 << 127;
 #[derive(Default)]
 pub(super) struct FloorContactHooks {
     materials: Vec<FloorMaterial>,
+    escalators: Vec<(crate::engine::escalator::Lane, bool)>,
+    tread_colliders: Vec<ColliderHandle>,
 }
 
 impl FloorContactHooks {
@@ -100,13 +103,48 @@ impl FloorContactHooks {
             )
     }
 
-    pub fn register(&mut self, material: FloorMaterial) -> Option<u128> {
-        if material.patches.is_empty() {
+    pub fn register(&mut self, mut material: FloorMaterial, belt: Option<usize>) -> Option<u128> {
+        if material.patches.is_empty() && belt.is_none() {
             return None;
         }
         let index = u128::try_from(self.materials.len()).ok()?;
+        material.belt = belt;
         self.materials.push(material);
         Some(FLOOR_MATERIAL_TAG | index)
+    }
+
+    pub(super) fn register_tread(&mut self, handle: ColliderHandle) {
+        self.tread_colliders.push(handle);
+    }
+
+    pub(super) fn tread_colliders(&self) -> &[ColliderHandle] {
+        &self.tread_colliders
+    }
+
+    pub(super) fn sync_escalators(
+        &mut self,
+        escalators: &[crate::engine::escalator::Escalator],
+        ticking: bool,
+    ) {
+        let states = || {
+            escalators
+                .iter()
+                .map(|item| (item.lane, ticking && item.powered_this_frame()))
+        };
+        if !self.escalators.iter().copied().eq(states()) {
+            self.escalators.clear();
+            self.escalators.extend(states());
+        }
+    }
+
+    pub(super) fn has_powered_tread(&self) -> bool {
+        self.escalators.iter().any(|&(_, running)| running)
+    }
+
+    pub(super) fn moving_tread(&self, tag: u128) -> Option<crate::engine::escalator::Lane> {
+        let slot = self.material(tag)?.belt?;
+        let &(lane, powered) = self.escalators.get(slot)?;
+        powered.then_some(lane)
     }
 
     fn material(&self, tag: u128) -> Option<&FloorMaterial> {
@@ -139,7 +177,16 @@ impl PhysicsHooks for FloorContactHooks {
         };
         let mut coefficient_sum = 0.0_f32;
         let mut contact_count = 0.0_f32;
-        for contact in rigid.solver_contacts.iter() {
+        let mut tread_contact = false;
+        let belt = material
+            .belt
+            .and_then(|slot| self.escalators.get(slot))
+            .map(|&(lane, running)| {
+                let sign = if floor_first { 1.0_f32 } else { -1.0 };
+                let normal = super::collision::scaled(super::collision::point(*rigid.normal), sign);
+                (lane, running, normal, sign)
+            });
+        for contact in rigid.solver_contacts.iter_mut() {
             let anchor = if floor_first {
                 contact.anchor1
             } else {
@@ -147,12 +194,26 @@ impl PhysicsHooks for FloorContactHooks {
             };
             coefficient_sum += material.friction_at(anchor.x, anchor.z);
             contact_count += 1.0;
+            if let Some((lane, running, normal, sign)) = belt
+                && let Some(drive) = lane.tangent(super::collision::point(anchor), normal)
+            {
+                tread_contact = true;
+                if running {
+                    contact.tangent_velocity =
+                        super::collision::vector(super::collision::scaled(drive, sign));
+                }
+            }
         }
         if contact_count > 0.0 {
             // Rapier 0.36 stores friction per manifold. Sampling its actual
             // world-space support anchors gives a gradual footprint transition,
             // while compound subshapes retain independent contact manifolds.
-            *rigid.friction = (coefficient_sum / contact_count) * item_friction;
+            let friction = (coefficient_sum / contact_count) * item_friction;
+            *rigid.friction = if tread_contact {
+                friction.max(0.85)
+            } else {
+                friction
+            };
         }
     }
 }
@@ -264,10 +325,12 @@ impl FloorSurfaces {
             return FloorMaterial {
                 base_friction: friction,
                 patches: Vec::new(),
+                belt: None,
             };
         }
         FloorMaterial {
             base_friction: base,
+            belt: None,
             patches: self
                 .patches
                 .iter()

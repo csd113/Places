@@ -2772,6 +2772,7 @@ fn floor_surfaces(
     base_key: SurfaceKey,
     patches: &[&FloorPatchDef],
     materials: &MaterialLookup<'_>,
+    belts: &[crate::engine::escalator::Lane],
 ) -> (Vec<FloorSurface>, Vec<u32>) {
     let (cells_x, cells_z) = (grid.cells_x(), grid.cells_z());
     let mut surfaces: Vec<FloorSurface> = Vec::new();
@@ -2790,7 +2791,9 @@ fn floor_surfaces(
             // Architecture emits the ramp's actual slope. Keeping this
             // carrier would cover a recessed ramp with an invisible deck and
             // would retain a buried second floor under an ascending one.
-            if surfaces_at.ramp_at(x, z).is_some() {
+            if surfaces_at.ramp_at(x, z).is_some()
+                || belts.iter().any(|lane| lane.covers_upper_plate(x, z))
+            {
                 continue;
             }
             // Material precedence: the region's own material, then the latest
@@ -3043,12 +3046,29 @@ fn emit_floor_skirts(
     buckets: &mut crate::engine::spatial::SpatialBuckets<SurfaceKey>,
     room: &RoomDef,
     grid: &RoomFloorGrid,
-    level: &LevelDef,
-    lighting: &LevelLighting,
-    materials: &MaterialLookup<'_>,
-    lightmap: Option<LightmapEmit<'_>>,
+    context: &geometry::EmitContext<'_, '_>,
+    belts: &[crate::engine::escalator::Lane],
 ) {
+    let geometry::EmitContext {
+        level,
+        lighting,
+        materials,
+        lightmap,
+        contacts: _,
+        trim_owner: _,
+        surfaces: _,
+        coverages: _,
+    } = *context;
     let mut faces = floor_skirt_faces(room, grid, level, materials);
+    // The actual tread and landing plate close this break. Retain the deck
+    // skirt on both flanks, but not across the moving lane itself.
+    faces.retain(|face| {
+        let (x, z) = match face.axis {
+            WallAxis::X => (face.at, f32::midpoint(face.span.0, face.span.1)),
+            WallAxis::Z => (f32::midpoint(face.span.0, face.span.1), face.at),
+        };
+        !belts.iter().any(|lane| lane.covers_crest_face(x, z))
+    });
     for face in &mut faces {
         let (x, z) = match face.axis {
             WallAxis::X => (face.at, f32::midpoint(face.span.0, face.span.1)),

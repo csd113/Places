@@ -19,6 +19,7 @@ pub(super) enum GameplayChoice {
     Filter,
     SoundAction,
     DoorAction,
+    MechanismAction,
     SpawnAction,
     PhysicsAction,
     TransitionAction,
@@ -241,6 +242,14 @@ impl App {
                 .map(|v| v.id.clone())
                 .collect(),
             GameplayChoice::DoorAction => doc.level().doors.iter().map(|v| v.id.clone()).collect(),
+            GameplayChoice::MechanismAction => doc
+                .level()
+                .props
+                .iter()
+                .zip(doc.level().prop_instance_ids())
+                .filter(|(prop, _)| prop.escalator.is_some() || prop.animated_door.is_some())
+                .map(|(_, id)| id)
+                .collect(),
             GameplayChoice::SpawnAction => doc
                 .level()
                 .spawn_points
@@ -305,21 +314,7 @@ impl App {
             }
             GameplayChoice::EntityBehavior => doc.set_entity_behavior(id, index, &self.catalog)?,
             GameplayChoice::SpawnTemplate => doc.set_spawn_template(id, &value)?,
-            GameplayChoice::Filter => {
-                let filter = match index {
-                    0 => json!({"kind":"player"}),
-                    1 => json!({"kind":"any"}),
-                    2 => json!({"kind":"item"}),
-                    _ => {
-                        if let Some(instance) = value.strip_prefix("Item: ") {
-                            json!({"kind":"item","instance":instance})
-                        } else {
-                            json!({"kind":"entity","instance":value.strip_prefix("Entity: ").ok_or("Invalid entity filter")?})
-                        }
-                    }
-                };
-                doc.set_trigger_filter(id, filter)?;
-            }
+            GameplayChoice::Filter => doc.set_trigger_filter(id, trigger_filter(index, &value)?)?,
             GameplayChoice::HealthKitAction => {
                 let hp =
                     u16::try_from(index.saturating_add(1)).map_err(|error| error.to_string())?;
@@ -350,6 +345,20 @@ impl App {
                     json!({"action":"open","target":value}),
                 )?;
             }
+            GameplayChoice::MechanismAction => {
+                let is_escalator = doc
+                    .level()
+                    .props
+                    .iter()
+                    .zip(doc.level().prop_instance_ids())
+                    .any(|(prop, target)| target == value && prop.escalator.is_some());
+                let action = if is_escalator {
+                    json!({"action":"toggle_animation","target":value,"clip":crate::engine::escalator::CLIP})
+                } else {
+                    json!({"action":"toggle","target":value})
+                };
+                doc.add_binding_action(id, binding, event, action)?;
+            }
             GameplayChoice::SpawnAction => {
                 doc.add_binding_action(
                     id,
@@ -370,6 +379,7 @@ impl App {
             choice,
             GameplayChoice::SoundAction
                 | GameplayChoice::DoorAction
+                | GameplayChoice::MechanismAction
                 | GameplayChoice::SpawnAction
                 | GameplayChoice::PhysicsAction
                 | GameplayChoice::TransitionAction
@@ -461,4 +471,19 @@ fn emitter_loops(doc: &super::document::Document, id: &str) -> bool {
         .sound_emitters
         .iter()
         .any(|emitter| emitter.id == id && emitter.looped)
+}
+
+fn trigger_filter(index: usize, value: &str) -> Result<Value, String> {
+    Ok(match index {
+        0 => json!({"kind":"player"}),
+        1 => json!({"kind":"any"}),
+        2 => json!({"kind":"item"}),
+        _ => {
+            if let Some(instance) = value.strip_prefix("Item: ") {
+                json!({"kind":"item","instance":instance})
+            } else {
+                json!({"kind":"entity","instance":value.strip_prefix("Entity: ").ok_or("Invalid entity filter")?})
+            }
+        }
+    })
 }

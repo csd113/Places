@@ -7,10 +7,10 @@ mod balloon;
 pub use balloon::{BalloonColor, BalloonDef};
 pub mod environment;
 mod runtime_collision;
-pub(crate) use runtime_collision::MeshClearance;
 pub use runtime_collision::{
     Ladder, Ladders, WalkableCeiling, WalkableFloor, WaterSample, WaterVolume, WaterVolumes,
 };
+pub(crate) use runtime_collision::{MeshClearance, PhysicalPatch};
 pub(crate) mod structure;
 mod water_motion;
 pub use water_motion::WaterMotionDef;
@@ -6658,6 +6658,9 @@ pub struct PropDef {
     /// Mutually exclusive with the fixed prop box and rigid item physics.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub animated_door: Option<AnimatedDoorDef>,
+    /// Explicitly install the physical tread lane on a compatible placed rig.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub escalator: Option<crate::engine::escalator::Definition>,
     /// Opt-in rigid-body settings. Omitted keeps the legacy static placement,
     /// even if the catalog declares a developer-spawned item profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -8578,8 +8581,17 @@ impl LevelDef {
     /// on what the builder emits.
     fn room_floor_cut_counts(&self, room: &RoomDef) -> (u64, u64) {
         let (x0, x1, z0, z1) = room.bounds();
-        let mut x_cuts = 0u64;
-        let mut z_cuts = 0u64;
+        // At most two cuts per axis for each fitted upper landing plate.
+        let belt_cuts = u64::try_from(
+            self.props
+                .iter()
+                .filter(|prop| prop.escalator.is_some())
+                .count(),
+        )
+        .unwrap_or(u64::MAX)
+        .saturating_mul(2);
+        let mut x_cuts = belt_cuts;
+        let mut z_cuts = belt_cuts;
         let edges = self
             .floor_patches
             .iter()
@@ -8875,13 +8887,24 @@ impl LevelDef {
             }
         }
 
-        for room in self.room_iter() {
-            let grid = surfaces.floor_grid(room);
-            // Rims compare the *walking* surface on either side of a grid edge,
-            // so a staircase or ramp arriving at a raised platform is not walled
-            // off by that platform's rim.
-            grid.push_region_rims(
+        let lanes = crate::engine::escalator::support_lanes(self, &surfaces);
+        for (room_index, room) in surfaces.rooms().iter().enumerate() {
+            let belts = || {
+                lanes
+                    .iter()
+                    .filter(move |&&(owner, _)| owner == room_index)
+                    .map(|&(_, lane)| lane)
+            };
+            let grid = surfaces.floor_grid_with_cuts(
+                room,
+                belts().map(crate::engine::escalator::Lane::floor_cuts),
+            );
+            // Rims compare the actual walking support on either side. The
+            // escalator pitch line becomes flush before the authored +3 m
+            // deck. Using only the room floor here leaves a phantom curb.
+            grid.push_region_rims_with_support(
                 |x, z| surfaces.floor_y_at(x, z).unwrap_or(room.floor_y),
+                |x, z| belts().find_map(|lane| lane.support_height_at(x, z)),
                 &mut aabbs,
             );
         }
@@ -9168,6 +9191,28 @@ impl RoomFloorGrid {
     /// walkable step of the rim's top (a ramp or staircase arriving beside the
     /// platform), which is what a rim is not allowed to do.
     pub fn push_region_rims(&self, heights: impl Fn(f32, f32) -> f32, out: &mut Vec<WallAabb>) {
+        self.push_region_rims_with_support(heights, |_, _| None, out);
+    }
+
+    fn push_region_rims_with_support(
+        &self,
+        heights: impl Fn(f32, f32) -> f32,
+        support: impl Fn(f32, f32) -> Option<f32>,
+        out: &mut Vec<WallAabb>,
+    ) {
+        let actual_step = |first: (f32, f32), second: (f32, f32)| {
+            let before = heights(first.0, first.1);
+            let after = heights(second.0, second.1);
+            let is_rim = |a: f32, b: f32| (b - a).abs() > PLAYER_STEP_HEIGHT + 1e-3;
+            // The cut grid can subdivide authored edges, but a moving lane
+            // must never turn a previously flat grid line into a new wall.
+            if !is_rim(before, after) {
+                return None;
+            }
+            let near = support(first.0, first.1).unwrap_or(before);
+            let far = support(second.0, second.1).unwrap_or(after);
+            is_rim(near, far).then_some((near, far))
+        };
         let (cells_x, cells_z) = (self.cells_x(), self.cells_z());
         if cells_x == 0 || cells_z == 0 {
             return;
@@ -9183,11 +9228,11 @@ impl RoomFloorGrid {
                 };
                 for (sz0, sz1) in split_rim_span(z0, z1) {
                     let mid = f32::midpoint(sz0, sz1);
-                    let near = heights(at - RIM_PROBE_M, mid);
-                    let far = heights(at + RIM_PROBE_M, mid);
-                    if (far - near).abs() <= PLAYER_STEP_HEIGHT + 1e-3 {
+                    let Some((near, far)) =
+                        actual_step((at - RIM_PROBE_M, mid), (at + RIM_PROBE_M, mid))
+                    else {
                         continue;
-                    }
+                    };
                     // Extend under the higher side so the blocking face is the
                     // boundary itself.
                     let (rx0, rx1) = if near > far {
@@ -9220,11 +9265,11 @@ impl RoomFloorGrid {
                 };
                 for (sx0, sx1) in split_rim_span(x0, x1) {
                     let mid = f32::midpoint(sx0, sx1);
-                    let near = heights(mid, at - RIM_PROBE_M);
-                    let far = heights(mid, at + RIM_PROBE_M);
-                    if (far - near).abs() <= PLAYER_STEP_HEIGHT + 1e-3 {
+                    let Some((near, far)) =
+                        actual_step((mid, at - RIM_PROBE_M), (mid, at + RIM_PROBE_M))
+                    else {
                         continue;
-                    }
+                    };
                     let (rz0, rz1) = if near > far {
                         (at - RIM_BACKING, at)
                     } else {
@@ -9786,6 +9831,14 @@ impl<'a> LevelSurfaces<'a> {
     /// The resolved floor grid of one room: cut positions and per-cell offsets.
     #[must_use]
     pub fn floor_grid(&self, room: &RoomDef) -> RoomFloorGrid {
+        self.floor_grid_with_cuts(room, std::iter::empty())
+    }
+
+    pub(crate) fn floor_grid_with_cuts(
+        &self,
+        room: &RoomDef,
+        extra_cuts: impl Iterator<Item = (f32, f32, f32, f32)>,
+    ) -> RoomFloorGrid {
         let cells_x = crate::engine::lighting::light_grid_cells(room.width.abs());
         let cells_z = crate::engine::lighting::light_grid_cells(room.depth.abs());
         let mut edges_x: Vec<f32> = Vec::new();
@@ -9810,6 +9863,10 @@ impl<'a> LevelSurfaces<'a> {
             edges_x.push(patch.x + patch.width);
             edges_z.push(patch.z);
             edges_z.push(patch.z + patch.depth);
+        }
+        for (x0, x1, z0, z1) in extra_cuts {
+            edges_x.extend([x0, x1]);
+            edges_z.extend([z0, z1]);
         }
         let xs = cut_positions(room.x, room.width, cells_x, &edges_x);
         let zs = cut_positions(room.z, room.depth, cells_z, &edges_z);

@@ -12,6 +12,7 @@ pub struct PhysicalPatch {
     pub backing: f32,
     pub ceiling: bool,
     pub room_floor_y: f32,
+    pub(crate) belt: Option<usize>,
 }
 
 #[derive(Clone, Copy)]
@@ -245,6 +246,7 @@ fn consume_patch(
     bounds: Rect,
     height: impl Fn(f32, f32) -> f32,
     backing: f32,
+    belt: Option<usize>,
     output: &mut Vec<PhysicalPatch>,
 ) {
     let mut next = Vec::with_capacity(remaining.len());
@@ -257,6 +259,7 @@ fn consume_patch(
                 backing: bottom - super::MIN_STRUCTURE_M,
                 ceiling: false,
                 room_floor_y: backing,
+                belt,
             });
         }
         old.subtract(bounds, &mut next);
@@ -306,6 +309,7 @@ impl WalkableFloor {
                     Rect::new(ramp.surface.bounds()),
                     |x, z| ramp.height_at(x, z),
                     room.floor_y,
+                    ramp.belt,
                     &mut output,
                 );
             }
@@ -322,6 +326,7 @@ impl WalkableFloor {
                         Rect::new(tread_bounds),
                         |_, _| stair.tread_height(tread),
                         room.floor_y,
+                        None,
                         &mut output,
                     );
                 }
@@ -332,6 +337,7 @@ impl WalkableFloor {
                     Rect::new((region.x0, region.x1, region.z0, region.z1)),
                     |_, _| region.y,
                     room.floor_y,
+                    None,
                     &mut output,
                 );
             }
@@ -340,6 +346,7 @@ impl WalkableFloor {
                 bounds,
                 |_, _| room.floor_y,
                 room.floor_y,
+                None,
                 &mut output,
             );
             if barriers_needed && let Some(room_patches) = output.get(patch_start..) {
@@ -433,6 +440,7 @@ impl WalkableCeiling {
                     backing,
                     ceiling: true,
                     room_floor_y: room.floor_y,
+                    belt: None,
                 });
             }
         }

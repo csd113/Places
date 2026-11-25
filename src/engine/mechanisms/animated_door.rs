@@ -4,6 +4,7 @@
 use glam::{Mat4, Vec3};
 
 use super::door::{DoorPhase, DoorStatus};
+use super::shutter;
 use crate::engine::collision::DoorCollider;
 use crate::engine::entity::PoseCue;
 use crate::engine::gltf::PropModel;
@@ -21,6 +22,11 @@ pub fn load(level: &crate::engine::level::LevelDef) -> Result<Vec<AnimatedDoor>,
     let catalog = crate::engine::loader::PropCatalog::load_default();
     let mut assets = crate::engine::props::PropAssets::load_default();
     let surfaces = crate::engine::level::LevelSurfaces::new(level);
+    let shutter_structure = level
+        .props
+        .iter()
+        .any(|prop| prop.model == shutter::MODEL && prop.animated_door.is_some())
+        .then(|| shutter::structure(level));
     let mut doors = Vec::new();
     for (prop, id) in level.props.iter().zip(level.prop_instance_ids()) {
         if prop.animated_door.is_none() {
@@ -32,7 +38,13 @@ pub fn load(level: &crate::engine::level::LevelDef) -> Result<Vec<AnimatedDoor>,
             .ok_or_else(|| format!("{id}: missing animated door model"))?;
         let asset = assets.resolve_for_rig_validation(&path)?;
         let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0) + prop.y;
-        doors.push(AnimatedDoor::new(id, prop, base_y, &asset.model)?);
+        let mut door = AnimatedDoor::new(id, prop, base_y, &asset.model)?;
+        if prop.model == shutter::MODEL
+            && let Some(structure) = &shutter_structure
+        {
+            door.validate_shutter(prop, &asset.model, structure)?;
+        }
+        doors.push(door);
     }
     Ok(doors)
 }
@@ -137,6 +149,43 @@ impl AnimatedDoor {
                 ))
             })
             .collect()
+    }
+
+    /// Reject fixed housing intersections and the entire panel sweep. Since
+    /// overhead geometry is immutable, later obstruction probes need only
+    /// consider live actors and the ordinary dynamic collision sources.
+    fn validate_shutter(
+        &mut self,
+        prop: &PropDef,
+        model: &PropModel,
+        structure: &[crate::engine::level::PhysicalPatch],
+    ) -> Result<(), String> {
+        let motion = shutter::motion(model, &self.def.clip, prop.rotation_degrees)?;
+        let mut envelopes = self.colliders.clone();
+        let keys = [0.0, 1.0]
+            .into_iter()
+            .chain(
+                motion
+                    .channels
+                    .iter()
+                    .flat_map(|channel| channel.times.iter().map(|time| *time / self.duration)),
+            )
+            .collect::<Vec<_>>();
+        for key in keys {
+            for (span, pose) in envelopes.iter_mut().zip(self.sample(key)) {
+                shutter::include_pose(span, &pose)?;
+            }
+        }
+        if envelopes
+            .iter()
+            .any(|leaf| structure.iter().any(|slab| shutter::intersects(slab, leaf)))
+        {
+            return Err(format!(
+                "{}: shutter housing or swept grille intersects a ceiling or floor slab",
+                self.id
+            ));
+        }
+        Ok(())
     }
 
     pub fn request(&mut self, clip: &str, toggle: bool) -> bool {
@@ -275,6 +324,9 @@ pub fn preset(model: &str) -> Option<serde_json::Value> {
         }
         "core:hollow_metal_exit_door_double" => {
             include_str!("../../../assets/shared/doors/hollow_metal_exit_door_double.json")
+        }
+        "mall:security_shutter" => {
+            include_str!("../../../assets/environments/mall/props/security_shutter.json")
         }
         _ => return None,
     };

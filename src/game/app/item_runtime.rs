@@ -763,6 +763,14 @@ impl FrameLoop<'_> {
         let started = Instant::now();
         let context = self.physical_player_context();
         self.items.world.sync_water(&self.game.water);
+        self.items.world.sync_escalators(
+            self.game.entities().escalators(),
+            if delta > 0.0 {
+                self.game.entities().escalator_frame_seconds()
+            } else {
+                0.0
+            },
+        );
         self.items.world.step_with_player_velocity(
             delta,
             context,

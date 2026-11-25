@@ -5,6 +5,7 @@ mod mesh;
 mod physics;
 
 pub use mesh::MeshClearance;
+pub use physics::PhysicalPatch;
 
 use super::{
     CeilingProfileDef, DEFAULT_WATER_MATERIAL, LevelDef, LevelSurfaces, MIN_STRUCTURE_M,
@@ -37,6 +38,8 @@ struct WalkableRegion {
 struct WalkableRamp {
     surface: RampSurface,
     floor_y: f32,
+    /// Derived from the placement, not a change to the compiled floor wire format.
+    belt: Option<usize>,
 }
 
 impl WalkableRamp {
@@ -244,8 +247,9 @@ impl WalkableFloor {
     #[must_use]
     pub fn from_level(level: &LevelDef) -> Self {
         let surfaces = LevelSurfaces::new(level);
+        let powered_lanes = crate::engine::escalator::support_lanes(level, &surfaces);
         let mut rooms = Vec::with_capacity(surfaces.rooms().len());
-        for room in surfaces.rooms() {
+        for (index, room) in surfaces.rooms().iter().enumerate() {
             let (x0, x1, z0, z1) = room.bounds();
             let floor_y = if room.floor_y.is_finite() {
                 room.floor_y
@@ -272,7 +276,21 @@ impl WalkableFloor {
                 .map(|ramp| WalkableRamp {
                     surface: ramp.surface(),
                     floor_y,
+                    belt: None,
                 })
+                .chain(
+                    powered_lanes
+                        .iter()
+                        .enumerate()
+                        .filter(|(_, (owner, _))| *owner == index)
+                        .flat_map(|(slot, (_, lane))| {
+                            lane.ramps(floor_y).map(|surface| WalkableRamp {
+                                surface,
+                                floor_y,
+                                belt: Some(slot),
+                            })
+                        }),
+                )
                 .collect();
             let stairs = surfaces
                 .stairs_for_room(room)
@@ -296,6 +314,30 @@ impl WalkableFloor {
         Self {
             rooms,
             cabins: Vec::new(),
+        }
+    }
+
+    /// Reattaches lane identity to the certified floor surfaces after package
+    /// decoding, without altering the compiled floor codec or older maps.
+    pub(crate) fn bind_escalator_lanes(&mut self, level: &LevelDef) {
+        let surfaces = LevelSurfaces::new(level);
+        for (slot, (owner, lane)) in crate::engine::escalator::support_lanes(level, &surfaces)
+            .into_iter()
+            .enumerate()
+        {
+            let Some(room) = self.rooms.get_mut(owner) else {
+                continue;
+            };
+            for surface in lane.ramps(room.floor_y) {
+                if let Some(ramp) = room
+                    .ramps
+                    .iter_mut()
+                    .rev()
+                    .find(|ramp| ramp.surface == surface)
+                {
+                    ramp.belt = Some(slot);
+                }
+            }
         }
     }
 
@@ -461,6 +503,7 @@ impl WalkableFloor {
         max_y: f32,
     ) -> Option<(f32, glam::Vec3)> {
         self.hull_support_sampled(point, half, max_y, StairSampling::Stepped)
+            .map(|(height, normal, _)| (height, normal))
     }
 
     /// Grounded support follows the stair nosings over the complete hull.
@@ -472,6 +515,30 @@ impl WalkableFloor {
         max_y: f32,
     ) -> Option<(f32, glam::Vec3)> {
         self.hull_support_sampled(point, half, max_y, StairSampling::PitchLine)
+            .map(|(height, normal, _)| (height, normal))
+    }
+
+    pub(crate) fn walking_hull_support_with_belt(
+        &self,
+        point: glam::Vec2,
+        half: f32,
+        max_y: f32,
+    ) -> Option<(f32, Option<usize>)> {
+        self.hull_support_sampled(point, half, max_y, StairSampling::PitchLine)
+            .map(|(height, _, belt)| (height, belt))
+    }
+
+    pub(crate) fn escalator_under_point(&self, feet: glam::Vec3) -> Option<usize> {
+        let eps = crate::engine::escalator::SUPPORT_EPS;
+        let room = self.rooms.iter().find(|room| {
+            Self::room_height_at(room, feet.x, feet.z, StairSampling::PitchLine)
+                .is_some_and(|height| (height - feet.y).abs() <= eps)
+        })?;
+        room.ramps
+            .iter()
+            .rev()
+            .find(|ramp| ramp.surface.contains(feet.x, feet.z))?
+            .belt
     }
 
     fn hull_support_sampled(
@@ -480,11 +547,11 @@ impl WalkableFloor {
         half: f32,
         max_y: f32,
         sampling: StairSampling,
-    ) -> Option<(f32, glam::Vec3)> {
-        let mut best: Option<(f32, glam::Vec3)> = None;
-        let mut offer = |height: f32, normal: glam::Vec3| {
+    ) -> Option<(f32, glam::Vec3, Option<usize>)> {
+        let mut best: Option<(f32, glam::Vec3, Option<usize>)> = None;
+        let mut offer = |height: f32, normal: glam::Vec3, belt| {
             if height <= max_y && best.is_none_or(|current| height >= current.0) {
-                best = Some((height, normal));
+                best = Some((height, normal, belt));
             }
         };
         for room in &self.rooms {
@@ -500,7 +567,7 @@ impl WalkableFloor {
                     if let Some(height) = Self::room_height_at(room, x, z, sampling) {
                         let tread = Self::room_height_at(room, x, z, StairSampling::Stepped);
                         if tread.is_some_and(|value| value <= max_y) {
-                            offer(height.min(max_y), glam::Vec3::Y);
+                            offer(height.min(max_y), glam::Vec3::Y, None);
                         }
                     }
                 }
@@ -528,7 +595,7 @@ impl WalkableFloor {
                 }
                 .normalize();
                 if let Some(height) = top {
-                    offer(height, normal);
+                    offer(height, normal, ramp.belt);
                 }
             }
             for stair in &room.stairs {
@@ -549,6 +616,7 @@ impl WalkableFloor {
                         }
                         .min(max_y),
                         glam::Vec3::Y,
+                        None,
                     );
                 }
             }
@@ -1017,6 +1085,7 @@ fn read_walkable_ramp(reader: &mut Reader<'_>) -> Result<WalkableRamp, String> {
             rise,
         },
         floor_y,
+        belt: None,
     })
 }
 

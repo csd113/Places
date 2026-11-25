@@ -260,6 +260,7 @@ impl Record {
         agent.caught = self.caught;
         agent.home = self.home;
         agent.home_yaw = self.home_yaw;
+        agent.carried_idle_post = None;
         if let Some(shelters) = &self.shelters {
             agent.def.hide_anchors.clone_from(shelters);
         }

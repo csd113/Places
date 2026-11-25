@@ -49,12 +49,13 @@ struct Choices {
     ids: Rc<[String]>,
 }
 
-pub(super) const DOOR_PREVIEWS: [&str; 5] = [
+pub(super) const DOOR_PREVIEWS: [&str; 6] = [
     "editor:door_interior",
     "editor:door_sauna",
     "editor:door_restroom",
     "core:hollow_metal_exit_door_single",
     "core:hollow_metal_exit_door_double",
+    "mall:security_shutter",
 ];
 
 pub(super) const PAGE_SIZE: usize = 24;
@@ -249,6 +250,7 @@ impl App {
     pub(super) fn door_choices(&self) -> Rc<[String]> {
         DOOR_PREVIEWS
             .into_iter()
+            .filter(|id| id.starts_with("editor:") || self.catalog.placeable(id).is_some())
             .filter(|id| {
                 format!("{} {}", id, door_name(id))
                     .to_lowercase()
@@ -490,6 +492,7 @@ pub(super) fn door_name(id: &str) -> &str {
         "editor:door_restroom" => "Restroom door",
         "core:hollow_metal_exit_door_single" => "Place hollow-metal exit door",
         "core:hollow_metal_exit_door_double" => "Place hollow-metal exit door pair",
+        "mall:security_shutter" => "Place security shutter",
         _ => id,
     }
 }

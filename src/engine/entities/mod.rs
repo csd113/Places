@@ -35,6 +35,7 @@ pub mod developer;
 mod elevators;
 pub mod encounter;
 mod environment_flags;
+mod escalators;
 mod event_dispatch;
 pub mod events;
 pub mod feltling;
@@ -505,7 +506,7 @@ pub struct EntityWorld {
     elevators: Vec<crate::engine::elevator::Elevator>,
     local_elevator_departure: Option<crate::engine::elevator::LocalDeparture>,
     elevator_sounds: Vec<(Vec3, &'static str)>,
-    animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
+    fixed_mechanisms: FixedMechanisms,
     pub(super) guests: Vec<crate::engine::tall_guest::Guest>,
     guest_error: Option<String>,
     pub(super) feltlings: Vec<crate::engine::feltling::Feltling>,
@@ -626,6 +627,28 @@ impl Default for EntityWorld {
     }
 }
 
+#[derive(Default)]
+struct FixedMechanisms {
+    animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
+    escalators: Vec<crate::engine::escalator::Escalator>,
+    escalator_slots: std::collections::BTreeMap<String, usize>,
+    escalator_frame_start: usize,
+    belt_seconds: f32,
+}
+
+fn ai_player_target(ctx: &WorldContext<'_>) -> AiTarget {
+    AiTarget {
+        handle: crate::engine::ai::PLAYER_TARGET_HANDLE,
+        instance_id: "player".to_string(),
+        role: Some("player".to_string()),
+        behavior: crate::engine::ai::AiBehavior::Idler,
+        position: ctx.feet,
+        radius: ctx.body_half,
+        height: ctx.body_height,
+        caught: false,
+    }
+}
+
 impl EntityWorld {
     /// An empty world: nothing exists until a level is resolved into it.
     #[must_use]
@@ -660,7 +683,7 @@ impl EntityWorld {
             elevator_sounds: Vec::new(),
             door_colliders: Vec::new(),
             guest_collider_start: 0,
-            animated_doors: Vec::new(),
+            fixed_mechanisms: FixedMechanisms::default(),
             guests: Vec::new(),
             guest_error: None,
             feltlings: Vec::new(),
@@ -741,10 +764,22 @@ impl EntityWorld {
     }
 
     fn resolve_posed_actors(&mut self, level: &LevelDef) {
-        self.animated_doors = crate::engine::animated_door::load(level).unwrap_or_else(|error| {
-            warn_once("animated-door-load", error);
-            Vec::new()
-        });
+        self.fixed_mechanisms.escalators = crate::engine::escalator::Escalator::resolve(
+            level,
+            &crate::engine::level::LevelSurfaces::new(level),
+        );
+        self.fixed_mechanisms.escalator_slots = self
+            .fixed_mechanisms
+            .escalators
+            .iter()
+            .enumerate()
+            .map(|(slot, escalator)| (escalator.id.clone(), slot))
+            .collect();
+        self.fixed_mechanisms.animated_doors = crate::engine::animated_door::load(level)
+            .unwrap_or_else(|error| {
+                warn_once("animated-door-load", error);
+                Vec::new()
+            });
         self.guest_error = None;
         self.guests = crate::engine::tall_guest::load(level).unwrap_or_else(|error| {
             warn_once("tall-guest-load", error.clone());
@@ -954,8 +989,11 @@ impl EntityWorld {
         self.reset_audio();
         self.doors.reset();
         self.reset_elevators();
-        for door in &mut self.animated_doors {
+        for door in &mut self.fixed_mechanisms.animated_doors {
             door.reset();
+        }
+        for escalator in &mut self.fixed_mechanisms.escalators {
+            escalator.reset();
         }
         self.timers.reset();
         self.spawn_groups.reset();
@@ -1902,7 +1940,7 @@ impl EntityWorld {
                 .unwrap_or(prop.model.as_str())
                 .to_string();
             let base_y = surfaces.floor_y_at(prop.x, prop.z).unwrap_or(0.0);
-            let bounds = prop.placement_bounds(base_y, prop.size.unwrap_or(PROP_FALLBACK_SIZE));
+            let (bounds, aim_size) = escalators::interaction_geometry(prop, base_y, size);
             let own_box = prop.solid.then(|| {
                 WallAabb::with_y(
                     bounds.min[0],
@@ -1926,7 +1964,7 @@ impl EntityWorld {
                 anchor,
                 bounds,
                 yaw_degrees: prop.rotation_degrees,
-                size,
+                size: aim_size,
                 own_box,
                 door_index: None,
                 leaf_range: None,
@@ -2055,7 +2093,8 @@ impl EntityWorld {
     fn rebuild_door_colliders(&mut self) {
         self.door_colliders = self.doors.colliders();
         self.door_colliders.extend(
-            self.animated_doors
+            self.fixed_mechanisms
+                .animated_doors
                 .iter()
                 .flat_map(|door| door.colliders().iter().copied()),
         );
@@ -2097,7 +2136,7 @@ impl EntityWorld {
 
     fn sync_animated_door_interactables(&mut self) {
         let mut start = self.doors.len();
-        for door in &self.animated_doors {
+        for door in &self.fixed_mechanisms.animated_doors {
             let end = start.saturating_add(door.colliders().len());
             self.interactables
                 .sync_leaves(&door.id, start, end, &self.door_colliders);
@@ -2213,7 +2252,8 @@ impl EntityWorld {
                 progress: None,
             });
         }
-        self.animated_doors
+        self.fixed_mechanisms
+            .animated_doors
             .iter()
             .find(|door| door.id == id)
             .map(crate::engine::animated_door::AnimatedDoor::status)
@@ -2233,7 +2273,8 @@ impl EntityWorld {
     /// Explicit trace of accepted compound mechanism poses and obstruction.
     #[must_use]
     pub fn animated_door_diagnostics(&self) -> serde_json::Value {
-        self.animated_doors
+        self.fixed_mechanisms
+            .animated_doors
             .iter()
             .map(|door| {
                 let mut value = door.diagnostics();
@@ -2979,7 +3020,12 @@ impl EntityWorld {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
-                if let Some(door) = self.animated_doors.iter_mut().find(|door| door.id == id) {
+                if let Some(door) = self
+                    .fixed_mechanisms
+                    .animated_doors
+                    .iter_mut()
+                    .find(|door| door.id == id)
+                {
                     if door.request_end(request_open) {
                         report.doors_acted = report.doors_acted.saturating_add(1);
                     }
@@ -3019,7 +3065,12 @@ impl EntityWorld {
                     }
                     return;
                 }
-                if let Some(door) = self.animated_doors.iter_mut().find(|door| door.id == id) {
+                if let Some(door) = self
+                    .fixed_mechanisms
+                    .animated_doors
+                    .iter_mut()
+                    .find(|door| door.id == id)
+                {
                     if door.toggle() {
                         report.doors_acted = report.doors_acted.saturating_add(1);
                     }
@@ -3087,12 +3138,16 @@ impl EntityWorld {
                     report.missing_targets = report.missing_targets.saturating_add(1);
                     return;
                 };
-                let changed =
-                    if let Some(door) = self.animated_doors.iter_mut().find(|door| door.id == id) {
-                        door.set_locked(locked)
-                    } else {
-                        self.doors.set_locked(&id, locked)
-                    };
+                let changed = if let Some(door) = self
+                    .fixed_mechanisms
+                    .animated_doors
+                    .iter_mut()
+                    .find(|door| door.id == id)
+                {
+                    door.set_locked(locked)
+                } else {
+                    self.doors.set_locked(&id, locked)
+                };
                 if changed {
                     report.actions_run = report.actions_run.saturating_add(1);
                     let _event_queued = self.emit_depth(
@@ -3712,6 +3767,14 @@ impl EntityWorld {
     }
 
     fn set_animation_cue(&mut self, instance_id: &str, clip: &str, looped: bool, toggle: bool) {
+        if let Some(&slot) = self.fixed_mechanisms.escalator_slots.get(instance_id)
+            && let Some(escalator) = self.fixed_mechanisms.escalators.get_mut(slot)
+        {
+            if clip == crate::engine::escalator::CLIP {
+                escalator.power(toggle);
+            }
+            return;
+        }
         if let Some(feltling) = self
             .feltlings
             .iter_mut()
@@ -3729,6 +3792,7 @@ impl EntityWorld {
             let _owned = self.scripted_poses.insert(instance_id.to_string());
         }
         if let Some(door) = self
+            .fixed_mechanisms
             .animated_doors
             .iter_mut()
             .find(|door| door.id == instance_id)
@@ -3742,39 +3806,12 @@ impl EntityWorld {
                 .iter()
                 .rev()
                 .find(|(id, _)| id == instance_id)
-                .and_then(|(_, cue)| match cue {
-                    PoseCue::Scrub { target, name: _ } => Some(*target),
-                    PoseCue::Idle
-                    | PoseCue::Sample {
-                        name: _,
-                        progress: _,
+                .and_then(|(_, cue)| {
+                    if let PoseCue::Scrub { target, name: _ } = cue {
+                        Some(*target)
+                    } else {
+                        None
                     }
-                    | PoseCue::Articulated {
-                        name: _,
-                        progress: _,
-                        joints: _,
-                    }
-                    | PoseCue::SampleBlend {
-                        name: _,
-                        progress: _,
-                        from: _,
-                        from_progress: _,
-                        weight: _,
-                    }
-                    | PoseCue::Walk { speed_mps: _ }
-                    | PoseCue::Gait {
-                        name: _,
-                        speed_mps: _,
-                    }
-                    | PoseCue::Action {
-                        name: _,
-                        progress: _,
-                    }
-                    | PoseCue::Clip {
-                        name: _,
-                        once: _,
-                        paused: _,
-                    } => None,
                 });
             let target = match current {
                 Some(target) if target >= 0.5 => 0.0,
@@ -4711,16 +4748,7 @@ impl EntityWorld {
             .retain(|ack| self.ai.operation_exists(ack.token));
         self.refresh_ai_objects();
         let mut targets = self.ai.target_snapshot();
-        targets.push(AiTarget {
-            handle: crate::engine::ai::PLAYER_TARGET_HANDLE,
-            instance_id: "player".to_string(),
-            role: Some("player".to_string()),
-            behavior: crate::engine::ai::AiBehavior::Idler,
-            position: ctx.feet,
-            radius: ctx.body_half,
-            height: ctx.body_height,
-            caught: false,
-        });
+        targets.push(ai_player_target(ctx));
         let scripted: Vec<EntityHandle> = self
             .sequence_runs
             .iter()
@@ -4754,6 +4782,12 @@ impl EntityWorld {
             use_acks: &self.ai_use_acks,
         };
         let mut outcome = AiOutcome::default();
+        self.ai.carry_on_escalators(
+            &ai_ctx,
+            &self.fixed_mechanisms.escalators,
+            self.fixed_mechanisms.belt_seconds,
+            &mut outcome,
+        );
         self.ai.tick(&ai_ctx, &mut outcome);
         self.apply_ai_effects(std::mem::take(&mut outcome.task_effects), tick);
         tick.frames_dirty |= outcome.transitions > 0 || outcome.cues_changed;
@@ -5166,6 +5200,7 @@ impl EntityWorld {
     pub fn update_doors(&mut self, ctx: &WorldContext<'_>) -> usize {
         if !self.doors.any_moving()
             && !self
+                .fixed_mechanisms
                 .animated_doors
                 .iter()
                 .any(crate::engine::animated_door::AnimatedDoor::is_moving)
@@ -5201,8 +5236,9 @@ impl EntityWorld {
                     .iter()
                     .any(|solid| door_pose_hits_box(candidate, solid))
         });
-        for slot in 0..self.animated_doors.len() {
+        for slot in 0..self.fixed_mechanisms.animated_doors.len() {
             if self
+                .fixed_mechanisms
                 .animated_doors
                 .get(slot)
                 .is_none_or(|door| !door.is_moving())
@@ -5214,14 +5250,15 @@ impl EntityWorld {
                 .colliders()
                 .into_iter()
                 .chain(
-                    self.animated_doors
+                    self.fixed_mechanisms
+                        .animated_doors
                         .iter()
                         .enumerate()
                         .filter(|(i, _)| *i != slot)
                         .flat_map(|(_, door)| door.colliders().iter().copied()),
                 )
                 .collect();
-            let Some(door) = self.animated_doors.get_mut(slot) else {
+            let Some(door) = self.fixed_mechanisms.animated_doors.get_mut(slot) else {
                 continue;
             };
             if door.advance(ctx.delta_seconds, |candidate| {
@@ -5726,10 +5763,11 @@ impl EntityWorld {
         self.append_visual_frames();
         self.append_animated_door_frames();
         self.append_creature_frames();
+        self.append_escalator_frames();
     }
 
     fn append_animated_door_frames(&mut self) {
-        for door in &self.animated_doors {
+        for door in &self.fixed_mechanisms.animated_doors {
             self.entity_frames
                 .retain(|frame| frame.instance_id != door.id);
             self.entity_frames.push(EntityFrame {
@@ -5808,7 +5846,10 @@ impl EntityWorld {
             let Some(item) = self.interactables.get(index) else {
                 continue;
             };
-            if item.door_index.is_some() || self.physics_actors.contains_key(&item.id) {
+            if item.door_index.is_some()
+                || self.physics_actors.contains_key(&item.id)
+                || self.fixed_mechanisms.escalator_slots.contains_key(&item.id)
+            {
                 continue;
             }
             let Some(transform) = self

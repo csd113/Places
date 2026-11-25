@@ -15,6 +15,7 @@ mod water;
 mod stair_traversal;
 
 mod elevators;
+mod escalator;
 
 mod movement_hearing;
 

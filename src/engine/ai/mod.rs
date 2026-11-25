@@ -515,6 +515,9 @@ pub struct AiAgent {
     pub home: Vec3,
     /// Authored yaw, restored by a reset.
     pub home_yaw: f32,
+    /// Ordinary idle post currently reached by passive floor motion. Reset
+    /// and explicit `ReturnHome` still use the authored home above.
+    carried_idle_post: Option<Vec3>,
     /// The current route, reused across frames.
     pub path: Path,
     /// The goal the current path was built for.
@@ -1018,6 +1021,7 @@ impl AiWorld {
             yaw_degrees,
             home: position,
             home_yaw: yaw_degrees,
+            carried_idle_post: None,
             path: Path::new(),
             path_goal: None,
             path_age: 0.0,
@@ -1120,6 +1124,7 @@ impl AiWorld {
                 agent.position = agent.home;
                 agent.yaw_degrees = agent.home_yaw;
             }
+            agent.carried_idle_post = None;
             agent.controller = controller::Controller::default();
             agent.task_clip = None;
             agent.next_task_sense = 0.0;
@@ -1920,7 +1925,9 @@ fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
         }
         return;
     }
-    if returning_to_post(agent) && at_home(agent) {
+    if matches!(agent.state, AiState::Return { destination }
+        if returning_to_post(agent) && at_post(agent, destination))
+    {
         agent.after_script_move = None;
         set_state(agent, AiState::Idle, out);
         agent.wait_remaining = agent.def.idle_seconds;
@@ -1937,22 +1944,21 @@ fn decide(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcome) {
 }
 
 fn returning_to_post(agent: &AiAgent) -> bool {
-    matches!(agent.state, AiState::Return { destination } if destination == agent.home)
+    matches!(agent.state, AiState::Return { destination }
+        if destination == agent.home || agent.carried_idle_post == Some(destination))
         && agent.shelter_return.is_none()
 }
 
 fn at_home(agent: &AiAgent) -> bool {
-    agent.position.distance(agent.home) <= movement::arrival_radius(agent.profile.radius) + 0.01
+    at_post(agent, agent.home)
 }
 
-fn start_post_return(agent: &mut AiAgent, out: &mut AiOutcome) {
-    set_state(
-        agent,
-        AiState::Return {
-            destination: agent.home,
-        },
-        out,
-    );
+fn at_post(agent: &AiAgent, post: Vec3) -> bool {
+    agent.position.distance(post) <= movement::arrival_radius(agent.profile.radius) + 0.01
+}
+
+fn start_post_return(agent: &mut AiAgent, destination: Vec3, out: &mut AiOutcome) {
+    set_state(agent, AiState::Return { destination }, out);
     agent.path.clear();
     agent.path_goal = None;
     agent.path_done_goal = None;
@@ -1967,7 +1973,7 @@ fn decide_script_release(agent: &mut AiAgent, out: &mut AiOutcome) {
             if at_home(agent) {
                 agent.after_script_move = None;
             } else {
-                start_post_return(agent, out);
+                start_post_return(agent, agent.home, out);
             }
         }
         Some(AfterMove::Stay) => {
@@ -2426,10 +2432,11 @@ fn decide_idler(agent: &mut AiAgent, ctx: &AiTickContext<'_>, out: &mut AiOutcom
     if agent.wait_remaining > 0.0 {
         return;
     }
+    let post = agent.carried_idle_post.unwrap_or(agent.home);
     if agent.after_script_move != Some(AfterMove::Stay)
-        && agent.position.distance(agent.home) > POST_RETURN_M
+        && agent.position.distance(post) > POST_RETURN_M
     {
-        start_post_return(agent, out);
+        start_post_return(agent, post, out);
         return;
     }
     if matches!(

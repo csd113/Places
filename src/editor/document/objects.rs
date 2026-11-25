@@ -899,12 +899,35 @@ pub(in crate::editor) fn array_mut<'a>(
 
 /// Install an exact built-in mechanism on a new, passive placement. An active
 /// prop must not silently lose its authored locks, bindings or custom state.
-pub(super) fn apply_door_preset(raw: &mut Value, id: ObjectId, model: &str) -> Result<(), String> {
-    let Some(preset) = crate::engine::animated_door::preset(model) else {
+pub(super) fn apply_mechanism_preset(
+    raw: &mut Value,
+    id: ObjectId,
+    model: &str,
+) -> Result<(), String> {
+    let candidate = if model == crate::engine::escalator::MODEL {
+        Some(serde_json::json!({
+            "display_name": "Mall escalator",
+            "escalator": {},
+            "solid": false,
+            "occludes": false,
+            "components": [
+                { "component": "interactable", "reach": 2.2_f32, "prompt": "Toggle escalator" },
+                { "component": "animation", "clip": crate::engine::escalator::CLIP, "looped": true, "playing": false }
+            ],
+            "bindings": [{
+                "on": "interact",
+                "actions": [{ "action": "toggle_animation", "clip": crate::engine::escalator::CLIP }]
+            }]
+        }))
+    } else {
+        crate::engine::animated_door::preset(model)
+    };
+    let Some(preset) = candidate else {
         return Ok(());
     };
     let object = object_mut(raw, id)?;
     if object.get("animated_door").is_some()
+        || object.get("escalator").is_some_and(Value::is_object)
         || ["components", "bindings"].iter().any(|key| {
             object
                 .get(*key)
@@ -913,11 +936,12 @@ pub(super) fn apply_door_preset(raw: &mut Value, id: ObjectId, model: &str) -> R
         })
     {
         return Err(
-            "Place a new exit-door preset instead of replacing an active gameplay object".into(),
+            "Place a new mechanism preset instead of replacing an active gameplay object".into(),
         );
     }
     for key in [
         "animated_door",
+        "escalator",
         "components",
         "bindings",
         "display_name",

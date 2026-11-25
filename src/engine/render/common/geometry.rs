@@ -262,6 +262,7 @@ fn emit_floors(
     scratch: &mut Vec<Vertex>,
     rooms: &[&RoomDef],
 ) {
+    let lanes = crate::engine::escalator::support_lanes(context.level, context.surfaces);
     for (room_index, room) in rooms.iter().enumerate() {
         if !room_is_tessellatable(room) {
             continue;
@@ -271,13 +272,21 @@ fn emit_floors(
             .unwrap_or_else(|| context.level.defaults.floor_ref());
         let base_key = context.materials.key(MaterialSlot::Floor, base_material);
         let room_patches = context.surfaces.patches_for_room(room);
-        let grid = context.surfaces.floor_grid(room);
+        let belts: Vec<_> = lanes
+            .iter()
+            .filter(|&&(owner, _)| owner == room_index)
+            .map(|&(_, lane)| lane)
+            .collect();
+        let grid = context
+            .surfaces
+            .floor_grid_with_cuts(room, belts.iter().map(|lane| lane.floor_cuts()));
         let (floor_surfaces, labels) = floor_surfaces(
             &grid,
             context.surfaces,
             base_key,
             &room_patches,
             context.materials,
+            &belts,
         );
 
         for (label, surface) in floor_surfaces.iter().enumerate() {
@@ -319,15 +328,7 @@ fn emit_floors(
 
         // The vertical faces of a recessed or raised region are real geometry,
         // not a hole into the void.
-        emit_floor_skirts(
-            buckets,
-            room,
-            &grid,
-            context.level,
-            context.lighting,
-            context.materials,
-            context.lightmap,
-        );
+        emit_floor_skirts(buckets, room, &grid, context, &belts);
     }
 }
 

@@ -308,9 +308,10 @@ impl CollisionWorld {
     #[must_use]
     pub fn from_compiled(
         level: &LevelDef,
-        statics: crate::engine::package::collision::CompiledCollision,
+        mut statics: crate::engine::package::collision::CompiledCollision,
         navigation: Option<crate::engine::nav::NavMesh>,
     ) -> Self {
+        statics.floor.bind_escalator_lanes(level);
         Self {
             ground_surfaces: GroundSurfaces::default(),
             walls: statics.walls,
@@ -566,6 +567,7 @@ struct WalkSupport {
     /// World Y of the surface the foot lands on: the walking floor or a solid
     /// top, whichever is higher.
     surface_y: f32,
+    escalator: Option<usize>,
     /// True when the surface is more than a walkable step below
     /// `current_surface`: the step is accepted and loses support at the end of
     /// the sweep (the existing ledge fall).
@@ -978,7 +980,8 @@ impl Game {
 
     /// Advances a non-playable menu world through the normal scripts, AI and door runtime.
     /// The fixed camera/player has no locomotion or gameplay input.
-    pub(crate) fn update_menu_world(&mut self) {
+    pub(crate) fn update_menu_world(&mut self, items: &ItemWorld) {
+        let _belt_time = self.latch_escalator_time(self.sim_delta_seconds(), Some(items));
         self.update_doors(self.sim_delta_seconds());
         self.finish_pending_local_elevator_departure(true);
         let feet = Vec3::new(
@@ -1326,6 +1329,7 @@ impl Game {
 
         self.tick_player_health();
         if self.world.health_settings().enabled && self.player_health.is_dead() {
+            let _belt_time = self.latch_escalator_time(self.sim_delta_seconds, contacts.items());
             self.last_command_velocity = Vec3::ZERO;
             input.release_all();
             let feet = Vec3::new(
@@ -1338,6 +1342,7 @@ impl Game {
         }
 
         if self.noclip_enabled() {
+            let _belt_time = self.latch_escalator_time(self.sim_delta_seconds, contacts.items());
             self.last_command_velocity = Vec3::ZERO;
             self.update_noclip(&frame_input, settings, motion);
             self.finish_pending_local_elevator_departure(false);
@@ -1479,6 +1484,7 @@ impl Game {
         let frame_seconds = f64::from(clamp_sim_delta(delta));
         self.movement_accumulator += frame_seconds;
         let tick = f64::from(VERTICAL_SUBSTEP);
+        let belt_per_command = self.prepare_escalator_motion(delta, tick, contacts);
         self.sim_delta_seconds = VERTICAL_SUBSTEP;
         let mut rig_sample = None;
         for _ in 0_u8..8 {
@@ -1508,8 +1514,13 @@ impl Game {
             }
             self.advance_eye_offset(VERTICAL_SUBSTEP);
             let start = Vec3::new(self.player_position.x, self.feet_y, self.player_position.z);
-            let water_resolved =
-                self.update_locomotion_step(&command, settings, VERTICAL_SUBSTEP, contacts.items());
+            let water_resolved = self.update_locomotion_step(
+                &command,
+                settings,
+                VERTICAL_SUBSTEP,
+                contacts.items(),
+                belt_per_command,
+            );
             let proposed = self.movement_debug.then(|| {
                 Vec2::new(
                     self.player_position.x - start.x,
@@ -1551,6 +1562,44 @@ impl Game {
             }
         }
         trigger_origin
+    }
+
+    /// The belt and every passenger share this cap, even at accelerated
+    /// world speed. Split it over the ordinary controller commands. A
+    /// render frame with no command gets only a collision-swept support move.
+    fn prepare_escalator_motion(
+        &mut self,
+        delta: f32,
+        tick: f64,
+        contacts: &PlayerContacts<'_>,
+    ) -> f32 {
+        if self.world.escalators().is_empty() {
+            return 0.0;
+        }
+        let seconds = self.latch_escalator_time(delta, contacts.items());
+        let commands = (1_u8..=8)
+            .rev()
+            .find(|count| self.movement_accumulator + 1.0e-8_f64 >= tick * f64::from(*count));
+        if let Some(count) = commands {
+            return seconds / f32::from(count);
+        }
+        if seconds > 0.0 {
+            self.trigger_trace.begin_command(1.0);
+            let origin = contacts.command_origin(self);
+            self.move_with_escalator(seconds);
+            contacts.resolve_command(self, origin);
+            self.trigger_trace.finish_command(self.trigger_feet());
+        }
+        0.0
+    }
+
+    fn latch_escalator_time(&mut self, delta: f32, items: Option<&ItemWorld>) -> f32 {
+        let seconds = items.map_or_else(
+            || self.scale_world_delta(delta),
+            |physics| clamp_sim_delta(physics.scaled_delta(delta)),
+        );
+        self.world.begin_escalator_frame(seconds);
+        seconds
     }
 
     const fn trigger_feet(&self) -> Vec3 {
@@ -1660,6 +1709,7 @@ impl Game {
         settings: &Settings,
         delta: f32,
         items: Option<&ItemWorld>,
+        belt_seconds: f32,
     ) -> bool {
         // Rim contact is recomputed for this locomotion interval.
         self.pressed_exit_support = None;
@@ -1742,6 +1792,7 @@ impl Game {
             self.grounded = false;
             self.vertical_accumulator = 0.0;
         }
+        self.move_with_escalator(belt_seconds);
         let swim_origin = self.physical_player_context();
         let _distance = self.move_on_surface(move_dir, settings, delta, before_sample, on_ice);
         if let Some(water_resolved) =
@@ -1752,6 +1803,30 @@ impl Game {
             self.swimming = false;
             self.land_vertical(false, items);
             false
+        }
+    }
+
+    fn move_with_escalator(&mut self, delta: f32) {
+        if delta <= 0.0 || !self.grounded || self.swimming {
+            return;
+        }
+        let feet = self.trigger_feet();
+        if let Some(escalator) = self
+            .walking_support_at(feet.x, feet.z, feet.y)
+            .filter(|support| {
+                (support.surface_y - feet.y).abs() <= crate::engine::escalator::SUPPORT_EPS
+            })
+            .and_then(|support| support.escalator)
+            .and_then(|slot| self.world.escalators().get(slot))
+            .filter(|item| item.powered_this_frame() && item.lane.contains(feet))
+        {
+            let drive = escalator.lane.planar_velocity();
+            self.move_horizontal(
+                Vec3::new(drive.x, 0.0, drive.y),
+                drive.length(),
+                delta,
+                HorizontalMode::Walk,
+            );
         }
     }
 
@@ -2383,23 +2458,16 @@ impl Game {
     /// on the table, never on the room floor beneath it.
     fn walking_support_at(&self, x: f32, z: f32, current_surface: f32) -> Option<WalkSupport> {
         let floor_ceiling = current_surface + PLAYER_STEP_HEIGHT + STEP_EPS;
-        let floor = self
-            .floor
-            .walking_hull_support(
-                Vec2::new(x, z),
-                self.body_half() - CONTACT_EPS,
-                floor_ceiling,
-            )
-            .map(|support| support.0);
+        let floor = self.floor.walking_hull_support_with_belt(
+            Vec2::new(x, z),
+            self.body_half() - CONTACT_EPS,
+            floor_ceiling,
+        );
         let ceiling_top = self.ceiling.surface_below_hull(
             Vec2::new(x, z),
             self.body_half() - CONTACT_EPS,
             floor_ceiling,
         );
-        let support_floor = match (floor, ceiling_top) {
-            (Some(a), Some(b)) => Some(a.max(b)),
-            (a, b) => a.or(b),
-        };
         let top = player_support_top(
             &self.collision_index,
             Vec2::new(x, z),
@@ -2413,18 +2481,19 @@ impl Game {
             Vec2::new(x, z),
             floor_ceiling,
         );
-        let solid_support = match (top, cabin) {
-            (Some(a), Some(b)) => Some(a.max(b)),
-            (a, b) => a.or(b),
-        };
-        let surface_y = match (support_floor, solid_support) {
-            (Some(floor_y), Some(prop_top)) if prop_top > floor_y => prop_top,
-            (Some(floor_y), _) => floor_y,
-            (None, Some(prop_top)) => prop_top,
+        let solid_support = [ceiling_top, top, cabin]
+            .into_iter()
+            .flatten()
+            .max_by(f32::total_cmp);
+        let (surface_y, escalator) = match (floor, solid_support) {
+            (Some((floor_y, _)), Some(solid_y)) if solid_y > floor_y => (solid_y, None),
+            (Some(floor_support), _) => floor_support,
+            (None, Some(solid_y)) => (solid_y, None),
             (None, None) => return None,
         };
         Some(WalkSupport {
             surface_y,
+            escalator,
             dropped: surface_y < current_surface - PLAYER_STEP_HEIGHT - STEP_EPS,
         })
     }

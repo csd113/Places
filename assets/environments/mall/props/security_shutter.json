@@ -1,0 +1,25 @@
+{
+  "display_name": "Mall security shutter",
+  "size": [2.6, 3.24, 0.32],
+  "solid": false,
+  "occludes": false,
+  "animated_door": {
+    "clip": "shutter_open",
+    "initial_open": false,
+    "boxes": [
+      { "node": "Shutter_Frame", "center": [-1.25, 1.2, 0.0], "size": [0.1, 2.4, 0.22] },
+      { "node": "Shutter_Frame", "center": [1.25, 1.2, 0.0], "size": [0.1, 2.4, 0.22] },
+      { "node": "Shutter_Frame", "center": [0.0, 2.82, 0.0], "size": [2.6, 0.84, 0.32], "grounding": false },
+      { "node": "Shutter_Grille_Lower", "center": [0.0, 0.0, 0.0], "size": [2.4, 0.8, 0.045] },
+      { "node": "Shutter_Grille_Middle", "center": [0.0, 0.0, 0.0], "size": [2.4, 0.8, 0.045], "grounding": false },
+      { "node": "Shutter_Grille_Upper", "center": [0.0, 0.0, 0.0], "size": [2.4, 0.8, 0.045], "grounding": false }
+    ]
+  },
+  "components": [
+    { "component": "interactable", "reach": 2.2, "prompt": "Raise / lower shutter" },
+    { "component": "animation", "clip": "shutter_open", "looped": false, "playing": false }
+  ],
+  "bindings": [
+    { "on": "interact", "actions": [{ "action": "toggle" }] }
+  ]
+}

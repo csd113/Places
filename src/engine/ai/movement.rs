@@ -246,6 +246,90 @@ impl AgentMove {
     }
 }
 
+impl super::AiWorld {
+    /// Passive support carries ordinary agents through the same collision
+    /// sweep as intentional movement, without changing facing or walk cues.
+    pub(in crate::engine) fn carry_on_escalators(
+        &mut self,
+        ctx: &super::AiTickContext<'_>,
+        escalators: &[crate::engine::escalator::Escalator],
+        seconds: f32,
+        out: &mut super::AiOutcome,
+    ) {
+        if seconds <= 0.0
+            || !escalators
+                .iter()
+                .any(crate::engine::escalator::Escalator::powered_this_frame)
+        {
+            return;
+        }
+        let mut moved = std::collections::HashMap::new();
+        for agent in &mut self.agents {
+            if agent.caught
+                || matches!(agent.state, AiState::Hidden | AiState::Catch { target: _ })
+                || ctx.scripted.contains(&agent.handle)
+            {
+                continue;
+            }
+            let Some(escalator) = ctx
+                .floor
+                .escalator_under_point(agent.position)
+                .and_then(|slot| escalators.get(slot))
+                .filter(|item| item.powered_this_frame() && item.lane.contains(agent.position))
+            else {
+                continue;
+            };
+            let drive = escalator.lane.planar_velocity();
+            let mut body = AgentMove {
+                position: agent.position,
+                yaw_degrees: agent.yaw_degrees,
+                radius: agent.profile.radius,
+                height: agent.profile.height,
+                step_height: agent.profile.step_height,
+                max_slope: agent.profile.max_slope,
+                speed_mps: drive.length(),
+            };
+            // A longer directional target avoids the usual arrival dead zone;
+            // speed and delta, not the lookahead, bound the actual motion.
+            let target = Vec3::new(
+                agent.position.x + drive.x,
+                agent.position.y,
+                agent.position.z + drive.y,
+            );
+            if let MoveStep::Moved {
+                position,
+                yaw_degrees: _,
+                speed_mps: _,
+            } = body.step_with_solids(
+                target,
+                seconds,
+                ctx.walls,
+                ctx.index,
+                ctx.floor,
+                ctx.ceiling,
+                ctx.leaves,
+                ctx.obstacles,
+            ) && super::actor_segment_clear(agent, agent.position, position, ctx, &moved)
+            {
+                agent.position = position;
+                if agent.def.behavior == super::AiBehavior::Idler
+                    && agent.state == AiState::Idle
+                    && agent.def.home_bounds.is_none()
+                    && agent.navigation_goal.is_none()
+                    && agent.after_script_move.is_none()
+                {
+                    // Passive carry is not a walk away from an authored task.
+                    // Keep this ordinary idler with its new resting support.
+                    agent.carried_idle_post = Some(position);
+                }
+                let _prior = moved.insert(agent.handle, position);
+                out.moved
+                    .push((agent.handle, position, agent.yaw_degrees, agent.spawned));
+            }
+        }
+    }
+}
+
 /// Support reached by walking short samples from the current storey.
 /// Choosing the closest emitted surface prevents a higher room from winning a
 /// long steering probe merely because it lies within the slope search bound.

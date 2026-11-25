@@ -1078,7 +1078,7 @@ impl FrameLoop<'_> {
         }
         if self.menu_active() {
             self.ready_seconds = (self.ready_seconds + self.game.sim_delta_seconds()).min(1.0e6);
-            self.game.update_menu_world();
+            self.game.update_menu_world(&self.items.world);
         }
     }
 
@@ -4177,6 +4177,19 @@ impl FrameLoop<'_> {
             "animated_doors".into(),
             self.game.entities().animated_door_diagnostics(),
         ));
+        drop(
+            fields.insert(
+                "escalators".into(),
+                serde_json::Value::Array(
+                    self.game
+                        .entities()
+                        .escalators()
+                        .iter()
+                        .map(crate::engine::escalator::Escalator::diagnostics)
+                        .collect(),
+                ),
+            ),
+        );
         drop(
             fields.insert(
                 "physical_obstacles".into(),

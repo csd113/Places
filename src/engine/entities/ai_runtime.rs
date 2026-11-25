@@ -217,6 +217,7 @@ impl EntityWorld {
                 .doors
                 .request_open_from(&point.target, Some(Vec3::from_array(point.approach)));
             let opened = self
+                .fixed_mechanisms
                 .animated_doors
                 .iter_mut()
                 .find(|door| door.id == point.target)

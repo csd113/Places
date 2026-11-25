@@ -217,6 +217,7 @@ pub(in crate::editor) fn action_popup(vertices: &mut Vec<Vertex>, hits: &mut Vec
     for (i, (label, choice)) in [
         ("Play a sound emitter", C::SoundAction),
         ("Open a door", C::DoorAction),
+        ("Toggle a mechanism", C::MechanismAction),
         ("Spawn an entity at point", C::SpawnAction),
         ("Activate a physics group", C::PhysicsAction),
         ("Change project level", C::TransitionAction),
@@ -276,6 +277,7 @@ pub(in crate::editor) fn choices_popup(
             C::SpawnTemplate => "SPAWN POINT / reusable template",
             C::SoundAction => "PLAY SOUND / choose an emitter",
             C::DoorAction => "OPEN DOOR / choose a leaf",
+            C::MechanismAction => "TOGGLE MECHANISM / choose a placement",
             C::SpawnAction => "SPAWN ENTITY / choose a point",
             C::PhysicsAction => "ACTIVATE PHYSICS / choose a group",
             C::TransitionAction => "TRANSITION / choose a project level",

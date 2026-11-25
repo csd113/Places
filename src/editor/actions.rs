@@ -505,7 +505,7 @@ impl App {
                         self.status = format!("Assigned fixture {id}");
                     }
                     Catalog::Doors => {
-                        if self.place_exit_door_choice(&id)? {
+                        if self.place_animated_door_choice(&id)? {
                             return Ok(true);
                         }
                         let selected = self
@@ -956,15 +956,18 @@ impl App {
         Ok(())
     }
 
-    fn place_exit_door_choice(&mut self, id: &str) -> Result<bool, String> {
+    fn place_animated_door_choice(&mut self, id: &str) -> Result<bool, String> {
         if crate::engine::animated_door::preset(id).is_none() {
             return Ok(false);
         }
         id.clone_into(&mut self.prop);
         self.add_object(ObjectKind::Prop)?;
-        self.status =
+        self.status = if id == "mall:security_shutter" {
+            "Placed interactive security shutter. Fit its full frame and leave the overhead housing clear."
+        } else {
             "Placed interactive exit door. Fit its 160 mm host opening; inspect Details and Test."
-                .into();
+        }
+        .into();
         Ok(true)
     }
 
@@ -975,7 +978,7 @@ impl App {
                 .get(index)
                 .cloned()
                 .ok_or("Door selection expired")?;
-            if self.place_exit_door_choice(&id)? {
+            if self.place_animated_door_choice(&id)? {
                 return Ok(());
             }
             let style = id

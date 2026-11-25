@@ -95,7 +95,8 @@ impl EntityWorld {
         }
         if self.store.len() != self.checkpoint_entity_count
             || !self.live_spawns.is_empty()
-            || !self.animated_doors.is_empty()
+            || !self.fixed_mechanisms.animated_doors.is_empty()
+            || !self.fixed_mechanisms.escalators.is_empty()
             || !self.physics_actors.is_empty()
             || !self.components.lifetimes.is_empty()
             || !self.components.balloons.is_empty()

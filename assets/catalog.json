@@ -50,6 +50,11 @@
       "id": "backrooms",
       "display_name": "The Backrooms",
       "description": "Matte institutional chevron wallpaper, green-seated timber furniture and fluorescent circulation."
+    },
+    {
+      "id": "mall",
+      "display_name": "Mall",
+      "description": "Underground fluorescent retail and food-court interiors."
     }
   ],
   "assets": [
@@ -12953,6 +12958,328 @@
       "category": "Lighting",
       "solid": false,
       "description": "Static four-blade walnut fan with a non-emissive opal diffuser and a ceiling-centred mounting origin."
+    },
+    {
+      "id": "mall:escalator",
+      "display_name": "Mall escalator",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/escalator.glb",
+      "size": [
+        1.72,
+        4.15,
+        7.2
+      ],
+      "color": "#777879",
+      "category": "Architecture",
+      "solid": false,
+      "description": "Rigid moving treads with a physical support lane. Fit upright between full-width landings, 3 m apart."
+    },
+    {
+      "id": "mall:security_shutter",
+      "display_name": "Mall security shutter",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/security_shutter.glb",
+      "size": [
+        2.6,
+        3.24,
+        0.32
+      ],
+      "color": "#969492",
+      "category": "Architecture",
+      "solid": false,
+      "description": "Interactive upright grille with a fixed overhead housing and three telescoping banks."
+    },
+    {
+      "id": "mall:print_directory_kiosk",
+      "display_name": "Printed Mall Directory",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/print_directory_kiosk.glb",
+      "size": [
+        0.902,
+        1.761,
+        0.51
+      ],
+      "color": "#94744e",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Floor-centred 1970s-style printed directory on a walnut and avocado pedestal. No electronic screen.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/print_directory_kiosk.blend"
+      }
+    },
+    {
+      "id": "mall:sale_sign_blowout",
+      "display_name": "Blowout Sale Sign",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/sale_sign_blowout.glb",
+      "size": [
+        1.214,
+        1.0,
+        0.053259
+      ],
+      "color": "#ad5637",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Two-sided matte-print sale sign with an origin centred on its ceiling attachment.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/suspended_sale_signs.blend"
+      }
+    },
+    {
+      "id": "mall:sale_sign_weekend",
+      "display_name": "Weekend Sale Sign",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/sale_sign_weekend.glb",
+      "size": [
+        1.214,
+        1.0,
+        0.053259
+      ],
+      "color": "#557250",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Two-sided matte-print sale sign with an origin centred on its ceiling attachment.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/suspended_sale_signs.blend"
+      }
+    },
+    {
+      "id": "mall:sale_sign_final_markdown",
+      "display_name": "Final Markdown Sign",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/sale_sign_final_markdown.glb",
+      "size": [
+        1.214,
+        1.0,
+        0.053259
+      ],
+      "color": "#c09a5d",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Two-sided matte-print sale sign with an origin centred on its ceiling attachment.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/suspended_sale_signs.blend"
+      }
+    },
+    {
+      "id": "mall:clothing_rack",
+      "display_name": "Steel Clothing Rack",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/clothing_rack.glb",
+      "size": [
+        1.43,
+        1.502,
+        0.622
+      ],
+      "color": "#8b8f7c",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Reusable floor-standing retail garment rack with a clear hang span and capped steel rails.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/clothing_rack.blend"
+      }
+    },
+    {
+      "id": "mall:retail_island_kiosk",
+      "display_name": "Retail Island Kiosk",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/retail_island_kiosk.glb",
+      "size": [
+        1.832,
+        1.143,
+        0.968
+      ],
+      "color": "#96734d",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Floor-standing solid retail counter with a walnut island body, ribbed avocado front and cream worktop.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/retail_island_kiosk.blend"
+      }
+    },
+    {
+      "id": "mall:advertising_lightbox",
+      "display_name": "Concourse Coffee Lightbox",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/advertising_lightbox.glb",
+      "size": [
+        0.89,
+        1.19,
+        0.123
+      ],
+      "color": "#ae8558",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Wall-placed advertising case with a low-emission printed coffee face. No room light source.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/advertising_lightbox.blend"
+      }
+    },
+    {
+      "id": "mall:food_court_tray",
+      "display_name": "Food-Court Tray",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/food_court_tray.glb",
+      "size": [
+        0.41,
+        0.026,
+        0.3
+      ],
+      "color": "#71403a",
+      "category": "Pickups",
+      "solid": false,
+      "description": "Scuffed oxblood plastic with a recessed basin and raised lip.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/food_court_tray.blend"
+      }
+    },
+    {
+      "id": "mall:moulded_clothes_hanger",
+      "display_name": "Moulded Clothes Hanger",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/moulded_clothes_hanger.glb",
+      "size": [
+        0.393349,
+        0.024,
+        0.225495
+      ],
+      "color": "#527982",
+      "category": "Pickups",
+      "solid": false,
+      "description": "Chunky one-piece plastic hanger with an open triangular silhouette and moulded hook.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/moulded_clothes_hanger.blend"
+      }
+    },
+    {
+      "id": "mall:takeaway_coffee_cup",
+      "display_name": "Concourse Takeaway Coffee",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/takeaway_coffee_cup.glb",
+      "size": [
+        0.106,
+        0.1551,
+        0.106
+      ],
+      "color": "#527a59",
+      "category": "Pickups",
+      "solid": false,
+      "description": "Cream takeaway cup, evergreen coffee-shop sleeve and a raised dark sipping lid.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/takeaway_coffee_cup.blend"
+      }
+    },
+    {
+      "id": "mall:crumpled_paper_ball",
+      "display_name": "Crumpled Paper Ball",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/crumpled_paper_ball.glb",
+      "size": [
+        0.090394,
+        0.076472,
+        0.072117
+      ],
+      "color": "#dedacd",
+      "category": "Pickups",
+      "solid": false,
+      "description": "Three-dimensional wrinkled paper with open folds and fragments of printed ink.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/crumpled_paper_ball.blend"
+      }
+    },
+    {
+      "id": "mall:metal_ashtray",
+      "display_name": "Metal Ashtray",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/metal_ashtray.glb",
+      "size": [
+        0.126,
+        0.028,
+        0.126
+      ],
+      "color": "#858783",
+      "category": "Pickups",
+      "solid": false,
+      "description": "Brushed steel dish with shallow bowl, four cigarette rests and restrained ash wear.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/metal_ashtray.blend"
+      }
+    },
+    {
+      "id": "mall:crushed_cigarette_pack",
+      "display_name": "Crushed Soft Cigarette Pack",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/crushed_cigarette_pack.glb",
+      "size": [
+        0.059,
+        0.034,
+        0.102
+      ],
+      "color": "#c5aa82",
+      "category": "Pickups",
+      "solid": false,
+      "description": "Crushed soft paper pack with a peeled-back foil top and an open lip.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/crushed_cigarette_pack.blend"
+      }
     }
   ]
 }
