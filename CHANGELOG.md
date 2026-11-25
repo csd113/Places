@@ -19,8 +19,11 @@ and linked reports retain historical implementation and validation details.
 
 - Add reusable, map-local Game Modes for movement, health and crowbar settings.
   Health is off by default. Maps can configure starting and maximum health,
-  regeneration, health kits, hit protection and whether hearts appear on the HUD.
-  The default health-enabled player has six HP, shown as three hearts when enabled.
+  regeneration, health kits, hit protection and HUD visibility. The default
+  player has six HP, shown as three hearts when the HUD is enabled. Human NPCs
+  default to six HP and encounter zombies to 18 HP, with authored overrides and
+  explicit immortality. `FLASHLIGHT ON` appears only when the map enables health
+  and its HUD, and the flashlight is lit.
 - Add a map-granted crowbar with a first-person hand and forearm. Press `1` to
   holster or redraw it. Each click swings once and safely releases a carried prop
   first. The crowbar can knock light props away and damage actors on maps with
@@ -28,16 +31,57 @@ and linked reports retain historical implementation and validation details.
 - Add a player mannequin with eight saved colours and refine its movement and
   tool animations. On health-enabled maps the death camera and audio follow the
   ragdoll’s head. Respawn and level changes clean up the previous body.
-- Add the opt-in zombie encounter lab, with independently timed spawn zones, a
-  robot companion and encounter respawn using the bound Interact key. Update
-  the zombie mannequin skin and add a movable PocketCHIP prop to the editor catalog.
+- Add the opt-in [Backrooms encounter lab](projects/encounter-lab) with
+  independently timed zombie spawn zones and up to five crowbar-wielding robot
+  companions that follow the player and fight zombies. Fallen combatants stay as
+  ragdolls that the crowbar can still strike. The bound Interact key respawns the
+  player and resets the encounter. Update the zombie mannequin skin.
 - Fix forward momentum when jumping with a held prop and use the player’s actual
-  movement when releasing one. Improve pursuit so NPCs don’t lose progress on
-  replans or get stuck in blocked scripted movement.
+  movement when releasing one. Keep swimming and held-prop slides moving along
+  clear paths without passing through obstructions.
+- Improve NPC pursuit, scripted movement, wandering and one-way door routing.
+  NPCs pass through loose movable props without pushing or waking them, but still
+  respect held props, fixed obstacles, doors and other actors.
+- Add Prop Sound Volume to Audio settings alongside Master Volume, Ambient
+  Volume and Effects Volume. Prop sounds can be adjusted independently of
+  ambient sound and general effects, including while a loop is playing. The
+  setting is saved between sessions.
 - Keep riders and cargo together during linked elevator trips. If a destination
   cannot load within its resource budget, keep the source cabin intact. Fix local
   departures when a rider leaves noclip, and make Quiet Collection favor and
   checkpoint saves more reliable during transitions.
+- Make Luau timers and sequences resume reliably under load. Fire trigger
+  crossings in travel order along the resolved path, restore active trigger
+  loops from checkpoints, and reset water and steam to their authored states.
+
+### Environments and props
+
+- Add four decorative props to the editor catalog. Office gets Office
+  Wastebasket and Office Photocopier. Home gets Kitchen Swing-Lid Bin and
+  Ceiling Fan with Opal Light. Add movable PocketCHIP and PocketCHIP (upright)
+  variants to the shared catalog.
+- Expand the existing Janitor / Supplies theme and project as
+  [Maintenance](projects/janitor-supplies), with a concrete service hall, stairs
+  and unfinished basement linked back to the original closet. Add modular
+  concrete surfaces, including spalled concrete, and retain existing Janitor
+  asset IDs so authored maps still load.
+- Add the editable [Underground Mall](projects/underground-mall) project and Mall
+  catalog, with a fluorescent concourse, polished tile, glass storefronts and a
+  small food court. The fixed-size Mall escalator stops and starts, carrying
+  players, NPCs and loose props uphill only to a landing 3 m higher. The Mall
+  security shutter stops when obstructed and can be reversed on demand. Authors
+  can wire both mechanisms to triggers in the editor.
+- Stock the Mall catalog with Printed Mall Directory, Steel Clothing Rack,
+  Retail Island Kiosk, Concourse Coffee Lightbox and three suspended signs
+  named Blowout Sale Sign, Weekend Sale Sign and Final Markdown Sign. Pickups
+  include Food-Court Tray, Moulded Clothes Hanger, Concourse Takeaway Coffee,
+  Crumpled Paper Ball, Metal Ashtray and Crushed Soft Cigarette Pack.
+
+The app bundles the live Menu but no gameplay maps. The separate 0.14.0
+[levels download inventory](release/release-projects.json) lists only the Quiet
+Collection, all four chapters of It Only Exists in the Beam, and The Long Way
+Home. The encounter lab, Maintenance and Underground Mall are editable projects
+outside that inventory.
 
 ### Lighting and performance
 
@@ -53,10 +97,11 @@ and linked reports retain historical implementation and validation details.
   previews, and prevent an actor’s flashlight state from carrying over to a
   replacement actor.
 - Reduce Tall Guest collision and navigation work in the Danger map. Use lower
-  frame latency for Immediate presentation on Metal. These are targeted
-  improvements, not a blanket 120 FPS result.
+  frame latency for Immediate presentation on Metal. Windows testing reproduced
+  [a slowdown at Danger’s second elevator exit](https://github.com/csd113/Places/issues/53).
+  Its cause and fix remain open.
 
-### Editor and map compiler
+### Editor, import and export
 
 - Show movable props at their authored positions in Edit mode. Use visible
   geometry when placing doors, and require the current preview before enabling
@@ -64,31 +109,44 @@ and linked reports retain historical implementation and validation details.
   early, and discard unfinished construction when entering Quick Test.
 - Prepare audio alongside editor viewport startup and keep processing events
   while cancelled startup audio shuts down.
-- Check project membership before adding a level. Publish fresh map imports
-  atomically without replacing an existing file, and report installed or updated
-  packages separately from unchanged ones. Check staged sibling levels before
-  exporting a project from Final Build.
+- In Explore, import multiple compiled `.placesmap` files from one local ZIP.
+  Valid maps can import even if other entries are rejected. Report each map’s
+  result without replacing installed maps. Ordinary imports install new maps
+  atomically and distinguish installed or updated packages from unchanged ones.
+- Check project membership before adding a level and recover interrupted editor
+  Add or Import operations on reopen when staged files match. Preserve the
+  existing project if they differ. Check staged sibling levels before exporting
+  a project from Final Build.
 - Tie compiler reuse to the level, catalog and asset bytes actually read during
-  preparation, including inputs to reflected skies. Make lightmap atlas assembly
-  cancellable, skip reflected-light samples that contribute exactly zero and
-  stream package reports instead of loading entire archives for the report.
+  preparation, including reflected skies and native model rigs. Make lightmap
+  atlas assembly cancellable, skip reflected-light samples that contribute
+  exactly zero and stream package reports instead of loading entire archives.
 
 ### Builds and project maintenance
 
-- Add GitHub-hosted application builds for macOS arm64 and Windows x64, with
-  downloadable ZIPs and optional uploads to an existing draft release.
-  Gameplay maps and the illustrated editor guide stay separate from app ZIPs.
+- Add a GitHub-hosted application build workflow for macOS arm64 and Windows
+  x64. Successful package jobs upload downloadable app ZIPs, with an optional
+  upload step for an existing draft of the matching release. The illustrated
+  editor guide stays separate from app ZIPs.
+- Keep three executables, `places`, `places-editor` and `places-map-compiler`
+  (formerly `places-compile`). Move supported diagnostics to their owning
+  executable and keep HVAC duct joins in the editor as legacy tooling is retired.
+- Archive [The Backrooms](archive/projects/backrooms) and the
+  [Utility and HVAC kit showcase](archive/projects/hvac-utility-showcase) outside
+  the default map downloads. Their editable sources are preserved, and Backrooms
+  environment assets remain available to authors.
 - Raise the minimum Rust version to 1.100.0, narrow Clippy exceptions across the
-  engine and tools, and fix Windows archive-staging diagnostics. Retire the old
-  rat asset generators without replacing the current rat model or texture.
+  engine and tools, and fix Windows archive-staging diagnostics. Keep the
+  current rat model and texture after retiring their old generators.
 - Consolidate historical documentation into one summary per version and restore
   the [documentation index](docs/README.md).
 
-**Validation still open:** [Final lighting acceptance](https://github.com/csd113/Places/issues/55)
-is not complete. The earlier stock Menu mannequin identity and folding-door
-dependency failures were [fixed and verified on Windows](https://github.com/csd113/Places/commit/5e61b85e0337ed610de843321cd12f414720bb86).
-The compact Mac fixture does not establish native acceptance of the rebuilt Menu
-or the remaining large maps.
+[Final lighting acceptance](https://github.com/csd113/Places/issues/55) remains
+open. The [rebuilt Menu](https://github.com/csd113/Places/commit/5e61b85e0337ed610de843321cd12f414720bb86)
+passed dependency checks and loaded on Windows both at startup and on return
+from gameplay. Separate Windows checks covered representative scenes in the
+rebuilt Quiet Collection and The Long Way Home. The compact Mac fixture did not
+verify the rebuilt Menu or those collections.
 
 ## 0.13.1 — 2026-11-09
 
