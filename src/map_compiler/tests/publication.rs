@@ -7,6 +7,44 @@ use std::path::PathBuf;
 use std::sync::atomic::{AtomicU64, Ordering};
 
 static SEQUENCE: AtomicU64 = AtomicU64::new(0);
+
+// The four implicit pipeline routes need every cabinet part recorded even
+// in an open room where conduits do not render. Decode only the six tiny GLBs.
+#[test]
+fn electrical_panel_export_records_every_rig_dependency() -> Result<(), String> {
+    use crate::engine::{electrical_panel as panel, level::LevelDef};
+
+    let root = crate::engine::props::resolve_prop_root().ok_or("shipped asset root")?;
+    let assets = super::super::AssetInputs::read(&root)?;
+    let scene = LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,
+        "id":"cabinet","name":"Cabinet","spawn":{"x":1,"z":1},
+        "rooms":[{"width":5,"depth":5,"height":3,"ceiling":{"kind":"open"}}],
+        "walls":[{"x":0,"z":0,"width":5,"depth":0.198,"height":3}],
+        "props":[{"model":"maintenance:electrical_panel","x":2,"z":0.2,"y":1.3,
+        "electrical_panel":{},"solid":true,"components":[{"component":"interactable"}]}]}"#,
+    )
+    .map_err(|error| error.to_string())?;
+    crate::engine::project::validate_level_assets(&scene, assets.catalog().assets())?;
+    let _scope = assets.scope();
+    let mut warnings = Vec::new();
+    let dependencies = super::super::collect_dependencies(&scene, &assets, &mut warnings)?;
+    for path in panel::asset_paths() {
+        assert!(
+            dependencies.iter().any(|dep| dep.path == path),
+            "compiled inputs retain exact {path}"
+        );
+    }
+    let closure = assets.catalog_inputs(&scene)?;
+    for (id, _) in panel::INTERNAL_MODELS {
+        assert!(
+            closure.entries.get(id).is_some_and(Option::is_some),
+            "catalog identity covers hidden part {id}"
+        );
+    }
+    Ok(())
+}
+
 struct Fixture(PathBuf);
 impl Drop for Fixture {
     fn drop(&mut self) {

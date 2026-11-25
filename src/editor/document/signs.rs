@@ -326,10 +326,23 @@ pub(in crate::editor) fn fit(
     at: Vec3,
     step: Option<f32>,
 ) -> Result<(), String> {
+    let position = fit_wall_footprint(level, wall_index, face, at, step, half_span(decal))?;
+    [decal.x, decal.y, decal.z] = position.to_array();
+    decal.surface = face;
+    Ok(())
+}
+
+pub(in crate::editor) fn fit_wall_footprint(
+    level: &LevelDef,
+    wall_index: usize,
+    face: DecalSurface,
+    at: Vec3,
+    step: Option<f32>,
+    (hw, hh): (f32, f32),
+) -> Result<Vec3, String> {
     let wall = level.walls.get(wall_index).ok_or("Point at a wall")?;
     let surfaces = LevelSurfaces::new(level);
     let (x, z) = wall.min_corner();
-    let (hw, hh) = half_span(decal);
     let along = if wall.axis() == WallAxis::X {
         at.x - x
     } else {
@@ -392,28 +405,13 @@ pub(in crate::editor) fn fit(
         }
     }
     let (_,fitted_along,y)=best.ok_or("This wall has no solid area large enough for the sign; choose a smaller size or another wall")?;
-    decal.y = y;
-    decal.surface = face;
     match face {
-        DecalSurface::WallNorth => {
-            decal.x = x + fitted_along;
-            decal.z = z;
-        }
-        DecalSurface::WallSouth => {
-            decal.x = x + fitted_along;
-            decal.z = z + wall.depth.abs();
-        }
-        DecalSurface::WallWest => {
-            decal.x = x;
-            decal.z = z + fitted_along;
-        }
-        DecalSurface::WallEast => {
-            decal.x = x + wall.width.abs();
-            decal.z = z + fitted_along;
-        }
-        DecalSurface::Floor | DecalSurface::Ceiling => return Err("Choose a wall face".into()),
+        DecalSurface::WallNorth => Ok(Vec3::new(x + fitted_along, y, z)),
+        DecalSurface::WallSouth => Ok(Vec3::new(x + fitted_along, y, z + wall.depth.abs())),
+        DecalSurface::WallWest => Ok(Vec3::new(x, y, z + fitted_along)),
+        DecalSurface::WallEast => Ok(Vec3::new(x + wall.width.abs(), y, z + fitted_along)),
+        DecalSurface::Floor | DecalSurface::Ceiling => Err("Choose a wall face".into()),
     }
-    Ok(())
 }
 
 pub(in crate::editor) fn placement(

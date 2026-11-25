@@ -2,6 +2,7 @@
 
 pub mod animated_door;
 pub mod door;
+pub mod electrical_panel;
 pub mod elevator;
 pub mod escalator;
 mod shutter;

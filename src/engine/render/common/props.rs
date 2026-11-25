@@ -723,6 +723,15 @@ pub(super) fn build_prop_batches(
         (defer_static_lighting, neutral),
         reuse,
     );
+    if crate::engine::electrical_panel::present(level) {
+        batches.extend(resolve_panel_conduits(
+            level,
+            assets,
+            lighting,
+            plan.as_deref_mut(),
+            (defer_static_lighting, neutral),
+        ));
+    }
     batches.extend(resolve_fixture_model_instances(
         level,
         catalog,
@@ -733,6 +742,52 @@ pub(super) fn build_prop_batches(
         draws,
     ));
     batches
+}
+
+fn resolve_panel_conduits(
+    level: &LevelDef,
+    assets: &mut crate::engine::props::PropAssets,
+    lighting: &LevelLighting,
+    mut plan: Option<&mut crate::engine::lighting::lightmap::LightmapPlan>,
+    (defer, neutral): (bool, bool),
+) -> Vec<PropMeshBatch> {
+    let floor = crate::engine::level::WalkableFloor::from_level(level);
+    let surfaces = LevelSurfaces::new(level);
+    let mut out = Vec::new();
+    for cabinet in level
+        .props
+        .iter()
+        .filter(|prop| prop.electrical_panel.is_some())
+    {
+        for (path, transform) in
+            super::electrical_panels::conduit_stock(level, &floor, &surfaces, cabinet)
+        {
+            let asset = match assets.resolve(path) {
+                Ok(asset) => asset,
+                Err(error) => {
+                    assets.report_failure(path, &error);
+                    continue;
+                }
+            };
+            let Some((min, max)) = asset.model.bounds() else {
+                continue;
+            };
+            let bounds = transform_bounds(&crate::engine::spatial::Aabb { min, max }, &transform);
+            let mut builder = BatchBuilder::new(path, &asset.model, asset.model.textures.clone());
+            if builder.has_room_for(&asset.model, plan.is_some()) {
+                builder.push_resolved_instance(
+                    &transform,
+                    &asset,
+                    lighting,
+                    plan.as_deref_mut(),
+                    &bounds,
+                    (defer, neutral, None),
+                );
+                out.push(builder.finish());
+            }
+        }
+    }
+    out
 }
 
 fn prop_instance_bounds(

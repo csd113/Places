@@ -919,6 +919,9 @@ fn build_inner(
         required.push("animated-door-v1".into());
         required.push("animated-door-actions-v1".into());
     }
+    if crate::engine::electrical_panel::present(&level) {
+        required.push(crate::engine::electrical_panel::CAPABILITY.into());
+    }
     if level.props.iter().any(|prop| {
         prop.tall_guest
             .as_ref()
@@ -2043,6 +2046,18 @@ fn collect_dependencies(
                 .and_then(|entry| entry.model.as_deref())
                 .ok_or_else(|| format!("Missing elevator model {id}"))?;
             add(DependencyKind::Model, path)?;
+        }
+    }
+    if crate::engine::electrical_panel::present(level) {
+        let mut models = crate::engine::props::PropAssets::with_root(assets.root());
+        for path in crate::engine::electrical_panel::asset_paths() {
+            add(DependencyKind::Model, path)?;
+            let part = models
+                .resolve(path)
+                .map_err(|error| format!("Electrical panel part '{path}': {error}"))?;
+            if part.model.is_animatable() || part.model.bounds().is_none() {
+                return Err(format!("Electrical panel part '{path}' needs a fixed mesh"));
+            }
         }
     }
     let mut add_appearance = |id: &str| {

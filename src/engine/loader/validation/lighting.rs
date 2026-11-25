@@ -31,7 +31,7 @@ fn validate_light_circuits(level: &LevelDef) -> Result<(), String> {
                 count.saturating_add(prop.lights.iter().filter(|light| light.enabled).count())
             });
         if sources > crate::engine::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS {
-            return Err("Light circuits support at most eight switched light sources".to_string());
+            validate_large_panel_circuit(level, controlled_props, sources)?;
         }
     }
     let static_members: Vec<_> = level
@@ -78,8 +78,46 @@ fn validate_light_circuits(level: &LevelDef) -> Result<(), String> {
     Ok(())
 }
 
+fn validate_large_panel_circuit(
+    level: &LevelDef,
+    controlled_props: bool,
+    sources: usize,
+) -> Result<(), String> {
+    use crate::engine::{electrical_panel::MAX_CIRCUIT_SOURCES, level::StaticSwitchMode};
+    let mut members = level
+        .ceiling_lights
+        .iter()
+        .filter(|fixture| fixture.switchable);
+    let group = members
+        .next()
+        .and_then(|fixture| fixture.switch_group.as_deref());
+    let one_full_panel = !controlled_props
+        && level.requires_full_lighting
+        && group.is_some_and(|id| {
+            level.props.iter().any(|prop| {
+                prop.electrical_panel.is_some() && prop.light_switch.as_deref() == Some(id)
+            })
+        })
+        && level
+            .ceiling_lights
+            .iter()
+            .filter(|fixture| fixture.switchable)
+            .all(|fixture| {
+                fixture.switch_group.as_deref() == group
+                    && fixture.static_switch != StaticSwitchMode::Prepared
+            });
+    if !one_full_panel || sources > MAX_CIRCUIT_SOURCES {
+        return Err(format!(
+            "Light circuits support up to eight switched light sources, or one Full-only electrical panel circuit with up to {MAX_CIRCUIT_SOURCES} fixture sources"
+        ));
+    }
+    Ok(())
+}
+
 /// Prop members reuse fixture circuits and retain their fixed Static hold.
 fn validate_prop_light_circuits(level: &LevelDef) -> Result<(), String> {
+    let panel_circuits: std::collections::BTreeSet<_> =
+        crate::engine::electrical_panel::circuit_names(level).collect();
     let mut states = level
         .ceiling_lights
         .iter()
@@ -94,6 +132,11 @@ fn validate_prop_light_circuits(level: &LevelDef) -> Result<(), String> {
         let Some(group) = prop.switch_group.as_deref() else {
             continue;
         };
+        if panel_circuits.contains(group) {
+            return Err(format!(
+                "Prop {index} cannot join an electrical panel's fixture circuit"
+            ));
+        }
         let Some(control) = prop.light_control().filter(|control| control.switchable) else {
             return Err(format!(
                 "Prop {index} switch_group requires a switchable light component on a fixed prop"
@@ -296,6 +339,15 @@ pub(super) fn validate_prop_lights(level: &LevelDef) -> Result<(), String> {
 fn validate_power_switches(level: &LevelDef) -> Result<(), String> {
     for (index, prop) in level.props.iter().enumerate() {
         if let Some(group) = prop.light_switch.as_deref() {
+            if prop.electrical_panel.is_some()
+                && level.props.iter().enumerate().any(|(other, candidate)| {
+                    index != other && candidate.light_switch.as_deref() == Some(group)
+                })
+            {
+                return Err(format!(
+                    "Prop {index} electrical panel must be the only power switch for its circuit"
+                ));
+            }
             if prop.physics.is_some()
                 || prop.float.is_some()
                 || prop.animated_door.is_some()

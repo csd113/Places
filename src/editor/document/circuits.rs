@@ -21,6 +21,14 @@ impl Document {
         if prop.physics.is_some() || prop.float.is_some() || prop.animated_door.is_some() {
             return Err("Choose a fixed prop as the switch".into());
         }
+        if prop.electrical_panel.is_some() {
+            return self.assign_panel_circuit(fixtures, switch);
+        }
+        for index in fixtures {
+            if self.panel_owns_fixture(*index) {
+                return Err("This fixture belongs to an electrical panel. Unlink it explicitly before assigning another switch.".into());
+            }
+        }
         let mut raw = self.raw().clone();
         let switch_id = self
             .level()
@@ -100,11 +108,103 @@ impl Document {
         self.finish_circuit_edit(raw, affected)
     }
 
+    fn assign_panel_circuit(&mut self, fixtures: &[usize], switch: usize) -> Result<(), String> {
+        let level = self.level();
+        let cabinet = level.props.get(switch).ok_or("Missing electrical panel")?;
+        let ids = level.light_instance_ids();
+        let switch_id = level
+            .prop_instance_ids()
+            .get(switch)
+            .cloned()
+            .ok_or("Missing panel identity")?;
+        let group = cabinet.light_switch.clone().unwrap_or_else(|| {
+            crate::engine::package::hash::digest_hex(&Sha256::digest(switch_id.as_bytes()))
+        });
+        if cabinet.light_switch.is_none()
+            && (level
+                .ceiling_lights
+                .iter()
+                .any(|light| light.switch_group.as_deref() == Some(&group))
+                || level.props.iter().any(|prop| {
+                    prop.light_switch.as_deref() == Some(&group)
+                        || prop.switch_group.as_deref() == Some(&group)
+                }))
+        {
+            return Err(
+                "The panel's circuit name is already in use. Give the cabinet a different ID."
+                    .into(),
+            );
+        }
+        let mut additions = Vec::new();
+        for index in fixtures.iter().copied() {
+            let light = level
+                .ceiling_lights
+                .get(index)
+                .ok_or("A selected fixture no longer exists")?;
+            if cabinet.light_switch.is_some() && light.switch_group.as_deref() == Some(&group) {
+                continue;
+            }
+            let id = ids.get(index).ok_or("Missing fixture identity")?;
+            let blocked = if light.switch_group.is_some() {
+                Some("already belongs to a circuit")
+            } else if light.switchable {
+                Some("already has individual switch control")
+            } else if !light.enabled {
+                Some("starts off")
+            } else if self.flicker_owner(ObjectId::Light(index))?.is_some() {
+                Some("already has a flicker setup")
+            } else {
+                None
+            };
+            if let Some(reason) = blocked {
+                return Err(format!(
+                    "Fixture '{id}' {reason}. No wiring changed. Deselect it and assign only unlinked, initially on fixtures to this panel."
+                ));
+            }
+            additions.push((index, id));
+        }
+        if additions.is_empty() {
+            return Ok(());
+        }
+        let mut raw = self.raw().clone();
+        for (index, id) in additions {
+            let light = objects::object_mut(&mut raw, ObjectId::Light(index))?;
+            drop(light.insert("id".into(), json!(id)));
+            drop(light.insert("switch_group".into(), json!(group)));
+            drop(light.insert("switchable".into(), json!(true)));
+        }
+        let panel = objects::object_mut(&mut raw, ObjectId::Prop(switch))?;
+        drop(panel.insert("id".into(), json!(switch_id)));
+        drop(panel.insert("light_switch".into(), json!(group)));
+        drop(
+            raw.as_object_mut()
+                .ok_or("Invalid level")?
+                .insert("requires_full_lighting".into(), json!(true)),
+        );
+        self.accept_edit(raw)
+    }
+
+    pub(super) fn panel_owns_fixture(&self, index: usize) -> bool {
+        self.level()
+            .ceiling_lights
+            .get(index)
+            .is_some_and(|fixture| {
+                crate::engine::electrical_panel::owns_circuit(
+                    self.level(),
+                    fixture.switch_group.as_deref(),
+                )
+            })
+    }
+
     pub(crate) fn unlink_circuit(&mut self, fixtures: &[usize]) -> Result<(), String> {
         let mut raw = self.raw().clone();
         let affected = self.circuit_flicker(fixtures, None)?;
         for index in fixtures {
-            drop(objects::object_mut(&mut raw, ObjectId::Light(*index))?.remove("switch_group"));
+            let light = objects::object_mut(&mut raw, ObjectId::Light(*index))?;
+            drop(light.remove("switch_group"));
+            if self.panel_owns_fixture(*index) {
+                drop(light.insert("switchable".into(), json!(false)));
+            }
         }
         cleanup_switches(&mut raw)?;
         if &raw == self.raw() {
@@ -125,6 +225,22 @@ impl Document {
             None
         };
         let mut raw = self.raw().clone();
+        if let ObjectId::Prop(index) = id
+            && let Some(panel) = self
+                .level()
+                .props
+                .get(index)
+                .filter(|p| p.electrical_panel.is_some())
+            && let Some(group) = panel.light_switch.as_deref()
+        {
+            for light in objects::array_mut(&mut raw, "ceiling_lights")? {
+                if light.get("switch_group").and_then(Value::as_str) == Some(group) {
+                    let record = light.as_object_mut().ok_or("Invalid fixture")?;
+                    drop(record.remove("switch_group"));
+                    drop(record.insert("switchable".into(), json!(false)));
+                }
+            }
+        }
         if let Some(old) = affected.clone() {
             self.release_flicker(&mut raw, Some(old), false)?;
         }

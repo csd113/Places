@@ -100,6 +100,7 @@ MAX_BLACKLIGHT_FIXTURES = 4
 # Offline source budgets; selected-direct and switched runtime budgets stay eight.
 MAX_PROP_LIGHTS = 16
 MAX_LEVEL_LIGHT_SOURCES = 1_000_000
+MAX_PANEL_CIRCUIT_SOURCES = 64
 
 # Map-authored actions: the closed set the engine parses, and the subset it
 # implements. Unknown tags are rejected by name; audio uses the same bounded
@@ -375,7 +376,8 @@ def validate_level_light_source_budget(level: dict, where: str, errors: List[str
     counts = chain((retained_fixture_source_count(fixture) for fixture in fixtures),
                    (len(prop["lights"]) for prop in props if isinstance(prop.get("lights"), list)))
     validate_light_source_counts(counts, where, errors)
-    switched = sum(retained_fixture_source_count(fixture) for fixture in fixtures if fixture.get("switchable") is True)
+    switched_fixtures = [fixture for fixture in fixtures if fixture.get("switchable") is True]
+    switched = sum(retained_fixture_source_count(fixture) for fixture in switched_fixtures)
     controlled_props = False
     for index, prop in enumerate(props):
         lights = prop.get("lights")
@@ -387,7 +389,25 @@ def validate_level_light_source_budget(level: dict, where: str, errors: List[str
             if isinstance(lights, list):
                 switched += sum(isinstance(light, dict) and light.get("enabled", True) is True for light in lights)
     if (controlled_props or any(fixture.get("switch_group") is not None for fixture in fixtures)) and switched > 8:
-        errors.append(f"{where}: light circuits support at most eight switched light sources")
+        if not large_full_panel_circuit(level, switched_fixtures, controlled_props, switched):
+            errors.append(
+                f"{where}: light circuits support at most eight switched light sources, "
+                f"or one Full-only electrical panel circuit with up to {MAX_PANEL_CIRCUIT_SOURCES} fixture sources"
+            )
+
+
+def large_full_panel_circuit(level: dict, fixtures: list, controlled_props: bool, sources: int) -> bool:
+    """Mirror the native Full-only master circuit; ordinary caps stay unchanged."""
+    if controlled_props or level.get("requires_full_lighting") is not True or sources > MAX_PANEL_CIRCUIT_SOURCES or not fixtures:
+        return False
+    group = fixtures[0].get("switch_group")
+    if not isinstance(group, str) or not group.strip():
+        return False
+    owners = [prop for prop in level.get("props") or [] if prop.get("light_switch") == group]
+    return (len(owners) == 1 and owners[0].get("model") == "maintenance:electrical_panel"
+            and isinstance(owners[0].get("electrical_panel"), dict)
+            and all(fixture.get("switch_group") == group and fixture.get("static_switch") != "prepared"
+                    for fixture in fixtures))
 
 
 def validate_light_source(light: object, where: str) -> Tuple[List[str], List[str]]:

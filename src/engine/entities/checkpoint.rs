@@ -42,6 +42,8 @@ pub struct Snapshot {
     doors: Vec<crate::engine::door::Checkpoint>,
     #[serde(default)]
     elevators: Vec<crate::engine::elevator::Checkpoint>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    electrical_panels: Vec<crate::engine::electrical_panel::Record>,
     timers: Vec<super::timers::Checkpoint>,
     routes: Vec<crate::engine::entity::RouteState>,
     poses: Vec<(String, crate::engine::entity::PoseCue)>,
@@ -222,6 +224,11 @@ impl EntityWorld {
                 .iter()
                 .map(crate::engine::elevator::Elevator::checkpoint)
                 .collect::<Result<_, _>>()?,
+            electrical_panels: self
+                .electrical_panels()
+                .iter()
+                .map(crate::engine::electrical_panel::Panel::checkpoint)
+                .collect(),
             timers: self.timers.checkpoint(),
             routes: self.route_states.clone(),
             poses: self.animation_overrides.clone(),
@@ -256,6 +263,13 @@ impl EntityWorld {
         }
         for (elevator, record) in self.elevators.iter_mut().zip(&snapshot.elevators) {
             elevator.restore(record)?;
+        }
+        let panels = &mut self.fixed_mechanisms.electrical_panels;
+        if panels.len() != snapshot.electrical_panels.len() {
+            return Err("Checkpoint electrical panel count mismatch".into());
+        }
+        for (panel, record) in panels.iter_mut().zip(&snapshot.electrical_panels) {
+            panel.restore(record)?;
         }
         let entity_count_matches = snapshot.entities.len() == self.store.len();
         let route_count_matches = snapshot.routes.len() == self.route_states.len();

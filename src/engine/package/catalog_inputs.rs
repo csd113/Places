@@ -102,6 +102,11 @@ impl CatalogInputs {
             if !level.elevators.is_empty() {
                 pending.extend(crate::engine::elevator::MODEL_IDS.map(str::to_owned));
             }
+            if crate::engine::electrical_panel::present(level) {
+                pending.extend(
+                    crate::engine::electrical_panel::INTERNAL_MODELS.map(|(id, _)| id.to_owned()),
+                );
+            }
         } else if let Some(sky) = &level.sky {
             let _added = pending.insert(sky.texture.trim().into());
         }

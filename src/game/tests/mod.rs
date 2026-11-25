@@ -14,6 +14,7 @@ mod water;
 
 mod stair_traversal;
 
+mod electrical_panel;
 mod elevators;
 mod escalator;
 

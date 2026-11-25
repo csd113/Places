@@ -2670,7 +2670,7 @@ impl TransportScene {
             .iter()
             .all(|(representative, members)| {
                 members.first() == Some(representative)
-                    && members.len() <= 8
+                    && members.len() <= crate::engine::electrical_panel::MAX_CIRCUIT_SOURCES
                     && members.iter().all(|source| sources.contains(source))
             })
             && sources.iter().all(|source| {
@@ -2681,6 +2681,14 @@ impl TransportScene {
                     .count()
                     == 1
             })
+    }
+
+    /// Large fixture circuits retain their direct terms in their switched
+    /// probe plane instead of silently dropping lights beyond eight live slots.
+    pub(super) fn prepares_switchable_direct(&self) -> bool {
+        self.switchable_groups.iter().any(|(_, members)| {
+            members.len() > crate::engine::lighting::probes::MAX_RUNTIME_PROBE_LIGHTS
+        })
     }
 
     fn inputs_are_valid(&self) -> bool {
@@ -4334,12 +4342,31 @@ fn initial_probe_contributions(
     scene: &TransportScene,
     position: [f32; 3],
     attenuation: [f32; 3],
-    taps: u8,
+    lighting: &ProbeLighting<'_>,
     audit: bool,
-    base: bool,
 ) -> (Accumulator, LightmapTexel, Vec<usize>) {
     let mut combined = Accumulator::default();
-    if !base {
+    let taps = lighting.taps;
+    if !lighting.base {
+        if scene.prepares_switchable_direct() {
+            for slot in lighting.emitters {
+                if let (Some(emitter), Some(prepared)) = (
+                    scene.emitters.get(*slot),
+                    scene.prepared_emitters.get(*slot),
+                ) {
+                    let _sample = emitter.accumulate_direct(
+                        prepared,
+                        scene,
+                        &mut combined,
+                        position,
+                        position,
+                        None,
+                        attenuation,
+                        taps,
+                    );
+                }
+            }
+        }
         return (combined, LightmapTexel::ZERO, Vec::new());
     }
     let _global = scene.accumulate_global(&mut combined, position, None, attenuation, taps);
@@ -4407,14 +4434,8 @@ fn bake_probe(
             }),
         );
     }
-    let (mut accumulator, local_direct, visible_emitters) = initial_probe_contributions(
-        scene,
-        position,
-        attenuation,
-        lighting.taps,
-        audit,
-        lighting.base,
-    );
+    let (mut accumulator, local_direct, visible_emitters) =
+        initial_probe_contributions(scene, position, attenuation, lighting, audit);
     let mut diagnostic =
         audit.then(|| probe_audit::ProbeAudit::new(position, target_room, &accumulator));
     if let Some(chart_diagnostic) = &mut diagnostic {

@@ -3214,6 +3214,114 @@
       0.03252364695072174
     ]
   },
+  "environments/maintenance/props/electrical_panel_body.glb": {
+    "sha256": "5f708395829f9906d8b5989677583a8620c81b3333a12d1d9b47bf4fa4da2c59",
+    "triangles": 1328,
+    "texture_edge": 256,
+    "bounds_min": [
+      -0.28931477665901184,
+      -0.36000001430511475,
+      0
+    ],
+    "bounds_max": [
+      0.2800000011920929,
+      0.36000001430511475,
+      0.17800000309944153
+    ],
+    "identities": [
+      "maintenance:electrical_panel"
+    ]
+  },
+  "environments/maintenance/props/electrical_panel_conduit_clamp.glb": {
+    "sha256": "f663c1b5ca997c7ce1f88d303e07680423485a1bbb116ec74939718f4dcfad30",
+    "triangles": 212,
+    "bounds_min": [
+      -0.19850000739097595,
+      -0.020999999716877937,
+      0.009999997913837433
+    ],
+    "bounds_max": [
+      0.19850000739097595,
+      0.020999999716877937,
+      0.0950000062584877
+    ],
+    "texture_edge": 256,
+    "identities": [
+      "maintenance:electrical_panel_conduit_clamp"
+    ]
+  },
+  "environments/maintenance/props/electrical_panel_conduit_collars.glb": {
+    "sha256": "9f1cb0083d1f2e3808a8ee14c7af06a125d0ee2518b8b60698a6b8a0242cff80",
+    "triangles": 224,
+    "bounds_min": [
+      -0.19098076224327087,
+      -0.014499999582767487,
+      0.03800000250339508
+    ],
+    "bounds_max": [
+      0.19098077714443207,
+      0.022999998182058334,
+      0.09800000488758087
+    ],
+    "texture_edge": 256,
+    "identities": [
+      "maintenance:electrical_panel_conduit_collars"
+    ]
+  },
+  "environments/maintenance/props/electrical_panel_conduits.glb": {
+    "sha256": "58e63175b66d6a1671f10fe9bf50444d9f7b8be02ccaef48c67349d55a3af7be",
+    "triangles": 144,
+    "bounds_min": [
+      -0.18497219681739807,
+      0,
+      0.04500000178813934
+    ],
+    "bounds_max": [
+      0.18687431514263153,
+      1,
+      0.09100000560283661
+    ],
+    "texture_edge": 256,
+    "identities": [
+      "maintenance:electrical_panel_conduits"
+    ]
+  },
+  "environments/maintenance/props/electrical_panel_door.glb": {
+    "sha256": "09d82e2bde37cae3078d720444fbd7403a96f9dd818f9a6152ef24c87d7f3c0b",
+    "triangles": 336,
+    "texture_edge": 256,
+    "bounds_min": [
+      -0.01141268014907837,
+      -0.3479999899864197,
+      -0.01399999763816595
+    ],
+    "bounds_max": [
+      0.5479999780654907,
+      0.3479999899864197,
+      0.04699999839067459
+    ],
+    "identities": [
+      "maintenance:electrical_panel_door"
+    ]
+  },
+  "environments/maintenance/props/electrical_panel_lever.glb": {
+    "sha256": "3b109fbfaffad60d10c8c08c9fb675c464e8fe03075fb58f882b72471c33c66e",
+    "triangles": 124,
+    "texture_edge": 256,
+    "bounds_min": [
+      -0.03500000014901161,
+      -0.019972188398241997,
+      -0.020999999716877937
+    ],
+    "bounds_max": [
+      0.03500000014901161,
+      0.019972188398241997,
+      0.06350000202655792
+    ],
+    "identities": [
+      "maintenance:electrical_panel_lever"
+    ]
+  },
   "environments/maintenance/props/warm_bulkhead.glb": {
     "sha256": "880574796ef72e44a281fafd43be7d551c0124b7d6265bc1dec4945814960b4b",
     "triangles": 1260,

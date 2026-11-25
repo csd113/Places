@@ -911,6 +911,7 @@ pub struct WgpuRenderer {
     elevator_models: Vec<Option<crate::engine::render::common::elevators::Models>>,
     elevator_lights: crate::engine::render::common::DynamicLightSet,
     elevator_objects: Vec<Vec<DynamicId>>,
+    electrical_panel_draws: crate::engine::render::common::electrical_panels::Draws,
     /// Every switchable fixture's runtime bindings: the baked light it drives
     /// and the material slot of its luminous face.
     switchable_lights: Vec<SwitchableLight>,
@@ -1389,6 +1390,8 @@ impl WgpuRenderer {
             elevator_models: Vec::new(),
             elevator_lights: crate::engine::render::common::DynamicLightSet::new(),
             elevator_objects: Vec::new(),
+            electrical_panel_draws:
+                crate::engine::render::common::electrical_panels::Draws::default(),
             switchable_lights: Vec::new(),
             prop_light_bindings: Vec::new(),
             lightmap_cpu: None,
@@ -2498,6 +2501,7 @@ impl WgpuRenderer {
         self.prop_assets = crate::engine::props::PropAssets::load_default();
         self.runtime_objects.clear();
         self.elevator_models.clear();
+        self.electrical_panel_draws.clear();
         self.elevator_lights = crate::engine::render::common::DynamicLightSet::new();
         self.elevator_objects.clear();
         self.door_sources.clear();
@@ -2565,6 +2569,7 @@ impl WgpuRenderer {
             return 0;
         }
         self.dynamic.clear_all();
+        self.electrical_panel_draws.clear();
         // The wipe removed every runtime-spawned object with the scene; their
         // keys must not resolve to a new object later.
         self.runtime_objects.clear();
@@ -2807,6 +2812,17 @@ impl WgpuRenderer {
         if !elevators.is_empty() && (spawned || self.world_dynamic.is_none()) {
             // Publish actual receiver samples before the first upload, avoiding
             // a one-frame ambient flash on new/arriving closed doors.
+            let _update = self.refresh_dynamic_lighting(0.0);
+            self.upload_dynamic();
+        }
+    }
+
+    /// Keep both moving parts on the gameplay cabinet's independent hinge poses.
+    pub fn sync_electrical_panels(&mut self, panels: &[crate::engine::electrical_panel::Panel]) {
+        if self
+            .electrical_panel_draws
+            .sync(&mut self.dynamic, &mut self.prop_assets, panels)
+        {
             let _update = self.refresh_dynamic_lighting(0.0);
             self.upload_dynamic();
         }
@@ -5013,6 +5029,10 @@ impl WgpuRenderer {
                 .map(crate::engine::elevator::Elevator::new)
                 .collect();
             self.sync_elevators(&elevators);
+            self.electrical_panel_draws.clear();
+            self.sync_electrical_panels(&crate::engine::electrical_panel::Panel::resolve(
+                &loaded.level,
+            ));
         }
         let _update_stats = self.refresh_dynamic_lighting(0.0);
         if let Some(lighting) = self.dynamic_lighting.as_ref() {

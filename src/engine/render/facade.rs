@@ -624,6 +624,9 @@ impl Renderer {
     pub fn sync_elevators(&mut self, elevators: &[crate::engine::elevator::Elevator]) {
         self.renderer.sync_elevators(elevators);
     }
+    pub fn sync_electrical_panels(&mut self, panels: &[crate::engine::electrical_panel::Panel]) {
+        self.renderer.sync_electrical_panels(panels);
+    }
     pub fn freeze_transition(&mut self) {
         self.renderer.freeze_transition();
     }

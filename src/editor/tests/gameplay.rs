@@ -44,6 +44,180 @@ impl Drop for Fixture {
     }
 }
 
+// A tiny wall and dummy fixture records protect the Basic wall candidate and
+// the master-circuit limit, without baking a shipped map or making GPU calls.
+#[test]
+fn electrical_panel_basic_wall_mount_and_full_circuit_roundtrip() -> Result<(), String> {
+    use crate::editor::electrical_panel::fit_candidate;
+    use glam::Vec3;
+
+    let lights: Vec<_> = (0..27_u16).map(|i| {
+        json!({"id":format!("fixture_{i}"),"fixture":"core:fluorescent_panel_01","x":2_u32,"z":3_u32})
+    }).collect();
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Basic cabinet",
+        "spawn":{"x":1_u32,"z":3_u32},"rooms":[{"width":8_u32,"depth":8_u32,"height":3_u32}],
+        "walls":[{"x":1_u32,"y":0_u32,"z":1_u32,"width":6_u32,"depth":0.2_f32}],
+        "ceiling_lights": lights
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let before = doc.raw().clone();
+    let ray = (Vec3::new(2.0, 1.5, 2.0), Vec3::NEG_Z);
+    let (raw, id) = fit_candidate(&doc, 0, ray, None)?;
+    assert_eq!(id, ObjectId::Prop(0), "one authored cabinet");
+    doc.apply_authoring_edit(&before, raw)?;
+    assert!(
+        fit_candidate(&doc, 0, ray, None).is_err(),
+        "a second box cannot overlap"
+    );
+    let before_wire = doc.raw().clone();
+    doc.assign_circuit(&(0..lights.len()).collect::<Vec<_>>(), 0)?;
+    assert!(
+        doc.level().requires_full_lighting,
+        "a master circuit needs Full"
+    );
+    let cabinet = doc.level().props.first().ok_or("missing cabinet")?;
+    let group = cabinet.light_switch.as_deref().ok_or("missing circuit")?;
+    assert!(
+        cabinet.electrical_panel.is_some() && (cabinet.z - 1.202).abs() < 0.0001,
+        "the body sits on the selected wall face"
+    );
+    assert!(
+        doc.level().ceiling_lights.iter().all(|light| {
+            light.enabled && light.switchable && light.switch_group.as_deref() == Some(group)
+        }),
+        "all fixture contributions start on in the same circuit"
+    );
+    assert!(doc.undo(), "wiring is one undo");
+    assert_eq!(
+        doc.raw(),
+        &before_wire,
+        "the cabinet stays in place when undoing wiring"
+    );
+    assert!(doc.redo(), "redo puts all fixtures back on the circuit");
+    let mut pose = doc.transform(id)?;
+    pose.position[0] += 0.3;
+    pose.position[1] += 0.15;
+    doc.set_transform(id, pose)?;
+    let support = doc.raw().clone();
+    let mut detached = pose;
+    detached.position[2] += 0.04;
+    assert!(
+        doc.set_transform(id, detached).is_err(),
+        "numeric moves cannot detach the cabinet"
+    );
+    let mut reversed = pose;
+    reversed.yaw_degrees = 180.0;
+    assert!(
+        doc.preview_transform(id, reversed).is_err(),
+        "cabinet cannot face into its wall"
+    );
+    assert_eq!(
+        doc.raw(),
+        &support,
+        "invalid edits leave the supported pose"
+    );
+    doc.save()?;
+    let reopened = Document::open(&fixture.0)?;
+    assert_eq!(
+        reopened.raw(),
+        doc.raw(),
+        "panel and fixture wiring reopen exactly"
+    );
+    let semantics = crate::engine::canonical_json::canonical_json_bytes(reopened.level())?;
+    let exported = crate::engine::package::semantics::parse(
+        std::str::from_utf8(&semantics).map_err(|error| error.to_string())?,
+    )?;
+    assert!(
+        crate::engine::electrical_panel::present(&exported),
+        "the compiler receives the same typed panel and references"
+    );
+    Ok(())
+}
+
+// Selecting every fixture must fail atomically when that would take control
+// from another switch, an isolated trigger fixture, or an initially off light.
+#[test]
+fn electrical_panel_assignment_refuses_existing_controls_without_rewriting_them()
+-> Result<(), String> {
+    use crate::editor::document::flicker::Flicker;
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Separate circuits",
+        "spawn":{"x":2_u32,"z":3_u32},"requires_full_lighting":true,
+        "rooms":[{"width":8_u32,"depth":8_u32,"height":3_u32}],
+        "walls":[{"x":0_u32,"z":1_u32,"width":8_u32,"depth":0.2_f32,"height":3_u32}],
+        "props":[
+            {"id":"panel","model":"maintenance:electrical_panel","solid":true,"x":2_u32,"y":1.5_f32,"z":1.202_f32,
+             "electrical_panel":{},"components":[{"component":"interactable"}],
+             "bindings":[{"on":"interact","actions":[{"action":"show_message","title":"Power","lines":["Lever moved"]}]}]},
+            {"id":"other","model":"home:wall_switch","x":5_u32,"z":2_u32,"light_switch":"existing",
+             "components":[{"component":"interactable"}],"bindings":[{"on":"interact","actions":[{"action":"set_light","target":"local","on":false}]}]}
+        ],
+        "ceiling_lights":[
+            {"id":"fresh","fixture":"core:fluorescent_panel_01","x":1_u32,"z":2_u32},
+            {"id":"local","fixture":"core:fluorescent_panel_01","x":2_u32,"z":2_u32,"switch_group":"existing","switchable":true},
+            {"id":"isolated","fixture":"core:fluorescent_panel_01","x":3_u32,"z":2_u32,"switchable":true},
+            {"id":"initially_off","fixture":"core:fluorescent_panel_01","x":4_u32,"z":2_u32,"enabled":false}
+        ]
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let before = doc.raw().clone();
+    for (selected, reason) in [(1, "already belongs"), (2, "individual"), (3, "starts off")] {
+        assert!(
+            doc.assign_circuit(&[0, selected], 0)
+                .is_err_and(|error| error.contains(reason)),
+            "one conflicting fixture refuses the entire assignment"
+        );
+        assert_eq!(
+            doc.raw(),
+            &before,
+            "no switch, binding, or initialization was rewritten"
+        );
+    }
+    doc.assign_circuit(&[0], 0)?;
+    for field in [
+        "/props/0/bindings",
+        "/props/1",
+        "/ceiling_lights/1",
+        "/ceiling_lights/2",
+        "/ceiling_lights/3",
+    ] {
+        assert_eq!(
+            doc.raw().pointer(field),
+            before.pointer(field),
+            "only the fresh fixture changed"
+        );
+    }
+    let assigned = doc.raw().clone();
+    assert!(
+        doc.apply_flicker(
+            ObjectId::Light(0),
+            &Flicker {
+                enabled: true,
+                ..Flicker::default()
+            },
+            false
+        )
+        .is_err(),
+        "panel lights cannot acquire a per-fixture flicker action"
+    );
+    assert!(
+        doc.assign_circuit(&[0], 1).is_err(),
+        "ordinary switch cannot steal a panel fixture"
+    );
+    assert_eq!(doc.raw(), &assigned, "attempted transfers are atomic");
+    doc.unlink_circuit(&[0])?;
+    assert!(
+        !doc.level()
+            .ceiling_lights
+            .first()
+            .ok_or("fixture")?
+            .switchable,
+        "explicit unlink restores unswitched illumination"
+    );
+    Ok(())
+}
+
 // The same small scene checks both real storeys, a gap narrower than the
 // old runtime rail sampling, and the editor's single save/history edit.
 #[test]

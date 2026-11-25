@@ -518,6 +518,10 @@ impl App {
     }
 
     fn choose_prop_model(&mut self, id: String) -> Result<(), String> {
+        if id == crate::engine::electrical_panel::MODEL {
+            self.prop = id;
+            return self.start_electrical_panel();
+        }
         if id == crate::engine::escalator::MODEL {
             self.prop = id;
             return self.start_escalator(false);
@@ -672,6 +676,9 @@ impl App {
     }
 
     fn add_safely(&mut self, kind: ObjectKind) -> Result<(), String> {
+        if kind == ObjectKind::Prop && self.prop == crate::engine::electrical_panel::MODEL {
+            return self.start_electrical_panel();
+        }
         if kind == ObjectKind::Prop && self.prop == crate::engine::escalator::MODEL {
             return self.start_escalator(false);
         }

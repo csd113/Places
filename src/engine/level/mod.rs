@@ -6662,6 +6662,9 @@ pub struct PropDef {
     /// Explicitly install the physical tread lane on a compatible placed rig.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub escalator: Option<crate::engine::escalator::Definition>,
+    /// Fixed electrical cabinet with an independently hinged door and switch.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub electrical_panel: Option<crate::engine::electrical_panel::Definition>,
     /// Opt-in rigid-body settings. Omitted keeps the legacy static placement,
     /// even if the catalog declares a developer-spawned item profile.
     #[serde(default, skip_serializing_if = "Option::is_none")]
@@ -6922,6 +6925,9 @@ impl PropDef {
     #[must_use]
     pub fn placement_bounds(&self, base_y: f32, size: [f32; 3]) -> crate::engine::spatial::Aabb {
         let transform = self.placement_matrix(base_y);
+        if self.electrical_panel.is_some() {
+            return crate::engine::electrical_panel::body_bounds(transform);
+        }
         let mut bounds = crate::engine::spatial::Aabb::EMPTY;
         for x in [-size[0] * 0.5, size[0] * 0.5] {
             for y in [0.0, size[1]] {

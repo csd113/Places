@@ -217,6 +217,16 @@ pub struct Interactables {
 }
 
 impl Interactables {
+    pub(crate) fn publish_control(&mut self, control: Interactable) {
+        if let Some(index) = self.index_of(&control.id)
+            && let Some(current) = self.items.get_mut(index)
+        {
+            *current = control;
+        } else {
+            self.items.push(control);
+        }
+    }
+
     /// A controller may temporarily suppress a retained interaction while its
     /// physical owner waits for safe activation. The authored flag stays intact.
     pub(crate) fn set_controller_enabled(&mut self, id: &str, enabled: bool) {

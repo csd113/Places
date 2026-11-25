@@ -142,6 +142,12 @@ impl Document {
         } else {
             Vec::new()
         };
+        if members.iter().any(|index| self.panel_owns_fixture(*index)) {
+            return Err(
+                "This fixture belongs to an electrical panel. Unlink it before adding flicker."
+                    .into(),
+            );
+        }
         for member in &members {
             if self
                 .flicker_owner(ObjectId::Light(*member))?

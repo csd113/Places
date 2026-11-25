@@ -565,7 +565,7 @@ fn runtime_entity_light_ids(
             count = count.saturating_add(1);
         }
     }
-    if let Some(transport) = scene {
+    if let Some(transport) = scene.filter(|transport| !transport.prepares_switchable_direct()) {
         for index in transport
             .emitters()
             .iter()

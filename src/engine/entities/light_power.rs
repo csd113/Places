@@ -14,6 +14,7 @@ pub(super) struct CircuitPower {
     pub power: Power,
     pub requested: bool,
     pub authored: bool,
+    panel_owned: bool,
 }
 
 impl EntityWorld {
@@ -60,8 +61,15 @@ impl EntityWorld {
                 },
                 requested: authored,
                 authored,
+                panel_owned: crate::engine::electrical_panel::owns_circuit(level, Some(name)),
             });
         }
+    }
+
+    pub(super) fn panel_owns_light(&self, handle: EntityHandle) -> bool {
+        self.circuit_power
+            .iter()
+            .any(|circuit| circuit.panel_owned && circuit.members.contains(&handle))
     }
 
     pub(super) fn request_circuit_light(&mut self, handle: EntityHandle, on: bool) -> bool {
@@ -76,7 +84,11 @@ impl EntityWorld {
         matches!(circuit.power, Power::On) && on
     }
 
-    pub(super) fn toggle_circuit_power(&mut self, handle: EntityHandle) -> bool {
+    pub(super) fn interact_circuit_power(
+        &mut self,
+        handle: EntityHandle,
+        set: Option<bool>,
+    ) -> bool {
         let Some(circuit) = self
             .circuit_power
             .iter_mut()
@@ -84,13 +96,13 @@ impl EntityWorld {
         else {
             return false;
         };
-        circuit.power = match circuit.power {
-            Power::InitiallyOff => {
+        circuit.power = match (set, circuit.power) {
+            (None | Some(true), Power::InitiallyOff) => {
                 circuit.requested = true;
                 Power::On
             }
-            Power::Off => Power::On,
-            Power::On => Power::Off,
+            (Some(true), Power::Off | Power::On) | (None, Power::Off) => Power::On,
+            (Some(false), _) | (None, Power::On) => Power::Off,
         };
         let on = matches!(circuit.power, Power::On) && circuit.requested;
         let members = circuit.members.clone();

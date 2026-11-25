@@ -391,13 +391,19 @@ pub(super) fn validate_instance_ids(level: &LevelDef) -> Result<LevelIndex<'_>, 
         validate_components(&context, &door.components, &mut facts)?;
         drop(index.entities.insert(id.clone(), facts));
     }
+    let panel_circuits: std::collections::BTreeSet<_> =
+        crate::engine::electrical_panel::circuit_names(level).collect();
     for (i, fixture) in level.ceiling_lights.iter().enumerate() {
         let Some(id) = light_ids.get(i) else {
             continue;
         };
         let mut facts = EntityFacts::of("ceiling light");
         facts.is_light_fixture = true;
-        facts.light_switchable = fixture.switchable;
+        facts.light_switchable = fixture.switchable
+            && !fixture
+                .switch_group
+                .as_deref()
+                .is_some_and(|group| panel_circuits.contains(group));
         drop(index.entities.insert(id.clone(), facts));
     }
     for (i, _volume) in level.volumes.iter().enumerate() {

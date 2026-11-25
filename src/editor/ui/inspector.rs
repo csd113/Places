@@ -236,12 +236,11 @@ fn object_essentials(
                     editable,
                 );
             }
-            row_button(
+            prop_mount_control(
                 vertices,
                 hits,
                 top,
-                "Mount to surface",
-                Action::MountSurface,
+                selected_prop.is_some_and(|prop| prop.electrical_panel.is_some()),
                 editable,
             );
         }
@@ -257,6 +256,34 @@ fn object_essentials(
         | ObjectId::FogRegion(_)
         | ObjectId::GroundFog(_)
         | ObjectId::SpawnPoint(_) => {}
+    }
+}
+
+fn prop_mount_control(
+    vertices: &mut Vec<Vertex>,
+    hits: &mut Vec<Hit>,
+    top: &mut f32,
+    panel: bool,
+    editable: bool,
+) {
+    let (label, action) = if panel {
+        (
+            "Wire lighting >",
+            Action::Lighting(crate::editor::lighting::Command::Open),
+        )
+    } else {
+        ("Mount to surface", Action::MountSurface)
+    };
+    row_button(vertices, hits, top, label, action, editable);
+    if panel {
+        row_button(
+            vertices,
+            hits,
+            top,
+            "Lever actions >",
+            Action::Components(4),
+            editable,
+        );
     }
 }
 

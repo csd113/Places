@@ -11,6 +11,7 @@ use crate::engine::render::Vertex;
 pub(super) enum Command {
     Open,
     Fixture(usize),
+    AllFixtures,
     Switch(usize),
     Page(bool),
     Apply,
@@ -37,13 +38,13 @@ impl App {
         let Action::Lighting(command) = action else {
             return Ok(false);
         };
-        if command == Command::Open {
-            self.open_lighting()?;
-            return Ok(true);
-        }
         match command {
-            Command::Open => {}
+            Command::Open => self.open_lighting()?,
             Command::Fixture(index) => self.toggle_circuit_fixture(index),
+            Command::AllFixtures => {
+                let doc = self.document.as_ref().ok_or("Open a project first")?;
+                self.lighting.fixtures = (0..doc.level().ceiling_lights.len()).collect();
+            }
             Command::Switch(index) => self.lighting.switch = Some(index),
             Command::Page(next) => {
                 self.lighting.page = if next {
@@ -258,17 +259,23 @@ pub(super) fn toolbar(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     }
 }
 
+fn selection_prompt(app: &App) -> &'static str {
+    if app
+        .lighting
+        .switch
+        .and_then(|index| app.document.as_ref()?.level().props.get(index))
+        .is_some_and(|prop| prop.electrical_panel.is_some())
+    {
+        "Panel: select unlinked, initially on fixtures."
+    } else {
+        "Select fixtures, choose a fixed prop switch, Apply."
+    }
+}
+
 pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     ui::rect(v, [112.0, 40.0, 364.0, 178.0], [0.07, 0.10, 0.13, 1.0]);
     ui::text(v, "LIGHT CIRCUITS", 120.0, 47.0, ui::INK, 60);
-    ui::text(
-        v,
-        "Select fixtures, choose a fixed prop switch, Apply.",
-        120.0,
-        58.0,
-        ui::MUTED,
-        80,
-    );
+    ui::text(v, selection_prompt(app), 120.0, 58.0, ui::MUTED, 80);
     let Some(doc) = &app.document else {
         return;
     };
@@ -295,6 +302,12 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
         ),
         (250.0, "Paint", Command::Paint, true),
         (315.0, "New switch", Command::NewSwitch, true),
+        (
+            380.0,
+            "All fixtures",
+            Command::AllFixtures,
+            !doc.level().ceiling_lights.is_empty(),
+        ),
     ] {
         ui::button(
             v,

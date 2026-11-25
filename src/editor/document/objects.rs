@@ -899,7 +899,7 @@ pub(in crate::editor) fn array_mut<'a>(
 
 /// Install an exact built-in mechanism on a new, passive placement. An active
 /// prop must not silently lose its authored locks, bindings or custom state.
-pub(super) fn apply_mechanism_preset(
+pub(in crate::editor) fn apply_mechanism_preset(
     raw: &mut Value,
     id: ObjectId,
     model: &str,
@@ -920,7 +920,7 @@ pub(super) fn apply_mechanism_preset(
             }]
         }))
     } else {
-        crate::engine::animated_door::preset(model)
+        panel_preset(model).or_else(|| crate::engine::animated_door::preset(model))
     };
     let Some(preset) = candidate else {
         return Ok(());
@@ -928,6 +928,7 @@ pub(super) fn apply_mechanism_preset(
     let object = object_mut(raw, id)?;
     if object.get("animated_door").is_some()
         || object.get("escalator").is_some_and(Value::is_object)
+        || object.get("electrical_panel").is_some_and(Value::is_object)
         || ["components", "bindings"].iter().any(|key| {
             object
                 .get(*key)
@@ -942,6 +943,7 @@ pub(super) fn apply_mechanism_preset(
     for key in [
         "animated_door",
         "escalator",
+        "electrical_panel",
         "components",
         "bindings",
         "display_name",
@@ -954,4 +956,18 @@ pub(super) fn apply_mechanism_preset(
         }
     }
     Ok(())
+}
+
+fn panel_preset(model: &str) -> Option<Value> {
+    (model == crate::engine::electrical_panel::MODEL).then(|| {
+        serde_json::json!({
+            "display_name": "Electrical Panel",
+            "electrical_panel": {},
+            "solid": true,
+            "size": crate::engine::electrical_panel::SIZE,
+            "components": [
+                { "component": "interactable", "reach": 1.8_f32, "prompt": "Toggle panel lever" }
+            ]
+        })
+    })
 }

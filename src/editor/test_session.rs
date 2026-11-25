@@ -279,6 +279,7 @@ impl Session {
         }
         renderer.sync_doors(self.game.doors());
         renderer.sync_elevators(self.game.entities().elevators());
+        renderer.sync_electrical_panels(self.game.entities().electrical_panels());
         let toggles = self.game.take_light_toggles();
         renderer.apply_light_toggles(&toggles);
         self.audio.light_toggles(&toggles);

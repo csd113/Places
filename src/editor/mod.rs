@@ -13,6 +13,7 @@ mod construction;
 pub mod document;
 mod dragging;
 mod ducts;
+mod electrical_panel;
 mod elevators;
 mod escalators;
 mod flicker;

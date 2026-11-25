@@ -32,6 +32,7 @@ pub mod checkpoint;
 pub mod cinematics;
 pub mod components;
 pub mod developer;
+mod electrical_panels;
 mod elevators;
 pub mod encounter;
 mod environment_flags;
@@ -630,6 +631,7 @@ impl Default for EntityWorld {
 #[derive(Default)]
 struct FixedMechanisms {
     animated_doors: Vec<crate::engine::animated_door::AnimatedDoor>,
+    electrical_panels: Vec<crate::engine::electrical_panel::Panel>,
     escalators: Vec<crate::engine::escalator::Escalator>,
     escalator_slots: std::collections::BTreeMap<String, usize>,
     escalator_frame_start: usize,
@@ -764,6 +766,8 @@ impl EntityWorld {
     }
 
     fn resolve_posed_actors(&mut self, level: &LevelDef) {
+        self.fixed_mechanisms.electrical_panels =
+            crate::engine::electrical_panel::Panel::resolve(level);
         self.fixed_mechanisms.escalators = crate::engine::escalator::Escalator::resolve(
             level,
             &crate::engine::level::LevelSurfaces::new(level),
@@ -991,6 +995,9 @@ impl EntityWorld {
         self.reset_elevators();
         for door in &mut self.fixed_mechanisms.animated_doors {
             door.reset();
+        }
+        for panel in &mut self.fixed_mechanisms.electrical_panels {
+            panel.reset();
         }
         for escalator in &mut self.fixed_mechanisms.escalators {
             escalator.reset();
@@ -1910,6 +1917,9 @@ impl EntityWorld {
         let surfaces = LevelSurfaces::new(level);
         let mut items: Vec<Interactable> = Vec::new();
         for (index, prop) in level.props.iter().enumerate() {
+            if prop.electrical_panel.is_some() {
+                continue;
+            }
             let Some(id) = ids.get(index).map(String::as_str) else {
                 continue;
             };
@@ -2088,6 +2098,7 @@ impl EntityWorld {
         self.sync_elevator_controls();
         self.sync_animated_door_interactables();
         self.refresh_guest_colliders();
+        self.sync_panel_controls();
     }
 
     fn rebuild_door_colliders(&mut self) {
@@ -2103,9 +2114,16 @@ impl EntityWorld {
                 .iter()
                 .flat_map(crate::engine::elevator::Elevator::colliders),
         );
+        self.door_colliders.extend(
+            self.fixed_mechanisms
+                .electrical_panels
+                .iter()
+                .map(crate::engine::electrical_panel::Panel::leaf),
+        );
         self.guest_collider_start = self.door_colliders.len();
         self.refresh_guest_colliders();
         self.sync_animated_door_interactables();
+        self.sync_panel_controls();
     }
 
     fn refresh_guest_colliders(&mut self) {
@@ -2606,6 +2624,17 @@ impl EntityWorld {
         if let Some(report) = self.dispatch_elevator(&id, origin) {
             return Some(report);
         }
+        let panel_power = match self.begin_panel_use(&id) {
+            electrical_panels::PanelUse::Other => None,
+            electrical_panels::PanelUse::Unavailable => return None,
+            electrical_panels::PanelUse::Door => {
+                return Some(DispatchReport {
+                    actions_run: 1,
+                    ..DispatchReport::default()
+                });
+            }
+            electrical_panels::PanelUse::Lever(power) => Some(power),
+        };
         let handle = self.handle_of(&id)?;
         let position = self
             .components
@@ -2613,12 +2642,14 @@ impl EntityWorld {
             .get(handle)
             .map_or(Vec3::ZERO, |transform| transform.position);
         self.note_stimulus(position, 8.0, "interact", Some(handle));
-        let powered = self.toggle_circuit_power(handle);
+        let powered = self.interact_circuit_power(handle, panel_power);
         let _event_queued = self.events.push(EventRecord {
             generation: self.generation,
             kind: EventKind::Interact,
             subject: handle,
-            key: String::new(),
+            key: panel_power
+                .map_or("", |on| if on { "on" } else { "off" })
+                .into(),
             actor: Some(crate::engine::ai::PLAYER_TARGET_HANDLE),
             origin: origin.filter(|point| point.is_finite()),
             depth: 0,
@@ -3597,6 +3628,9 @@ impl EntityWorld {
         let Some(handle) = self.handle_of(id) else {
             return LightOutcome::NotALight;
         };
+        if self.panel_owns_light(handle) {
+            return LightOutcome::NotSwitchable;
+        }
         match self.components.lights.get(handle) {
             Some(light) if light.switchable => {}
             Some(_) => return LightOutcome::NotSwitchable,
@@ -3611,6 +3645,9 @@ impl EntityWorld {
 
     /// Sets one light component, marking it dirty on a real change.
     fn set_light(&mut self, handle: EntityHandle, on: bool, depth: u8) -> bool {
+        if self.panel_owns_light(handle) {
+            return false;
+        }
         let effective = self.request_circuit_light(handle, on);
         let members = self
             .light_circuits
@@ -5198,12 +5235,14 @@ impl EntityWorld {
 
     /// Advances every moving door and republishes its collider and aim bound.
     pub fn update_doors(&mut self, ctx: &WorldContext<'_>) -> usize {
+        let panels_moved = self.advance_panels(ctx);
         if !self.doors.any_moving()
             && !self
                 .fixed_mechanisms
                 .animated_doors
                 .iter()
                 .any(crate::engine::animated_door::AnimatedDoor::is_moving)
+            && panels_moved == 0
         {
             return 0;
         }
@@ -5287,6 +5326,7 @@ impl EntityWorld {
                 self.doors.notify_clearance_changed();
             }
         }
+        moved = moved.saturating_add(panels_moved);
         if moved > 0 {
             self.rebuild_door_colliders();
             self.sync_door_interactables();
@@ -5849,6 +5889,10 @@ impl EntityWorld {
             if item.door_index.is_some()
                 || self.physics_actors.contains_key(&item.id)
                 || self.fixed_mechanisms.escalator_slots.contains_key(&item.id)
+                || self
+                    .electrical_panels()
+                    .iter()
+                    .any(|panel| panel.id == item.id)
             {
                 continue;
             }

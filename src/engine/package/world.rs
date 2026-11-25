@@ -335,6 +335,17 @@ pub(crate) fn validate_semantics_for_project(
         }
     }
     crate::engine::loader::validate_level(level)?;
+    if crate::engine::electrical_panel::present(level) {
+        for path in crate::engine::electrical_panel::asset_paths() {
+            if !manifest.dependencies.iter().any(|asset| {
+                asset.kind == super::manifest::DependencyKind::Model && asset.path == path
+            }) {
+                return Err(format!(
+                    "Electrical panel package is missing model dependency '{path}'"
+                ));
+            }
+        }
+    }
     if (level.saving || crate::engine::loader::validation_has_checkpoints(level))
         && !manifest
             .required_capabilities
@@ -1452,6 +1463,10 @@ fn requires_compound_door_actions(level: &LevelDef) -> bool {
 
 fn validate_required_capabilities(level: &LevelDef, manifest: &Manifest) -> Result<(), String> {
     for (required, capability) in [
+        (
+            crate::engine::electrical_panel::present(level),
+            crate::engine::electrical_panel::CAPABILITY,
+        ),
         (level.tools.crowbar, "player-tools-v1"),
         (
             level.requires_entity_health_rules(),

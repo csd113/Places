@@ -25,6 +25,7 @@ pub(super) enum Tool {
     Door,
     Light,
     WallSign,
+    ElectricalPanel,
 }
 impl Tool {
     const fn hint(self) -> &'static str {
@@ -37,6 +38,9 @@ impl Tool {
             Self::Doorway => "Click a wall: makes an opening only. Esc cancels.",
             Self::Door => "Click a wall or doorway: fits an interactive door. Esc cancels.",
             Self::WallSign => "Click a wall face to place the sign. Escape cancels.",
+            Self::ElectricalPanel => {
+                "Click a solid wall to mount the electrical panel. Esc cancels."
+            }
             Self::Light => "Click a room floor: light mounts to its ceiling. Esc cancels.",
         }
     }
@@ -164,11 +168,12 @@ impl App {
             }
             return picked;
         }
-        if self
-            .placement
-            .as_ref()
-            .is_some_and(|p| matches!(p.tool, Tool::Door | Tool::Doorway | Tool::WallSign))
-        {
+        if self.placement.as_ref().is_some_and(|p| {
+            matches!(
+                p.tool,
+                Tool::Door | Tool::Doorway | Tool::WallSign | Tool::ElectricalPanel
+            )
+        }) {
             return Some(self.viewport.target());
         }
         let doc = self.document.as_ref()?;
@@ -228,13 +233,10 @@ impl App {
         let Some(at) = self.placement_position(point) else {
             return;
         };
-        let Some(placement) = self.placement.as_mut() else {
+        let (Some(placement), Some(doc)) = (&mut self.placement, &self.document) else {
             return;
         };
         let (tool, start_point) = (placement.tool, placement.start);
-        let Some(doc) = &self.document else {
-            return;
-        };
         if matches!(tool, Tool::Wall | Tool::Tunnel | Tool::RailPath) && start_point.is_none() {
             self.viewport.highlight(
                 Some(crate::engine::spatial::Aabb {
@@ -285,6 +287,13 @@ impl App {
             ),
             Tool::Light => light_candidate(doc, at),
             Tool::WallSign => self.sign_placement(point),
+            Tool::ElectricalPanel => super::electrical_panel::candidate(
+                doc,
+                &self.viewport,
+                &mut placement.wall_picking,
+                point,
+                self.view.snap.then_some(self.step),
+            ),
         };
         match result {
             Ok((raw, id)) => {
@@ -310,6 +319,8 @@ impl App {
                                 "Wall {:.2}m | click to place | Esc cancels",
                                 start_point.map_or(0.0, |s| (s[0] - at[0]).hypot(s[2] - at[2]))
                             )
+                        } else if tool == Tool::ElectricalPanel {
+                            super::electrical_panel::preview_message(&level, id).into()
                         } else {
                             "Preview ready. Click to place; Esc cancels.".into()
                         };

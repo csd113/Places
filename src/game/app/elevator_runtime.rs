@@ -12,6 +12,8 @@ impl FrameLoop<'_> {
         self.renderer.sync_doors(self.game.doors());
         self.renderer
             .sync_elevators(self.game.entities().elevators());
+        self.renderer
+            .sync_electrical_panels(self.game.entities().electrical_panels());
     }
     pub(super) fn prepare_elevator_arrival(
         &self,

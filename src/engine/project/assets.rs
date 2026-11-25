@@ -66,6 +66,25 @@ impl BuiltinAssetRef {
 /// # Errors
 /// Returns an unknown or incompatible built-in reference before baking.
 pub fn validate_level_assets(level: &LevelDef, catalog: &AssetCatalog) -> Result<(), String> {
+    use crate::engine::electrical_panel as panel;
+    if panel::present(level) {
+        if catalog
+            .placeable(panel::MODEL)
+            .and_then(|entry| entry.model.as_deref())
+            != Some(panel::BODY)
+        {
+            return Err("The electrical panel needs the installed Maintenance cabinet body".into());
+        }
+        for (id, path) in panel::INTERNAL_MODELS {
+            if !catalog.get(id).is_some_and(|entry| {
+                entry.model.as_deref() == Some(path) && entry.asset_type.as_str() == "mechanism"
+            }) {
+                return Err(format!(
+                    "The electrical panel needs the installed model '{id}'"
+                ));
+            }
+        }
+    }
     let mut references = Vec::new();
     // Validate audio-only references without adding/reordering render material slots.
     references.extend(

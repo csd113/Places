@@ -340,6 +340,24 @@ class ShippedLevelTests(unittest.TestCase):
 
 
 class AssetCatalogTests(unittest.TestCase):
+    def test_the_validator_admits_one_full_electrical_panel_circuit(self):
+        public = {"fixture": "core:fluorescent_panel_01", "switchable": True, "switch_group": "main"}
+        service = {**public, "fixture": "maintenance:warm_bulkhead"}
+        panel = {"model": "maintenance:electrical_panel", "electrical_panel": {}, "light_switch": "main"}
+        level = {"requires_full_lighting": True, "props": [panel],
+                 "ceiling_lights": [public] * 23 + [service] * 4}
+        errors = []
+        validate.validate_level_light_source_budget(level, "Mall", errors)
+        self.assertEqual(errors, [])
+        for invalid in (
+            {**level, "requires_full_lighting": False},
+            {**level, "props": [panel, {"model": "home:wall_switch", "light_switch": "main"}]},
+            {**level, "ceiling_lights": [public] * 65},
+        ):
+            errors = []
+            validate.validate_level_light_source_budget(invalid, "Mall", errors)
+            self.assertTrue(any("eight switched light sources" in error for error in errors), errors)
+
     """The asset architecture: identity, classes, themes, entities, resources."""
 
     def test_the_catalog_and_shipped_levels_validate_cleanly(self):

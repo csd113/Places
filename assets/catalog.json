@@ -11077,6 +11077,128 @@
       "description": "Localized cracked formwork with exposed reinforcement. Use sparingly on an otherwise unfinished concrete wall."
     },
     {
+      "id": "maintenance:electrical_panel",
+      "display_name": "Electrical Panel",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/maintenance/props/electrical_panel_body.glb",
+      "size": [
+        0.58,
+        0.72,
+        0.18
+      ],
+      "solid": true,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/maintenance/props/electrical_panel.blend"
+      },
+      "description": "Wall-mounted grey electrical cabinet with a separate hinged door and lever. Place it on a wall and assign its fixtures in Light Circuits.",
+      "category": "Utility",
+      "color": "#72777a"
+    },
+    {
+      "id": "maintenance:electrical_panel_door",
+      "display_name": "Electrical panel door",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "environments/maintenance/props/electrical_panel_door.glb",
+      "size": [
+        0.56,
+        0.696,
+        0.061
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/maintenance/props/electrical_panel.blend"
+      },
+      "description": "Internal part of the Maintenance electrical panel. Placed automatically by the panel assembly."
+    },
+    {
+      "id": "maintenance:electrical_panel_lever",
+      "display_name": "Electrical panel lever",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "environments/maintenance/props/electrical_panel_lever.glb",
+      "size": [
+        0.07,
+        0.04,
+        0.085
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/maintenance/props/electrical_panel.blend"
+      },
+      "description": "Internal part of the Maintenance electrical panel. Placed automatically by the panel assembly."
+    },
+    {
+      "id": "maintenance:electrical_panel_conduits",
+      "display_name": "Electrical panel riser",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "environments/maintenance/props/electrical_panel_conduits.glb",
+      "size": [
+        0.372,
+        1.0,
+        0.046
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/maintenance/props/electrical_panel_conduit_assembly.blend"
+      },
+      "description": "Internal part of the Maintenance electrical panel. Placed automatically by the panel assembly."
+    },
+    {
+      "id": "maintenance:electrical_panel_conduit_collars",
+      "display_name": "Electrical panel conduit collars",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "environments/maintenance/props/electrical_panel_conduit_collars.glb",
+      "size": [
+        0.382,
+        0.0375,
+        0.06
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/maintenance/props/electrical_panel_conduit_assembly.blend"
+      },
+      "description": "Internal part of the Maintenance electrical panel. Placed automatically by the panel assembly."
+    },
+    {
+      "id": "maintenance:electrical_panel_conduit_clamp",
+      "display_name": "Electrical panel conduit clamps",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "mechanism",
+      "source": "file",
+      "model": "environments/maintenance/props/electrical_panel_conduit_clamp.glb",
+      "size": [
+        0.397,
+        0.042,
+        0.085
+      ],
+      "solid": false,
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/maintenance/props/electrical_panel_conduit_assembly.blend"
+      },
+      "description": "Internal part of the Maintenance electrical panel. Placed automatically by the panel assembly."
+    },
+    {
       "id": "janitor:cardboard_supply_box",
       "display_name": "Cardboard Supply Box",
       "asset_class": "environment",

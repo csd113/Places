@@ -7,6 +7,83 @@
 //! publication. Existing package tests do not exercise these solver branches.
 use super::*;
 
+// Distinguishes the 27th fixture from the old eight-source limit. No bake
+// beyond this 2 m CPU fixture, and zero bounces isolate the direct term.
+#[test]
+fn electrical_panel_full_circuit_bakes_every_direct_source_outside_base() -> Result<(), String> {
+    let (_, charts) = fixture()?;
+    let emitters = (0..27_u16)
+        .map(|index| TransportEmitter {
+            position: [0.5, 1.7, 0.8],
+            shape: EmitterShape::Point,
+            color: [1.0; 3],
+            intensity: if index == 26 { 1.0 } else { 0.0 },
+            range: 6.0,
+            falloff: LightFalloff::Smooth,
+            height_factor: 1.0,
+            directional: false,
+            switchable: Some(usize::from(index)),
+        })
+        .collect();
+    let scene = TransportScene::new(Vec::new(), emitters)
+        .ok_or("valid master circuit scene")?
+        .with_switchable_groups(vec![(0, (0..27).collect())]);
+    let solved = scene
+        .solve_with_probes(
+            &charts,
+            SolveOptions {
+                taps_per_axis: 1,
+                bounces: 0,
+                gather_samples: 8,
+                workers: 1,
+            },
+            None,
+            true,
+        )
+        .map_err(|error| error.name().to_string())?;
+    let group = solved
+        .solution
+        .switchable
+        .first()
+        .ok_or("missing prepared circuit atlas")?;
+    assert_eq!(
+        solved.solution.switchable.len(),
+        1,
+        "one control owns all sources, not 27 atlas layers"
+    );
+    assert!(
+        group
+            .1
+            .iter()
+            .flat_map(|chart| &chart.texels)
+            .any(|texel| texel.irradiance[0] > 0.0),
+        "the atlas retains direct lighting even from the last source"
+    );
+    assert!(
+        solved
+            .solution
+            .charts
+            .iter()
+            .flat_map(|chart| &chart.texels)
+            .all(|texel| texel.irradiance.iter().all(|v| v.abs() <= f32::EPSILON)),
+        "with no environment light, the off atlas cannot retain fixture energy"
+    );
+    let mut field = solved.probes.ok_or("missing prepared probes")?;
+    field.assign_rooms(|_| Some(0));
+    let at = [0.5, 1.0, 0.8];
+    let off = field
+        .sample_nonlocal_with_switchable_indirect(at, None, |_| false, |_, _| true)
+        .ok_or("missing off probe")?;
+    let on = field
+        .sample_nonlocal_with_switchable_indirect(at, None, |_| true, |_, _| true)
+        .ok_or("missing on probe")?;
+    assert!(
+        off.irradiance.iter().all(|v| v.abs() <= f32::EPSILON) && on.irradiance[0] > 0.0,
+        "switching removes and restores the direct probe term without live slots"
+    );
+    Ok(())
+}
+
 fn fixture() -> Result<(TransportScene, Vec<(LightmapPatch, Chart)>), String> {
     let quads = [
         [
