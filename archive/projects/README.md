@@ -18,10 +18,15 @@ files changed after archival.
 | After Hours - Rooms Beyond | [untitled-1792640069720/](untitled-1792640069720/) | `projects/untitled-1792640069720` |
 | Relay Annex | [relay-annex/](relay-annex/) | `projects/relay-annex` |
 | The Backrooms | [backrooms/](backrooms/) | `projects/backrooms` |
+| Utility and HVAC Kit Showcase | [hvac-utility-showcase/](hvac-utility-showcase/) | `tools/props/backrooms_phase6/showcase` |
 
 The Backrooms moved into the archive during 0.14.0 development. Its shared
 environment assets remain available. Beam, The Long Way Home, the nine-map Quiet
 Collection, the bundled menu and development controls remain in `projects/`.
+
+The Utility and HVAC Kit Showcase preserves the two source files introduced at
+`978c25fdc7ef2e5d9db67d4e9363db2589a1d926`. Its level remains beside the project
+manifest. The old authoring tools are not archived with it.
 
 ## Dependencies and discovery
 
@@ -33,7 +38,7 @@ manifests. Relay Annex's internal links remain intact. Active project transition
 do not target any archived member.
 
 The archive is tracked source, outside `levels/lineup.txt` and the active
-[`tools/release-projects.json`](../../tools/release-projects.json) allowlist.
+[`release/release-projects.json`](../../release/release-projects.json) allowlist.
 The current release inventory has three packages, 16 maps and 32 Static/Full
 variants.
 The levels ZIP requires exactly that inventory. Desktop packagers also reject
@@ -46,10 +51,11 @@ because it participates in the compiler preparation fingerprint; this archive
 operation does not make prepared active maps stale. No automatic job builds
 these maps.
 
-Project-specific authoring/evidence tools remain in `tools/authoring/`.
-Closing Time's two source-reading tools now use the archive path. Its recipe
-helpers also serve the active Beam and Shadow Gallery tools, so retain them.
-Historical reports and ignored local evidence remain at their original paths.
+The archived editable projects are the preserved source. Prior authoring and
+benchmark scripts are available in history, not needed to reopen these projects.
+
+The Backrooms README preserves historical bootstrap instructions. To edit the
+project, recover a working copy and use the native editor as described below.
 
 ## Recover an editable working copy
 
@@ -74,7 +80,7 @@ with `places-map-compiler import-project PACKAGE --out NEW_FOLDER`.
 
 To return a project to the release rotation, move its complete folder back to
 its former location, remove its `archived_projects` record/exclusion from
-`tools/release-projects.json`, and add an active inventory row. Check the project,
+`release/release-projects.json`, and add an active inventory row. Check the project,
 then explicitly prepare and verify its package with the matching compiler before
 release staging. Changing only a filename does not reactivate archived content.
 
@@ -87,15 +93,15 @@ outside the release inventory and ordinary full-map CI baking.
 | Folder under `projects/` | Current purpose and reference |
 | --- | --- |
 | `celestial-placement` | West/east sun and moon direction/shadow controls; [map guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/MAP_AUTHORING_GUIDE.md), 0.13.0 native acceptance. |
-| `elevator-lab` | Fixed vertical landings, cargo/checkpoint travel and rollback; `tools/bench/elevators.py`, `elevator_motion.py`, `elevator_cargo_fixture.py`. |
-| `elevator-links` | Place/link, same-height and cross-level travel, door safety and NPC/held-item custody; `elevator_links.py`, `elevator_doors.py`, `predator_search.py`, current physics audit. |
-| `janitor-supplies` | Static 15-model preview and portable-physics closet; `tools/authoring/environment_home_pool.py` consumes `janitor_physics.json`. |
+| `elevator-lab` | Fixed vertical landings, cargo/checkpoint travel and rollback. |
+| `elevator-links` | Place/link, same-height and cross-level travel, door safety and NPC/held-item custody. |
+| `janitor-supplies` | Static 15-model preview and portable-physics closet. |
 | `mannequin-appearances` | Five appearance presets, spawn templates, animation and ragdoll comparison; current [map guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/MAP_AUTHORING_GUIDE.md). |
 | `mannequin-r2-review` | Ordered 19-clip playback plus door/carry/chair sequences, sockets and locomotion speeds; [asset specification](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/ASSET_SPECIFICATION.md). |
-| `movement-gym` | Stairs, slopes, step thresholds, acceleration and blocked unduck; `places-movement-check` and [map guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/MAP_AUTHORING_GUIDE.md). |
-| `performance-lab` | Bounded contact groups, actor/spawn/lifetime load and repeatable timing views; `tools/bench/performance/`, 0.13.1 acceptance. |
-| `ragdoll-lab` | Wall/stair/prop contacts, eight-ragdoll stress, socket release and lifecycle/reset; `tools/bench/ragdoll.py`, [scripting guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/SCRIPTING.md). |
-| `shadow-only-review` | Hidden/visible placed and spawned shadows, >24 m range, occlusion, mirror and interaction controls; `tools/authoring/shadow_only_native.py`. |
+| `movement-gym` | Stairs, slopes, step thresholds, acceleration and blocked unduck; [map guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/MAP_AUTHORING_GUIDE.md). |
+| `performance-lab` | Bounded contact groups, actor/spawn/lifetime load and repeatable timing views; 0.13.1 acceptance. |
+| `ragdoll-lab` | Wall/stair/prop contacts, eight-ragdoll stress, socket release and lifecycle/reset; [scripting guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/SCRIPTING.md). |
+| `shadow-only-review` | Hidden/visible placed and spawned shadows, >24 m range, occlusion, mirror and interaction controls. |
 
 CI and source tests primarily use the smaller `tests/fixtures/` controls; those
-fixtures, all ten projects, useful tools and their unique evidence are preserved.
+fixtures and all ten projects are outside release discovery.

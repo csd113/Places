@@ -115,22 +115,10 @@ the existing three-floor ramps and paper route. Outdoor booths have full cabin
 depth. The eastern reward-room door, ledger, CLEAR switch and eight favors keep
 their existing behavior. Hints name the elevators.
 
-For explicit acceptance, export only this project with `--variants static`
-(as in `--variants off` above), then run the executable directly:
-
-```sh
-python3 tools/bench/collection_elevators.py --binary target/release/places \
-  --package /absolute/path/environments.placesmap --out local/collection-elevators \
-  --progress partial
-```
-
-This opt-in campaign uses isolated saves, checks all eight round trips, aimed
-controls, closed collision, walking in/out, retained loading frames, native
-audio and saved-favor/reward-lock continuity. `--progress all --only home`
-checks the unlocked reward room; `--only <level>` limits a rerun. It never
-bakes maps or starts a Mac app bundle. Static-only outputs are development
-validation packages; final release exports retain the normal lighting policy.
-
+For explicit acceptance, export this project and start at the Hub in the native
+player with an isolated save. Check each signed bay, the return ride, the retained
+pose and audio, and that favors still unlock the reward room after a restart.
+Use normal Static and Full variants for release.
 
 ## Fixed-cabin rides (collection 1.0.5)
 

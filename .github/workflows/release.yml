@@ -10,9 +10,31 @@ on:
   # Exercise changes to the release machinery without creating a release/tag.
   push:
     branches: [0.14.0-dev, main]
-    paths: ['.github/workflows/release.yml', 'tools/release/**', 'tests/test_hosted_release.py']
+    paths:
+      - '.github/workflows/release.yml'
+      - 'release/**'
+      - 'projects/menu/**'
+      - 'assets/shared/menu/**'
+      - 'docs/EDITOR.md'
+      - 'docs/INSTALLATION.md'
+      - 'tests/release_luau.py'
+      - 'tests/test_hosted_release.py'
+      - 'tests/test_macos_bundle.py'
+      - 'tests/test_packaging.py'
+      - 'tests/test_release_levels.py'
   pull_request:
-    paths: ['.github/workflows/release.yml', 'tools/release/**', 'tests/test_hosted_release.py']
+    paths:
+      - '.github/workflows/release.yml'
+      - 'release/**'
+      - 'projects/menu/**'
+      - 'assets/shared/menu/**'
+      - 'docs/EDITOR.md'
+      - 'docs/INSTALLATION.md'
+      - 'tests/release_luau.py'
+      - 'tests/test_hosted_release.py'
+      - 'tests/test_macos_bundle.py'
+      - 'tests/test_packaging.py'
+      - 'tests/test_release_levels.py'
 
 permissions:
   contents: read
@@ -37,13 +59,15 @@ jobs:
         with:
           persist-credentials: false
       - name: Release safety regression tests
-        run: python3 -m unittest discover -s tests -p test_hosted_release.py -v
+        run: |
+          python3 -m unittest discover -s tests -p test_hosted_release.py -v
+          python3 -m unittest discover -s release/tests -v
       - name: Check version and release tag
         id: identity
         env:
           GH_TOKEN: ${{ github.token }}
           UPLOAD_TO_DRAFT: ${{ github.event_name == 'workflow_dispatch' && inputs.upload_to_draft }}
-        run: python3 tools/release/hosted.py preflight
+        run: python3 release/hosted.py preflight
 
   build:
     needs: preflight
@@ -67,8 +91,9 @@ jobs:
       - name: Verify metadata and release safety on the native host
         shell: bash
         run: |
-          python tools/release/hosted.py preflight
+          python release/hosted.py preflight
           python -m unittest discover -s tests -p test_hosted_release.py -v
+          python -m unittest discover -s release/tests -v
       - name: Install Mac dependencies
         if: runner.os == 'macOS'
         run: |
@@ -77,7 +102,7 @@ jobs:
       - name: Install Windows dependencies
         if: runner.os == 'Windows'
         shell: pwsh
-        run: ./tools/release/windows-deps.ps1
+        run: ./release/windows-deps.ps1
       - name: Select pinned Rust toolchain
         shell: bash
         run: |
@@ -99,7 +124,7 @@ jobs:
         shell: bash
         env:
           RELEASE_PLATFORM: ${{ matrix.platform }}
-        run: python tools/release/hosted.py package
+        run: python release/hosted.py package
       - name: Preserve downloadable packages
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
         with:
@@ -127,4 +152,4 @@ jobs:
       - name: Verify artifacts and add them to the existing draft
         env:
           GH_TOKEN: ${{ github.token }}
-        run: python3 tools/release/hosted.py upload
+        run: python3 release/hosted.py upload

@@ -12,12 +12,10 @@ import itertools
 import json
 from pathlib import Path
 import struct
-import sys
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / "tools/levels"))
-import build_outdoor_fixture as outdoor  # noqa: E402
+FIXTURE = ROOT / "tests/fixtures/levels/outdoor_kit_showcase.json"
 
 # Actual pre-adoption source pieces, in stable authored order. House side
 # walls own the shortened lower terminal strips; they have no openings.
@@ -105,12 +103,7 @@ def same_facing_rectangular_overlaps(boxes):
 
 class OutdoorPerimeterAuthoringTests(unittest.TestCase):
     def setUp(self):
-        self.level = json.loads(outdoor.OUTPUT_PATH.read_text())
-
-    def test_generator_matches_maintained_source_and_repeats_exactly(self):
-        first = outdoor.render(outdoor.level())
-        self.assertEqual(first, outdoor.OUTPUT_PATH.read_text())
-        self.assertEqual(first, outdoor.render(outdoor.level()))
+        self.level = json.loads(FIXTURE.read_text())
 
     def test_all_six_real_perimeter_pieces_keep_material_height_and_thickness(self):
         pieces = self.level["half_walls"]

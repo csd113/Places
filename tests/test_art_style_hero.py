@@ -8,7 +8,7 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
 SPEC = importlib.util.spec_from_file_location(
-    "hero_capture", ROOT / "tools/bench/capture_art_style_hero.py")
+    "hero_capture", ROOT / "tests/fixtures/native/capture_art_style_hero.py")
 HERO = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(HERO)
 

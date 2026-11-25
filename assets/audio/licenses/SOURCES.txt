@@ -39,7 +39,7 @@ Source is the publicly offered HQ MP3 preview, not the login-only original WAV. 
 Original Places quiet interior ambience (2026-10-25)
 Fluorescent ballast, pool surface/lapping and soft empty-room partials.
 Original offline synthesis, no recordings or third-party music; repository MIT license.
-Recipe: tools/audio/original.py. Runtime loads only the committed WAV files.
+Recipe: assets/references/audio/authoring/original.py. Runtime loads only the committed WAV files.
 
 The intercom of nothingness — GrimmReaperSounds
 https://freesound.org/people/GrimmReaperSounds/sounds/560697/
@@ -51,7 +51,7 @@ the source filename, original hash and processing recipe are retained in the man
 Original Places lonely tonal interiors (2026-11-07)
 Threshold Air, Pale Signal and Below the Landing: original offline single-pitch
 synthesis, seeded air and circular room processing; no recordings or third-party
-music. Repository MIT license. Recipe: tools/audio/tonal.py.
+music. Repository MIT license. Recipe: assets/references/audio/authoring/tonal.py.
 Original 48 kHz PCM24 masters and the unchanged 44.1 kHz Empty Room source are
 preserved under assets/references/audio/tonal_ambient/. Runtime PCM16 formats,
 including the reversible narrow-band Empty Room conversion, are explicitly

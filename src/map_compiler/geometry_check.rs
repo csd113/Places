@@ -11,8 +11,8 @@
 //! ```
 //!
 //! The repair planner is read-only: it shares the exact [`wall_joints`]
-//! classification the checker reports and emits a machine-readable edit plan
-//! for `tools/levels/repair_alignment.py` to apply.
+//! classification the checker reports and emits a machine-readable plan for
+//! reviewing affected walls. Apply authored changes in the editor.
 //!
 //! It builds the level exactly the way the game does — the loader validation,
 //! the level preparation pass (fixture/decal snapping and automatic trim), the

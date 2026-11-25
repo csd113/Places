@@ -2,7 +2,7 @@
 """Source-only platform capability regression.
 
 Native path/first-run/import acceptance is an explicit developer tool:
-    python3 tools/verify-installation.py --help
+    python3 release/verify_installation.py --help
 It must not depend on a shipped demo or launch unisolated games during unittest.
 """
 
@@ -32,7 +32,7 @@ class PlatformCapabilityTests(unittest.TestCase):
         self.assertTrue(display_available("linux", {"WAYLAND_DISPLAY": "wayland-0"}))
 
 
-# Native installation acceptance lives in tools/verify-installation.py. It uses
+# Native installation acceptance lives in release/verify_installation.py. It uses
 # explicit staged resources and one tiny revision-one project/package, never a
 # shipped-demo bake or implicit writes to the real user's default data directory.
 

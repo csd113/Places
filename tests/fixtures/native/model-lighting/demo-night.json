@@ -56,7 +56,7 @@
         1
       ],
       "target": "Original places_demo source-room facade and initially-open source_front_door, actual outdoor path/lamps",
-      "purpose": "Maintained tools/bench/capture_night_route.sh production camera: dark outdoor ground, warm multi-source lamps, lit doorway spill and real wall occlusion. Preserve original source/package/asset root; use fixed1/60 frame210 (3.5s phase), no synthetic geometry or illumination. Native baseline must verify actual target visibility."
+      "purpose": "Historical Demo night-route production camera: dark outdoor ground, warm multi-source lamps, lit doorway spill and real wall occlusion. Preserve original source/package/asset root; use fixed1/60 frame210 (3.5s phase), no synthetic geometry or illumination. Native baseline must verify actual target visibility."
     }
   ]
 }

@@ -4,22 +4,18 @@ No exports, map generation or native rendering are performed by this suite.
 The lookout retains its existing raised floor and stair route; its visible
 under-deck arch is checked as geometry, not advertised as a playable route.
 """
+from collections import Counter, defaultdict
 import json
 import math
 from pathlib import Path
-import sys
 import unittest
 
-from tools.levels.curated_maps import environment_source
+from release.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / 'tools/props'), str(ROOT / 'tools/entities')]
 
-from geometry import inspect
-from glb import read_glb
-from mesh import PropBuilder
-from parts import beach_nature, beach_structures
-from validate_entities import Model
+from assets.inspection.glb import read_glb
+from assets.inspection.rig_pose import Model
 from tests.test_beach_demo import authored_floor, base_y, collider_box, contains, disc_touches
 
 
@@ -56,12 +52,6 @@ def world_point(level, prop, point):
             prop['z']+scale*(-x*math.sin(yaw)+z*math.cos(yaw)))
 
 
-def authored_mesh(name, module):
-    builder = PropBuilder('beach:'+name, name, module.SIZES[name])
-    module.PROPS[builder.id](builder)
-    return builder.mesh
-
-
 class BeachRefinementTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -75,31 +65,50 @@ class BeachRefinementTests(unittest.TestCase):
             entry = cls.catalog[cls.props[identity]['model']]
             cls.meshes[identity] = read_glb((ROOT / 'assets' / entry['model']).read_bytes())
 
-    def assert_closed(self, mesh, components=1):
-        report = inspect(mesh.positions, mesh.indices)
-        for key in ('degenerate', 'boundary_edges', 'nonmanifold_edges',
-                    'inconsistent_edges', 'flipped_triangles', 'contradictory_components'):
-            self.assertEqual(report[key], 0, report)
-        self.assertEqual(report['components'], components, report)
+    def assert_closed(self, mesh):
+        # Weld coincident positions without merging UV seams in the delivered GLB.
+        edges = Counter()
+        neighbors = defaultdict(set)
+        signed_volume = 0.0
+        for face in triangles(mesh):
+            a, b, c = (tuple(round(value, 6) for value in point) for point in face)
+            self.assertEqual(len({a, b, c}), 3)
+            ab, ac = (tuple(p[i]-a[i] for i in range(3)) for p in (b, c))
+            area = tuple(ab[i]*ac[j]-ab[j]*ac[i] for i, j in ((0, 1), (1, 2), (2, 0)))
+            self.assertGreater(sum(v*v for v in area), 1e-20)
+            signed_volume += sum(a[i]*(b[j]*c[k]-b[k]*c[j])
+                                 for i, j, k in ((0, 1, 2), (1, 2, 0), (2, 0, 1)))
+            for u, v in ((a, b), (b, c), (c, a)):
+                edges[u, v] += 1
+                neighbors[u].add(v)
+        self.assertTrue(edges)
+        self.assertGreater(signed_volume, 0, 'the exported shell must face outward')
+        for (a, b), count in edges.items():
+            self.assertEqual((count, edges[b, a]), (1, 1), (a, b))
+        pending = [next(iter(neighbors))]
+        seen = set()
+        while pending:
+            point = pending.pop()
+            if point not in seen:
+                seen.add(point)
+                pending.extend(neighbors[point] - seen)
+        self.assertEqual(seen, set(neighbors), "the exported shell must be one connected skin")
 
     def test_cove_foam_is_one_closed_strip_with_caps_only_at_its_ends(self):
-        for kind, mesh in (('source', authored_mesh('cove_foam', beach_nature)),
-                           ('exported', self.meshes['cove_foam'])):
-            with self.subTest(kind=kind):
-                self.assert_closed(mesh)
-                xs = sorted({round(point[0], 6) for point in mesh.positions})
-                self.assertEqual(len(xs), 65)
-                self.assertAlmostEqual(xs[0], -24)
-                self.assertAlmostEqual(xs[-1], 24)
-                self.assertTrue(all(abs(b-a-.75) < 1e-6 for a, b in zip(xs, xs[1:])))
-                caps = [face for face in triangles(mesh)
-                        if max(point[0] for point in face)-min(point[0] for point in face) < 1e-7]
-                self.assertEqual(len(caps), 4)
-                self.assertEqual({round(face[0][0], 6) for face in caps}, {-24, 24})
-                self.assertLessEqual(len(mesh.indices)//3, 600)
-        shipped = self.meshes['cove_foam']
+        mesh = self.meshes['cove_foam']
+        self.assert_closed(mesh)
+        xs = sorted({round(point[0], 6) for point in mesh.positions})
+        self.assertEqual(len(xs), 65)
+        self.assertAlmostEqual(xs[0], -24)
+        self.assertAlmostEqual(xs[-1], 24)
+        self.assertTrue(all(abs(b-a-.75) < 1e-6 for a, b in zip(xs, xs[1:])))
+        caps = [face for face in triangles(mesh)
+                if max(point[0] for point in face)-min(point[0] for point in face) < 1e-7]
+        self.assertEqual(len(caps), 4)
+        self.assertEqual({round(face[0][0], 6) for face in caps}, {-24, 24})
+        self.assertLessEqual(mesh.triangle_count, 600)
         self.assertTrue(all(material.get('alphaMode', 'OPAQUE') == 'OPAQUE'
-                            for material in shipped.json['materials']))
+                            for material in mesh.json['materials']))
 
     def test_cove_foam_tracks_the_actual_sloped_coast_without_sinking(self):
         prop = self.props['cove_foam']
@@ -142,42 +151,15 @@ class BeachRefinementTests(unittest.TestCase):
         terrace = self.props['lookout_terrace']
         self.assertAlmostEqual(base_y(self.level, prop), 0)
         self.assertAlmostEqual(base_y(self.level, terrace), 2.22)
-        for kind, mesh in (('source', authored_mesh('town_terrace_base', beach_structures)),
-                           ('exported', self.meshes['lookout_base'])):
-            with self.subTest(kind=kind):
-                self.assert_closed(mesh)
-                for x in (-1.85, 1.85):
-                    for z in (-1.4, -.9, 0, .9, 1.4):
-                        hits = ray_axis(mesh.positions, mesh.indices, (x, z), 1)
-                        self.assertEqual(hits, [0, 2.22], (kind, x, z, hits))
-                # Matching strip/top/return boundaries keep this a single
-                # closed union instead of adding independent touching solids.
-                if kind == 'source':
-                    self.assertLessEqual(len(mesh.indices)//3, 260)
-        # The slab seats directly on the new stock; it has not moved upward.
+        mesh = self.meshes['lookout_base']
+        self.assert_closed(mesh)
+        for x in (-1.85, 1.85):
+            for z in (-1.4, -.9, 0, .9, 1.4):
+                hits = ray_axis(mesh.positions, mesh.indices, (x, z), 1)
+                self.assertEqual(hits, [0, 2.22], (x, z, hits))
+        # The slab seats directly on the stock; it has not moved upward.
         slab = self.meshes['lookout_terrace']
-        hits = ray_axis(slab.positions, slab.indices, (0, .05), 1)
-        self.assertEqual(hits, [0, .18])
-
-    def test_constructor_terrace_arch_caps_use_local_facet_charts_without_skinny_fans(self):
-        # Accepted exports have their own tessellation; keep this source-algorithm control.
-        for kind, mesh in (('source', authored_mesh('town_terrace_base', beach_structures)),):
-            with self.subTest(kind=kind):
-                caps = [face for face in triangles(mesh)
-                        if max(point[2] for point in face)-min(point[2] for point in face) < 1e-7
-                        and any(abs(face[0][2]-z) < 1e-6 for z in (-1.5, -1.22, 1.22, 1.5))
-                        and min(point[1] for point in face) >= 1.45-1e-6
-                        and max(abs(point[0]) for point in face) <= 1.7+1e-6]
-                self.assertEqual(len(caps), 80)
-                for face in caps:
-                    xs = sorted({round(point[0], 6) for point in face})
-                    self.assertEqual(len(xs), 2, face)
-                    self.assertLessEqual(xs[-1]-xs[0], .536, face)
-                    a, b, c = face
-                    area_twice = abs((b[0]-a[0])*(c[1]-a[1])-
-                                     (b[1]-a[1])*(c[0]-a[0]))
-                    altitude = area_twice/max(math.dist(face[i], face[(i+1)%3]) for i in range(3))
-                    self.assertGreater(altitude, .07, face)
+        self.assertEqual(ray_axis(slab.positions, slab.indices, (0, .05), 1), [0, .18])
 
     def test_terrace_arch_stock_preserves_standing_clearance(self):
         mesh = self.meshes['lookout_base']

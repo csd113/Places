@@ -1,4 +1,4 @@
-"""Filesystem-safety regression for tools/package.sh (audit AUD-001).
+"""Filesystem-safety regression for release/package.sh (audit AUD-001).
 
 The output root is an export parent shared with unrelated files. These tests
 prove the destination guard refuses the repository, the home directory and
@@ -17,7 +17,7 @@ import unittest
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_SH = ROOT / "tools" / "package.sh"
+PACKAGE_SH = ROOT / "release" / "package.sh"
 RELEASE_BINARY = ROOT / "target" / "release" / "places"
 
 
@@ -49,17 +49,16 @@ class PackageDestinationGuardTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as directory:
             root = Path(directory)
             source = root / 'source'
-            (source / 'tools').mkdir(parents=True)
-            shutil.copyfile(PACKAGE_SH, source / 'tools/package.sh')
-            shutil.copyfile(ROOT / 'tools/verify-menu.py', source / 'tools/verify-menu.py')
+            (source / 'release').mkdir(parents=True)
+            shutil.copyfile(PACKAGE_SH, source / 'release/package.sh')
             # Script-only payload fixture: native dependency relocation is
             # checked separately with mocked otool and by explicit macOS QA.
-            (source / 'tools/bundle-macos.py').write_text('import sys\nassert len(sys.argv) == 3\n')
-            (source / 'tools/release').mkdir()
-            (source / 'tools/release/INSTALLATION.md').write_text('installation fixture')
-            (source / 'tools/release/EDITOR.md').write_text('editor fixture')
+            (source / 'release/bundle-macos.py').write_text('import sys\nassert len(sys.argv) == 3\n')
+            (source / 'docs').mkdir()
+            (source / 'docs/INSTALLATION.md').write_text('installation fixture')
+            (source / 'docs/EDITOR.md').write_text('editor fixture')
             (source / 'Cargo.toml').write_text('[package]\nversion = "0.9.0"\n')
-            (source / 'README.md').write_text('[Installation](tools/release/INSTALLATION.md)\n')
+            (source / 'README.md').write_text('[Installation](docs/INSTALLATION.md)\n')
             (source / 'THIRD_PARTY_LICENSES.txt').write_text('fixture')
             (source / 'LICENSE').write_text('project license fixture')
             for name in ('shared', 'environments', 'entities', 'diagnostic', 'levels', 'audio', 'editor'):
@@ -107,7 +106,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             output = root / 'export'
             output.mkdir()
             (output / 'keep.txt').write_text('unique sibling')
-            result = subprocess.run(['sh', str(source / 'tools/package.sh'), str(output)],
+            result = subprocess.run(['sh', str(source / 'release/package.sh'), str(output)],
                                     text=True, capture_output=True, timeout=30, check=False)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
@@ -138,19 +137,29 @@ class PackageDestinationGuardTests(unittest.TestCase):
             # selection must still fail the verify gate before either layout is published.
             prepared = root / 'prepared menu.placesmap'
             prepared.write_bytes(b'host menu fixture')
-            compiler.write_text('#!/bin/sh\n'
-                                'if [ "$1" = verify ]; then exit 9; fi\n'
-                                'printf \'%s\\n\' \'{"dependencies_intact":true}\'\n')
-            rejected = subprocess.run(['sh', str(source / 'tools/package.sh'),
-                                       '--menu-package', str(prepared), str(output)],
-                                      text=True, capture_output=True, timeout=30, check=False)
-            self.assertNotEqual(rejected.returncode, 0)
+            for failure in ('dependencies', 'stale'):
+                with self.subTest(failure=failure):
+                    compiler.write_text('#!/bin/sh\n'
+                                        'case "$1" in\n'
+                                        'validate) case "$2" in */.places-package-stage.*/Places/assets/shared/menu/scene.bin) ;; *) exit 8;; esac;;\n'
+                                        'verify) [ "$9" = --require-current ] || exit 8;;\n'
+                                        '*) exit 8;;\n'
+                                        'esac\n'
+                                        + ('printf \'%s\\n\' \'{"dependencies_intact":false}\'\n' if failure == 'dependencies' else
+                                           'if [ "$1" = verify ]; then echo "fixture stale" >&2; exit 9; fi\n'
+                                           'printf \'%s\\n\' \'{"dependencies_intact":true}\'\n'), newline='\n')
+                    rejected = subprocess.run(['sh', str(source / 'release/package.sh'),
+                                               '--menu-package', str(prepared), str(output)],
+                                              text=True, capture_output=True, timeout=30, check=False)
+                    self.assertNotEqual(rejected.returncode, 0)
+                    self.assertIn('Bundled menu dependencies are not intact' if failure == 'dependencies' else 'fixture stale',
+                                  rejected.stderr)
             for payload in (output / 'Places', output / 'Places.app/Contents/Resources'):
                 self.assertEqual((payload / 'assets/shared/menu/scene.bin').read_bytes(), previous_menu)
             self.assertEqual((output / 'keep.txt').read_text(), 'unique sibling')
             compiler.write_text('#!/bin/sh\nprintf \'%s\\n\' \'{"dependencies_intact":true}\'\n')
             compiler.chmod(0o755)
-            with_compiler = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-compiler', str(output)],
+            with_compiler = subprocess.run(['sh', str(source / 'release/package.sh'), '--with-compiler', str(output)],
                                            text=True, capture_output=True, timeout=30, check=False)
             self.assertEqual(with_compiler.returncode, 0, with_compiler.stdout + with_compiler.stderr)
             for binary in (output / 'Places/places-map-compiler', output / 'Places.app/Contents/MacOS/places-map-compiler'):
@@ -158,7 +167,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             editor = source / 'target/release/places-editor'
             editor.write_text('#!/bin/sh\nexit 0\n')
             editor.chmod(0o755)
-            with_editor = subprocess.run(['sh', str(source / 'tools/package.sh'), '--with-editor',
+            with_editor = subprocess.run(['sh', str(source / 'release/package.sh'), '--with-editor',
                                           '--menu-package', str(prepared), str(output)],
                                          text=True, capture_output=True, timeout=30, check=False)
             self.assertEqual(with_editor.returncode, 0, with_editor.stdout + with_editor.stderr)
@@ -187,7 +196,7 @@ class PackageDestinationGuardTests(unittest.TestCase):
             failed = subprocess.run(['sh', '-c',
                                      'PATH="$(cd "$1" && pwd -P):$PATH"; export PATH; shift; exec sh "$@"',
                                      'package-rollback-probe', str(commands),
-                                     str(source / 'tools/package.sh'), '--with-editor', str(output)],
+                                     str(source / 'release/package.sh'), '--with-editor', str(output)],
                                     text=True, capture_output=True, timeout=30, check=False)
             self.assertNotEqual(failed.returncode, 0)
             for product in ('Places', 'Places.app'):

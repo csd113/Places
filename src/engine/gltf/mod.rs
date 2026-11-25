@@ -1,10 +1,8 @@
 //! Dependency-free GLB (binary glTF 2.0) reader for prop models.
 //!
-//! The prop pipeline in `tools/props` emits one deliberately boring GLB
-//! profile, and production prop files come from modelling tools that split a
-//! model per material and nest transform groups. This reader accepts the
-//! production-friendly subset Places genuinely needs (see `docs/assets/README.md`
-//! for the asset rules) without becoming a general glTF engine:
+//! Production prop files may split models by material and nest transform groups.
+//! This reader accepts the production subset Places needs without becoming a
+//! general glTF engine:
 //!
 //! * GLB container, glTF 2.0, the scene graph walked from `scene` (or scene
 //!   0, or the parentless nodes when no scenes exist), with node TRS or

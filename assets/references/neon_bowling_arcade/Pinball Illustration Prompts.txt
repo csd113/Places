@@ -1,6 +1,6 @@
 Pinball Illustration Prompts
 
-Provenance: OpenAI built-in image_gen.imagegen tool, invoked through the installed imagegen skill. Four original illustrated bitmap inputs generated for Places Retro Bowling & Arcade on 2026-10-11. No reference board pixels copied. Prompt text below is exact. Atlas packing and deterministic title/rule overlays are performed only by the explicit offline tools/props/author_retro_arcade.py command; ordinary model builds load the committed PNGs.
+Provenance: OpenAI built-in image_gen.imagegen tool, invoked through the installed imagegen skill. Four original illustrated bitmap inputs generated for Places Retro Bowling & Arcade on 2026-10-11. No reference board pixels copied. Prompt text below is exact. Atlas packing and deterministic title/rule overlays used the now-retired offline tools/props/author_retro_arcade.py command. Ordinary model builds load the committed PNGs.
 
 cosmic_backglass
 
@@ -74,5 +74,5 @@ assets/environments/arcade/props/illustrations/pinball_comet_playfield.png
 
 The backglass inputs are the selected generation results. Each playfield input is the selected cleanup result after removal of misplaced generated bumper medallions. Deterministic offline atlas authoring then places printed landing targets from the existing physical plate dimensions, 11.2-degree pitch and two-pixel UV inset. It also adds exact fictional titles, bonus labels and quiet flipper landing zones. These operations do not alter model geometry, texture UVs, material slots or emission ownership. Original raw generations and discarded variants remain ignored under generated_images/.
 
-Focused reproducible author command:
+Historical authoring command (retired; recorded for provenance):
 python3 tools/props/author_retro_arcade.py --only pinball_cosmic pinball_comet score_monitor

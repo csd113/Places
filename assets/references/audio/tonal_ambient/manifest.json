@@ -1,7 +1,7 @@
 {
   "license": "MIT",
   "runtime": false,
-  "recipe": "tools/audio/tonal.py render_master; tools/audio/original.py render(empty_room)",
+  "recipe": "assets/references/audio/authoring/tonal.py render_master; assets/references/audio/authoring/original.py render(empty_room)",
   "files": [
     {
       "file": "threshold_air.wav",

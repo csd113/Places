@@ -119,6 +119,8 @@ Start from what the current game, editor, and map compiler actually need to buil
 
 Verify the three supported entry points and the affected build and packaging paths with focused checks. Leave no replacement catch-all folder, archive of deleted tools, or task report.
 
+**Complete.** Retired the tracked tooling and kept live workflows with their owners. The two unchanged Utility and HVAC Kit Showcase source files are preserved in the [map archive](archive/projects/hvac-utility-showcase/), excluded from default compilation and release packaging. The Windows package passed staged menu freshness, payload hashes, and headless checks of all three executables. POSIX packaging was checked with fixtures, not a native Mac run.
+
 ### 18. Rust 1.100 follow-ups
 - **Cargo unused dependencies:** After the three-binary cleanup, check the remaining targets/features. Remove only conclusively unused workspace dependencies; keep valid editor/compiler-only, optional and target-specific dependencies.
 - **`DropGuard`:** Inspect save/export staging for narrow cleanup-on-early-exit opportunities. Keep explicit rollback where failure must be reported; don’t rewrite working transactions just to use a new API.
@@ -148,7 +150,7 @@ Office: tapered grey open wastebasket and chunky cream floor-standing photocopie
 Build an unfurnished concrete back-of-house environment: service halls and stairs, industrial basements and modular unfinished surfaces. Integrate and rename the existing Janitor closet content instead of duplicating it; migrate catalog/editor references without breaking authored maps. Create assets in Blender/GIMP where needed, build any map by hand in the level editor and validate representative traversal.
 
 ### 26. [GitHub #40: Underground Mall environment](https://github.com/csd113/Places/issues/40)
-Follow the approved underground direction: polished tile and glass storefronts/balcony rails using existing effects, no daylight/skylights or fountain. Use the issue’s approved props and fluorescent lighting. Reuse the same escalator assets in stopped and working states; triggers toggle them and working escalators carry players, props and entities. Security shutters must open and close. Author and check a compact sample in the editor before expanding.
+Follow the approved underground direction: polished tile and glass storefronts/balcony rails using existing effects, no daylight/skylights or fountain. Use the issue’s approved props and fluorescent lighting. Add six small movable pickup props: a scuffed plastic food-court tray, a chunky moulded clothes hanger, a lidded Starbucks-style takeaway coffee cup with green coffee-shop-style branding, a crumpled paper ball, a small metal ashtray, and a crushed cigarette pack (a soft pack with its top peeled back, placed beside the ashtray). The cup and paper ball are new silhouettes, not replacements for Arcade litter. Reuse the same escalator assets in stopped and working states; triggers toggle them and working escalators carry players, props and entities. Security shutters must open and close. Author and check a compact sample in the editor before expanding.
 
 ## Research only, then multiplayer
 

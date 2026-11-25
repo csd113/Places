@@ -19,11 +19,13 @@ when distributing the library with Places.
 - `authoring.json`: exact source selections, trims, crossfades and peak targets.
 - `licenses/`: original Kenney license notices and the complete source credits.
 
-See [the audio asset guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/assets/AUDIO.md) for cue purposes, authored
-examples, budgets, offline integrity checks and the explicit import workflow.
+See [the audio asset guide](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/assets/AUDIO.md) for historical cue purposes, examples and measurements. Its old import
+commands are no longer maintained.
 
-The elevator additions are original Places audio under MIT, rendered offline by
-`tools/audio/elevator.py`: a short traction-motor/cable shaft pass and a restrained
+From the checkout, `python3 assets/inspection/audio.py --check` verifies the
+committed WAVs, provenance and authored cue references without generating files.
+
+The elevator additions are original Places audio under MIT, rendered offline as a short traction-motor/cable shaft pass and a restrained
 arrival ding. They are committed mono 44.1 kHz PCM16 WAVs, preloaded with the
 ordinary library; the exact recipes and output hashes are in authoring/provenance.
 The current complete bank contains 53 cues and 91 unique WAVs, using 66,375,984
@@ -41,10 +43,10 @@ See the audio guide for an emitter example and the source hash/recipe.
 
 `threshold_air`, `pale_signal` and `below_the_landing` are three original MIT
 16-second single-pitch ambient choices, with explicit mono PCM16 16 kHz runtime
-formats and offline NumPy recipes in `tools/audio/tonal.py`. Their exact 48 kHz
+formats. Their exact 48 kHz
 PCM24 masters and the unchanged 44.1 kHz Empty Room original are preserved under
 `assets/references/audio/tonal_ambient/`, outside runtime exports. Empty Room's
 narrow-band runtime copy is reversibly 16 kHz; every other pre-existing WAV and
-all map selections are unchanged. Per-file format/hash settings prevent imports
-from silently exceeding the decoded cap. See the audio guide for measured
+all map selections are unchanged. The shipped-bank audit verifies
+per-file formats and hashes and enforces the decoded cap. See the audio guide for measured
 reconstruction/native mixer evidence and the unperformed perceptual-review limit.

@@ -1,17 +1,17 @@
 """Protect the reusable asset, source alignment, mounting and bounded light cost."""
 import json
-import math
 from pathlib import Path
-import sys
 import unittest
 
-from tools.levels.curated_maps import environment_source
+from release.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tools/props'))
-import glb
-import geometry
-from string_lights import SPANS, TIMBER_LANTERN_SOURCE, attachment_height, lights
+from assets.inspection import glb
+from tests.test_winter_assemblies import world_point
+
+# Measured attachment centres and accepted light budgets of the installed spans.
+# Width is between the two mounts, not the GLB's outer hardware envelope.
+SPAN_FIXTURES = {'short': (2.8, .37, 3), 'medium': (4.0, .50, 5), 'long': (6.6, .62, 7)}
 
 
 def material_points(model, slot):
@@ -42,14 +42,11 @@ def axis_intersections(model, point, axis):
 
 class StringLightTests(unittest.TestCase):
     def test_delivered_bulbs_have_clear_sources_and_isolated_emission(self):
+        level = json.loads(environment_source('winter').read_text())
         for variant, count in (('short', 5), ('medium', 7), ('long', 11)):
             with self.subTest(variant=variant):
                 path = ROOT / f'assets/environments/winter/props/string_lights_{variant}.glb'
                 model = glb.read_glb(path.read_bytes())
-                report = geometry.inspect(model.positions, model.indices)
-                for field in ('degenerate', 'boundary_edges', 'nonmanifold_edges',
-                              'inconsistent_edges', 'flipped_triangles', 'contradictory_components'):
-                    self.assertEqual(report[field], 0)
                 self.assertAlmostEqual(model.bounds()[0][1], 0)
                 self.assertTrue(all(0 <= v <= 1 for uv in model.uvs for v in uv))
                 emitting = [i for i, material in enumerate(model.json['materials'])
@@ -60,88 +57,116 @@ class StringLightTests(unittest.TestCase):
                     self.assertAlmostEqual(actual, expected)
                 self.assertEqual(glass.get('extensions', {}).get('KHR_materials_emissive_strength', {})
                                  .get('emissiveStrength', 1), 2)
-                # Discover each physical bulb from the delivered glass, independently
-                # of the authoring table. Glass and neck share the same X interval.
+                # Separate bulbs by the gap between their delivered glass intervals.
                 bulbs = []
                 for point in sorted(material_points(model, emitting[0])):
                     if not bulbs or point[0]-bulbs[-1][-1][0] > .1:
                         bulbs.append([])
                     bulbs[-1].append(point)
                 self.assertEqual(len(bulbs), count)
-                sources = lights(variant)
-                self.assertEqual(len(sources), count)
-                self.assertAlmostEqual(sum(source['intensity'] for source in sources),
-                                       .32*SPANS[variant][2])
-                for source, points in zip(sources, bulbs):
-                    x, y, z = source['offset']
-                    self.assertAlmostEqual(x, (min(p[0] for p in points)+
-                                               max(p[0] for p in points))/2, places=5)
-                    self.assertAlmostEqual(y, min(p[1] for p in points)-.02, places=5)
-                    self.assertEqual(z, 0)
-                    skins = axis_intersections(model, (x, z), 1)
-                    self.assertTrue(skins)
-                    self.assertAlmostEqual(min(hit[0] for hit in skins)-y, .02, places=5)
+                spans = [p for p in level['props'] if p['model'] == f'winter:string_lights_{variant}']
+                self.assertTrue(spans)
+                for prop in spans:
+                    sources = sorted(prop['lights'], key=lambda light: light['offset'][0])
+                    self.assertEqual(len(sources), count)
+                    for source, points in zip(sources, bulbs):
+                        x, y, z = source['offset']
+                        self.assertAlmostEqual(x, (min(p[0] for p in points)+
+                                                   max(p[0] for p in points))/2, places=5)
+                        self.assertAlmostEqual(y, min(p[1] for p in points)-.02, places=5)
+                        self.assertEqual(z, 0)
+                        skins = axis_intersections(model, (x, z), 1)
+                        self.assertTrue(skins)
+                        self.assertAlmostEqual(min(hit[0] for hit in skins)-y, .02, places=5)
 
     def test_lantern_front_spill_clears_glass_and_opaque_base(self):
         model = glb.read_glb((ROOT / 'assets/environments/winter/props/timber_lantern.glb').read_bytes())
         slot = model.material_names.index('winter_bulb_emitter')
+        self.assertEqual({i for i, material in enumerate(model.json['materials'])
+                          if any(material.get('emissiveFactor', []))}, {slot})
         glass = material_points(model, slot)
-        x, y, z = TIMBER_LANTERN_SOURCE
-        self.assertEqual(x, 0)
-        self.assertAlmostEqual(y, (min(p[1] for p in glass)+max(p[1] for p in glass))/2, places=5)
-        front_hits = axis_intersections(model, (x, y), 2)
-        self.assertEqual(front_hits[-1][1], slot)
-        self.assertGreater(z-front_hits[-1][0], .06)
-        base_front = max(hit[0] for hit in axis_intersections(model, (x, 2.32), 2)
-                         if hit[1] != slot)
-        self.assertAlmostEqual(z-base_front, .02, places=5)
-        self.assertTrue(all(hit[0] > y for hit in axis_intersections(model, (x, z), 1)),
-                        'the downward spill clears the opaque base')
-        self.assertFalse(axis_intersections(model, (y, z), 0),
-                         'lateral spill clears the corner cage')
-        level = json.loads((environment_source('winter')).read_text())
-        # The three winter_course markers reuse the model without authored
-        # lights; these spill assertions belong to the two actual square lamps.
+        level = json.loads(environment_source('winter').read_text())
         lamp_ids = {'square_lamp_0', 'square_lamp_1'}
         lanterns = [p for p in level['props'] if p['id'] in lamp_ids]
         self.assertEqual({p['id'] for p in lanterns}, lamp_ids)
         for prop in lanterns:
             self.assertEqual(prop['model'], 'winter:timber_lantern')
-            self.assertEqual(prop['lights'], [{'shape': 'point', 'offset': list(TIMBER_LANTERN_SOURCE),
-                                              'intensity': 1.5, 'range': 14,
-                                              'color': [1, .81, .55], 'falloff': 'smooth'}])
+            light, = prop['lights']
+            x, y, z = light['offset']
+            self.assertEqual(light, {'shape': 'point', 'offset': [x, y, z], 'intensity': 1.5,
+                                     'range': 14, 'color': [1, .81, .55], 'falloff': 'smooth'})
+            self.assertEqual(x, 0)
+            self.assertAlmostEqual(y, (min(p[1] for p in glass)+max(p[1] for p in glass))/2, places=5)
+            front_hits = axis_intersections(model, (x, y), 2)
+            self.assertEqual(front_hits[-1][1], slot)
+            self.assertGreater(z-front_hits[-1][0], .06)
+            base_front = max(hit[0] for hit in axis_intersections(model, (x, 2.32), 2)
+                             if hit[1] != slot)
+            self.assertAlmostEqual(z-base_front, .02, places=5)
+            self.assertTrue(all(hit[0] > y for hit in axis_intersections(model, (x, z), 1)),
+                            'the downward spill clears the opaque base')
+            self.assertFalse(axis_intersections(model, (y, z), 0),
+                             'lateral spill clears the corner cage')
 
     def test_mounts_are_supported_clear_of_walks_and_light_budget_stays_local(self):
-        level = json.loads((environment_source('winter')).read_text())
+        level = json.loads(environment_source('winter').read_text())
         spans = [p for p in level['props'] if p['model'].startswith('winter:string_lights_')]
         self.assertEqual(len(spans), 8)
         self.assertEqual(sum(len(p['lights']) for p in spans), 60)
+        catalog = {asset['id']: asset['model'] for asset in
+                   json.loads((ROOT / 'assets/catalog.json').read_text(encoding='utf8'))['assets']
+                   if 'model' in asset}
+        boxes = {box['id']: box for box in level['void_walls']}
         for p in spans:
-            self.assertFalse(p.get('solid', False))
-            self.assertFalse(p['occludes'])
-            self.assertNotIn('scale', p, 'repeat spans instead of stretching bulbs')
-            variant = p['model'].removeprefix('winter:string_lights_')
-            self.assertEqual(len(p['lights']), {'short': 5, 'medium': 7, 'long': 11}[variant])
-            legacy_intensity, radius = (.10, 3) if p['id'].startswith('lodge_rail_') else (.32, 4.5)
-            self.assertAlmostEqual(sum(light['intensity'] for light in p['lights']),
-                                   legacy_intensity*SPANS[variant][2])
-            self.assertTrue(all(light['range'] == radius for light in p['lights']))
-            self.assertTrue(all(l['shape'] == 'point' and l['range'] <= 4.5 and
-                                l['intensity'] <= .32 and l['color'][0] > l['color'][2]
-                                for l in p['lights']))
-            self.assertGreater(p['z'], -25, 'forest north remains unstrung')
-        # Square/path attachments sit in the existing timber post model envelope.
-        for p in (p for p in spans if p['id'].startswith(('square_string_', 'path_string'))):
-            variant = p['model'].removeprefix('winter:string_lights_')
-            angle = math.radians(p.get('rotation_degrees', 0))
-            for side in (-1, 1):
-                x = p['x'] + side*SPANS[variant][0]/2*math.cos(angle)
-                z = p['z'] - side*SPANS[variant][0]/2*math.sin(angle)
-                post = next(q for q in level['props'] if q['id'].startswith('string_post_')
-                            and abs(q['x']-x) < .0001 and abs(q['z']-z) < .0001)
-                self.assertLess(abs(post['x']), 4)
-                self.assertGreater(abs(post['x']), 1.9, 'central packed path remains clear')
-                self.assertLess(p['y']+attachment_height(variant), post['size'][1]*post['scale'])
+            with self.subTest(span=p['id']):
+                self.assertFalse(p.get('solid', False))
+                self.assertFalse(p['occludes'])
+                self.assertNotIn('scale', p, 'repeat spans instead of stretching bulbs')
+                variant = p['model'].removeprefix('winter:string_lights_')
+                width, mount_height, budget_units = SPAN_FIXTURES[variant]
+                self.assertEqual(len(p['lights']), {'short': 5, 'medium': 7, 'long': 11}[variant])
+                rail = p['id'].startswith('lodge_rail_')
+                intensity, radius = (.10, 3) if rail else (.32, 4.5)
+                self.assertAlmostEqual(sum(light['intensity'] for light in p['lights']),
+                                       intensity*budget_units)
+                self.assertTrue(all(light['range'] == radius for light in p['lights']))
+                self.assertTrue(all(l['shape'] == 'point' and l['range'] <= 4.5 and
+                                    l['intensity'] <= .32 and l['color'][0] > l['color'][2]
+                                    for l in p['lights']))
+                self.assertGreater(p['z'], -25, 'forest north remains unstrung')
+                mesh = glb.read_glb((ROOT / 'assets' / catalog[p['model']]).read_bytes())
+                low, high = mesh.bounds()
+                self.assertAlmostEqual(high[0] - width/2, .025, delta=1e-5)
+                self.assertAlmostEqual(-low[0] - width/2, .025, delta=1e-5)
+                self.assertAlmostEqual(high[1] - mount_height, .025, delta=1e-5)
+                for side in (-1, 1):
+                    point = world_point(level, p, (side*width/2, mount_height, 0))
+                    if p['id'].startswith('home_') or rail:
+                        stem = (f'home_{p["id"].split("_")[1]}_string_upstand'
+                                if not rail else f'lodge_rail_string_mount_{p["id"].split("_")[-1]}')
+                        mount = boxes[f'{stem}_{side}']
+                        self.assertTrue(all(a < v < b for a, v, b in
+                                            zip(mount['min'], point, mount['max'])), (point, mount))
+                        continue
+                    prefix = ('porch_post_' if p['id'] == 'lodge_porch_string'
+                              else 'string_post_'+str(2 if p['id'] == 'path_string'
+                                                      else int(p['id'].split('_')[-1]))+'_')
+                    supported = False
+                    for post in level['props']:
+                        if not post['id'].startswith(prefix):
+                            continue
+                        model = glb.read_glb((ROOT / 'assets' / catalog[post['model']]).read_bytes())
+                        placed = [world_point(level, post, q) for q in model.positions]
+                        fits = all(min(q[i] for q in placed)-half < point[i] <
+                                   max(q[i] for q in placed)+half
+                                   for i, half in enumerate((.025, .025, .02)))
+                        if fits:
+                            if prefix.startswith('string_post_'):
+                                self.assertLess(abs(post['x']), 4)
+                                self.assertGreater(abs(post['x']), 1.9,
+                                                   'central packed path remains clear')
+                            supported = True
+                    self.assertTrue(supported, (p['id'], point))
 
 
 if __name__ == '__main__':

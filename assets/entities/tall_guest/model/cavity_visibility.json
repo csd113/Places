@@ -10,7 +10,7 @@
   "generator_sha256": "415f269d29d022c573e97c1987a2efccd707dd81c5a6d40f7b9542250e094565",
   "native_log_sha256": "fbff6ce27a9b4df678744ce4f3e61411c718c1d1f94bf08f4c110409784412b5",
   "native_dump_record_sha256": "3effae031581c463e8f2a45f9814bf4431085e715873e0fc9308ba70ace70c36",
-  "reproduce": "Run isolated Tall Guest held-idle reference with PLACES_BENCH=1 real_character_self_shadows=true in settings PLACES_POSED_AMBIENT_DUMP=1, then python3 tools/entities/bake_tall_guest_cavity.py --log <game.log> --model assets/entities/tall_guest/model/tall_guest.glb --output <new-directory>.",
+  "historical_recipe": "Captured an isolated Tall Guest held-idle run with PLACES_BENCH=1, real_character_self_shadows=true in settings, and PLACES_POSED_AMBIENT_DUMP=1. The retired one-off baker applied the recorded visibility to the reviewed model\u0027s mouth interior only.",
   "reference": {
     "player_sha256": "3b299938ec2032b33abc693db85b12b876193ddcbe1637a6883a43cfc770f407",
     "fixture_sha256": "e9ae537db906a126c72b91189ef8dab9534f44e86827d08c23d2310080b1842d",

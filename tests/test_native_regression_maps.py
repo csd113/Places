@@ -7,7 +7,7 @@ import tempfile
 import unittest
 
 ROOT = Path(__file__).resolve().parents[1]
-SPEC = importlib.util.spec_from_file_location("native_regression_maps", ROOT / "tools/bench/native_regression_maps.py")
+SPEC = importlib.util.spec_from_file_location("native_regression_maps", ROOT / "tests/fixtures/native/native_regression_maps.py")
 NATIVE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(NATIVE)
 

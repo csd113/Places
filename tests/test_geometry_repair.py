@@ -1,20 +1,10 @@
 #!/usr/bin/env python3
-"""Applier tests for the wall-alignment repair plans (``tools/levels/repair_alignment.py``).
+"""Read-only wall-alignment plan verification and optional native planner tests.
 
-The applier is the write side of ``places --repair-geometry``: it verifies a
-plan against the current bytes, applies its JSON-pointer edits with order
-preserving serialization, checks the result, and refuses anything it cannot
-prove. These tests drive the real ``places`` executable (set ``PLACES_BIN`` to
-choose one; release is preferred) on scratch copies of the repair fixtures under
-the system temporary directory (or ``PLACES_REPAIR_TEST_ROOT`` for an explicit
-scratch root) — no maintained source is ever touched.
-
-Covered: dry-run mutates nothing, apply is atomic, concurrent change and stale
-``old`` values are refused, malformed pointers are refused, a non-clean
-post-check refuses before publishing, a non-empty second plan restores the
-published bytes, a clean map writes nothing, unrelated fields and key order
-survive byte-for-byte, the clean current demo, and the historical Home-south-wall
-acceptance case in an independent pre-repair scratch control.
+The Python verifier checks a saved plan against the source bytes and rejects
+stale or malformed plans. The Rust planner checks real fixtures when a Places
+binary is available; set PLACES_BIN to select it. Only plans and private copies
+are written in the test scratch directory, never checked-in level sources.
 """
 
 from __future__ import annotations
@@ -29,18 +19,13 @@ import sys
 import tempfile
 import unittest
 
-from tools.levels.curated_maps import environment_source
+from release.curated_maps import environment_source
 
 TEST_DIR = os.path.dirname(os.path.abspath(__file__))
 ROOT = os.path.abspath(os.path.join(TEST_DIR, ".."))
-REPAIR_TOOL = os.path.join(ROOT, "tools", "levels", "repair_alignment.py")
+REPAIR_TOOL = os.path.join(ROOT, "src", "map_compiler", "geometry_check", "repair_alignment.py")
 FIXTURES = os.path.join(ROOT, "tests", "fixtures", "levels", "repair")
 DEMO = str(environment_source('home', Path(ROOT)))
-MAINTAINED = (
-    str(environment_source('home', Path(ROOT))),
-    str(environment_source('pool', Path(ROOT))),
-    os.path.join(ROOT, "tests", "fixtures", "levels", "level0_pit.json"),
-)
 SCRATCH = os.environ.get("PLACES_REPAIR_TEST_ROOT")
 
 # Job 06 defect D1 belongs to the historical Home envelope, which subsequent
@@ -107,33 +92,26 @@ DEMO_REPAIR_EDITS = (
     ("/floor_regions/0/depth", 3.75, 3.9, "floor-tuck"),
 )
 
-sys.path.insert(0, os.path.join(ROOT, "tools", "levels"))
+sys.path.insert(0, os.path.dirname(REPAIR_TOOL))
 import repair_alignment as ra  # noqa: E402
 
 
 def places_binary() -> str:
-    try:
-        return ra.places_binary()
-    except ra.Refused as error:
-        raise unittest.SkipTest(str(error)) from error
+    configured = os.environ.get("PLACES_BIN")
+    if configured:
+        return configured
+    name = "places.exe" if os.name == "nt" else "places"
+    for profile in ("release", "debug"):
+        path = os.path.join(ROOT, "target", profile, name)
+        if os.path.isfile(path) and os.access(path, os.X_OK):
+            return path
+    raise unittest.SkipTest("No native places binary; set PLACES_BIN to exercise the Rust planner.")
 
 
 def run(command: list, **kwargs) -> subprocess.CompletedProcess:
     return subprocess.run(command, capture_output=True, text=True, cwd=ROOT, check=False, **kwargs)
 
 
-def flatten(document, trail: str = "") -> dict:
-    """Every scalar leaf keyed by its JSON pointer."""
-    leaves = {}
-    if isinstance(document, dict):
-        for key, value in document.items():
-            leaves.update(flatten(value, f"{trail}/{key}"))
-    elif isinstance(document, list):
-        for index, value in enumerate(document):
-            leaves.update(flatten(value, f"{trail}/{index}"))
-    else:
-        leaves[trail] = document
-    return leaves
 
 
 class RepairScratch(unittest.TestCase):
@@ -159,7 +137,7 @@ class RepairScratch(unittest.TestCase):
     def write_level(self, name: str, document: dict) -> str:
         path = os.path.join(self.work, f"{name}.json")
         with open(path, "wb") as handle:
-            handle.write(ra.serialise(document, True))
+            handle.write((json.dumps(document, indent=2, ensure_ascii=False) + "\n").encode("utf-8"))
         return path
 
     def seed_demo_repair(self) -> str:
@@ -171,7 +149,8 @@ class RepairScratch(unittest.TestCase):
                 ra.values_match(current, new),
                 f"{pointer}: the historical control carries {current!r}, expected {new!r}",
             )
-            ra.assign_pointer(document, pointer, old)
+            parent, key = pointer.rsplit("/", 1)
+            ra.resolve_pointer(document, parent)[key] = old
         return self.write_level("historical_home_south", document)
 
     def assert_demo_repair_plan(self, plan: dict) -> None:
@@ -215,8 +194,24 @@ class RepairScratch(unittest.TestCase):
         with open(plan_path, "r", encoding="utf-8") as handle:
             return json.load(handle)
 
-    def applier(self, plan_path: str, mode: str) -> subprocess.CompletedProcess:
-        return run([sys.executable, REPAIR_TOOL, "--plan", plan_path, mode])
+    def verify(self, plan_path: str) -> subprocess.CompletedProcess:
+        return run([sys.executable, REPAIR_TOOL, "--plan", plan_path, "--check"])
+
+    def write_probe_plan(self, source: str) -> str:
+        # Keep the actual checked-in wall-step fixture untouched. A single
+        # known field is enough to cover the verifier without embedding native
+        # planner logic or requiring a compiled game for these cases.
+        raw = self.read(source)
+        document = json.loads(raw)
+        plan_path = os.path.join(self.work, "plan.json")
+        with open(plan_path, "w", encoding="utf-8") as handle:
+            json.dump({
+                "format": ra.PLAN_FORMAT, "version": ra.PLAN_VERSION,
+                "level": {"source": source, "sha256": hashlib.sha256(raw).hexdigest()},
+                "edits": [{"pointer": "/walls/1/z", "old": document["walls"][1]["z"],
+                           "new": 2.15}],
+            }, handle)
+        return plan_path
 
     def read(self, path: str) -> bytes:
         with open(path, "rb") as handle:
@@ -230,55 +225,31 @@ class RepairScratch(unittest.TestCase):
         )
 
 
-class RepairApplierTests(RepairScratch):
-    def test_dry_run_verifies_every_edit_and_writes_nothing(self) -> None:
+class RepairVerifierTests(RepairScratch):
+    def test_check_verifies_a_plan_and_writes_nothing(self) -> None:
         source = self.copy_fixture("wall_step_x")
         before = self.read(source)
-        self.plan_for(source)
-        plan_path = os.path.join(self.work, "plan.json")
-        result = self.applier(plan_path, "--check")
+        plan_path = self.write_probe_plan(source)
+        plan_before = self.read(plan_path)
+        result = self.verify(plan_path)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(self.read(source), before)
+        self.assertIn("1 edit(s) verified", result.stdout)
+        self.assertEqual((self.read(source), self.read(plan_path)), (before, plan_before))
         self.assertEqual(self.temp_siblings(), [])
-        self.assertIn("4 edit(s) verified", result.stdout)
 
-    def test_apply_is_atomic_and_a_second_apply_is_refused(self) -> None:
+    def test_removed_write_mode_is_rejected_without_touching_source(self) -> None:
         source = self.copy_fixture("wall_step_x")
-        self.plan_for(source)
-        plan_path = os.path.join(self.work, "plan.json")
-        result = self.applier(plan_path, "--apply")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertEqual(self.temp_siblings(), [], "the temp file must not survive")
-        applied = self.read(source)
-        self.assertNotEqual(applied, b"")
-        # The plan's hash is now stale: applying it again must refuse and never
-        # change the already-repaired bytes.
-        again = self.applier(plan_path, "--apply")
-        self.assertEqual(again.returncode, 1, again.stdout)
-        self.assertIn("REFUSED", again.stdout)
-        self.assertEqual(self.read(source), applied)
+        plan_path = self.write_probe_plan(source)
+        before = (self.read(source), self.read(plan_path))
+        rejected = run([sys.executable, REPAIR_TOOL, "--plan", plan_path, "--apply"])
+        self.assertEqual(rejected.returncode, 2)
+        self.assertIn("--check", rejected.stderr)
+        self.assertEqual((self.read(source), self.read(plan_path)), before)
 
-    def test_apply_fixes_the_joint_and_the_second_plan_is_empty(self) -> None:
-        source = self.copy_fixture("wall_step_x")
-        self.plan_for(source)
-        result = self.applier(os.path.join(self.work, "plan.json"), "--apply")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        with open(source, "r", encoding="utf-8") as handle:
-            fixed = json.load(handle)
-        self.assertEqual(fixed["walls"][1]["z"], 2.15)
-        self.assertEqual(fixed["baseboards"][0]["z"], 2.15)
-        self.assertEqual(fixed["baseboards"][1]["length"], 0.77)
-        self.assertEqual(fixed["floor_regions"][0]["depth"], 1.7)
-        second = run(
-            [places_binary(), "--repair-geometry", "--level", source, "--json"]
-        )
-        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-        self.assertEqual(json.loads(second.stdout)["edits"], [])
 
     def test_concurrent_change_is_refused(self) -> None:
         source = self.copy_fixture("wall_step_x")
-        self.plan_for(source)
-        plan_path = os.path.join(self.work, "plan.json")
+        plan_path = self.write_probe_plan(source)
         with open(source, "r", encoding="utf-8") as handle:
             document = json.load(handle)
         document["walls"][0]["z"] = 2.2
@@ -286,23 +257,21 @@ class RepairApplierTests(RepairScratch):
             json.dump(document, handle, indent=2)
             handle.write("\n")
         changed = self.read(source)
-        for mode in ("--check", "--apply"):
-            result = self.applier(plan_path, mode)
-            self.assertEqual(result.returncode, 1, f"{mode}: {result.stdout}")
-            self.assertIn("sha256", result.stdout)
-            self.assertEqual(self.read(source), changed)
+        result = self.verify(plan_path)
+        self.assertEqual(result.returncode, 1, result.stdout)
+        self.assertIn("sha256", result.stdout)
+        self.assertEqual(self.read(source), changed)
 
     def test_stale_old_value_is_refused(self) -> None:
         source = self.copy_fixture("wall_step_x")
-        self.plan_for(source)
-        plan_path = os.path.join(self.work, "plan.json")
+        plan_path = self.write_probe_plan(source)
         with open(plan_path, "r", encoding="utf-8") as handle:
             plan = json.load(handle)
         plan["edits"][0]["old"] = 99.9
         with open(plan_path, "w", encoding="utf-8") as handle:
             json.dump(plan, handle, indent=2)
         before = self.read(source)
-        result = self.applier(plan_path, "--check")
+        result = self.verify(plan_path)
         self.assertEqual(result.returncode, 1, result.stdout)
         self.assertIn("expects", result.stdout)
         self.assertEqual(self.read(source), before)
@@ -314,7 +283,7 @@ class RepairApplierTests(RepairScratch):
         self.assertEqual(plan["findings"], [])
         self.assertEqual(plan["edits"], [])
         plan_path = os.path.join(self.work, "plan.json")
-        result = self.applier(plan_path, "--apply")
+        result = self.verify(plan_path)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.read(source), before)
         self.assertEqual(self.temp_siblings(), [])
@@ -326,51 +295,12 @@ class RepairApplierTests(RepairScratch):
         self.assertTrue(plan["findings"], "the door gap must be a review candidate")
         self.assertEqual(plan["edits"], [])
         plan_path = os.path.join(self.work, "plan.json")
-        result = self.applier(plan_path, "--apply")
+        result = self.verify(plan_path)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("no edits", result.stdout)
+        self.assertIn("0 edit(s) verified", result.stdout)
         self.assertEqual(self.read(source), before)
 
-    def test_unrelated_fields_and_key_order_are_byte_preserved(self) -> None:
-        source = self.copy_fixture("wall_step_x")
-        plan = self.plan_for(source)
-        plan_path = os.path.join(self.work, "plan.json")
-        with open(source, "r", encoding="utf-8") as handle:
-            before_text = handle.read()
-        result = self.applier(plan_path, "--apply")
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        with open(source, "r", encoding="utf-8") as handle:
-            after_text = handle.read()
-        before = json.loads(before_text)
-        after = json.loads(after_text)
-        changed = {
-            pointer
-            for pointer, value in flatten(before).items()
-            if flatten(after).get(pointer) != value
-        }
-        expected = {edit["pointer"] for edit in plan["edits"]}
-        self.assertEqual(changed, expected)
-        # Insertion order is untouched at every object level.
-        self.assertEqual(list(before.keys()), list(after.keys()))
-        self.assertEqual(list(before["walls"][1].keys()), list(after["walls"][1].keys()))
-        self.assertEqual(
-            list(before["baseboards"][0].keys()), list(after["baseboards"][0].keys())
-        )
 
-    def test_serialiser_preserves_editor_source_values_and_key_order(self) -> None:
-        for path in MAINTAINED:
-            with open(path, "rb") as handle:
-                raw = handle.read()
-            rendered = ra.serialise(json.loads(raw), raw.endswith(b"\n"))
-            # Editor sources need not use this historical generator's Unicode
-            # escaping. Repairs promise values/order; exact source recovery is
-            # checked by the project package and native editor contracts.
-            self.assertEqual(
-                json.loads(rendered, object_pairs_hook=list),
-                json.loads(raw, object_pairs_hook=list),
-                f"{path} changed values or object key order",
-            )
-            self.assertEqual(rendered.endswith(b"\n"), raw.endswith(b"\n"))
 
     def test_the_demo_source_plans_only_its_current_state(self) -> None:
         # Mirrors the Rust test `the_shipped_demo_has_no_confirmed_geometry_defects`.
@@ -380,7 +310,7 @@ class RepairApplierTests(RepairScratch):
         plan = self.plan_for(DEMO)
         self.assertEqual(self.read(DEMO), before, "the planner must be read-only")
         plan_path = os.path.join(self.work, "plan.json")
-        checked = self.applier(plan_path, "--check")
+        checked = self.verify(plan_path)
         self.assertEqual(checked.returncode, 0, checked.stdout + checked.stderr)
         self.assertEqual(self.read(DEMO), before)
         self.assertEqual(plan["findings"], [])
@@ -388,49 +318,22 @@ class RepairApplierTests(RepairScratch):
         self.assertEqual(plan["review"], [])
         self.assertEqual(plan["post_check"]["errors"], 0)
 
-    def test_the_seeded_demo_repair_plan_and_apply_are_pinned(self) -> None:
+    def test_the_seeded_demo_repair_plan_is_pinned_and_source_is_unchanged(self) -> None:
         maintained_before = self.read(DEMO)
         source = self.seed_demo_repair()
         before = self.read(source)
         plan = self.plan_for(source)
-        self.assertEqual(before, self.read(source), "the planner must be read-only")
         self.assert_demo_repair_plan(plan)
-
-        result = self.applier(os.path.join(self.work, "plan.json"), "--apply")
+        result = self.verify(os.path.join(self.work, "plan.json"))
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(self.read(source), before)
+        self.assertEqual(self.read(DEMO), maintained_before)
         self.assertEqual(self.temp_siblings(), [])
-        with open(source, "r", encoding="utf-8") as handle:
-            fixed = json.load(handle)
-        self.assertEqual(fixed["walls"][1]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][0]["z"], 14.87)
-        self.assertEqual(fixed["baseboards"][0]["length"], 0.948)
-        self.assertEqual(fixed["baseboards"][1]["length"], 9.05)
-        self.assertEqual(fixed["baseboards"][2]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][3]["z"], 14.85)
-        self.assertEqual(fixed["baseboards"][4]["length"], 3.85)
-        self.assertEqual(fixed["floor_regions"][0]["depth"], 3.9)
-        self.assertEqual(fixed, HISTORICAL_DEMO_REPAIRED, "all unrelated authored fields survive")
-        before_leaves, after_leaves = flatten(json.loads(before)), flatten(fixed)
-        self.assertEqual(
-            {pointer for pointer in before_leaves if before_leaves[pointer] != after_leaves[pointer]},
-            {pointer for pointer, _old, _new, _coupled in DEMO_REPAIR_EDITS},
-        )
 
-        second = run(
-            [places_binary(), "--repair-geometry", "--level", source, "--json"]
-        )
-        self.assertEqual(second.returncode, 0, second.stdout + second.stderr)
-        second_plan = json.loads(second.stdout)
-        self.assertEqual(second_plan["findings"], [])
-        self.assertEqual(second_plan["edits"], [])
-        self.assertEqual(second_plan["review"], [])
-        self.assertEqual(second_plan["post_check"]["errors"], 0)
-        self.assertEqual(self.read(DEMO), maintained_before, "the maintained demo stays byte-identical")
 
     def test_malformed_pointer_is_refused_and_mutates_nothing(self) -> None:
         source = self.copy_fixture("wall_step_x")
-        self.plan_for(source)
-        plan_path = os.path.join(self.work, "plan.json")
+        plan_path = self.write_probe_plan(source)
         before = self.read(source)
         with open(plan_path, "r", encoding="utf-8") as handle:
             plan = json.load(handle)
@@ -439,20 +342,15 @@ class RepairApplierTests(RepairScratch):
             corrupted["edits"][0]["pointer"] = pointer
             with open(plan_path, "w", encoding="utf-8") as handle:
                 json.dump(corrupted, handle, indent=2)
-            for mode in ("--check", "--apply"):
-                result = self.applier(plan_path, mode)
-                self.assertEqual(
-                    result.returncode, 1, f"{pointer} {mode}: {result.stdout}"
-                )
-                self.assertIn("REFUSED", result.stdout)
-                self.assertEqual(self.read(source), before)
+            result = self.verify(plan_path)
+            self.assertEqual(result.returncode, 1, f"{pointer}: {result.stdout}")
+            self.assertIn("REFUSED", result.stdout)
+            self.assertEqual(self.read(source), before)
         self.assertEqual(self.temp_siblings(), [])
 
     def test_post_check_refusal_leaves_the_original_bytes(self) -> None:
-        # Two identical extra walls are an unrelated, unrepairable confirmed
-        # error, so the level can never pass --check-geometry even after the
-        # plan's own step edit. The applier's own gate must refuse before any
-        # os.replace and leave the bytes exactly as they were.
+        # The Rust planner must report the unrelated, unrepairable error
+        # even though it can propose a repair for the original wall step.
         fixture = self.load_fixture("wall_step_x")
         duplicate = {"x": 20.0, "z": 20.0, "width": 1.0, "depth": 0.3, "y": 0.0, "height": 3.0}
         fixture["walls"].extend([dict(duplicate), dict(duplicate)])
@@ -466,21 +364,14 @@ class RepairApplierTests(RepairScratch):
             plan["post_check"]["errors"], 0, "the defect must stay unrepairable"
         )
         plan_path = os.path.join(self.work, "plan.json")
-        checked = self.applier(plan_path, "--check")
+        checked = self.verify(plan_path)
         self.assertEqual(checked.returncode, 0, checked.stdout)
-        applied = self.applier(plan_path, "--apply")
-        self.assertEqual(applied.returncode, 1, applied.stdout)
-        self.assertIn("does not pass --check-geometry", applied.stdout)
-        self.assertEqual(
-            self.read(source), before, "the refusal must happen before os.replace"
-        )
+        self.assertEqual(self.read(source), before)
         self.assertEqual(self.temp_siblings(), [])
 
-    def test_restore_after_a_non_empty_second_plan(self) -> None:
-        # A review-only coplanar doorway gap plus the wall step: the plan's own
-        # edit is applied and passes the checker gate (warnings only), so the
-        # applier publishes it, but the second plan can never be empty and the
-        # applier must restore the bytes it just wrote.
+    def test_review_finding_remains_visible_beside_the_wall_step(self) -> None:
+        # A review-only coplanar doorway gap survives the Rust planner's preview
+        # of the wall step correction.
         fixture = self.load_fixture("wall_step_x")
         fixture["walls"].extend(
             [
@@ -498,10 +389,8 @@ class RepairApplierTests(RepairScratch):
             any(finding["kind"] == "near-step" for finding in plan["findings"]),
             plan["findings"],
         )
-        applied = self.applier(os.path.join(self.work, "plan.json"), "--apply")
-        self.assertEqual(applied.returncode, 1, applied.stdout)
-        self.assertIn("the second plan is not empty", applied.stdout)
-        self.assertIn("restored the original bytes", applied.stdout)
+        result = self.verify(os.path.join(self.work, "plan.json"))
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertEqual(self.read(source), before)
         self.assertEqual(self.temp_siblings(), [])
 

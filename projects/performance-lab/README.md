@@ -25,25 +25,30 @@ activation, reset and spawn handlers to enter/exit events. Reloading or reenteri
 fresh script state; the contact-group reset only restores its physics bodies. F1 logs bounded tick/visibility counts. Use Scripts > Check
 and the trigger's Script handler sheet to inspect/edit those links.
 
-`tools/bench/performance/views.json` and adjacent native action files retain
-repeatable camera/setup inputs. The lab-flow input explicitly places the player
-between scenarios; movement, triggers, spawn, lifetime and physics use production
-paths. These diagnostic placements are separate from authored content.
-
-For example, after Save+Build:
-
-```sh
-python3 tools/bench/frame_time.py --binary target/release/places \
-  --package projects/performance-lab/levels/performance_lab.placesmap \
-  --out local/lab-timing-new --level performance_lab \
-  --spawn=14.5,1.6,11,315 --camera=315,0 \
-  --size 640x360 --expected-drawable 1280x720 --warmup 120 --frames 2400
-```
-
-V-Sync defaults off in this harness. Verify actual Immediate presentation,
-physical drawable, zero missed ready surfaces and uncapped pacing in the receipt.
-Use `--seconds 12 --warmup 0 --real-delta` for equal wall-clock interaction phases;
-a faster build otherwise ends a fixed-frame run earlier. Video capture is a
-separate paced diagnostic and must never supply authoritative timing numbers.
+Open the lab in the editor and prepare the package with Save+Build. Use the
+native player's built-in benchmark mode for timing, with V-sync and all frame
+limiters off. Record actual presentation mode and physical drawable size. Treat
+a refresh-rate plateau as inconclusive, and keep video capture out of FPS runs.
 `PLACES_BENCH_SCRIPT_TRACE=1` on a direct diagnostic launch records at most 64
 invocation timings, including native capability setup; it changes no script API.
+
+## Replaying measured workloads
+
+The [frame-time runner](acceptance/frame_time.py) wraps the native benchmark
+for explicit prepared packages. The [recorded views](acceptance/views.json)
+include Home, Pool, Arcade and Performance Lab. Use the matching authored
+package and recheck the physical drawable and presentation mode.
+
+For the Windows Home bed reproduction, use the side spawn below. The
+[books actions](acceptance/home-books.json) put two books on the bed,
+crouch-jump onto it, stand and retreat. The old rear-wall spawn cannot fit
+the full player body. Run scripted input with real delta so the later
+wall-clock actions occur before measurement ends.
+
+```sh
+python projects/performance-lab/acceptance/frame_time.py --binary PATH_TO_PLACES --package PATH_TO_ENVIRONMENTS --out NEW_RUN_DIRECTORY --level home --spawn=3.6,1.6,10.7,270 --camera=270,-25 --actions projects/performance-lab/acceptance/home-books.json --seconds 7 --warmup 0 --real-delta --size 1280x720 --expected-drawable 1280x720
+```
+
+The runner refuses an unrecoverable spawn before it writes a timing receipt.
+It does not establish that every route succeeded. Inspect native snapshots
+separately and treat a refresh-rate plateau as inconclusive.

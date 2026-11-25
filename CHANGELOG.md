@@ -266,7 +266,7 @@ cost. These scene-specific results do not establish a general FPS gain.
   controls, common building tools and progressive customization. Test the current
   unsaved scene in first person inside the editor window without a lightmap bake
   or separate player, then return to retained authoring state. Final builds
-  preserve production lighting validation. See [workflow and limits](tools/release/EDITOR.md).
+  preserve production lighting validation. See [workflow and limits](docs/EDITOR.md).
 
 - Author the hub's existing wall-sign decals in both editor modes: printed
   artwork selection, fitted size/spin, solid wall placement, facing, clear-space
@@ -315,7 +315,7 @@ cost. These scene-specific results do not establish a general FPS gain.
   persistence share the existing editor path. Linked overrides/deletions survive;
   missing sources retain geometry. Optional standing-hull clearance protection
   uses real collision samples, and saved baselines prevent seed drift.
-  See [the workflow and bounds](tools/release/EDITOR.md#reuse-tools-room-prefabs-room-styles-and-prop-variation-0131).
+  See [the workflow and bounds](docs/EDITOR.md#reuse-tools-room-prefabs-room-styles-and-prop-variation-0131).
 
 - Add the cloud-authored 25-model utility/HVAC kit, retained Blender/GIMP sources,
   six-axis duct joins with reversible previews, five circuit-ready fluorescent
@@ -356,7 +356,7 @@ trim, using the existing engine primitives and baseboard preparation.
   lighting or shadows. Clipped triangular receiver edges choose their owning
   air side; microscopic clipping residue is removed before publication.
 
-Workflow and fit limits: [editor guide](tools/release/EDITOR.md#pillars-and-automatic-trim-0131).
+Workflow and fit limits: [editor guide](docs/EDITOR.md#pillars-and-automatic-trim-0131).
 This is an unreleased bounded phase; later queued editor work remains separate.
 
 Phase acceptance on the Razer (Windows, RTX 3070 / Dx12, 2026-10-28):
@@ -415,7 +415,7 @@ locked/hidden or protected edits refuse atomically. Existing wall attachments,
 offline alignment planning, mounting, collision and geometry union/clipping are
 reused. Cancellation discards partial results. Angled geometry, artistic
 intersections and unsupported UV/material corrections retain explicit review.
-See the [editor workflow](tools/release/EDITOR.md) and [phase acceptance](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md).
+See the [editor workflow](docs/EDITOR.md) and [phase acceptance](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md).
 
 Fourth editor phase adds backed wall recesses/TV niches, fitted door/window
 surrounds and sills, railing/fence paths with shared posts and stair following,
@@ -424,7 +424,7 @@ save/reopen and derived regeneration. Source admission and shared Safety reject
 unsupported cuts, routes, headroom and corner fit. Frames clip existing wall trim;
 rail corners meet at miters. Simple mode exposes the tools through geometry/Build
 controls while retaining the wall/door/light tools and 24-tile material browser.
-See the [supported routes and controls](tools/release/EDITOR.md#construction-generators-0131)
+See the [supported routes and controls](docs/EDITOR.md#construction-generators-0131)
 and [phase acceptance](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md).
 
 ### Completed audit and repair coverage (4–5 November 2026)

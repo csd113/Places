@@ -332,15 +332,13 @@ impl SpawnOrientation {
 
 /// Model-space height of the washing machine's porthole centre, in metres.
 ///
-/// Mirrors `centre_y` in `build_washing_machine`
-/// (`tools/props/parts/appliances.py`): the drum is spawned on the porthole's
-/// axis so it turns inside the cavity the model opens behind the front panel.
+/// The drum is spawned on the porthole's axis so it turns inside the model's
+/// cavity behind the front panel.
 pub const WASHER_PORTHOLE_CENTRE_Y: f32 = 0.44;
 
 /// Model-space inner radius of the washing machine's porthole opening.
 ///
-/// Mirrors `opening_radius` in `build_washing_machine`; the drum is scaled to
-/// pass through it with [`WASHER_DRUM_PORTHOLE_CLEARANCE`] to spare.
+/// The drum is scaled to pass through this opening with [`WASHER_DRUM_PORTHOLE_CLEARANCE`] to spare.
 pub const WASHER_PORTHOLE_OPENING_RADIUS: f32 = 0.155;
 
 /// Model-space depth of the machine's proud porthole bezel: the front ring

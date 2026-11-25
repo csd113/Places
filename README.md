@@ -67,7 +67,7 @@ no gameplay maps.
 
 [Download 0.13.1](https://github.com/csd113/Places/releases/tag/v0.13.1) ·
 [Download illustrated PDF](https://github.com/csd113/Places/releases/download/v0.13.1/Beginners_Guide_to_Your_First_Places_Space.pdf) ·
-[Installation](tools/release/INSTALLATION.md)
+[Installation](docs/INSTALLATION.md)
 
 The beginner guide follows the editor's Simple workspace from a blank project
 through building and playing a three-room space. The illustrated PDF is
@@ -89,7 +89,7 @@ Authors can open `projects/environments/` in the native editor; an explicit
 
 [Changelog](CHANGELOG.md)
 
-[Installation, first launch and map imports](tools/release/INSTALLATION.md) covers
+[Installation, first launch and map imports](docs/INSTALLATION.md) covers
 optional gameplay maps, bundled menu resources, external assets and separate
 writable user data.
 

@@ -14,10 +14,9 @@ import json
 import math
 from pathlib import Path
 import re
-import sys
 import unittest
 
-from tools.levels.curated_maps import environment_source
+from release.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
 EPSILON = 1e-4  # Native editor values retain f32 roundoff on ordinary JSON save.
@@ -241,8 +240,7 @@ class LanternHollowTests(unittest.TestCase):
         self.assertEqual(len(owned), 8)
 
     def test_house_shell_joins_and_real_roof_soffits_remain_outside_interior(self):
-        sys.path.insert(0, str(ROOT / 'tools/props'))
-        from glb import read_glb
+        from assets.inspection.glb import read_glb
         catalog = {asset['id']: asset for asset in
                    json.loads((ROOT / 'assets/catalog.json').read_text(encoding='utf-8'))['assets']}
         meshes = {}

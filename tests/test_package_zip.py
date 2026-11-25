@@ -18,8 +18,8 @@ import unittest
 from unittest import mock
 import zipfile
 
-from tools.levels.package_zip import PackageZip
-from tools.bench.compare_packages import BLOCK_BYTES, compare, compare_record
+from release.package_zip import PackageZip
+from release.compare_packages import BLOCK_BYTES, compare, compare_record
 
 
 class PackageZipTests(unittest.TestCase):
@@ -56,7 +56,21 @@ class PackageZipTests(unittest.TestCase):
                     archive.writestr("blobs/data", b"small exact fixture")
                 return subprocess.CompletedProcess(command, 0, "{}", "")
 
-            with mock.patch.dict(os.environ, PLACES_COMPILER=str(reader)), mock.patch("subprocess.run", side_effect=decode) as decoder:
+            # Reproduce the same unchanged file reporting different change
+            # times through path stat and handle stat on Windows.
+            real_stat = Path.stat
+
+            def path_stat(item, *args, **kwargs):
+                result = real_stat(item, *args, **kwargs)
+                if item == path:
+                    fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns")
+                    return mock.Mock(st_ctime_ns=result.st_ctime_ns - 1_000_000,
+                                     **{name: getattr(result, name) for name in fields})
+                return result
+
+            with (mock.patch.dict(os.environ, PLACES_COMPILER=str(reader)),
+                  mock.patch.object(Path, "stat", path_stat),
+                  mock.patch("subprocess.run", side_effect=decode) as decoder):
                 with PackageZip(path) as archive:
                     self.assertEqual(archive.read("blobs/data"), b"small exact fixture")
                     with archive.open(archive.getinfo("blobs/data")) as stream:
@@ -142,7 +156,7 @@ class PackageZipTests(unittest.TestCase):
                             return mock.Mock(wraps=stat, st_size=stat.st_size + 1)
                         return stat
 
-                    with (mock.patch("tools.bench.compare_packages.compare_record", side_effect=read_record),
+                    with (mock.patch("release.compare_packages.compare_record", side_effect=read_record),
                           mock.patch.object(os, "fstat", side_effect=fstat)):
                         with self.assertRaisesRegex(zipfile.BadZipFile, "package changed since opening"):
                             compare(*paths)

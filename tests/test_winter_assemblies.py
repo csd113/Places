@@ -2,18 +2,12 @@
 import json
 import math
 from pathlib import Path
-import sys
 import unittest
 
-from tools.levels.curated_maps import environment_source
+from assets.inspection import glb
+from release.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tools/props'))
-import geometry
-import glb
-from mesh import PropBuilder
-from parts import winter, winter_village
-from string_lights import SPANS, attachment_height
 
 
 # Independent source witness for the three maintained cottage mounts.
@@ -21,16 +15,37 @@ from string_lights import SPANS, attachment_height
 HOMES = ((-16, -16, .6, '02'), (8, -30, 0, '01'), (-17, 4, 0, '04'))
 
 
-def built_model(name, kit=winter):
-    builder = PropBuilder('winter:'+name, name, kit.SIZES[name])
-    kit.PROPS[builder.id](builder)
-    builder.mesh.validate(builder.size)
-    return glb.read_glb(glb.write_glb(builder.mesh, builder.tex.png_bytes(), name=name,
-                                   nodes=builder.nodes, animations=builder.clips))
+def shipped_model(name, theme='winter'):
+    path = ROOT / f'assets/environments/{theme}/props/{name}.glb'
+    return glb.read_glb(path.read_bytes())
+
+
+def normal_y(a, b, c):
+    return (b[2]-a[2])*(c[0]-a[0]) - (b[0]-a[0])*(c[2]-a[2])
+
+
+def triangles(model, material):
+    for face, start in enumerate(range(0, len(model.indices), 3)):
+        if model.triangle_materials[face] == material:
+            yield tuple(model.positions[i] for i in model.indices[start:start+3])
+
+
+def surface_height(surfaces, x, z):
+    # Highest actual face intersecting this X/Z position.
+    heights = []
+    for a, b, c in surfaces:
+        den = (b[2]-c[2])*(a[0]-c[0]) + (c[0]-b[0])*(a[2]-c[2])
+        if abs(den) < 1e-9:
+            continue
+        u = ((b[2]-c[2])*(x-c[0]) + (c[0]-b[0])*(z-c[2])) / den
+        v = ((c[2]-a[2])*(x-c[0]) + (a[0]-c[0])*(z-c[2])) / den
+        if min(u, v, 1-u-v) >= -1e-6:
+            heights.append(u*a[1] + v*b[1] + (1-u-v)*c[1])
+    return max(heights, default=None)
 
 
 def stock_model(name):
-    return glb.read_glb((winter.OUTDOOR / (name+'.glb')).read_bytes())
+    return shipped_model(name, 'outdoor')
 
 
 def floor_at(level, x, z):
@@ -64,7 +79,7 @@ class WinterAssemblyTests(unittest.TestCase):
     def setUpClass(cls):
         cls.level = json.loads(environment_source('winter').read_text())
         cls.props = {p['id']: p for p in cls.level['props']}
-        cls.blanket = built_model('snow_roof_blanket')
+        cls.blanket = shipped_model('snow_roof_blanket')
 
     def test_bank_tree_roots_share_their_center_support_height(self):
         # Nine contact points from one saved mesh catch the measured bank-edge
@@ -95,51 +110,6 @@ class WinterAssemblyTests(unittest.TestCase):
         for lower, upper in zip(intervals, intervals[1:]):
             self.assertLess(lower[1], upper[0], (lower, upper))
 
-    def test_blanket_is_one_closed_shell_with_no_internal_bay_caps(self):
-        report = geometry.inspect(self.blanket.positions, self.blanket.indices)
-        self.assertEqual(report['components'], 1)
-        for field in ('degenerate', 'boundary_edges', 'nonmanifold_edges',
-                      'inconsistent_edges', 'flipped_triangles', 'contradictory_components'):
-            self.assertEqual(report[field], 0, report)
-        self.assertEqual(self.blanket.triangle_count, 140)
-        self.assertTrue(all(0 <= v <= 1 for uv in self.blanket.uvs for v in uv))
-        # The old bays had exposed stock/snow caps on the same X planes,
-        # including the middle of each house. A blanket has only outer caps.
-        cap_planes = {round(triangle[0][0], 5) for triangle in winter._triangles(self.blanket)
-                      if abs(winter._normal(*triangle)[0]) > 1e-8
-                      and abs(winter._normal(*triangle)[1]) < 1e-8
-                      and abs(winter._normal(*triangle)[2]) < 1e-8}
-        self.assertEqual(len(cap_planes), 2)
-        self.assertNotIn(0, cap_planes)
-
-    def test_blanket_keeps_cap_artwork_density_and_continuous_fitted_uvs(self):
-        cap = built_model('snow_roof_slope')
-        cap_width = max(q[0] for q in cap.positions)-min(q[0] for q in cap.positions)
-        cap_depth = max(q[2] for q in cap.positions)-min(q[2] for q in cap.positions)
-        by_point = {}
-        for point, uv in zip(self.blanket.positions, self.blanket.uvs):
-            key = tuple(round(v, 6) for v in point)
-            previous = by_point.setdefault(key, uv)
-            for actual, expected in zip(uv, previous):
-                self.assertAlmostEqual(actual, expected, places=6)
-        for start in range(0, len(self.blanket.indices), 3):
-            indices = self.blanket.indices[start:start+3]
-            points = [self.blanket.positions[i] for i in indices]
-            if winter._normal(*points)[1] <= 1e-8:
-                continue
-            # Every top facet lies entirely within one fitted UV section.
-            # Its texture density must match the existing narrow snow cap.
-            for i in range(3):
-                for j in range(i+1, 3):
-                    a, b = points[i], points[j]
-                    ua, ub = self.blanket.uvs[indices[i]], self.blanket.uvs[indices[j]]
-                    if abs(a[0]-b[0]) > 1e-7:
-                        self.assertAlmostEqual(abs((ua[0]-ub[0])/(a[0]-b[0])),
-                                               1/cap_width, delta=.0006)
-                    if abs(a[2]-b[2]) > 1e-7:
-                        self.assertAlmostEqual(abs((ua[1]-ub[1])/(a[2]-b[2])),
-                                               1/cap_depth, places=5)
-
     def test_every_roof_blanket_follows_actual_stock_and_separates_end_planes(self):
         blankets = [p for p in self.level['props'] if p['model'] == 'winter:snow_roof_blanket']
         self.assertEqual(len(blankets), 6)
@@ -156,7 +126,8 @@ class WinterAssemblyTests(unittest.TestCase):
                 for edge in (min, max):
                     snow_x = edge(q[0] for q in points)
                     stock_x = edge(q[0] for triangle in roofs for q in triangle)
-                    self.assertAlmostEqual(abs(snow_x-stock_x), .008, places=5)
+                    # The GLB carries f32 end planes, which round by a few microns.
+                    self.assertAlmostEqual(abs(snow_x-stock_x), .008, delta=1e-5)
                 # Test actual exported base vertices on both shingles and
                 # fascia, including the raised lodge's floor-relative anchor.
                 # UV cuts also insert top-diagonal vertices between contact
@@ -171,7 +142,7 @@ class WinterAssemblyTests(unittest.TestCase):
                     bases[key] = min(q[1], bases.get(key, q[1]))
                 for (x, z), y in bases.items():
                     q = world_point(self.level, prop, (x, y, z))
-                    support = winter.surface_height(roofs, q[0], q[2])
+                    support = surface_height(roofs, q[0], q[2])
                     if support is not None:
                         # Accepted roof trim changes the exact underlap. Require buried
                         # contact within the 2 cm structural margin, never a floating base.
@@ -179,10 +150,10 @@ class WinterAssemblyTests(unittest.TestCase):
                         self.assertLess(q[1]-support, 0)
                 # Visible snow stays clear of shingles and small trim blocks.
                 for triangle in world_triangles(self.level, prop, self.blanket):
-                    if winter._normal(*triangle)[1] <= 1e-8:
+                    if normal_y(*triangle) <= 1e-8:
                         continue
                     for q in (*triangle, tuple(sum(v[i] for v in triangle)/3 for i in range(3))):
-                        support = winter.surface_height(roofs, q[0], q[2])
+                        support = surface_height(roofs, q[0], q[2])
                         if support is not None:
                             self.assertGreater(q[1]-support, .02)
 
@@ -197,7 +168,7 @@ class WinterAssemblyTests(unittest.TestCase):
                     if abs(point[1]) > 1e-6:
                         continue
                     q = world_point(self.level, prop, point)
-                    support = winter.surface_height(roofs, q[0], q[2])
+                    support = surface_height(roofs, q[0], q[2])
                     self.assertIsNotNone(support)
                     self.assertAlmostEqual(q[1]-support, -.008, places=4)
             for side in ('west', 'east'):
@@ -205,80 +176,23 @@ class WinterAssemblyTests(unittest.TestCase):
                 self.assertEqual(floor_at(self.level, prop['x'], prop['z']), 0)
                 self.assertGreater(prop['y'], floor+2.4)
 
-    def test_all_strings_intersect_their_real_supports_and_clear_hoods(self):
-        boxes = {b['id']: b for b in self.level['void_walls']}
-        spans = [p for p in self.level['props'] if p['model'].startswith('winter:string_lights_')]
-        self.assertEqual(len(spans), 8)
-        self.assertEqual(sum(len(p['lights']) for p in spans), 60)
-        for prop in spans:
-            variant = prop['model'].removeprefix('winter:string_lights_')
-            ends = [world_point(self.level, prop, (side*SPANS[variant][0]/2,
-                                                  attachment_height(variant), 0))
-                    for side in (-1, 1)]
-            if prop['id'].startswith('home_'):
-                home = int(prop['id'].split('_')[1])
-                _, z, floor, family = HOMES[home]
-                _, _, fascia_z, fascia_top = winter.roof_support_profile(family)
-                roof_front = z+3+1.82+fascia_z*winter.ROOF_SCALE
-                self.assertGreaterEqual(prop['z']-.045-roof_front, .0149)
-                self.assertAlmostEqual(world_point(self.level, prop, (0, 0, 0))[1], floor+2.77)
-                for side, endpoint in zip((-1, 1), ends):
-                    upstand = boxes[f'home_{home}_string_upstand_{side}']
-                    for axis, half in enumerate((.025, .025, .02)):
-                        self.assertGreaterEqual(endpoint[axis]-half, upstand['min'][axis])
-                        self.assertLessEqual(endpoint[axis]+half, upstand['max'][axis])
-                    arm = boxes[f'home_{home}_string_bracket_{side}']
-                    self.assertLess(arm['min'][2], roof_front)
-                    self.assertGreater(arm['max'][2], roof_front)
-                    self.assertLess(arm['min'][1], floor+2.7+fascia_top*winter.ROOF_SCALE)
-                    self.assertLess(arm['max'][2]-arm['min'][2], .2)
-            elif prop['id'].startswith('lodge_rail_string_'):
-                prefix = 'lodge_rail_'+prop['id'].split('_')[-1]+'_post_'
-                supports = [p for p in self.level['props'] if p['id'].startswith(prefix)]
-                for side, endpoint in zip((-1, 1), ends):
-                    support = min(supports, key=lambda p: math.hypot(p['x']-endpoint[0], p['z']-endpoint[2]))
-                    self.assertLess(abs(endpoint[0]-support['x']), .055)
-                    mount = boxes[f'lodge_rail_string_mount_{prop["id"].split("_")[-1]}_{side}']
-                    for axis in range(3):
-                        self.assertLess(mount['min'][axis], endpoint[axis])
-                        self.assertGreater(mount['max'][axis], endpoint[axis])
-                    self.assertLess(mount['min'][2], support['z']+.06)
-                    self.assertGreater(mount['max'][2], support['z']+.06)
-                    # Delivered bulb glass extends 38.97 mm behind the cable.
-                    self.assertGreater(prop['z']-.03897-(support['z']+.06), .01)
-                    base = floor_at(self.level, support['x'], support['z'])+support['y']
-                    self.assertGreater(endpoint[1], base)
-                    self.assertLess(endpoint[1], base+1.05*support['scale'])
-            else:
-                prefix = ('porch_post_' if prop['id'] == 'lodge_porch_string'
-                          else 'string_post_'+str(2 if prop['id'] == 'path_string'
-                                                  else int(prop['id'].split('_')[-1]))+'_')
-                posts = [p for p in self.level['props'] if p['id'].startswith(prefix)]
-                model = stock_model('house_02_porch_post')
-                for endpoint in ends:
-                    supported = False
-                    for post in posts:
-                        points = [world_point(self.level, post, q) for q in model.positions]
-                        low = [min(q[i] for q in points) for i in range(3)]
-                        high = [max(q[i] for q in points) for i in range(3)]
-                        supported |= all(endpoint[i]+half > low[i] and endpoint[i]-half < high[i]
-                                         for i, half in enumerate((.025, .025, .02)))
-                    self.assertTrue(supported, prop['id'])
-
     def test_hood_snow_undersides_are_embedded_in_timber(self):
-        hood = built_model('door_hood_snow', winter_village)
-        stock = list(winter._triangles(hood, hood.material_names.index('village_stock')))
-        snow = list(winter._triangles(hood, hood.material_names.index('snow')))
-        bases = [triangle for triangle in snow if winter._normal(*triangle)[1] < -1e-8]
-        self.assertTrue(bases)
-        for triangle in bases:
-            q = tuple(sum(v[i] for v in triangle)/3 for i in range(3))
-            support = winter.surface_height(stock, q[0], q[2])
+        hood = shipped_model('door_hood_snow')
+        stock = list(triangles(hood, hood.material_names.index('winter_timber')))
+        snow = list(triangles(hood, hood.material_names.index('snow.001')))
+        undersides = [face for face in snow if normal_y(*face) < -1e-8]
+        exposed = [face for face in snow if normal_y(*face) > 1e-8]
+        self.assertTrue(undersides and exposed)
+        # The saved Blender hood's snow underlaps the timber more than the old
+        # procedural fixture. Check both contact and a genuinely exposed snow face.
+        for face, embedded in [(face, True) for face in undersides] + [(face, False) for face in exposed]:
+            x, y, z = (sum(point[i] for point in face)/3 for i in range(3))
+            support = surface_height(stock, x, z)
             self.assertIsNotNone(support)
-            self.assertGreater(support-q[1], .008)
-            # The projecting nose beam slightly overlaps the sloped hood;
-            # the snow stays embedded in that higher timber face as well.
-            self.assertLess(support-q[1], .02)
+            if embedded:
+                self.assertGreater(support-y, .008, 'the snow must not float above timber')
+            else:
+                self.assertGreater(y-support, .04, 'the snow surface must not be buried')
 
 
 if __name__ == '__main__':

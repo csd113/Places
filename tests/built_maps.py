@@ -1,4 +1,4 @@
-"""Explicit compiled-distribution acceptance; first run sh tools/build-maps.sh."""
+"""Explicit compiled-distribution acceptance; first export as described in levels/README.md."""
 import hashlib
 import json
 import os
@@ -6,9 +6,9 @@ import tomllib
 from pathlib import Path
 import unittest
 import zipfile
-from tools.levels.package_zip import PackageZip
+from release.package_zip import PackageZip
 
-from tools.levels.curated_maps import level_views, lineup, project_manifest, source_levels
+from release.curated_maps import level_views, lineup, project_manifest, source_levels
 
 ROOT = Path(__file__).resolve().parents[1]
 PLACES_VERSION = tomllib.loads((ROOT / 'Cargo.toml').read_text())['package']['version']

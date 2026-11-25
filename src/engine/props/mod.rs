@@ -76,8 +76,7 @@ pub fn texture_bytes(model: &PropModel) -> usize {
 ///
 /// The budget is [`PROP_TEXTURE_PACK_BUDGET_BYTES`]: generous enough that a
 /// catalogue of native 256x256 sheets is unremarkable, firm enough to reject a
-/// pathological or accidentally duplicated multi-gigabyte set. The prop tests
-/// and `tools/props/build.py --check` enforce the same number.
+/// pathological or accidentally duplicated multi-gigabyte set.
 #[must_use]
 pub const fn pack_texture_budget_exceeded(decoded_bytes: usize) -> bool {
     decoded_bytes > PROP_TEXTURE_PACK_BUDGET_BYTES

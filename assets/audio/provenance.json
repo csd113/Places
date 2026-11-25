@@ -140,7 +140,7 @@
       "page_url": "https://github.com/csd113/Places",
       "verified_date": "2026-10-25",
       "archive": "original",
-      "recipe": "tools/audio/original.py; offline original synthesis; no sampled recordings"
+      "recipe": "assets/references/audio/authoring/original.py; offline original synthesis; no sampled recordings"
     },
     {
       "id": "places_original_elevator_0131",
@@ -151,7 +151,7 @@
       "page_url": "https://github.com/csd113/Places",
       "verified_date": "2026-11-03",
       "archive": "original",
-      "recipe": "tools/audio/elevator.py; offline original synthesis; no sampled recordings"
+      "recipe": "assets/references/audio/authoring/elevator.py; offline original synthesis; no sampled recordings"
     },
     {
       "id": "grimmreapersounds_intercom",
@@ -184,7 +184,7 @@
       "author": "Places contributors",
       "license": "MIT",
       "archive": "original",
-      "recipe": "tools/audio/feltling.py; editable deterministic additive/formant scores; no recordings or runtime synthesis"
+      "recipe": "assets/references/audio/authoring/feltling.py; editable deterministic additive/formant scores; no recordings or runtime synthesis"
     },
     {
       "id": "places_original_tonal_ambient_0131",
@@ -192,7 +192,7 @@
       "author": "Places contributors",
       "license": "MIT",
       "archive": "original",
-      "recipe": "tools/audio/tonal.py; seeded offline single-pitch synthesis and circular room processing; no recordings; explicit per-file runtime rates",
+      "recipe": "assets/references/audio/authoring/tonal.py; seeded offline single-pitch synthesis and circular room processing; no recordings; explicit per-file runtime rates",
       "masters": "assets/references/audio/tonal_ambient/"
     }
   ],
@@ -982,7 +982,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -995,7 +995,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1008,7 +1008,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1021,7 +1021,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1034,7 +1034,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1047,7 +1047,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1060,7 +1060,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1073,7 +1073,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1086,7 +1086,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1099,7 +1099,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1112,7 +1112,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1125,7 +1125,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1138,7 +1138,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1151,7 +1151,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {
@@ -1164,7 +1164,7 @@
       "sample_rate": 44100,
       "channels": 1,
       "sample_bits": 16,
-      "imported_with": "tools/audio/build.py format_only; PCM conversion only, original sample timing/gain preserved",
+      "imported_with": "retired offline importer (format_only); PCM conversion only, original sample timing/gain preserved",
       "edit_mode": "format_only"
     },
     {

@@ -1,8 +1,7 @@
 # Engine regression scenes
 
 These are functional test inputs, outside the playable lineup and distribution.
-Tests name them directly; generated scenes have `--check` owners under
-`tools/levels/`. Preserve assertions when changing a fixture.
+Preserve the intended positive and negative controls when changing a fixture.
 
 - `movement_test`, `level0_pit`, `vertical_diagnostic`: controller steps,
   slopes, jumps, water, ladders, swept reset triggers and height limits.
@@ -20,11 +19,11 @@ Tests name them directly; generated scenes have `--check` owners under
   unchanged traversal and passable decorative refinements.
 - `office_asset_review`, `outdoor_kit_showcase`: focused asset-family QA.
 
-Home and Pool showcases live in optional `levels/` content for developers.
+The maintained Home and Pool levels are `projects/environments/levels/home.json`
+and `projects/environments/levels/pool.json`.
 Obsolete full Hero stage variants and the asset-polish review have been
 retired; their surviving contracts are covered by the focused scenes above.
-Native camera inputs are under `tests/fixtures/native/map-manifests/` and must
-match the maintained source inventory exactly. Capture output is ignored.
+Capture output is ignored.
 
 Compile a positive fixture to isolated state to inspect it:
 

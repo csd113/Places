@@ -65,3 +65,93 @@ fn zero_duration_pose_and_one_shot_clocks_remain_bounded() {
     assert!(!cue.advance(0.5, 1.0, 4.0));
     assert_eq!(cue.time, 0.5);
 }
+
+// A real skim can intersect the sloped seabed even if both placement centers
+// are in water. Sample the actual 1.2 s swim and both installed skin poses at
+// >=120 Hz using native transforms and surfaces. One small GLB, no bake/GPU.
+#[test]
+fn shipped_content_beach_fish_poses_clear_seabed_and_waterline() -> Result<(), String> {
+    use super::CharacterAnimator;
+    use crate::engine::level::{LevelDef, LevelSurfaces};
+    use glam::Vec3;
+
+    let beach = LevelDef::from_json(include_str!(
+        "../../../projects/environments/levels/beach.json"
+    ))
+    .map_err(|error| error.to_string())?;
+    let surfaces = LevelSurfaces::new(&beach);
+    let model = crate::engine::gltf::parse_glb(include_bytes!(
+        "../../../assets/entities/beach_fish/model/beach_fish.glb"
+    ))
+    .map_err(|error| error.to_string())?;
+    let mut animator = CharacterAnimator::new(&model).ok_or("swim animator is missing")?;
+    let frames = animator
+        .clip_duration("swim")
+        .ok_or("authored swim clip is missing")?
+        .mul_add(120.0_f32, 0.0_f32)
+        .ceil();
+    assert!(
+        (1.0..=480.0).contains(&frames),
+        "the bounded fixture must sample an actual swim cycle"
+    );
+    let placements = beach
+        .props
+        .iter()
+        .filter(|prop| prop.model == "beach:fish")
+        .map(|prop| {
+            let id = prop.id.as_deref().ok_or("authored fish lacks an ID")?;
+            let origin = surfaces
+                .floor_y_at(prop.x, prop.z)
+                .ok_or_else(|| format!("{id} has no authored floor"))?;
+            Ok((id, prop.placement_matrix(origin)))
+        })
+        .collect::<Result<Vec<_>, String>>()?;
+    assert_eq!(
+        placements.iter().map(|(id, _)| *id).collect::<Vec<_>>(),
+        ["shallows_fish", "shallows_fish_pair"],
+        "both authored fish are covered"
+    );
+    assert!(
+        !model.vertices.is_empty(),
+        "must sample the actual fish mesh"
+    );
+    assert_eq!(
+        model.vertices.len(),
+        model.joints.len(),
+        "every vertex needs joint slots"
+    );
+    assert_eq!(
+        model.vertices.len(),
+        model.weights.len(),
+        "every vertex needs skin weights"
+    );
+    for frame in (0_u16..=480)
+        .map(f32::from)
+        .take_while(|frame| *frame <= frames)
+    {
+        let _sample = animator.sample_fraction("swim", frame.mul_add(frames.recip(), 0.0));
+        for ((vertex, joints), weights) in
+            model.vertices.iter().zip(&model.joints).zip(&model.weights)
+        {
+            let pose = Vec3::from_array(animator.skin_position(*joints, *weights, vertex.pos));
+            for (id, placement) in &placements {
+                let point = placement.transform_point3(pose);
+                let floor = surfaces
+                    .floor_y_at(point.x, point.z)
+                    .ok_or_else(|| format!("{id} has no supporting seabed at {point:?}"))?;
+                let water = beach
+                    .water
+                    .iter()
+                    .rev()
+                    .find(|volume| volume.swimming && volume.contains(point.x, point.z))
+                    .ok_or_else(|| format!("{id} swims out of water at {point:?}"))?;
+                assert!(
+                    point.y >= floor.mul_add(1.0, 0.02)
+                        && point.y.mul_add(1.0, 0.02) <= water.surface_y,
+                    "{id} swim frame {frame} clips the seabed or waterline: {point:?}"
+                );
+            }
+        }
+    }
+    Ok(())
+}

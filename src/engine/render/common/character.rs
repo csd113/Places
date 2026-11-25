@@ -326,9 +326,7 @@ pub const CHARACTER_BOUNDS_MARGIN_M: f32 = 0.05;
 /// The speed the shipped `walk` clip is authored for, in metres per second.
 ///
 /// One gait cycle covers a fixed stride at this speed, so an entity route that
-/// walks at this speed plays the clip at rate 1.0 with no foot sliding;
-/// `tools/props/animate_spooner_man.py --report` prints the measured stride
-/// and the matching speed. A clip that declares its own reference speed in
+/// walks at this speed plays the clip at rate 1.0 with no foot sliding. A clip that declares its own reference speed in
 /// `asset.extras.places_entity_clips` overrides this fallback.
 pub const WALK_REFERENCE_SPEED_MPS: f32 = 0.26;
 

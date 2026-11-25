@@ -1,16 +1,9 @@
-"""Beach authoring support and runtime-envelope regression checks."""
+"""Beach rig interpolation and runtime-envelope regression checks."""
 import copy
 import math
-from pathlib import Path
-import sys
 import unittest
 
-ROOT = Path(__file__).resolve().parents[1]
-sys.path[:0] = [str(ROOT / "tools/entities"), str(ROOT / "tools/props")]
-from validate_entities import Model, _slerp, verify_report
-from parts.beach_structures import placed_components
-from parts.beach_nature import placed_components as nature_components
-from tools.levels.beach_components import shore_segment
+from assets.inspection.rig_pose import Model, _slerp, verify_report
 
 
 class BeachTests(unittest.TestCase):
@@ -39,98 +32,6 @@ class BeachTests(unittest.TestCase):
         escaped = copy.deepcopy(report)
         escaped["clips"][0]["posed_max_m"][0] = 1.21
         self.assertTrue(any("axis 0" in failure for failure in verify_report(escaped)))
-
-    def test_shore_support_reaches_the_waterline_on_the_implemented_ramp_axis(self):
-        shore = shore_segment(0, 0, 14, 13)
-        self.assertTrue(all(r["depth"] > r["width"] for r in shore["ramps"]))
-        first, second = shore["ramps"][:2]
-        self.assertAlmostEqual(first["offset_y"] + first["rise"], second["offset_y"])
-        base = shore["rooms"][0]["floor_y"]
-        self.assertAlmostEqual(base + second["offset_y"] + second["rise"], 0)
-        self.assertEqual(base, -2.2)  # Underwater entity anchors belong to this room.
-        water = shore["water"][1]
-        end = water["z"] + water["depth"]
-        end_floor = base + second["offset_y"] + second["rise"] * (end-second["z"])/second["depth"]
-        self.assertLess(end_floor, water["surface_y"])
-        self.assertGreater(0, water["surface_y"])
-
-    def test_dock_support_and_posts_reconstruct_bases_above_an_existing_sea_floor(self):
-        parts = placed_components("dock", 10, 10, base_y=-.5, floor_y=0,
-                                  floor_at=lambda _x, _z: -2.2)
-        region = parts["floor_regions"][0]
-        def floor(prop):
-            if (region["x"] <= prop["x"] <= region["x"]+region["width"] and
-                    region["z"] <= prop["z"] <= region["z"]+region["depth"]):
-                return region["offset_y"]
-            return -2.2
-        self.assertAlmostEqual(floor(parts["props"][0]) + parts["props"][0]["y"], -.5)
-        for post in parts["props"][1:5]:
-            self.assertAlmostEqual(floor(post) + post["y"], -.5)
-        self.assertTrue(all(p.get("occludes") is False for p in parts["props"][1:]))
-
-    def test_curved_shore_water_corners_keep_their_own_room(self):
-        segments = [shore_segment(0, 0, 14, 6), shore_segment(6, 0, 10, 6)]
-        rooms = [s["rooms"][0] for s in segments]
-        for segment, owner in zip(segments, rooms):
-            for water in segment["water"]:
-                for x in (water["x"], water["x"]+water["width"]):
-                    for z in (water["z"], water["z"]+water["depth"]):
-                        room = next(r for r in rooms if r["x"]-.01 <= x <= r["x"]+r["width"]+.01
-                                    and r["z"]-.01 <= z <= r["z"]+r["depth"]+.01)
-                        self.assertIs(room, owner)
-
-    def test_town_portals_allow_a_standing_body_at_every_quarter_turn(self):
-        for name in ("town_arch", "town_house_cream", "town_house_blue", "town_house_coral"):
-            for turn in range(4):
-                with self.subTest(name=name, turn=turn):
-                    parts = placed_components(name, 10, 10, rotation_degrees=turn*90)
-                    self.assertEqual(parts["archways"], [])
-                    def point(px, pz):
-                        return ((10+px, 10+pz), (10+pz, 10-px),
-                                (10-px, 10-pz), (10-pz, 10+px))[turn]
-                    def floor(x, z):
-                        for region in parts["floor_regions"]:
-                            if (region["x"] <= x <= region["x"]+region["width"] and
-                                    region["z"] <= z <= region["z"]+region["depth"]):
-                                return region["offset_y"]
-                        return 0
-                    for sample in range(31):
-                        x, z = point(0, sample/10)
-                        feet = floor(x, z)
-                        for proxy in parts["props"][1:]:
-                            width, height, depth = [v*proxy["scale"] for v in proxy["size"]]
-                            if turn % 2:
-                                width, depth = depth, width
-                            base = floor(proxy["x"], proxy["z"]) + proxy["y"]
-                            if (abs(proxy["x"]-x) < width/2+.3 and
-                                    abs(proxy["z"]-z) < depth/2+.3 and
-                                    base+height > feet+.01):
-                                self.assertGreaterEqual(base, feet+1.8)
-
-    def test_sea_arch_blocks_rock_and_preserves_the_standing_passage(self):
-        floor = lambda x, z: -2.2 + .01*x + .02*z
-        for turn in range(4):
-            parts = nature_components("sea_arch", 10, 10, base_y=1.25,
-                                      floor_at=floor, rotation_degrees=turn*90)
-            def point(px, pz):
-                return ((10+px, 10+pz), (10+pz, 10-px),
-                        (10-px, 10-pz), (10-pz, 10+px))[turn]
-            def blocked(px, pz):
-                x, z = point(px, pz)
-                for proxy in parts["props"][1:]:
-                    width, height, depth = [v*proxy["scale"] for v in proxy["size"]]
-                    if turn % 2:
-                        width, depth = depth, width
-                    base = floor(proxy["x"], proxy["z"]) + proxy["y"]
-                    if (abs(proxy["x"]-x) < width/2+.3 and abs(proxy["z"]-z) < depth/2+.3
-                            and base < 1.25+1.8 and base+height > 1.25+.01):
-                        return True
-                return False
-            self.assertTrue(blocked(-4.5, 0))
-            self.assertTrue(blocked(4.5, 0))
-            for sample in range(31):
-                self.assertFalse(blocked(0, sample*.2-3))
-
 
 if __name__ == "__main__":
     unittest.main()

@@ -36,12 +36,6 @@ clear far-lane position. The editor reopens that source, preserves its exact
 bytes after toggle/undo/save, and displays models in Inspect preview; Environment
 preview and Play apply invisibility. No artwork or accepted game was replaced.
 
-Replay actual native acceptance using the prepared package:
-
-```sh
-python3 tools/authoring/shadow_only_native.py --binary local/shadow-only-0.12.0/payload/places --package local/shadow-only-0.12.0/Shadow-Gallery.placesmap --level room_1792320687064 --out local/shadow-gallery-replay --case acceptance
-```
-
-Use a new output directory. Native UI requires a desktop session. These are
-explicit developer tools; Cargo and CI never bake this map. See
+Use the prepared package in the native player to revisit the gallery controls.
+This is explicit desktop validation. Cargo and CI do not bake this map. See
 [stage evidence](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#editor-0120-shadow-only).

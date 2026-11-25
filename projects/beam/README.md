@@ -46,9 +46,8 @@ room, plus a filing room, break room and reception. Arcade has machine aisles,
 party tables, a bowling alcove and a prize foyer.
 
 The scene was expanded through the real editor's Project, Author, placement,
-transform and Scripts controls. `tools/authoring/beam_editor.py` is a historical
-recipe for an earlier single-map layout. These saved project sources are the
-current authority; do not regenerate them from that recipe.
+transform and Scripts controls. These saved project sources are the current
+authority. Edit and export them through the native editor.
 
 The scripts use existing navigation, physical-item receivers and native light
 response. Patrol and sampled last-seen/search movement use the shared AI task runtime.

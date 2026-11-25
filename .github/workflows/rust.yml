@@ -51,45 +51,35 @@ jobs:
           ' "$RUNNER_TEMP/places-engine"
       - name: Check Rust formatting
         working-directory: ${{ runner.temp }}/places-engine
-        run: sh tools/check-rust.sh format
+        run: cargo fmt --all --check
       # Authored quest regressions compile the maintained Luau source scripts.
       # Run test-aware gates in the full source checkout; no map is baked.
       # Production binaries below still build in the engine-only checkout.
       - name: Check Rust targets and features
-        run: sh tools/check-rust.sh check
+        run: cargo check --locked --workspace --all-targets --all-features
       - name: Clippy debug
-        run: sh tools/check-rust.sh clippy
+        run: cargo clippy --locked --workspace --all-targets --all-features -- -D warnings
       - name: Essential CPU regressions
-        run: sh tools/check-rust.sh test
+        run: cargo test --locked --workspace
       - name: Clippy release
-        run: sh tools/check-rust.sh clippy-release
+        run: cargo clippy --locked --release --workspace --all-targets --all-features -- -D warnings
       - name: Build production executables
         working-directory: ${{ runner.temp }}/places-engine
-        run: sh tools/check-rust.sh build
+        run: cargo build --locked --release --workspace --all-features
       - name: Install source-check dependencies
         run: |
           python3 -m venv "$RUNNER_TEMP/places-python"
           "$RUNNER_TEMP/places-python/bin/python3" -m pip install Pillow numpy
           echo "$RUNNER_TEMP/places-python/bin" >> "$GITHUB_PATH"
-      - name: Check authored assets and generators
-        run: |
-          python3 tools/assets/validate.py
-          python3 tools/audio/build.py --check
-          python3 tools/props/build.py --check
-          python3 tools/entities/author_halloween_assets.py --check --glb sheet-ghost --glb sheet-ghost-cat
-          python3 tools/entities/check_clip_boundaries.py
-          python3 tools/levels/build_outdoor_fixture.py --check
-          python3 tools/levels/compile.py --list-json
-          "$RUNNER_TEMP/places-engine/target/release/places-map-compiler" check-project projects/environments --asset-root assets
-          python3 tools/levels/build_lighting_quality.py --check
-          python3 tools/textures/frutiger_aero_art.py --check
-          python3 tools/props/build_cockroach.py --check
-          python3 tools/entities/build_mannequin.py --check-run-arms-forward
-          python3 tools/textures/author_arcade.py --check
-          python3 tools/levels/build_capacity_fixtures.py --check
+      - name: Validate authored release sources and production Luau without baking
+        run: python3 release/verify_desktop.py source --compiler "$RUNNER_TEMP/places-engine/target/release/places-map-compiler"
+      - name: Verify the shipped audio bank without importing or rendering
+        run: python3 assets/inspection/audio.py --check
       - name: Test source Python contracts
         env:
           PLACES_SKIP_SMOKE: '1'
-        run: python3 -m unittest discover -s tests -p 'test_*.py'
+        run: |
+          python3 -m unittest discover -s tests -p 'test_*.py'
+          python3 -m unittest discover -s projects/environments/tests -p 'test_*.py'
       - name: Check patch whitespace
         run: git diff --check

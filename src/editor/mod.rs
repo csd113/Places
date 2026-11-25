@@ -470,7 +470,7 @@ fn options(mut args: impl Iterator<Item = String>) -> Result<Option<Options>, St
                 use std::io::Write;
                 let _written = writeln!(
                     std::io::stdout(),
-                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH] [--performance-test]\nplaces-editor --debug profile|responsiveness <project>\nplaces-editor --debug document-session|preview-audit <project> <level>\nNative project editor. Built-in assets only. See docs/EDITOR.md in the application package or tools/release/EDITOR.md in the source checkout for controls."
+                    "places-editor [PROJECT] [--new PROJECT] [--level ID] [--compiler PATH] [--game PATH] [--asset-root PATH] [--performance-test]\nplaces-editor --debug profile|responsiveness <project>\nplaces-editor --debug document-session|preview-audit <project> <level>\nNative project editor. Built-in assets only. See docs/EDITOR.md in the application package or source checkout for controls."
                 );
                 return Ok(None);
             }

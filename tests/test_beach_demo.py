@@ -8,11 +8,10 @@ import math
 import os
 from pathlib import Path
 import subprocess
-import sys
 import unittest
 
 
-from tools.levels.curated_maps import environment_source
+from release.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = environment_source('beach')
@@ -338,8 +337,7 @@ class BeachDemoTests(unittest.TestCase):
     def test_swimming_fish_poses_clear_the_sloped_seabed_and_waterline(self):
         # Checking only the placement center misses fins on the uphill side.
         # The generic validator reads the committed rig and the runtime's SLERP.
-        sys.path.insert(0, str(ROOT / "tools/entities"))
-        from validate_entities import Model
+        from assets.inspection.rig_pose import Model
         model = Model(ROOT / "assets/entities/beach_fish/model/beach_fish.glb")
         clip = next(clip for clip in model.clips if clip["name"] == "swim")
         fish = [prop for prop in self.level["props"] if prop["model"] == "beach:fish"]

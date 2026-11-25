@@ -1,23 +1,16 @@
 """Snow authoring, asset contracts and validator regressions."""
-import copy
 import json
 import os
 from pathlib import Path
 import struct
-import sys
 import unittest
-import zipfile
 
 from tests.built_maps import package_documents, selected_distributions, selected_sources
-from tools.levels.curated_maps import environment_source, source_levels
+from release.curated_maps import environment_source, source_levels
 
 ROOT = Path(__file__).resolve().parents[1]
-sys.path.insert(0, str(ROOT / 'tools/assets'))
-sys.path.insert(0, str(ROOT / 'tools/props'))
-sys.path.insert(0, str(ROOT / 'tools/levels'))
-import winter_weather
-import validate
-from tex import decode_png
+from assets.inspection import catalog as validate
+from assets.inspection.png import decode_png
 
 
 def assert_non_winter_climate(test, level, stem):
@@ -216,40 +209,21 @@ class WeatherTests(unittest.TestCase):
                                       'fixture', errors)
         self.assertTrue(any('equal count and material' in error for error in errors), errors)
 
-    def test_derived_severe_control_preserves_winter_content(self):
-        original = json.loads((environment_source('winter')).read_text())
-        snapshot = copy.deepcopy(original)
-        review = winter_weather.build_severe_review(original)
-        self.assertEqual(original, snapshot, 'deriving the control must not mutate Winter')
-        self.assertEqual(original['weather_alternate'],
-                         json.loads(winter_weather.SEVERE_WEATHER.read_text()))
-        for key in original.keys() - {'id', 'name', 'weather', 'weather_alternate',
-                                     'weather_cycle', 'props'}:
-            self.assertEqual(original[key], review[key], key)
-        self.assertEqual(review['weather_cycle'], {
-            **original['weather_cycle'],
-            'min_strength': round(1 - original['weather_cycle']['max_strength'], 4),
-            'max_strength': round(1 - original['weather_cycle']['min_strength'], 4),
-        })
-        for calm_prop, storm_prop in zip(original['props'], review['props'], strict=True):
-            expected = copy.deepcopy(calm_prop)
-            for binding in expected.get('bindings', []):
-                for action in binding['actions']:
-                    if action['action'] == 'set_weather_strength':
-                        action['strength'] = round(1 - action['strength'], 4)
-            if calm_prop['id'] == 'winter_blizzard_button':
-                interactable = next(c for c in expected['components']
-                                    if c['component'] == 'interactable')
-                state = next(c for c in expected['components'] if c['component'] == 'state')
-                self.assertEqual(interactable['prompt'], 'Enable moderate blizzard')
-                self.assertFalse(state['value'])
-                interactable['prompt'] = 'Stop blizzard'
-                state['value'] = True
-            self.assertEqual(expected, storm_prop)
-        self.assertEqual(review.get('weather_alternate'), original.get('weather'))
-        self.assertEqual(original.get('weather_alternate'), review.get('weather'))
-        self.assertEqual(review['weather']['storm_severity'], 1)
-        self.assertEqual(review['weather'].get('count', 1400), 1400)
+    def test_winter_source_preserves_severe_control_and_calm_default(self):
+        level = json.loads(environment_source('winter').read_text(encoding='utf-8'))
+        props = {prop['id']: prop for prop in level['props']}
+
+        def strengths(identity):
+            return [action['strength'] for binding in props[identity]['bindings']
+                    for action in binding['actions'] if action['action'] == 'set_weather_strength']
+
+        self.assertEqual(strengths('winter_blizzard_button'), [.35, 0])
+        self.assertEqual(strengths('winter_weather_severe'), [1, 1])
+        cycle = level['weather_cycle']
+        self.assertEqual((cycle['enabled'], cycle['min_strength'], cycle['max_strength']),
+                         (False, 0, .45))
+        storm = level['weather_alternate']
+        self.assertEqual((storm['storm_severity'], storm['visibility_m']), (1, 5))
 
 
 @unittest.skipUnless(os.environ.get('PLACES_WEATHER_PACKAGE_DIR'),
@@ -288,10 +262,10 @@ class PackagedWeatherTests(unittest.TestCase):
                 self.assertEqual(level['id'], identity, path)
                 if identity == 'winter':
                     self.assertEqual(level['weather']['kind'], 'snow')
-                    for key, value in json.loads(winter_weather.SEVERE_WEATHER.read_text()).items():
+                    authored = json.loads(sources[identity].read_text(encoding='utf-8'))
+                    for key, value in authored['weather_alternate'].items():
                         self.assert_stored_weather(level['weather_alternate'][key], value, (path, key))
-                    self.assert_stored_weather(level['weather_cycle'],
-                                               json.loads(sources[identity].read_text())['weather_cycle'], path)
+                    self.assert_stored_weather(level['weather_cycle'], authored['weather_cycle'], path)
                 else:
                     assert_non_winter_climate(self, level, identity)
                 errors = []

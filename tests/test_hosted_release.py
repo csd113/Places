@@ -8,15 +8,17 @@ run in milliseconds. One ZIP fixture checks preservation of executable modes.
 import importlib.util
 import json
 import os
+import sys
 from pathlib import Path
 import tempfile
 import unittest
 from unittest.mock import patch
 import zipfile
 
-SPEC = importlib.util.spec_from_file_location('hosted', Path(__file__).resolve().parents[1] / 'tools/release/hosted.py')
+SPEC = importlib.util.spec_from_file_location('hosted', Path(__file__).resolve().parents[1] / 'release/hosted.py')
 hosted = importlib.util.module_from_spec(SPEC)
-SPEC.loader.exec_module(hosted)
+with patch.object(sys, 'path', [str(Path(SPEC.origin).parent), *sys.path]):
+    SPEC.loader.exec_module(hosted)
 
 
 class HostedReleaseTests(unittest.TestCase):
@@ -25,11 +27,11 @@ class HostedReleaseTests(unittest.TestCase):
         # or Windows dependency: missing encodings use that legacy default.
         with tempfile.TemporaryDirectory() as scratch:
             root = Path(scratch)
-            (root / 'tools').mkdir()
+            (root / 'release').mkdir()
             (root / 'Cargo.toml').write_text('[package]\nversion="1.2.3"\n', encoding='utf8')
             (root / 'Cargo.lock').write_text('[[package]]\nname="places"\nversion="1.2.3"\n', encoding='utf8')
             (root / 'CHANGELOG.md').write_bytes('## 1.2.3 — Unreleased\r\n'.encode('utf8'))
-            (root / 'tools/release-projects.json').write_text('{"version":"1.2.3"}', encoding='utf8')
+            (root / 'release/release-projects.json').write_text('{"version":"1.2.3"}', encoding='utf8')
 
             def legacy_read(path, encoding=None):
                 return path.read_bytes().decode(encoding or 'cp1252').replace('\r\n', '\n')

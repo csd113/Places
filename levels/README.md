@@ -18,29 +18,26 @@ connect all eight environments and each environment has a return door.
 | `arcade` | Cosmic Lanes & Arcade |
 
 The project manifest, level JSON and Luau modules are maintained editor sources.
-Edit them through the builder/editor and preserve per-placement diagnostic
-intent. The old environment generators are historical reconstruction tools;
-their output does not own or regenerate the collection. They require an explicit
-scratch destination. Places Demo and Model Zoo remain frozen historical JSON
+Edit them through the native editor and preserve per-placement diagnostic
+intent. The retired environment generators do not own the collection. Places Demo and Model Zoo remain frozen historical JSON
 under [`archive/levels/`](../archive/levels/). Beam remains active in the broader release inventory.
 Six retired projects retain complete editable content in
 [`archive/projects/`](../archive/projects/README.md). Development controls stay
 outside release discovery; their retained purposes are documented there too.
 
+In the editor, open the project and use **Project > Export all levels + sources**
+to prepare an updated distribution. The export retains every sub-map, declared
+script, thumbnail and exact editable source. To check an existing export without
+rebaking, validate it against the current assets and verify every project member:
+
 ```sh
-sh tools/build-maps.sh --workers 8
-python3 tools/levels/compile.py --check
+./target/release/places-map-compiler validate assets/levels/environments.placesmap --asset-root assets
+./target/release/places-map-compiler verify-project projects/environments \
+  --package assets/levels/environments.placesmap --asset-root assets --require-current
 PLACES_LEVEL=hub ./target/release/places
 ```
 
-`build-maps.sh` uses `export-project`, retaining every sub-map, declared script,
-thumbnail and exact editable source in one content-addressed bundle. Verification
-checks every sub-map's provenance, archive validity and Static/Full payloads;
-`--check` performs those checks without rebuilding. `--map environments` selects
-the distribution and still exports the complete project.
-
-For an existing verified package, use `--check` directly. The
-[retirement handoff](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
+The [retirement handoff](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#environment-collection-0120-retirement)
 lists all eight superseded standalone IDs and the preserved recovery material.
 
 For an explicit project export or native compiler selection:

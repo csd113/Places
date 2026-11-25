@@ -6,7 +6,7 @@ addresses must fit inside that view. A binary chunk that continues past the
 declared view does not make a crossing accessor valid.
 
 The Rust reader (``src/engine/gltf/accessor.rs::accessor_data``) and the toolkit reader
-(``tools/props/glb.py::_read_accessor``) apply the same checks. This module
+(``assets/inspection/glb.py::_read_accessor``) apply the same checks. This module
 covers the toolkit fixtures. ``glb.py`` supports SCALAR/VEC2/VEC3/VEC4 float
 and integer accessors only; MAT4 inverse-bind handling remains in the production
 Rust reader, whose former Rust fixtures were removed in 0.11.0.
@@ -19,7 +19,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT))
 
-from tools.props import glb  # noqa: E402
+from assets.inspection import glb  # noqa: E402
 
 
 def vec3_document(view_offset, view_length, *, accessor_offset=0, count=3, stride=None):

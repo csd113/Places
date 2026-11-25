@@ -350,11 +350,8 @@ pub(super) fn validate_header(level: &LevelDef) -> Result<(), String> {
 /// structures are `Vec`/`HashMap`-backed and the per-frame queries go through
 /// the collision index, so the caps exist to refuse a pathological or
 /// accidentally huge file before it becomes resident, not to define what fits.
-/// The values are sized from the extended capacity fixture
-/// (`tools/levels/build_capacity_fixtures.py`, which authors one past the
-/// *former* cap in every category and is measured on the release build); a
-/// level above them is genuinely outside the verified envelope rather than
-/// merely large.
+/// Release measurements of the historical extended capacity fixture informed
+/// these limits. A level above them is outside the verified envelope.
 pub(super) fn validate_element_limits(level: &LevelDef) -> Result<(), String> {
     let room_count = level.room_iter().count();
     if u64::try_from(room_count).unwrap_or(u64::MAX) > crate::engine::level::MAX_LEVEL_ROOMS {

@@ -7,20 +7,10 @@ inputs are 887×1774 (1:2), and accepted gameplay inputs are 1448×1086 (4:3).
 The originals below are the production sources. Incidental `generated_images/`
 copies and the discarded portrait shooter draft are not runtime dependencies.
 
-To reproduce the fitted PNGs and GLBs from the retained inputs, from repository
-root:
-
-```sh
-python3 tools/props/author_retro_arcade.py --only cabinet_racing cabinet_shooter cabinet_action cabinet_fighting cabinet_scifi
-python3 tools/props/build.py --only arcade:cabinet_racing arcade:cabinet_shooter arcade:cabinet_action arcade:cabinet_fighting arcade:cabinet_scifi
-```
-
-The authorer preserves the explicit atlas rectangles in
-`tools/props/parts/retro_arcade.py`. It fits imagery, composes original title and
-game HUD text, writes 1024-square masters and Lanczos 256-square natives, and
-authors the sci-fi highlight pigment mask. The normal builder reads those PNGs;
-neither runtime startup nor map loading paints textures. A new generated source
-must satisfy the documented aspect and source limits before replacing a file.
+The committed fitted PNGs and GLBs are the current artwork. The original
+offline packer fitted the illustrations to 1024-square masters and 256-square
+native textures, added text overlays, and authored the sci-fi pigment mask.
+It has been retired. Follow the asset specification when replacing artwork.
 
 ## Side print prompt set
 

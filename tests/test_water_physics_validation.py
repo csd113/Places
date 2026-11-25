@@ -1,7 +1,7 @@
 """Cheap authoring boundary coverage; no map bake or native dependency."""
 import unittest
 
-from tools.assets.validate import validate_physics_profile
+from assets.inspection.physics import validate_physics_profile
 
 
 class WaterPhysicsValidationTests(unittest.TestCase):

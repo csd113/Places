@@ -20,21 +20,14 @@ import zipfile
 import zlib
 from pathlib import Path
 
-from tools.levels.curated_maps import environment_source, lineup, source_levels
+from release.curated_maps import environment_source, lineup, source_levels
 
 PACKAGE = Path(__file__).resolve().parent.parent
 
 # The asset validator is the single source of catalog truth for tooling.
-sys.path.insert(0, str(PACKAGE / "tools" / "assets"))
-import validate  # noqa: E402
+from assets.inspection import catalog as validate  # noqa: E402
 
-# The prop painter's decoder is the repository's trusted PNG reader: it
-# unfilters scanlines (filter types 0..4) and returns RGBA bytes. Importing
-# `tex` resolves its own `from palette import shade` from this directory.
-sys.path.insert(0, str(PACKAGE / "tools" / "props"))
-import tex  # noqa: E402
-
-sys.path.insert(0, str(PACKAGE / "tools" / "levels"))
+from assets.inspection.png import decode_png as decode_png_bytes
 
 DECAL_SURFACES = {"floor", "ceiling", "wall_north", "wall_south", "wall_east", "wall_west"}
 
@@ -61,17 +54,9 @@ def cargo_version() -> str:
 
 
 def decode_png(path: Path):
-    """Decodes a repository PNG as ``(width, height, pixels, channels)``.
-
-    test_package is stdlib-only like the tooling it mirrors, so the decoder
-    comes from the texture toolkit rather than from an image library.
-    """
-    sys.path.insert(0, str(PACKAGE / "tools" / "textures"))
-    from seam_repair import read_png  # noqa: PLC0415
-
-    image = read_png(str(path))
-    channels = len(image.pixels) // (image.width * image.height)
-    return image.width, image.height, image.pixels, channels
+    """Decode a shipped PNG as (width, height, RGBA pixels, channels)."""
+    width, height, rgba = decode_png_bytes(path.read_bytes())
+    return width, height, rgba, 4
 
 
 def pixel_mean(decoded) -> float:
@@ -926,62 +911,6 @@ class EnvironmentTextureTests(unittest.TestCase):
                 self.assertEqual(width & (width - 1), 0, texture["id"])
                 self.assertEqual(height & (height - 1), 0, texture["id"])
 
-    def test_the_seed_texture_tool_validates_the_shipped_set(self):
-        result = subprocess.run(
-            [sys.executable, str(PACKAGE / "tools" / "textures" / "build.py"), "--check", "--quiet"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-    def test_every_shipped_environment_surface_tiles_cleanly(self):
-        """A repeated surface must not show a seam where its edges meet.
-
-        This is the tool-level half of the tiling contract: the Rust render test
-        compares the wrapped edge against the sheet's own interior variation
-        with its own implementation, and `tools/textures/seam_repair.py --check`
-        independently measures the same property from the source tree. Both must
-        agree before a sheet ships.
-        """
-        surfaces = [
-            entry["model"]
-            for entry in catalog_entries("texture")
-            if entry.get("asset_class") == "environment"
-            and entry.get("surface") != "sky"
-        ]
-        self.assertGreaterEqual(
-            len(surfaces), 10, "the environment surface set is incomplete"
-        )
-        result = subprocess.run(
-            [
-                sys.executable,
-                str(PACKAGE / "tools" / "textures" / "seam_repair.py"),
-                "--check",
-                *[str(PACKAGE / "assets" / model) for model in surfaces],
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-
-    def test_every_sky_panorama_joins_on_longitude(self):
-        """Sky sampling wraps U and clamps V; horizon and zenith differ."""
-        sys.path.insert(0, str(PACKAGE / "tools" / "textures"))
-        from seam_repair import file_verdict, measure, read_png
-
-        skies = [entry for entry in catalog_entries("texture")
-                 if entry.get("surface") == "sky"]
-        self.assertTrue(skies, "the catalog declares no sky panoramas")
-        for texture in skies:
-            image = read_png(str(PACKAGE / "assets" / texture["model"]))
-            passes, reasons = file_verdict(
-                measure(image.pixels, image.width, image.height, image.channels),
-                axes=("lr",),
-            )
-            self.assertTrue(passes, f"{texture['id']}: {reasons}")
-
     def test_the_six_core_material_ids_still_exist(self):
         by_id = {entry["id"]: entry for entry in catalog_entries()}
         for material_id in self.CORE_MATERIAL_IDS:
@@ -1262,7 +1191,7 @@ def decompressed_scanlines(data: bytes) -> bytes:
 
 def decoded_has_empty_alpha(data: bytes) -> bool:
     """True when the unfiltered image has at least one alpha == 0 pixel."""
-    _width, _height, rgba = tex.decode_png(data)
+    _width, _height, rgba = decode_png_bytes(data)
     return 0 in rgba[3::4]
 
 
@@ -1313,7 +1242,7 @@ class PngTransparencyGateTests(unittest.TestCase):
             bytes([33, 34, 35, 36, 37, 38, 39, 40]),
         ]
         png = synthetic_png(2, 5, rows, [0, 1, 2, 3, 4])
-        width, height, rgba = tex.decode_png(png)
+        width, height, rgba = decode_png_bytes(png)
         self.assertEqual((width, height), (2, 5))
         self.assertEqual(rgba, b"".join(rows))
 
@@ -1515,10 +1444,8 @@ class PoolContentTests(unittest.TestCase):
 
 class SourceHygieneTests(unittest.TestCase):
     def test_the_package_excludes_build_output(self):
-        # Cargo output and benchmark results are local development artifacts.
         ignored = (PACKAGE / ".gitignore").read_text(encoding="utf-8")
-        for entry in ("/target", "tools/bench/results/"):
-            self.assertIn(entry, ignored)
+        self.assertIn("/target/", ignored.splitlines())
 
     def test_readme_documents_wasd_and_arrow_defaults(self):
         readme = (PACKAGE / "README.md").read_text(encoding="utf-8")

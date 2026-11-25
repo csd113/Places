@@ -10,7 +10,7 @@ import unittest
 from unittest.mock import patch
 
 
-SPEC = importlib.util.spec_from_file_location('bundle_macos', Path(__file__).resolve().parents[1] / 'tools/bundle-macos.py')
+SPEC = importlib.util.spec_from_file_location('bundle_macos', Path(__file__).resolve().parents[1] / 'release/bundle-macos.py')
 BUNDLE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(BUNDLE)
 

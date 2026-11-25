@@ -5,7 +5,7 @@ are retired. Recover their exact inputs from Git history or the local retirement
 archive before replaying into a scratch package directory. The commands below
 describe that historical setup; they must not recreate standalone packages in
 the normal distribution. Current collection acceptance uses
-`tools/authoring/environment_acceptance.py`; changed layouts require reviewed
+`projects/environments/acceptance/environment_acceptance.py`; changed layouts require reviewed
 camera/route inputs rather than automatic retargeting of these manifests.
 
 These are the accepted production camera, player and animation controls for the
@@ -34,10 +34,10 @@ Native execution requires an unlocked desktop session and a working GPU adapter.
 ## Static cupboards, sink, refrigerator and corridor
 
 ```sh
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/demo-kitchen-corridor.json --out target/verification/model-lighting-replay/demo-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/hallows-kitchen.json --out target/verification/model-lighting-replay/hallows-kitchen-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/home-showcase-cabinet-sink.json --out target/verification/model-lighting-replay/showcase-cabinets-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/home-showcase-refrigerator.json --out target/verification/model-lighting-replay/showcase-fridge-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
+python3 tests/fixtures/native/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/demo-kitchen-corridor.json --out target/verification/model-lighting-replay/demo-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
+python3 tests/fixtures/native/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/hallows-kitchen.json --out target/verification/model-lighting-replay/hallows-kitchen-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
+python3 tests/fixtures/native/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/home-showcase-cabinet-sink.json --out target/verification/model-lighting-replay/showcase-cabinets-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
+python3 tests/fixtures/native/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/home-showcase-refrigerator.json --out target/verification/model-lighting-replay/showcase-fridge-high --quality high --diagnostic final --fixed-delta 0.016666667 --capture-frame 60
 ```
 
 Repeat at `--quality medium` and `low` with new outputs. `--diagnostic baked-light`,
@@ -56,7 +56,7 @@ then retreats. `player-only.json` fixes the close render eye and moves the playe
 record actual camera/player coordinates, quality, frame and simulation clock.
 
 ```sh
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/hallows-skeleton.json --lighting-sequence tests/fixtures/native/model-lighting/camera-only.json --frames 2100 --fixed-delta 0.016666667 --move-script forward@999-1000 --entity-light-trace --diagnostic final --quality high --out target/verification/model-lighting-replay/camera-run
+python3 tests/fixtures/native/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/hallows-skeleton.json --lighting-sequence tests/fixtures/native/model-lighting/camera-only.json --frames 2100 --fixed-delta 0.016666667 --move-script forward@999-1000 --entity-light-trace --diagnostic final --quality high --out target/verification/model-lighting-replay/camera-run
 ```
 
 Substitute `player-only.json` (2100 frames) or `orientation-only.json` (420).
@@ -71,7 +71,7 @@ must never be reported as an achieved position without the capture receipt.
 ## Quality restoration
 
 ```sh
-python3 tools/bench/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/hallows-quality.json --lighting-sequence tests/fixtures/native/model-lighting/hallows-quality-loop.json --frames 1140 --fixed-delta 0.016666667 --move-script forward@999-1000 --entity-light-trace --diagnostic final --quality low --quality-cycle 180:medium,420:high,660:low,900:high --out target/verification/model-lighting-replay/hallows-quality-run
+python3 tests/fixtures/native/capture_art_style_hero.py --manifest tests/fixtures/native/model-lighting/hallows-quality.json --lighting-sequence tests/fixtures/native/model-lighting/hallows-quality-loop.json --frames 1140 --fixed-delta 0.016666667 --move-script forward@999-1000 --entity-light-trace --diagnostic final --quality low --quality-cycle 180:medium,420:high,660:low,900:high --out target/verification/model-lighting-replay/hallows-quality-run
 ```
 
 For the Demo kitchen, use `demo-quality.json` and `demo-quality-loop.json`.

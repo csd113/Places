@@ -3,7 +3,7 @@ import json
 from pathlib import Path
 import unittest
 
-from tools.levels.curated_maps import environment_source
+from release.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
 

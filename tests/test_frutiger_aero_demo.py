@@ -7,7 +7,7 @@ from pathlib import Path
 
 from tests.test_beach_demo import authored_floor, collider_box, disc_touches
 
-from tools.levels.curated_maps import environment_source
+from release.curated_maps import environment_source
 
 ROOT = Path(__file__).resolve().parents[1]
 

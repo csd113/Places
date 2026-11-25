@@ -41,17 +41,9 @@ have no internal collision; other mannequins, props, world geometry, doors and
 the player proxy use normal contacts. Hands carry their finger descendants.
 Pause, time scale and single-step use the existing physics clock.
 
-Build and validate explicitly, outside Cargo tests/CI:
-
-```sh
-target/release/places-map-compiler build projects/ragdoll-lab --out local/ragdoll-lab.placesmap
-python3 tools/bench/ragdoll.py --package local/ragdoll-lab.placesmap \
-  --out local/ragdoll-demo-new --case demo --video
-```
-
-Other native cases are `contacts`, `carry`, `stress`, `lifecycle` and `unsupported`.
-Use new output folders. Video is a separate nominal 10 Hz native diagnostic,
-not an FPS measurement. All runs request V-Sync off, retain High graphics and
-Full lighting/reflections, and record actual drawable/presentation state. Cost
-measurements should use `tools/bench/frame_time.py` without capture/video and
-classify any display-refresh plateau as inconclusive for throughput.
+Export this project from the editor and play it in the native player for explicit
+checks of contacts, carry, stress, lifecycle and the unsupported-body case.
+Ordinary Cargo tests and CI do not bake this map. For throughput comparisons,
+disable V-sync and every frame limiter, record actual presentation mode and
+drawable size, and treat a refresh-rate plateau as inconclusive. Record video
+separately from timing runs.

@@ -3,8 +3,8 @@
 MIT-licensed offline original synthesis, not a third-party recording library.
 These files are not part of `assets/audio/` and must not enter its runtime catalog.
 
-- Three 48 kHz mono PCM24 masters: `tools/audio/tonal.py:render_master(name)`.
-- Exact favorite reference: `tools/audio/original.py:render("empty_room")`;
+- Three 48 kHz mono PCM24 masters: `assets/references/audio/authoring/tonal.py:render_master(name)`.
+- Exact favorite reference: `assets/references/audio/authoring/original.py:render("empty_room")`;
   44.1 kHz mono PCM16, unchanged original bytes, not the runtime conversion.
 - `manifest.json` pins each source master and its format.
 - Explicit 16 kHz runtime recipes/hashes live in `assets/audio/authoring.json`.
