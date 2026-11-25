@@ -11,6 +11,7 @@ use crate::engine::audio::{
 use crate::engine::physics::SurfaceMaterial;
 
 use crate::game::audio::{Capture, HVAC_CUE, WorldAudio};
+use crate::game::settings::AudioVolume;
 
 pub(super) struct Audio {
     pub system: AudioSystem,
@@ -78,7 +79,9 @@ impl FrameLoop<'_> {
         } else {
             crate::engine::audio::SpatialMode::Speakers
         });
-        let _master_changed = self.settings.set_master_volume(change.master);
+        let _master_changed = self
+            .settings
+            .set_audio_volume(AudioVolume::Master, change.master);
         let _mute_changed = self.settings.set_muted(change.muted);
     }
     pub(super) fn update_audio_mix(&mut self) {
@@ -98,6 +101,7 @@ impl FrameLoop<'_> {
                 master_volume: self.settings.master_volume,
                 effects_volume: self.settings.effects_volume,
                 ambient_volume: self.settings.ambient_volume,
+                prop_sound_volume: self.settings.prop_sound_volume,
                 muted: self.settings.muted,
             },
         );
@@ -210,6 +214,7 @@ impl FrameLoop<'_> {
                     None,
                     if swimming { 0.7 } else { 0.45 },
                     TimeDomain::Real,
+                    AudioBus::Effects,
                 );
             }
             self.play_player_footstep();
@@ -292,12 +297,13 @@ impl FrameLoop<'_> {
         }
     }
 
-    pub(super) fn play_game_sound(
+    fn play_game_sound(
         &mut self,
         cue: &str,
         position: Option<Vec3>,
         gain: f32,
         time_domain: TimeDomain,
+        bus: AudioBus,
     ) {
         // HVAC is owned by the one nearby-duct environment voice. Legacy
         // generic requests must not reintroduce global or stacked hum.
@@ -308,6 +314,7 @@ impl FrameLoop<'_> {
                     position,
                     gain,
                     time_domain,
+                    bus,
                     ..PlayRequest::default()
                 },
             );
@@ -330,7 +337,7 @@ impl FrameLoop<'_> {
         if position.is_none() {
             return;
         }
-        let spatial = self.game.entities().audio_source_spatial(entity);
+        let mix = self.game.entities().audio_source_mix(entity, looping);
         // Existing room/vending emitters retain their authored identity and
         // actions, but HVAC playback is derived only from placed duct stock.
         let played = sound != HVAC_CUE
@@ -338,18 +345,14 @@ impl FrameLoop<'_> {
                 sound,
                 PlayRequest {
                     source: Some(SourceId(entity)),
-                    attenuation: self.game.entities().audio_source_attenuation(entity),
+                    attenuation: mix.attenuation,
                     position,
                     direction: None,
-                    spatial,
+                    spatial: mix.spatial,
                     gain,
                     looping: Some(looping),
                     time_domain,
-                    bus: if looping || spatial == Some(false) {
-                        AudioBus::Ambient
-                    } else {
-                        AudioBus::Effects
-                    },
+                    bus: mix.bus,
                     perception: crate::engine::audio::PerceptionOwner::Playback,
                     cursor_seconds: 0.0,
                     replacement_fade: 0.0,
@@ -374,7 +377,13 @@ impl FrameLoop<'_> {
                     )
                 }))
             });
-            self.play_game_sound("switch_click", position, 0.8, TimeDomain::Real);
+            self.play_game_sound(
+                "switch_click",
+                position,
+                0.8,
+                TimeDomain::Real,
+                AudioBus::Effects,
+            );
         }
     }
 
@@ -393,6 +402,7 @@ impl FrameLoop<'_> {
             self.items.world.body_center(key),
             0.7,
             TimeDomain::Real,
+            AudioBus::Prop,
         );
     }
 }
@@ -423,6 +433,7 @@ fn play_prop_impact(
             position: Some(impact.position),
             spatial: Some(true),
             attenuation: dropped.then_some([0.01, 1.0]),
+            bus: AudioBus::Prop,
             gain: if dropped {
                 0.35 * impact.strength
             } else {

@@ -338,6 +338,8 @@ pub struct Interactable {
 /// `crate::audio`).
 #[derive(Clone, Debug, PartialEq)]
 pub struct AudioEmitter {
+    /// A category supplied by the source owner, independent of playback flags.
+    pub bus_override: Option<crate::engine::audio::AudioBus>,
     /// Standalone source near/far distances; attached sounds use cue defaults.
     pub attenuation: Option<[f32; 2]>,
     /// Authored sound asset id.

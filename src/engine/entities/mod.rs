@@ -63,6 +63,7 @@ pub use volumes::TriggerItem;
 use glam::Vec3;
 
 use crate::engine::ai::{AiDef, AiOutcome, AiStimulus, AiTarget, AiTickContext, AiWorld};
+use crate::engine::audio::AudioBus;
 use crate::engine::collision::{DoorCollider, WallAabb};
 use crate::engine::collision_index::CollisionIndex;
 use crate::engine::door::{DoorPhase, Doors};
@@ -1181,7 +1182,7 @@ impl EntityWorld {
                     .colliders
                     .insert(handle, Collider { size, solid: true });
             }
-            self.apply_component_defs(handle, id, &prop.components);
+            self.apply_component_defs(handle, id, &prop.components, Some(AudioBus::Prop));
             if let Some(light) = self.components.lights.get_mut(handle) {
                 light.fixture =
                     u32::try_from(level.ceiling_lights.len().saturating_add(index)).ok();
@@ -1231,7 +1232,7 @@ impl EntityWorld {
                     dynamic: true,
                 },
             ));
-            self.apply_component_defs(handle, id, &def.components);
+            self.apply_component_defs(handle, id, &def.components, None);
             // A door carries its locked state on the door runtime, not on the
             // component, so a condition can read it through `Doors`.
             self.resolve_bindings_for(handle, &def.bindings);
@@ -1538,6 +1539,7 @@ impl EntityWorld {
         handle: EntityHandle,
         instance_id: &str,
         defs: &[ComponentDef],
+        audio_bus: Option<AudioBus>,
     ) {
         for def in defs {
             match def {
@@ -1616,6 +1618,7 @@ impl EntityWorld {
                     drop(self.components.audio.insert(
                         handle,
                         AudioEmitter {
+                            bus_override: audio_bus,
                             attenuation: None,
                             sound: sound.clone(),
                             gain: if gain.is_finite() && *gain >= 0.0 {
@@ -4133,7 +4136,7 @@ impl EntityWorld {
                 },
             );
         }
-        self.apply_component_defs(handle, &runtime_name, &spawn_template.components);
+        self.apply_component_defs(handle, &runtime_name, &spawn_template.components, None);
         self.resolve_bindings_for(handle, &spawn_template.bindings);
         self.resolve_bindings_for(handle, &authored_point.bindings);
         self.spawns_this_tick = self.spawns_this_tick.saturating_add(1);

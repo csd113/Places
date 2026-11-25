@@ -61,13 +61,16 @@ pub enum TimeDomain {
 }
 
 /// Independently adjustable volume category.
-#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Serialize)]
+#[serde(rename_all = "snake_case")]
 pub enum AudioBus {
-    /// Player actions, props, doors and authored effects.
+    /// Player actions, doors and other uncategorized effects.
     #[default]
     Effects,
     /// Continuous environmental beds and regional ambience.
     Ambient,
+    /// Audio emitted by props, independent of looping or spatialization.
+    Prop,
 }
 
 /// Application-owned stable identity for a looping or moving source.
@@ -190,6 +193,8 @@ pub struct AudioSettings {
     pub effects_volume: f32,
     /// Ambience category linear amplitude in `0..=1`.
     pub ambient_volume: f32,
+    /// Prop sound category linear amplitude in `0..=1`.
+    pub prop_sound_volume: f32,
     /// Silences output while preserving voice positions and loop ownership.
     pub muted: bool,
 }
@@ -201,6 +206,7 @@ impl Default for AudioSettings {
             master_volume: 0.8,
             effects_volume: 1.0,
             ambient_volume: 0.6,
+            prop_sound_volume: 1.0,
             muted: false,
         }
     }
@@ -279,6 +285,8 @@ pub struct AudioStats {
 pub struct AudioVoiceSnapshot {
     /// Logical cue ID.
     pub cue: String,
+    /// Mix category of this playback, not a property of the sample.
+    pub bus: AudioBus,
     /// Application source identity.
     pub source: Option<u64>,
     /// Current world position, or listener-centred playback.

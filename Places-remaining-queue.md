@@ -143,8 +143,14 @@ Under Settings → Audio, add or reuse Master, Ambient and Prop Sound volume sli
 
 Explicitly prop-owned sounds belong to Prop Sound regardless of whether they loop or are spatial. Keep Ambient distinct and do not blindly rename general Effects. Verify independent control of an active prop loop and a newly played prop sound, with non-prop sound unaffected by Prop Sound and still controlled by Master.
 
+**Complete. Independent functional review passed (Sol 6.2 Medium).** The standalone `places` executable reused the verified 0.14.0 Pool export without rebaking it. At fixed Master, Prop Sound changed the same active nonspatial prop loop without restarting it and changed new spatial duck pickups from nonzero to zero gain. Ambient zero silenced the environmental loops without changing the prop loop. General footsteps were unchanged by Prop Sound and scaled with Master. Master zero produced silent captured output while gameplay and voices continued. Starting with older settings defaulted Prop Sound to 100%. The saved Master 40%, Ambient 30%, Prop Sound 50%, and Effects 75% reloaded in a second process. Native verification used mixer traces and PCM captured before device output. It did not cover physical listening, speaker or headphone behavior, hotplug, or extended device testing. Item 20 retains those checks.
+
+Locked Rust 1.100.0 strict workspace Clippy, the all-features release build, and all four new regressions passed. The asset-backed workspace suite reported 711 passes and only the already tracked carry-reset failure.
+
 ### 22. Static audit of all Settings tabs
 After the audio sliders, inspect grouping, order, labels, duplication, buried controls, discoverability, keyboard/navigation/accessibility concerns, and source organization. Give prioritized concrete improvements, distinguishing actual behavior from source inference and preference. This is read-only; no redesign or code change.
+
+Audio input from item 21 review: Keep live gain feedback. Pointer drags synchronously save each changed percentage and stop updating outside the original track bounds. Audit deferred persistence on release or focus loss, clamping beyond the track ends, numeric slider state, and whether Output should be called Spatial Audio.
 
 ### 23. [GitHub #34: Optional HUD, health and melee](https://github.com/csd113/Places/issues/34)
 Keep the existing six-HP player, three hearts, disabled-by-default HUD and crowbar behavior. Finish human NPC defaults (six HP, honoring lower authored values and immortality), monster defaults (generally at least 18 HP with design-specific balancing), and the flashlight indicator (visible only on an enabled map while on, no off-state placeholder). Verify repeated transitions/reloads/toggles without stale HUD state. Keep HUD visibility independent of gameplay enablement.

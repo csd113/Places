@@ -5,7 +5,7 @@ use crate::engine::font::{get_char_uv, get_white_uv};
 use crate::engine::render::{DrawableSize, Vertex};
 use crate::game::AppState;
 use crate::game::display::{DisplayStatus, resolution_label, step_resolution};
-use crate::game::settings::{KeyBindings, Settings, WindowMode};
+use crate::game::settings::{AudioVolume, KeyBindings, Settings, WindowMode};
 
 mod health;
 pub use health::append_player_health;
@@ -63,8 +63,7 @@ impl SettingsPage {
     #[must_use]
     pub const fn item_count(self, advanced_expanded: bool) -> usize {
         match self {
-            Self::Root => 7,
-            Self::Audio => 6,
+            Self::Root | Self::Audio => 7,
             Self::Player => 2,
             Self::Graphics => {
                 if advanced_expanded {
@@ -127,9 +126,7 @@ pub enum SettingsValue {
     WindowMode,
     Resolution,
     SpatialAudio,
-    MasterVolume,
-    EffectsVolume,
-    AmbientVolume,
+    Volume(AudioVolume),
     Mute,
     LookSpeedH,
     LookSpeedV,
@@ -193,7 +190,7 @@ pub struct UiState {
     pub level_description: String,
     pub description_page: usize,
     pub description_index: Option<usize>,
-    pub volume_drag: Option<()>,
+    pub volume_drag: Option<AudioVolume>,
     pub observed_menu_beat: Option<i64>,
 }
 
@@ -317,6 +314,7 @@ fn ui_signature(
     settings.master_volume.to_bits().hash(&mut hasher);
     settings.effects_volume.to_bits().hash(&mut hasher);
     settings.ambient_volume.to_bits().hash(&mut hasher);
+    settings.prop_sound_volume.to_bits().hash(&mut hasher);
     settings.muted.hash(&mut hasher);
     settings.spatial_audio.hash(&mut hasher);
     settings.walk_speed.to_bits().hash(&mut hasher);
@@ -872,28 +870,17 @@ fn display_rows(settings: &Settings, display: &DisplayStatus) -> Vec<SettingsRow
 /// Audio: independent volume levels and a mute switch that preserves them.
 fn audio_rows(settings: &Settings) -> Vec<SettingsRow> {
     let mut rows = Vec::with_capacity(SettingsPage::Audio.item_count(false));
-    for (label, volume, value) in [
-        (
-            "Master Volume",
-            settings.master_volume,
-            SettingsValue::MasterVolume,
-        ),
-        (
-            "Effects Volume",
-            settings.effects_volume,
-            SettingsValue::EffectsVolume,
-        ),
-        (
-            "Ambience Volume",
-            settings.ambient_volume,
-            SettingsValue::AmbientVolume,
-        ),
+    for control in [
+        AudioVolume::Master,
+        AudioVolume::Ambient,
+        AudioVolume::PropSound,
+        AudioVolume::Effects,
     ] {
         push_row(
             &mut rows,
-            label,
-            selector(&format!("{:.0}%", volume * 100.0)),
-            SettingsRowKind::Value(value),
+            control.label(),
+            selector(&format!("{:.0}%", settings.audio_volume(control) * 100.0)),
+            SettingsRowKind::Value(SettingsValue::Volume(control)),
         );
     }
     push_row(
@@ -1106,20 +1093,10 @@ fn adjust_value(
         SettingsValue::Resolution => adjust_resolution(ui_state, settings, display, direction),
         SettingsValue::VisualStyle => adjust_style(ui_state, settings, direction),
         SettingsValue::SpatialAudio => adjust_spatial_audio(ui_state, settings),
-        SettingsValue::MasterVolume => {
-            let next = step_volume(settings.master_volume, direction);
-            let _changed = settings.set_master_volume(next);
-            ui_state.set_status(format!("Master volume: {:.0}%", next * 100.0), false);
-        }
-        SettingsValue::EffectsVolume => {
-            let next = step_volume(settings.effects_volume, direction);
-            let _changed = settings.set_effects_volume(next);
-            ui_state.set_status(format!("Effects volume: {:.0}%", next * 100.0), false);
-        }
-        SettingsValue::AmbientVolume => {
-            let next = step_volume(settings.ambient_volume, direction);
-            let _changed = settings.set_ambient_volume(next);
-            ui_state.set_status(format!("Ambience volume: {:.0}%", next * 100.0), false);
+        SettingsValue::Volume(control) => {
+            let next = step_volume(settings.audio_volume(control), direction);
+            let _changed = settings.set_audio_volume(control, next);
+            ui_state.set_status(format!("{}: {:.0}%", control.label(), next * 100.0), false);
         }
         SettingsValue::Mute => adjust_mute(ui_state, settings),
         SettingsValue::LookSpeedH => {

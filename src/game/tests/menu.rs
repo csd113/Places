@@ -289,3 +289,50 @@ fn advanced_self_shadows_have_a_complete_warning_and_live_toggle() -> Result<(),
     }
     Ok(())
 }
+
+// The reused Master track used to route every pointer edit to Master. Pin the
+// shared layout and keyboard dispatch to the same independent setting IDs.
+#[test]
+fn audio_slider_tracks_and_keys_keep_their_own_setting() -> Result<(), String> {
+    use crate::game::settings::AudioVolume;
+    let settings = Settings::default();
+    let display = DisplayStatus::default();
+    let mut ui = UiState::new();
+    ui.settings_page = SettingsPage::Audio;
+    let rows = settings_rows(ui.settings_page, &settings, &display, false);
+    assert_eq!(rows.len(), ui.settings_page.item_count(false));
+    let layout = menu_layout(AppState::Settings, &ui, &settings, &display);
+    let controls = [
+        AudioVolume::Master,
+        AudioVolume::Ambient,
+        AudioVolume::PropSound,
+        AudioVolume::Effects,
+    ];
+    for control in controls {
+        let track = layout
+            .rows
+            .iter()
+            .find(|row| row.slider == Some(control))
+            .ok_or("missing audio slider")?;
+        assert_eq!(
+            layout
+                .hit_test([372.0, track.bounds.top + 8.0])
+                .map(|hit| hit.intent),
+            Some(MenuIntent::Volume(control, 50))
+        );
+        let mut adjusted = settings.clone();
+        let _action = activate_settings_item(
+            SettingsPage::Audio,
+            track.index,
+            &mut ui,
+            &mut adjusted,
+            &display,
+            -1,
+        );
+        for candidate in controls {
+            let expected = if candidate == control { 0.95 } else { 1.0 };
+            assert!((adjusted.audio_volume(candidate) - expected).abs() < f32::EPSILON);
+        }
+    }
+    Ok(())
+}

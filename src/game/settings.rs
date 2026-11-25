@@ -526,6 +526,9 @@ pub struct Settings {
     /// Environmental sound level before the master volume.
     #[serde(default = "default_audio_volume")]
     pub ambient_volume: f32,
+    /// Prop sound level before the master volume.
+    #[serde(default = "default_audio_volume")]
+    pub prop_sound_volume: f32,
     /// Silence all audio while preserving the selected volume levels.
     #[serde(default)]
     pub muted: bool,
@@ -645,6 +648,27 @@ const fn sanitized_scalar(value: f32, minimum: f32, maximum: f32, fallback: f32)
         fallback
     }
 }
+/// Independently adjustable Settings → Audio controls.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub enum AudioVolume {
+    Master,
+    Ambient,
+    PropSound,
+    Effects,
+}
+
+impl AudioVolume {
+    #[must_use]
+    pub const fn label(self) -> &'static str {
+        match self {
+            Self::Master => "Master Volume",
+            Self::Ambient => "Ambient Volume",
+            Self::PropSound => "Prop Sound Volume",
+            Self::Effects => "Effects Volume",
+        }
+    }
+}
+
 const fn default_audio_volume() -> f32 {
     1.0
 }
@@ -710,6 +734,7 @@ impl Default for Settings {
             master_volume: default_audio_volume(),
             effects_volume: default_audio_volume(),
             ambient_volume: default_audio_volume(),
+            prop_sound_volume: default_audio_volume(),
             muted: false,
             vsync: default_vsync(),
             texture_filtering: "high".to_string(),
@@ -923,6 +948,7 @@ impl Settings {
         self.master_volume = sanitized_audio_volume(self.master_volume);
         self.effects_volume = sanitized_audio_volume(self.effects_volume);
         self.ambient_volume = sanitized_audio_volume(self.ambient_volume);
+        self.prop_sound_volume = sanitized_audio_volume(self.prop_sound_volume);
         // An unknown level falls back to the default rather than picking a
         // tier the player did not ask for.
         let quality = QualityLevel::parse(&self.quality).unwrap_or_default();
@@ -1339,22 +1365,25 @@ impl Settings {
         self.pending.audio = true;
     }
 
-    pub const fn set_master_volume(&mut self, volume: f32) -> bool {
-        let changed = set_audio_volume(&mut self.master_volume, volume);
-        self.pending.audio |= changed;
-        changed
+    #[must_use]
+    pub const fn audio_volume(&self, control: AudioVolume) -> f32 {
+        match control {
+            AudioVolume::Master => self.master_volume,
+            AudioVolume::Ambient => self.ambient_volume,
+            AudioVolume::PropSound => self.prop_sound_volume,
+            AudioVolume::Effects => self.effects_volume,
+        }
     }
 
-    /// Selects the effects level, using the same range as the master volume.
-    pub const fn set_effects_volume(&mut self, volume: f32) -> bool {
-        let changed = set_audio_volume(&mut self.effects_volume, volume);
-        self.pending.audio |= changed;
-        changed
-    }
-
-    /// Selects the ambience level, using the same range as the master volume.
-    pub const fn set_ambient_volume(&mut self, volume: f32) -> bool {
-        let changed = set_audio_volume(&mut self.ambient_volume, volume);
+    /// Selects a finite audio level in `0..=1`, without affecting other controls.
+    pub const fn set_audio_volume(&mut self, control: AudioVolume, volume: f32) -> bool {
+        let current = match control {
+            AudioVolume::Master => &mut self.master_volume,
+            AudioVolume::Ambient => &mut self.ambient_volume,
+            AudioVolume::PropSound => &mut self.prop_sound_volume,
+            AudioVolume::Effects => &mut self.effects_volume,
+        };
+        let changed = set_audio_volume(current, volume);
         self.pending.audio |= changed;
         changed
     }

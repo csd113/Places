@@ -190,7 +190,8 @@ fn presentation_choices_preserve_independent_quality_and_master_zero()
         spatial_audio: crate::engine::audio::SpatialMode::Headphones,
         ..Settings::default()
     };
-    let _master_changed = settings.set_master_volume(0.0);
+    let _master_changed =
+        settings.set_audio_volume(crate::game::settings::AudioVolume::Master, 0.0);
     for quality in [QualityLevel::Low, QualityLevel::High] {
         let _quality_changed = settings.set_quality(quality);
         assert_eq!(
@@ -256,5 +257,32 @@ fn character_self_shadow_opt_in_persists_and_defaults_off() -> Result<(), Box<dy
     }
     settings.restore_defaults();
     assert!(!settings.real_character_self_shadows);
+    Ok(())
+}
+
+// A tiny legacy file and disk roundtrip catch conflating the new preference
+// with the old Effects field or accepting out-of-range persisted levels.
+#[test]
+fn prop_sound_defaults_clamps_and_roundtrips_independently()
+-> Result<(), Box<dyn std::error::Error>> {
+    use crate::game::settings::AudioVolume;
+    let directory = SettingsDirectory::new()?;
+    let path = directory.0.join("audio.json");
+    fs::write(
+        &path,
+        r#"{"master_volume":5,"effects_volume":0.75,"ambient_volume":-1}"#,
+    )?;
+    let mut settings = Settings::load_or_default_from_path(&path);
+    assert!((settings.audio_volume(AudioVolume::Master) - 1.0).abs() < f32::EPSILON);
+    assert!((settings.audio_volume(AudioVolume::PropSound) - 1.0).abs() < f32::EPSILON);
+    assert!(settings.audio_volume(AudioVolume::Ambient).abs() < f32::EPSILON);
+    assert!(!settings.set_audio_volume(AudioVolume::PropSound, f32::NAN));
+    assert!(settings.set_audio_volume(AudioVolume::PropSound, -1.0));
+    assert!(settings.set_audio_volume(AudioVolume::PropSound, 0.25));
+    assert!(settings.take_pending_apply().audio);
+    settings.save_to_path(&path)?;
+    let reloaded = Settings::load_or_default_from_path(&path);
+    assert!((reloaded.audio_volume(AudioVolume::PropSound) - 0.25).abs() < f32::EPSILON);
+    assert!((reloaded.audio_volume(AudioVolume::Effects) - 0.75).abs() < f32::EPSILON);
     Ok(())
 }

@@ -2485,9 +2485,9 @@ impl FrameLoop<'_> {
             // must not replace keyboard selection or hover on menu opening.
             if self.window_focused && (xrel.abs() > 0.0 || yrel.abs() > 0.0) {
                 let hit = self.menu_hit(*x, *y);
-                if self.ui_state.volume_drag.is_some()
-                    && let Some(slider) = hit
-                    && matches!(slider.intent, ui::MenuIntent::Volume(_))
+                if let Some(slider) = hit
+                    && let ui::MenuIntent::Volume(control, _) = slider.intent
+                    && self.ui_state.volume_drag == Some(control)
                 {
                     self.activate_menu_hit(slider);
                     return true;
@@ -2522,10 +2522,16 @@ impl FrameLoop<'_> {
                 self.ui_state.pointer.invalidate();
             }
             ui::MenuIntent::Page(direction) => self.ui_state.scroll_details(direction),
-            ui::MenuIntent::Volume(percent) => {
-                self.ui_state.volume_drag = Some(());
-                let _changed = self.settings.set_master_volume(f32::from(percent) / 100.0);
-                self.save_settings();
+            ui::MenuIntent::Volume(control, percent) => {
+                self.ui_state.volume_drag = Some(control);
+                self.ui_state
+                    .select_menu_index(self.game.app_state(), clicked.index);
+                if self
+                    .settings
+                    .set_audio_volume(control, f32::from(percent) / 100.0)
+                {
+                    self.save_settings();
+                }
             }
             ui::MenuIntent::CancelRebind => self.ui_state.cancel_rebinding(),
             ui::MenuIntent::CancelLoad => self.cancel_loading(),
@@ -4317,7 +4323,7 @@ impl FrameLoop<'_> {
                 serde_json::json!(self.audio.system.voice_snapshot()),
             ));
             drop(fields.insert("audio".into(), serde_json::json!(self.audio.system.stats())));
-            drop(fields.insert("audio_settings".into(), serde_json::json!({"master":self.settings.master_volume,"effects":self.settings.effects_volume,"ambience":self.settings.ambient_volume,"muted":self.settings.muted,"spatial_audio":self.settings.spatial_audio})));
+            drop(fields.insert("audio_settings".into(), serde_json::json!({"master":self.settings.master_volume,"effects":self.settings.effects_volume,"ambience":self.settings.ambient_volume,"prop":self.settings.prop_sound_volume,"muted":self.settings.muted,"spatial_audio":self.settings.spatial_audio})));
             drop(fields.insert("console_session".into(), self.console_runtime.snapshot()));
             let fixed_instances = self.current_level.as_ref().map_or_default(|loaded| {
                 let ids=loaded.level.prop_instance_ids();

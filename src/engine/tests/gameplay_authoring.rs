@@ -5,6 +5,7 @@
 
 use glam::Vec3;
 
+use crate::engine::audio::AudioBus;
 use crate::engine::door::{DoorPhase, DoorRuntime};
 use crate::engine::entities::{EntityWorld, WorldCommand};
 use crate::engine::level::{ActionDef, DoorDef, LevelDef};
@@ -193,9 +194,9 @@ fn standalone_emitter_preserves_spatial_policy_and_authored_playback_on_reset() 
         })
         .ok_or("authored ambience did not start")?;
     assert_eq!(
-        world.audio_source_spatial(key),
+        world.audio_source_mix(key, true).spatial,
         Some(false),
-        "ambient override survives lifecycle actions"
+        "standalone spatial override survives lifecycle actions"
     );
     assert_eq!(
         world.audio_source_anchor(key),
@@ -227,9 +228,9 @@ fn standalone_emitter_preserves_spatial_policy_and_authored_playback_on_reset() 
         "reset restores authored playing ambience"
     );
     assert_eq!(
-        world.audio_source_spatial(key),
+        world.audio_source_mix(key, true).spatial,
         Some(false),
-        "ambient override survives lifecycle actions"
+        "standalone spatial override survives lifecycle actions"
     );
     Ok(())
 }
@@ -508,4 +509,45 @@ fn assert_environment_commands(world: &mut EntityWorld, expected: &[(&str, u32, 
             "pending updates must reflect the selected epoch"
         );
     }
+}
+
+// One cue shared by three owners catches accidental classification by cue or
+// loop mode. This fixture exercises the real entity resolver without a device.
+#[test]
+fn authored_audio_bus_follows_prop_ownership_before_playback_flags() -> Result<(), String> {
+    let fixture = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"audio_bus_fixture","name":"Audio Bus","spawn":{"x":4,"z":4},
+      "props":[{"id":"prop","model":"core:plant","x":0,"z":0,"components":[
+        {"component":"audio","sound":"shared","gain":0.3,"looped":true,"playing":true}]}],
+      "sound_emitters":[
+        {"id":"ambient","x":1,"y":1,"z":1,"sound":"shared","spatial":false,"playing":true},
+        {"id":"effect","x":2,"y":1,"z":2,"sound":"shared","spatial":true,"playing":true}]}"#)
+        .map_err(|error| error.to_string())?;
+    let mut world = EntityWorld::from_level(&fixture);
+    let mut count = 0_u32;
+    for command in world.take_commands() {
+        if let WorldCommand::PlaySound {
+            entity,
+            sound,
+            gain: _,
+            looped,
+            time_domain: _,
+        } = command
+        {
+            assert_eq!(sound, "shared");
+            let (name, _) = world.audio_source_anchor(entity).ok_or("missing owner")?;
+            let expected = match name {
+                "prop" => AudioBus::Prop,
+                "ambient" => AudioBus::Ambient,
+                "effect" => AudioBus::Effects,
+                _ => return Err("unexpected owner".into()),
+            };
+            assert_eq!(world.audio_source_mix(entity, looped).bus, expected);
+            if expected == AudioBus::Prop {
+                assert_eq!(world.audio_source_mix(entity, false).bus, AudioBus::Prop);
+            }
+            count = count.saturating_add(1);
+        }
+    }
+    assert_eq!(count, 3);
+    Ok(())
 }

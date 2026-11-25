@@ -7,7 +7,7 @@ use crate::{
     engine::render::{DrawableSize, Vertex},
     game::AppState,
     game::display::DisplayStatus,
-    game::settings::{Settings, WindowMode},
+    game::settings::{AudioVolume, Settings, WindowMode},
 };
 use std::hash::{Hash, Hasher};
 
@@ -47,7 +47,7 @@ pub enum MenuIntent {
     Dismiss,
     RetryLoad,
     Page(i32),
-    Volume(u8),
+    Volume(AudioVolume, u8),
     Details,
 }
 
@@ -65,7 +65,7 @@ pub struct MenuRow {
     pub value: String,
     pub adjustable: bool,
     pub enabled: bool,
-    pub slider: bool,
+    pub slider: Option<AudioVolume>,
 }
 
 #[derive(Debug, Default)]
@@ -149,14 +149,17 @@ impl MenuLayout {
             .iter()
             .find(|row| row.bounds.contains(point))
             .map(|row| {
-                let intent = if row.slider && point[0] >= 324.0 && point[0] <= 420.0 {
+                let intent = if let Some(control) = row.slider
+                    && point[0] >= 324.0
+                    && point[0] <= 420.0
+                {
                     let percent = format!(
                         "{:.0}",
                         ((point[0] - 324.0) / 96.0 * 100.0).clamp(0.0, 100.0)
                     )
                     .parse::<u8>()
                     .unwrap_or(0);
-                    MenuIntent::Volume(percent)
+                    MenuIntent::Volume(control, percent)
                 } else if row.adjustable && row.enabled && point[0] >= 300.0 && point[0] < 324.0 {
                     MenuIntent::Adjust(-1)
                 } else if row.adjustable && row.enabled && point[0] >= 420.0 {
@@ -207,7 +210,7 @@ fn row(index: usize, label: String, value: String, top: f32, height: f32) -> Men
         bounds: rect(LEFT, top, RIGHT, top + height),
         adjustable: false,
         enabled: true,
-        slider: false,
+        slider: None,
     }
 }
 
@@ -381,7 +384,9 @@ fn settings_layout(
         );
         top += spacing + extra;
         entry.adjustable = matches!(setting.kind, SettingsRowKind::Value(_));
-        entry.slider = setting.kind == SettingsRowKind::Value(SettingsValue::MasterVolume);
+        if let SettingsRowKind::Value(SettingsValue::Volume(control)) = setting.kind {
+            entry.slider = Some(control);
+        }
         entry.enabled = match setting.kind {
             SettingsRowKind::Value(SettingsValue::Reflections) => settings.lightmaps_enabled(),
             SettingsRowKind::Value(SettingsValue::Resolution) => {
@@ -656,7 +661,7 @@ fn draw_scroll(vertices: &mut Vec<Vertex>, layout: &MenuLayout, ui: &UiState) {
 
 fn draw_value(vertices: &mut Vec<Vertex>, entry: &MenuRow, ui: &UiState, color: [f32; 3]) {
     let bounds = entry.bounds;
-    if entry.slider {
+    if entry.slider.is_some() {
         let amount = entry
             .value
             .trim_start_matches("< ")
@@ -743,6 +748,15 @@ fn draw_value(vertices: &mut Vec<Vertex>, entry: &MenuRow, ui: &UiState, color: 
     }
 }
 
+const fn volume_description(control: AudioVolume) -> &'static str {
+    match control {
+        AudioVolume::Master => "Overall sound level. Mute keeps your volume choices.",
+        AudioVolume::Effects => "Movement, doors and general effects.",
+        AudioVolume::Ambient => "Environmental sounds around you.",
+        AudioVolume::PropSound => "Sounds emitted by props, including impacts.",
+    }
+}
+
 fn description(
     state: AppState,
     ui: &UiState,
@@ -771,7 +785,7 @@ fn description(
                     "Window mode and window size."
                 }
                 Some(SettingsRowKind::Open(SettingsPage::Audio)) => {
-                    "Volume levels for effects and ambience."
+                    "Master, environmental, prop and effects volume."
                 }
                 Some(SettingsRowKind::Open(SettingsPage::Controls)) => {
                     "Key bindings, mouse look and movement."
@@ -819,11 +833,7 @@ fn description(
                     SettingsValue::SpatialAudio => {
                         "Choose stereo speakers or measured headphone HRTF."
                     }
-                    SettingsValue::MasterVolume => {
-                        "Overall sound level. Mute keeps your volume choices."
-                    }
-                    SettingsValue::EffectsVolume => "Movement and interaction sounds.",
-                    SettingsValue::AmbientVolume => "Environmental sounds around you.",
+                    SettingsValue::Volume(control) => volume_description(*control),
                     SettingsValue::Mute => "Silence all sound; keep your volume choices.",
                     SettingsValue::MouseSensitivity => {
                         "How far the camera turns with mouse movement."

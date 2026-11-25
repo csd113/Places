@@ -5,7 +5,15 @@ use glam::Vec3;
 use super::events::EventKind;
 use super::volumes::TriggerVisit;
 use super::{AudioEmitter, EntityHandle, EntityId, EntityWorld, LevelDef, Transform, WorldCommand};
+use crate::engine::audio::AudioBus;
 use crate::engine::level::ActionDef;
+
+/// Playback traits resolved from the source owner.
+pub struct AudioSourceMix {
+    pub spatial: Option<bool>,
+    pub attenuation: Option<[f32; 2]>,
+    pub bus: AudioBus,
+}
 
 pub(super) struct OwnedTriggerLoop {
     volume: EntityHandle,
@@ -65,6 +73,7 @@ impl EntityWorld {
             drop(self.components.audio.insert(
                 handle,
                 AudioEmitter {
+                    bus_override: None,
                     attenuation: def.attenuation,
                     sound: def.sound.clone(),
                     gain: def.gain,
@@ -120,22 +129,27 @@ impl EntityWorld {
         Some((self.id_of(handle)?, self.audio_source_position(key)?))
     }
 
-    /// Per-emitter near/far distance override, resolved by generation-safe source.
+    /// Resolve authored overrides together. Unclassified sources retain the
+    /// existing ambience/effects policy, never inheriting a bus from the cue ID.
     #[must_use]
-    pub fn audio_source_attenuation(&self, key: u64) -> Option<[f32; 2]> {
-        self.components
-            .audio
-            .get(self.audio_handle(key)?)?
-            .attenuation
-    }
-
-    /// Optional per-emitter spatial policy; attached sounds retain catalog defaults.
-    #[must_use]
-    pub fn audio_source_spatial(&self, key: u64) -> Option<bool> {
-        self.components
-            .audio
-            .get(self.audio_handle(key)?)
-            .and_then(|emitter| emitter.spatial)
+    pub fn audio_source_mix(&self, key: u64, looping: bool) -> AudioSourceMix {
+        let emitter = self
+            .audio_handle(key)
+            .and_then(|handle| self.components.audio.get(handle));
+        let spatial = emitter.and_then(|source| source.spatial);
+        AudioSourceMix {
+            spatial,
+            attenuation: emitter.and_then(|source| source.attenuation),
+            bus: emitter
+                .and_then(|source| source.bus_override)
+                .unwrap_or_else(|| {
+                    if looping || spatial == Some(false) {
+                        AudioBus::Ambient
+                    } else {
+                        AudioBus::Effects
+                    }
+                }),
+        }
     }
 
     // Stable authored keys encode the generation-safe slot. Runtime spawn

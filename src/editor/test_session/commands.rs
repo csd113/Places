@@ -1,6 +1,6 @@
 //! Native presentation adapter for the shared entity command protocol.
 use super::Session;
-use crate::engine::audio::{AudioBus, AudioSystem, PlayRequest, SourceId, TimeDomain};
+use crate::engine::audio::{AudioSystem, PlayRequest, SourceId, TimeDomain};
 use crate::engine::entities::WorldCommand;
 use crate::engine::render::Renderer;
 
@@ -192,16 +192,16 @@ impl Session {
             }
             WorldCommand::SetDynamicEmission { entity, scale } => { let _changed = renderer.set_runtime_emission(entity, scale); }
             WorldCommand::PlaySound { entity, sound, gain, looped, time_domain } => {
-                let spatial = self.game.entities().audio_source_spatial(entity);
+                let mix = self.game.entities().audio_source_mix(entity, looped);
                 // Match player ownership: legacy HVAC actions retain their
                 // entity identity; only placed duct stock supplies the hum.
                 if sound == crate::game::audio::HVAC_CUE {
                     return Ok(());
                 }
                 let _played = audio.play(&sound, PlayRequest { direction: None,
-                    source: Some(SourceId(entity)), position: self.game.entities().audio_source_position(entity), spatial,
-                    attenuation: self.game.entities().audio_source_attenuation(entity), gain, looping: Some(looped), time_domain,
-                    bus: if looped || spatial == Some(false) { AudioBus::Ambient } else { AudioBus::Effects },
+                    source: Some(SourceId(entity)), position: self.game.entities().audio_source_position(entity), spatial: mix.spatial,
+                    attenuation: mix.attenuation, gain, looping: Some(looped), time_domain,
+                    bus: mix.bus,
                     perception: crate::engine::audio::PerceptionOwner::Playback,
                     cursor_seconds: 0.0, replacement_fade: 0.0,
                 });

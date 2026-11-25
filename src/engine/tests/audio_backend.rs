@@ -150,6 +150,7 @@ fn listener_orientation_and_finite_world_clock_preserve_mix_contract() {
         master_volume: 1.0,
         effects_volume: 1.0,
         ambient_volume: 1.0,
+        prop_sound_volume: 1.0,
         muted: false,
     };
     let mix = Mix {
@@ -362,4 +363,29 @@ fn held_loop_replacements_retire_without_waiting_for_path_admission() -> Result<
     );
     assert_eq!(retirement_tween(false, true).duration, Duration::ZERO);
     Ok(())
+}
+
+// A deterministic gain check protects the three-way bus split at a finite
+// distance with non-unit authored gain, without opening a device or baking.
+#[test]
+fn volume_buses_preserve_spatial_and_authored_gain_under_master() {
+    let mix = Mix {
+        settings: AudioSettings {
+            master_volume: 0.5,
+            ambient_volume: 0.25,
+            prop_sound_volume: 0.0,
+            effects_volume: 0.75,
+            ..AudioSettings::default()
+        },
+        ..Mix::default()
+    };
+    for (bus, scale) in [
+        (AudioBus::Ambient, 0.25),
+        (AudioBus::Prop, 0.0),
+        (AudioBus::Effects, 0.75),
+    ] {
+        let (gain, pan) = spatial_mix(mix, Some(Vec3::X * 3.0), true, 1.0, 5.0, 0.4, bus);
+        let expected = 0.4 * 0.25 * scale * 0.5;
+        assert!((gain - expected).abs() < f32::EPSILON && (pan - 1.0).abs() < f32::EPSILON);
+    }
 }

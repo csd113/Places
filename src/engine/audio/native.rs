@@ -749,6 +749,7 @@ impl NativeAudio {
             master_volume: sanitize_gain(settings.master_volume),
             effects_volume: sanitize_gain(settings.effects_volume),
             ambient_volume: sanitize_gain(settings.ambient_volume),
+            prop_sound_volume: sanitize_gain(settings.prop_sound_volume),
             muted: settings.muted,
         };
         self.reap();
@@ -1188,6 +1189,7 @@ impl NativeAudio {
                 );
                 snapshots.push(AudioVoiceSnapshot {
                     cue: cue.id.clone(),
+                    bus: voice.bus,
                     source: voice.source.map(|source| source.0),
                     position: voice.position.as_ref().map(Vec3::to_array),
                     direction: voice.direction.as_ref().map(Vec3::to_array),
@@ -1224,6 +1226,7 @@ impl NativeAudio {
                 );
                 snapshots.push(AudioVoiceSnapshot {
                     cue: cue.id.clone(),
+                    bus: request.bus,
                     source: request.source.map(|source| source.0),
                     position: request.position.as_ref().map(Vec3::to_array),
                     direction: request.direction.as_ref().map(Vec3::to_array),
@@ -1512,6 +1515,7 @@ fn spatial_mix(
     let bus_gain = match bus {
         AudioBus::Effects => mix.settings.effects_volume,
         AudioBus::Ambient => mix.settings.ambient_volume,
+        AudioBus::Prop => mix.settings.prop_sound_volume,
     };
     let mut amplitude = if mix.settings.muted {
         0.0
