@@ -188,6 +188,8 @@ Research only. Compare a small reusable graph/mask layer with existing clip tran
 ### 28. [GitHub #46: Research safe live asset reloading](https://github.com/csd113/Places/issues/46)
 Research only. Compare safe editor-only asset refresh with current cache, preview and save/build/play paths. Identify behavior on malformed edits, pipeline and dependency invalidation, resource lifetime, and separation from published packages and script execution. Separate a full scene reload from an in-place refresh. No production file watcher or hot-reload implementation.
 
+**Finding.** [Asset refresh research](docs/0.14.0/asset-refresh.md) recommends a separately approved manual Inspect refresh for one PNG. Current reprepare can publish fallbacks. Keep active tests and packages out of scope. Performance was not measured.
+
 ### 29. [GitHub #47: Research ECS scheduling](https://github.com/csd113/Places/issues/47)
 Research only. Compare Bevy-style data-access-aware scheduling with the current Places entity loop and targeted parallelism. Ground recommendations in an actual bottleneck and preserve event order, determinism, and main-thread ownership. No Bevy migration or production scheduler implementation.
 
