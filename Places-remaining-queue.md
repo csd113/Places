@@ -193,6 +193,8 @@ Research only. Compare safe editor-only asset refresh with current cache, previe
 ### 29. [GitHub #47: Research ECS scheduling](https://github.com/csd113/Places/issues/47)
 Research only. Compare Bevy-style data-access-aware scheduling with the current Places entity loop and targeted parallelism. Ground recommendations in an actual bottleneck and preserve event order, determinism, and main-thread ownership. No Bevy migration or production scheduler implementation.
 
+**Finding.** [ECS scheduling research](docs/0.14.0/ecs-scheduling.md) recommends keeping the ordered loop. Profile the pre-script visibility batch before considering a separately approved experiment on the existing worker pool. Performance was not measured. [#31](https://github.com/csd113/Places/issues/31) is related and remains closed.
+
 ### 30. [GitHub #15: Multiplayer and in-session text chat](https://github.com/csd113/Places/issues/15)
 **Deferred.** Leave GitHub #15 open. Keep this large feature behind core fixes and smaller work. Define a bounded join/host/leave and reconnect flow, synchronize movement and visible players, choose and document the shared interactions and world state, and add in-session text chat. Validate two players together and cleanup/reconnect under latency or disconnection. Do not broaden into unrelated engine or account work.
 
