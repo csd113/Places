@@ -538,6 +538,9 @@ pub(in crate::editor) fn draw_text(
         match field.kind {
             Kind::Vector => "Three numbers in brackets: [x, y, z]",
             Kind::State => "true / false / integer / decimal / quoted text",
+            Kind::Text if field.target == Target::Map && field.key == "name" => {
+                "Shown in Pause. Set the Explore title in Project."
+            }
             Kind::Text => "Empty clears an optional value. Cmd/Ctrl A clears.",
             Kind::WholeNumber => "Whole HP: maximum > 0; starting health <= maximum.",
             Kind::Number | Kind::Bool | Kind::Choice(_) => {

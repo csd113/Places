@@ -258,8 +258,15 @@ impl App {
             .collect()
     }
 
-    pub(super) fn browser_themes(&self) -> &[String] {
-        &self.browser.themes
+    pub(super) fn browser_theme_label(&self) -> &str {
+        let Some(id) = self.browser.themes.get(self.browser.theme) else {
+            return "All themes";
+        };
+        self.catalog
+            .themes()
+            .iter()
+            .find(|theme| theme.id.as_str() == id)
+            .map_or(id.as_str(), |theme| theme.display_name.as_str())
     }
 
     pub(super) fn browser_images(&mut self) -> Vec<UiImage> {
@@ -302,7 +309,7 @@ impl App {
             .browser
             .theme
             .saturating_add(1)
-            .checked_rem(self.browser_themes().len().max(1))
+            .checked_rem(self.browser.themes.len().max(1))
             .unwrap_or(0);
         self.reset_browser_page();
     }

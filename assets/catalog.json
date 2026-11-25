@@ -43,8 +43,8 @@
     },
     {
       "id": "janitor_closet",
-      "display_name": "Janitor / Supplies",
-      "description": "Reusable utility-room storage, cleaning equipment and consumables."
+      "display_name": "Maintenance",
+      "description": "Unfinished concrete for service halls, stairwells and basements, plus reusable janitor closet storage, cleaning equipment and supplies."
     },
     {
       "id": "backrooms",
@@ -10967,6 +10967,77 @@
         0.045,
         0.055
       ]
+    },
+    {
+      "id": "maintenance:tex_concrete_formwork_01",
+      "display_name": "Poured Concrete Formwork Texture",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environments/janitor_closet/textures/concrete_formwork_01.png",
+      "description": "Weathered poured concrete with casting seams and subdued moisture stains."
+    },
+    {
+      "id": "maintenance:tex_concrete_formwork_spalled_01",
+      "display_name": "Spalled Concrete Formwork Texture",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environments/janitor_closet/textures/concrete_formwork_spalled_01.png",
+      "description": "Matching cast concrete with a localized crack and exposed reinforcement."
+    },
+    {
+      "id": "maintenance:concrete_floor_01",
+      "display_name": "Floor / concrete",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "outdoor:tex_concrete_pavement_01",
+      "tile_metres": 4.0,
+      "shine": 0.03,
+      "description": "Matte cast-concrete slabs with control joints. Reuses the existing tileable concrete grain."
+    },
+    {
+      "id": "maintenance:concrete_wall_01",
+      "display_name": "Wall / concrete",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "maintenance:tex_concrete_formwork_01",
+      "tile_metres": 4.0,
+      "description": "Matte cast concrete for service walls and stair risers."
+    },
+    {
+      "id": "maintenance:concrete_ceiling_01",
+      "display_name": "Ceiling / concrete",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "maintenance:tex_concrete_formwork_01",
+      "tile_metres": 4.0,
+      "description": "Matte cast concrete for exposed service ceilings."
+    },
+    {
+      "id": "maintenance:concrete_wall_spalled_01",
+      "display_name": "Spalled concrete",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "maintenance:tex_concrete_formwork_spalled_01",
+      "tile_metres": 4.0,
+      "description": "Localized cracked formwork with exposed reinforcement. Use sparingly on an otherwise unfinished concrete wall."
     },
     {
       "id": "janitor:cardboard_supply_box",

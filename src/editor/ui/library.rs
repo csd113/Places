@@ -72,7 +72,6 @@ pub(in crate::editor) fn draw_grid(
         Action::ThumbnailSize,
     );
     let doors = matches!(app.popup, Some(crate::editor::actions::Popup::DoorAssets));
-    let themes = app.browser_themes();
     if doors {
         text(v, "Shared / built-in door styles", 123.0, 63.0, INK, 70);
     } else {
@@ -80,9 +79,7 @@ pub(in crate::editor) fn draw_grid(
             v,
             hits,
             [123.0, 60.0, 240.0, 12.0],
-            themes
-                .get(app.browser.theme)
-                .map_or("All themes", String::as_str),
+            app.browser_theme_label(),
             Action::BrowserTheme,
         );
     }
@@ -239,9 +236,7 @@ pub(in crate::editor) fn draw_dock(app: &App, v: &mut Vec<Vertex>, hits: &mut Ve
                 },
                 10.0,
             ],
-            app.browser_themes()
-                .get(app.browser.theme)
-                .map_or("All themes", String::as_str),
+            app.browser_theme_label(),
             Action::BrowserTheme,
             true,
         );

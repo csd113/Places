@@ -1872,6 +1872,26 @@
     "sha256": "3063fcf0a7c0b27a361838d879c8a65bb4f5fb303957d752644ad297e44fbc2d",
     "source": "environments/janitor_closet/models/wet_floor_sign.glb"
   },
+  "maintenance:concrete_ceiling_01": {
+    "path": "editor/previews/cfd814b91876e3302cacd6a7.png",
+    "sha256": "cfd814b91876e3302cacd6a7a65a63dd06ba407c64003463ed8db68775b5bb15",
+    "source": "environments/janitor_closet/textures/concrete_formwork_01.png"
+  },
+  "maintenance:concrete_floor_01": {
+    "path": "editor/previews/43362d2a472e846a4b2b8645.png",
+    "sha256": "a632fb7ecc4c80191af54a738bbf50122cf57f7cd40d6c175ed83079fe5d2340",
+    "source": "environments/outdoor/textures/floors/concrete_pavement_01.png"
+  },
+  "maintenance:concrete_wall_01": {
+    "path": "editor/previews/cfd814b91876e3302cacd6a7.png",
+    "sha256": "cfd814b91876e3302cacd6a7a65a63dd06ba407c64003463ed8db68775b5bb15",
+    "source": "environments/janitor_closet/textures/concrete_formwork_01.png"
+  },
+  "maintenance:concrete_wall_spalled_01": {
+    "path": "editor/previews/ffa3c521f743d54105a28508.png",
+    "sha256": "ffa3c521f743d54105a285082640fbecd6b7682d8ac655c8d3300b5e18d7ef63",
+    "source": "environments/janitor_closet/textures/concrete_formwork_spalled_01.png"
+  },
   "mannequin": {
     "path": "editor/previews/0e41c7d8c0dbe214604fe5b0.png",
     "sha256": "a27aa5b4fda530152ba888535e06b21442bb4c05c476ba0028435a4e05291051",

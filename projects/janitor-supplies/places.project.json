@@ -1,18 +1,21 @@
 {
+  "package_version": "1.1.0",
   "schema": "places-project",
   "project_format": 1,
   "id": "janitor-supplies",
-  "name": "Janitor / Supplies",
-  "description": "Editable, opt-in closet composition and reusable asset placement preview.",
+  "name": "Maintenance",
+  "description": "Concrete service hall, stairs and an unfinished industrial basement. The service route links back to the original janitor closet.",
   "entry_level": "janitor_supplies",
   "levels": [
     {
       "id": "janitor_supplies",
-      "source": "levels/janitor_supplies.json"
+      "source": "levels/janitor_supplies.json",
+      "display_name": "Maintenance"
     },
     {
       "id": "janitor_physics",
-      "source": "levels/janitor_physics.json"
+      "source": "levels/janitor_physics.json",
+      "display_name": "Maintenance: Closet Physics"
     }
   ]
 }

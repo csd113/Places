@@ -59,6 +59,11 @@ pub(super) fn read(source: Option<&Value>, field: Field) -> Value {
 
 pub(super) fn parse(field: Field, text: &str) -> Result<Value, String> {
     match field.kind {
+        Kind::Text
+            if field.target == Target::Map && field.key == "name" && text.trim().is_empty() =>
+        {
+            Err("Level name cannot be blank".into())
+        }
         Kind::Text => Ok(text.into()),
         Kind::WholeNumber => text
             .parse::<u16>()
