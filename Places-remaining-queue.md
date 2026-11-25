@@ -129,7 +129,7 @@ Verify the three supported entry points and the affected build and packaging pat
 **Complete. Independently reviewed.** All 21 direct crates have live callers and both feature switches are used. No narrow DropGuard change was justified. Save and export rollback stays explicit where cleanup failures must be reported. Existing compiler timings do not isolate allocation costs, so no allocator benchmark or change was warranted. On Windows, 20 locked Rust 1.100.0 package, archive and publication tests passed. No source or build inputs changed, and no new release build or map bake was run.
 
 ### 19. Python/tooling follow-up 03, conditional
-**Held on Windows permissions.** The first tooling fixes, ZIP comparison, and STEP follow-up are already shipped. Revisit only the specific unresolved Windows ACL case if still applicable and authorized; don’t replay the completed or archived proposals, broaden platform validation, or change security settings to unlock it. Skip if the tooling removal makes it obsolete; Windows validation is not a release gate for this queue.
+**Skipped after item 17. Independently reviewed.** Item 17 retired the legacy Python execution helper and its tests. No supported build, release, or editor caller for the old ACL follow-up was found, and the queue does not identify a more specific ACL scenario. The Windows packaging fixture and the retained ZIP comparison and STEP regressions passed. No Windows ACLs were changed and no dedicated ACL validation was run.
 
 ## Audio, HUD and environment work
 
