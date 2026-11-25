@@ -3214,6 +3214,24 @@
       0.03252364695072174
     ]
   },
+  "environments/mall/props/trash_can.glb": {
+    "sha256": "9996ae1f5757321ef1c37a3a89dcbe6d7869e02044e6eb8273638e8f0c76d188",
+    "triangles": 1512,
+    "texture_edge": 256,
+    "identities": [
+      "mall:trash_can"
+    ],
+    "bounds_min": [
+      -0.2750000059604645,
+      0.0,
+      -0.2750000059604645
+    ],
+    "bounds_max": [
+      0.2750000059604645,
+      1.0499999523162842,
+      0.2750000059604645
+    ]
+  },
   "environments/office/props/cabinet.glb": {
     "sha256": "e59ebdafe232631397af72070f4a8ae13374e05717bd2aae22b1866ea9d055d0",
     "triangles": 324,

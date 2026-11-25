@@ -1942,6 +1942,11 @@
     "sha256": "aed7755ed61e908fc6a3ecc328a34c10b59e0399f3ec4030e37281a5851e92fd",
     "source": "environments/mall/props/takeaway_coffee_cup.glb"
   },
+  "mall:trash_can": {
+    "path": "editor/previews/6d52b3f60c5581b150e20c1d.png",
+    "sha256": "9996ae1f5757321ef1c37a3a89dcbe6d7869e02044e6eb8273638e8f0c76d188",
+    "source": "environments/mall/props/trash_can.glb"
+  },
   "mall:security_shutter": {
     "path": "editor/previews/7854cb52f96e6d9c62685774.png",
     "sha256": "e543a18454914d16ca785c547737af1f599c4458b383478d5607107ad34930c6",

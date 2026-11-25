@@ -13128,6 +13128,28 @@
       }
     },
     {
+      "id": "mall:trash_can",
+      "display_name": "Mall Trash Can",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/trash_can.glb",
+      "size": [
+        0.55,
+        1.05,
+        0.55
+      ],
+      "color": "#9e9889",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Floor-centred molded mall litter bin with four open toss slots, terracotta inlays and a dark liner.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/trash_can.blend"
+      }
+    },
+    {
       "id": "mall:advertising_lightbox",
       "display_name": "Concourse Coffee Lightbox",
       "asset_class": "environment",
