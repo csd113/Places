@@ -1881,11 +1881,10 @@ fn emit_fixtures(
                 add_wall_fixture(
                     scratch,
                     &mut housing,
-                    light.x,
-                    y,
-                    light.z,
+                    [light.x, y, light.z],
                     light.rotation_degrees,
                     face_emission,
+                    profile.wall_fallback_size(),
                 );
             }
             crate::engine::lighting::FixtureKind::FlushMount => {

@@ -558,15 +558,11 @@ pub fn add_flush_mount_fixture(
 pub fn add_wall_fixture(
     lit: &mut Vec<Vertex>,
     housing: &mut Vec<Vertex>,
-    x: f32,
-    y: f32,
-    z: f32,
+    [x, y, z]: [f32; 3],
     yaw_degrees: f32,
     emission: [f32; 3],
+    [half_width, half_height, depth]: [f32; 3],
 ) {
-    const HALF_WIDTH: f32 = 0.20;
-    const HALF_HEIGHT: f32 = 0.10;
-    const DEPTH: f32 = 0.11;
     const BEZEL_COLOR: [f32; 3] = [0.40, 0.40, 0.40];
     let yaw = yaw_degrees.to_radians();
     let (sin, cos) = yaw.sin_cos();
@@ -585,10 +581,10 @@ pub fn add_wall_fixture(
     add_quad_flat(
         lit,
         [
-            point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-            point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-            point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
-            point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
+            point(-half_width, -half_height, depth),
+            point(half_width, -half_height, depth),
+            point(half_width, half_height, depth),
+            point(-half_width, half_height, depth),
         ],
         emission,
         [uv[0], uv[1], uv[2], uv[3]],
@@ -597,10 +593,10 @@ pub fn add_wall_fixture(
     add_quad_flat(
         housing,
         [
-            point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
-            point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
-            point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
-            point(HALF_WIDTH, HALF_HEIGHT, 0.0),
+            point(-half_width, half_height, 0.0),
+            point(-half_width, half_height, depth),
+            point(half_width, half_height, depth),
+            point(half_width, half_height, 0.0),
         ],
         BEZEL_COLOR,
         [uv[0], uv[1], uv[2], uv[3]],
@@ -608,10 +604,10 @@ pub fn add_wall_fixture(
     add_quad_flat(
         housing,
         [
-            point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
-            point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
-            point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-            point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
+            point(-half_width, -half_height, 0.0),
+            point(half_width, -half_height, 0.0),
+            point(half_width, -half_height, depth),
+            point(-half_width, -half_height, depth),
         ],
         BEZEL_COLOR,
         [uv[0], uv[1], uv[2], uv[3]],
@@ -619,10 +615,10 @@ pub fn add_wall_fixture(
     add_quad_flat(
         housing,
         [
-            point(HALF_WIDTH, HALF_HEIGHT, 0.0),
-            point(HALF_WIDTH, HALF_HEIGHT, DEPTH),
-            point(HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-            point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+            point(half_width, half_height, 0.0),
+            point(half_width, half_height, depth),
+            point(half_width, -half_height, depth),
+            point(half_width, -half_height, 0.0),
         ],
         BEZEL_COLOR,
         [uv[0], uv[1], uv[2], uv[3]],
@@ -630,10 +626,10 @@ pub fn add_wall_fixture(
     add_quad_flat(
         housing,
         [
-            point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
-            point(-HALF_WIDTH, -HALF_HEIGHT, DEPTH),
-            point(-HALF_WIDTH, HALF_HEIGHT, DEPTH),
-            point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
+            point(-half_width, -half_height, 0.0),
+            point(-half_width, -half_height, depth),
+            point(-half_width, half_height, depth),
+            point(-half_width, half_height, 0.0),
         ],
         BEZEL_COLOR,
         [uv[0], uv[1], uv[2], uv[3]],
@@ -643,10 +639,10 @@ pub fn add_wall_fixture(
     add_quad_flat(
         housing,
         [
-            point(-HALF_WIDTH, -HALF_HEIGHT, 0.0),
-            point(-HALF_WIDTH, HALF_HEIGHT, 0.0),
-            point(HALF_WIDTH, HALF_HEIGHT, 0.0),
-            point(HALF_WIDTH, -HALF_HEIGHT, 0.0),
+            point(-half_width, -half_height, 0.0),
+            point(-half_width, half_height, 0.0),
+            point(half_width, half_height, 0.0),
+            point(half_width, -half_height, 0.0),
         ],
         BEZEL_COLOR,
         [uv[0], uv[1], uv[2], uv[3]],

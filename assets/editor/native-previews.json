@@ -35,6 +35,12 @@
     "geometry_revision": 4,
     "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos"
   },
+  "maintenance:warm_bulkhead": {
+    "path": "editor/native-previews/fixture_warm_bulkhead.png",
+    "source": "environments/maintenance/textures/lights/warm_bulkhead.png",
+    "geometry_revision": 1,
+    "method": "native editor Authored; fixed camera; 512x384 viewport crop; 160x120 Lanczos"
+  },
   "editor:door_interior": {
     "path": "editor/native-previews/door_0.png",
     "source": "src/engine/render/common/doors.rs",

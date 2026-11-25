@@ -11021,6 +11021,38 @@
       "description": "Matte cast concrete for service walls and stair risers."
     },
     {
+      "id": "maintenance:warm_bulkhead",
+      "display_name": "Warm Bulkhead",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "light",
+      "source": "file",
+      "model": "environments/maintenance/textures/lights/warm_bulkhead.png",
+      "description": "Wall-mounted caged oval bulkhead with a ribbed lens and warm default illumination."
+    },
+    {
+      "id": "maintenance:warm_bulkhead_housing",
+      "display_name": "Warm Bulkhead Housing",
+      "asset_class": "environment",
+      "theme": "janitor_closet",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/maintenance/props/warm_bulkhead.glb",
+      "size": [
+        0.288238,
+        0.436,
+        0.151
+      ],
+      "color": "#505153",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Rear-centred wall housing. Use the Warm Bulkhead fixture to cast light.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/maintenance/props/warm_bulkhead.blend"
+      }
+    },
+    {
       "id": "maintenance:concrete_ceiling_01",
       "display_name": "Ceiling / concrete",
       "asset_class": "environment",

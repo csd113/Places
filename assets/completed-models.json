@@ -3214,6 +3214,24 @@
       0.03252364695072174
     ]
   },
+  "environments/maintenance/props/warm_bulkhead.glb": {
+    "sha256": "880574796ef72e44a281fafd43be7d551c0124b7d6265bc1dec4945814960b4b",
+    "triangles": 1260,
+    "texture_edge": 256,
+    "identities": [
+      "maintenance:warm_bulkhead_housing"
+    ],
+    "bounds_min": [
+      -0.1441190242767334,
+      -0.21799999475479126,
+      0
+    ],
+    "bounds_max": [
+      0.1441190242767334,
+      0.21799999475479126,
+      0.1509999930858612
+    ]
+  },
   "environments/mall/props/bench.glb": {
     "sha256": "24d7182770b05eb74daee0622cc9a52ed962774e8ee658ce6e11704589bbec29",
     "triangles": 240,

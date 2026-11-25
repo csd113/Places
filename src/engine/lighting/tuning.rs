@@ -271,9 +271,60 @@ pub struct FixtureProfile {
     pub emitter_override: Option<(f32, LightShape)>,
     /// Only these delivered material slots follow fixture emission/circuits.
     pub emissive_slots: &'static [u16],
+    wall: WallFixture,
+}
+
+/// Named wall luminaires can share a carrier without sharing an aperture,
+/// source colour, or fitted fallback face.
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+enum WallFixture {
+    #[default]
+    Generic,
+    PoolStrips,
+    WarmBulkhead,
 }
 
 impl FixtureProfile {
+    /// Default linear RGB output when a placement does not author a colour.
+    #[must_use]
+    pub const fn default_color(self) -> LightColor {
+        match self.wall {
+            WallFixture::WarmBulkhead => LightColor::rgb(1.0, 0.44, 0.12),
+            WallFixture::Generic | WallFixture::PoolStrips => DEFAULT_LIGHT_COLOR,
+        }
+    }
+
+    /// Spacing of the legacy Pool wall fixture's two independent light strips.
+    #[must_use]
+    pub const fn paired_emitter_offset_y(self) -> Option<f32> {
+        match self.wall {
+            WallFixture::PoolStrips => Some(0.045),
+            WallFixture::Generic | WallFixture::WarmBulkhead => None,
+        }
+    }
+
+    /// Whether this housing focuses light through water by default.
+    #[must_use]
+    pub const fn supports_caustics(self) -> bool {
+        matches!(self.kind, FixtureKind::RoundRecessed)
+            || matches!(self.wall, WallFixture::PoolStrips)
+    }
+
+    /// Whether this fixture needs its own sheet instead of its family's sheet.
+    #[must_use]
+    pub const fn uses_private_face(self) -> bool {
+        matches!(self.wall, WallFixture::WarmBulkhead)
+    }
+
+    /// Width and height half-extents plus forward depth of the fallback lens.
+    #[must_use]
+    pub const fn wall_fallback_size(self) -> [f32; 3] {
+        match self.wall {
+            WallFixture::WarmBulkhead => [0.103, 0.206, 0.125],
+            WallFixture::Generic | WallFixture::PoolStrips => [0.20, 0.10, 0.11],
+        }
+    }
+
     /// Outer body footprint, used for mesh bounds and gable mount clearance.
     #[must_use]
     pub const fn shape(self) -> LightShape {
@@ -355,10 +406,16 @@ impl FixtureProfile {
     #[must_use]
     pub fn emission_position(self, mount: [f32; 3], rotation_degrees: f32) -> [f32; 3] {
         let [x, y, z] = mount;
-        if self.model.is_some() && self.kind == FixtureKind::WallSconce {
-            // Each strip uses this plane, just clear of the lens front.
+        let forward = match self.wall {
+            WallFixture::PoolStrips => Some(0.111_f32),
+            // A short source across the oval lens; put its taps just clear of
+            // the delivered cage (Z=0.151 m) so they cannot start inside it.
+            WallFixture::WarmBulkhead => Some(0.152_f32),
+            WallFixture::Generic => None,
+        };
+        if let Some(offset) = forward {
             let (sin, cos) = rotation_degrees.to_radians().sin_cos();
-            return [0.111_f32.mul_add(sin, x), y, 0.111_f32.mul_add(cos, z)];
+            return [offset.mul_add(sin, x), y, offset.mul_add(cos, z)];
         }
         [x, self.emission_y(y), z]
     }
@@ -394,7 +451,7 @@ pub const ROUND_LENS_DROP_M: f32 = 0.017;
 /// `asset_type: "light"` entries and each entry's visible-face PNG in
 /// agreement, so a catalogued fixture can never silently render as some other
 /// fixture or fall back to an untextured sheet.
-pub const LIGHT_FIXTURE_IDS: [&str; 11] = [
+pub const LIGHT_FIXTURE_IDS: [&str; 12] = [
     "core:fluorescent_panel_01",
     "core:pool_light_round",
     "core:pool_light_wall",
@@ -406,6 +463,7 @@ pub const LIGHT_FIXTURE_IDS: [&str; 11] = [
     "backrooms:light_fluorescent_hanging",
     "backrooms:light_fluorescent_damaged",
     "backrooms:light_fluorescent_missing_diffuser",
+    "maintenance:warm_bulkhead",
 ];
 
 /// The profile of a fixture family.
@@ -414,6 +472,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
     match kind {
         FixtureKind::FluorescentPanel => FixtureProfile {
             kind,
+            wall: WallFixture::Generic,
             model: None,
             model_offset_y: 0.0,
             emitter_override: None,
@@ -426,6 +485,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         },
         FixtureKind::BlacklightTube => FixtureProfile {
             kind,
+            wall: WallFixture::Generic,
             model: None,
             model_offset_y: 0.0,
             emitter_override: None,
@@ -436,6 +496,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         },
         FixtureKind::RoundRecessed => FixtureProfile {
             kind,
+            wall: WallFixture::Generic,
             model: None,
             model_offset_y: 0.0,
             emitter_override: None,
@@ -446,6 +507,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         },
         FixtureKind::WallSconce => FixtureProfile {
             kind,
+            wall: WallFixture::Generic,
             model: None,
             model_offset_y: 0.0,
             emitter_override: None,
@@ -456,6 +518,7 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
         },
         FixtureKind::FlushMount => FixtureProfile {
             kind,
+            wall: WallFixture::Generic,
             model: None,
             model_offset_y: 0.0,
             emitter_override: None,
@@ -477,13 +540,30 @@ pub const fn fixture_profile_for_kind(kind: FixtureKind) -> FixtureProfile {
 pub fn fixture_profile(fixture_id: &str) -> FixtureProfile {
     let kind = match fixture_id {
         "core:pool_light_round" => FixtureKind::RoundRecessed,
-        "core:pool_light_wall" => FixtureKind::WallSconce,
+        "core:pool_light_wall" | "maintenance:warm_bulkhead" => FixtureKind::WallSconce,
         "home:ceiling_light_round" => FixtureKind::FlushMount,
         "arcade:blacklight_tube" => FixtureKind::BlacklightTube,
         _ => FixtureKind::FluorescentPanel,
     };
     let mut profile = fixture_profile_for_kind(kind);
     profile.model = fixture_model_id(fixture_id);
+    match fixture_id {
+        "core:pool_light_wall" => profile.wall = WallFixture::PoolStrips,
+        "maintenance:warm_bulkhead" => {
+            profile.wall = WallFixture::WarmBulkhead;
+            profile.half_width = 0.144_119_02;
+            profile.half_depth = 0.151;
+            profile.emitter_override = Some((
+                0.0,
+                LightShape::Rect {
+                    half_width: 0.072,
+                    half_depth: 0.0001,
+                },
+            ));
+            profile.emissive_slots = &[1];
+        }
+        _ => {}
+    }
     if profile.model.is_some() && kind == FixtureKind::RoundRecessed {
         profile.half_width = 0.25;
         profile.half_depth = 0.25;
@@ -521,6 +601,7 @@ pub fn fixture_model_id(fixture_id: &str) -> Option<&'static str> {
         "core:fluorescent_panel_01" => Some("core:office_fluorescent_panel_housing"),
         "core:pool_light_round" => Some("core:pool_light_round_housing"),
         "core:pool_light_wall" => Some("core:pool_light_wall_housing"),
+        "maintenance:warm_bulkhead" => Some("maintenance:warm_bulkhead_housing"),
         "backrooms:light_fluorescent_recessed" => Some("backrooms:fluorescent_recessed"),
         "backrooms:light_fluorescent_surface" => Some("backrooms:fluorescent_surface"),
         "backrooms:light_fluorescent_hanging" => Some("backrooms:fluorescent_hanging"),

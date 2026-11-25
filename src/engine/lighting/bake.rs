@@ -1093,11 +1093,11 @@ fn baked_lights(
             owner_prop: None,
             emitter_yaw: EmitterYaw::fixture(light.rotation_degrees),
         };
-        if light.baked_source_count() == 2 {
+        if let Some(half_gap) = profile.paired_emitter_offset_y() {
             // The luminous strips are separated by an opaque spine. Two thin
             // sources keep every transport tap on a real aperture, with the
             // original fixture's total authored power shared between them.
-            for offset in [-0.045, 0.045] {
+            for offset in [-half_gap, half_gap] {
                 let mut strip = baked;
                 strip.source.position[1] += offset;
                 strip.source.intensity *= 0.5;
@@ -3984,3 +3984,7 @@ const fn allocation_bytes<T>(values: &Vec<T>) -> usize {
 #[cfg(test)]
 #[path = "../tests/probe_visibility.rs"]
 mod probe_visibility_tests;
+
+#[cfg(test)]
+#[path = "../tests/wall_fixture_apertures.rs"]
+mod wall_fixture_aperture_tests;

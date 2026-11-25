@@ -1977,6 +1977,13 @@
     "sha256": "ffa3c521f743d54105a285082640fbecd6b7682d8ac655c8d3300b5e18d7ef63",
     "source": "environments/janitor_closet/textures/concrete_formwork_spalled_01.png"
   },
+  "maintenance:warm_bulkhead": {
+    "geometry_revision": 1,
+    "method": "native editor Authored; fixed camera; 512x384 viewport crop; 160x120 Lanczos",
+    "path": "editor/native-previews/fixture_warm_bulkhead.png",
+    "sha256": "2cc0b3ae6a883ea69bcaf2af444a7f2af66b015d9ce67ec2d4b61cc5987eb71b",
+    "source": "environments/maintenance/textures/lights/warm_bulkhead.png"
+  },
   "mannequin": {
     "path": "editor/previews/0e41c7d8c0dbe214604fe5b0.png",
     "sha256": "a27aa5b4fda530152ba888535e06b21442bb4c05c476ba0028435a4e05291051",

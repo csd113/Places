@@ -2908,6 +2908,7 @@ pub fn fixture_face_material_index(
 #[must_use]
 pub fn fixture_face_uses_private_material(level: &LevelDef, light: &LightFixtureDef) -> bool {
     light.switchable
+        || crate::engine::lighting::fixture_profile(&light.fixture).uses_private_face()
         || level
             .animated_emissions
             .iter()
@@ -6199,8 +6200,8 @@ pub enum FixtureAlign {
 /// `color` is the optional emitted light colour as an `[r, g, b]` array of
 /// `0.0..=1.0` fractions. It drives the coloured illumination the bake applies
 /// to surrounding geometry and tints the fixture's fitted luminous face.
-/// An omitted colour emits [`DEFAULT_LIGHT_COLOR`], the
-/// restrained warm fluorescent the game's lighting model is calibrated around.
+/// An omitted colour uses the fixture's preset, or [`DEFAULT_LIGHT_COLOR`] for
+/// fixtures without a preset.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LightFixtureDef {
     /// Stable per-instance id, distinct from the shared `fixture` catalog id.
@@ -6217,7 +6218,7 @@ pub struct LightFixtureDef {
     pub rotation_degrees: f32,
     #[serde(default)]
     pub brightness: Option<f32>,
-    /// Emitted light colour; omitted means [`DEFAULT_LIGHT_COLOR`].
+    /// Emitted light colour; omitted uses the selected fixture's default.
     ///
     /// The colour tints baked illumination and the fitted luminous face.
     /// The sheet keeps its artwork and housing retains its own material.
@@ -6312,11 +6313,7 @@ impl LightFixtureDef {
     /// Whether the fixture family supports water caustics.
     #[must_use]
     pub fn supports_caustics(&self) -> bool {
-        matches!(
-            crate::engine::lighting::fixture_profile(&self.fixture).kind,
-            crate::engine::lighting::FixtureKind::RoundRecessed
-                | crate::engine::lighting::FixtureKind::WallSconce
-        )
+        crate::engine::lighting::fixture_profile(&self.fixture).supports_caustics()
     }
 
     /// Resolved source eligibility, independent of current enabled state.
@@ -6328,9 +6325,9 @@ impl LightFixtureDef {
     /// Actual retained source count, including disabled fixture apertures.
     #[must_use]
     pub fn baked_source_count(&self) -> usize {
-        let profile = crate::engine::lighting::fixture_profile(&self.fixture);
-        if profile.model.is_some()
-            && profile.kind == crate::engine::lighting::FixtureKind::WallSconce
+        if crate::engine::lighting::fixture_profile(&self.fixture)
+            .paired_emitter_offset_y()
+            .is_some()
         {
             2
         } else {
@@ -6377,13 +6374,17 @@ impl LightFixtureDef {
 
     /// Emitted light colour, sanitised for baking.
     ///
-    /// Omitted means [`DEFAULT_LIGHT_COLOR`]; authored channels are clamped
+    /// Omitted uses the selected fixture's default; authored channels are clamped
     /// into `[0, 1]` and non-finite channels emit nothing (see
     /// [`LightColor::sanitized`]). This is the single source of truth for the
     /// coloured environmental illumination and the fixture's luminous face.
     #[must_use]
     pub fn emitted_color(&self) -> LightColor {
-        self.color.unwrap_or(DEFAULT_LIGHT_COLOR).sanitized()
+        self.color
+            .unwrap_or_else(|| {
+                crate::engine::lighting::fixture_profile(&self.fixture).default_color()
+            })
+            .sanitized()
     }
 
     /// Authored range, or the documented default when omitted.

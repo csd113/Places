@@ -76,6 +76,7 @@ and linked reports retain historical implementation and validation details.
   named Blowout Sale Sign, Weekend Sale Sign and Final Markdown Sign. Pickups
   include Food-Court Tray, Moulded Clothes Hanger, Concourse Takeaway Coffee,
   Crumpled Paper Ball, Metal Ashtray and Crushed Soft Cigarette Pack.
+- Add a caged Warm Bulkhead wall fixture with warm default lighting to Maintenance.
 - Add the fixed, solid Mall Trash Can to the Mall editor catalog.
 - Add the matte black Mall Bench as fixed, solid furniture in the Mall catalog.
 
