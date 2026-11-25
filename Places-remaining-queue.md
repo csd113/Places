@@ -183,6 +183,8 @@ Follow the approved underground direction: polished tile and glass storefronts/b
 ### 27. [GitHub #45: Research reusable animation graphs and masks](https://github.com/csd113/Places/issues/45)
 Research only. Compare a small reusable graph/mask layer with existing clip transitions, crossfades and upper-body blending. Check whether it would simplify real Places use cases, including mannequin locomotion and tool overlay, without changing gameplay-owned pose or collision behavior. Report adopt, prototype separately, defer, or reject; no code changes or engine migration.
 
+**Finding.** Keep the current animator. [Animation layering research](docs/0.14.0/animation-layering.md) recommends a separately approved experiment with a small Places-native mask. Adopt only if both rigs show reuse and preserve composed sockets and interruption behavior. Performance was not measured.
+
 ### 28. [GitHub #46: Research safe live asset reloading](https://github.com/csd113/Places/issues/46)
 Research only. Compare safe editor-only asset refresh with current cache, preview and save/build/play paths. Identify behavior on malformed edits, pipeline and dependency invalidation, resource lifetime, and separation from published packages and script execution. Separate a full scene reload from an in-place refresh. No production file watcher or hot-reload implementation.
 
