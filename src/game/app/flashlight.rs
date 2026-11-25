@@ -88,18 +88,22 @@ pub fn install(renderer: &mut Renderer, enabled: bool, eye: Vec3, yaw: f32, pitc
 }
 
 impl crate::game::app::FrameLoop<'_> {
+    pub(super) const fn flashlight_is_lit(&self) -> bool {
+        self.flashlight.is_on()
+            && matches!(
+                self.game.app_state(),
+                crate::game::AppState::Playing
+                    | crate::game::AppState::Paused
+                    | crate::game::AppState::PauseSettings
+            )
+    }
+
     pub fn prepare_flashlight(
         &mut self,
         eye: Vec3,
         yaw: f32,
         pitch: f32,
     ) -> crate::engine::render::RenderCamera {
-        let in_world = matches!(
-            self.game.app_state(),
-            crate::game::AppState::Playing
-                | crate::game::AppState::Paused
-                | crate::game::AppState::PauseSettings
-        );
         let (source_eye, source_yaw, source_pitch) = if self.cinematic_controls_blocked() {
             (
                 self.game.view_position(),
@@ -109,13 +113,8 @@ impl crate::game::app::FrameLoop<'_> {
         } else {
             (eye, yaw, pitch)
         };
-        install(
-            self.renderer,
-            self.flashlight.is_on() && in_world,
-            source_eye,
-            source_yaw,
-            source_pitch,
-        );
+        let lit = self.flashlight_is_lit();
+        install(self.renderer, lit, source_eye, source_yaw, source_pitch);
         // Observe the exact prepared meshes/source used by this rendered frame.
         // AI consumes that observation on the following simulation tick.
         if self.game.app_state() == crate::game::AppState::Playing

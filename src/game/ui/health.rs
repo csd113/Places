@@ -7,7 +7,7 @@ pub fn append_player_health(
     health: &HealthState,
     settings: &HealthSettings,
 ) {
-    if !settings.enabled || !settings.show_player_health {
+    if !settings.shows_player_hud() {
         return;
     }
     if health.max_hp() > 40 {
@@ -39,6 +39,19 @@ pub fn append_player_health(
             };
             half_heart(vertices, x, y, side == 1, color);
         }
+    }
+}
+
+/// Lit-only status shared by native play and the editor's test viewport.
+#[must_use]
+pub fn flashlight_status(settings: &HealthSettings, lit: bool) -> Option<&'static str> {
+    (settings.shows_player_hud() && lit).then_some("FLASHLIGHT ON")
+}
+
+pub fn append_flashlight_status(vertices: &mut Vec<Vertex>, settings: &HealthSettings, lit: bool) {
+    if let Some(text) = flashlight_status(settings, lit) {
+        // Reserve the lower margin below the subtitle panel (ends at y = 244).
+        super::draw_text(vertices, text, 364.0, 252.0, 1.0, [0.96, 0.94, 0.88]);
     }
 }
 

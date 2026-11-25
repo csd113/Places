@@ -353,6 +353,71 @@ fn authored_player_and_individual_health_survive_lifecycle() -> Result<(), Strin
     Ok(())
 }
 
+// A placed human's explicit lower HP or immortality must not be erased by
+// defaults, reload/reset, or the common damage path used by tools and scripts.
+#[test]
+fn human_health_preserves_lower_hp_and_immortality() -> Result<(), String> {
+    use crate::engine::{
+        entities::EntityWorld, health::HealthTarget, level::LevelDef, package::semantics,
+    };
+    let json = r#"{
+        "schema":"places-level","format_version":1,"id":"human_health","name":"Health",
+        "spawn":{"x":0,"z":0}, "health":{"enabled":true, "show_player_health":false},
+        "props":[
+          {"id":"human","model":"mannequin","x":0,"z":0},
+          {"id":"lower","model":"mannequin","x":1,"z":0,"components":[{"component":"health","max_hp":3,"starting_hp":2}]},
+          {"id":"immortal","model":"mannequin","x":2,"z":0,"components":[{"component":"health","max_hp":6,"starting_hp":0,"immortal":true}]}]
+    }"#;
+    let source = LevelDef::from_json(json).map_err(|error| error.to_string())?;
+    let wire = serde_json::to_string(&source).map_err(|error| error.to_string())?;
+    let level = semantics::parse(&wire)?;
+    assert!(
+        level.requires_entity_health_rules(),
+        "older players must not silently ignore immortality"
+    );
+    let mut world = EntityWorld::from_level(&level);
+    assert_eq!(
+        world.entity_health("human"),
+        Some(HealthState::default()),
+        "ordinary human retains six HP"
+    );
+    assert_eq!(
+        world
+            .entity_health("lower")
+            .map(|state| (state.current_hp(), state.max_hp())),
+        Some((2, 3)),
+        "lower authored values win"
+    );
+    let immortal = HealthTarget::Entity {
+        id: "immortal".into(),
+    };
+    world
+        .dispatch_health(&immortal, HealthAction::Damage { hp: u16::MAX })
+        .map_err(|error| error.to_string())?;
+    assert!(
+        world.entity_is_immortal("immortal")
+            && world.entity_health("immortal").is_none()
+            && world.take_health_events().is_empty(),
+        "a lethal hit is a no-op and emits no death or other HP event"
+    );
+    let snapshot = world.checkpoint()?;
+    world.reset_runtime();
+    world.restore_checkpoint(&snapshot)?;
+    assert!(
+        world.entity_is_immortal("immortal") && world.entity_health("immortal").is_none(),
+        "world reset and checkpoint cannot give HP to an immortal entity"
+    );
+    world
+        .set_health_settings(HealthSettings::default())
+        .map_err(|error| error.to_string())?;
+    assert_eq!(
+        world.dispatch_health(&immortal, HealthAction::Damage { hp: 1 }),
+        Err(HealthError::Disabled),
+        "immortality does not opt the map into health"
+    );
+    Ok(())
+}
+
 fn check_initial_player_rules(settings: &HealthSettings) -> Result<(), String> {
     let initial_player = settings
         .initial_player_health()

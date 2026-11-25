@@ -1630,8 +1630,14 @@ const fn default_material_emission() -> f32 {
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "component", rename_all = "snake_case")]
 pub enum ComponentDef {
-    /// Per-entity health, in half-heart HP units. Zero starting HP is dead.
-    Health { max_hp: u16, starting_hp: u16 },
+    /// Per-entity health, in half-heart HP units. Zero starting HP is dead
+    /// unless the entity is immortal, in which case HP is not simulated.
+    Health {
+        max_hp: u16,
+        starting_hp: u16,
+        #[serde(default, skip_serializing_if = "std::ops::Not::not")]
+        immortal: bool,
+    },
     /// The entity can be aimed at and interacted with.
     Interactable {
         /// Prompt shown while aimed at; defaults to
@@ -2285,6 +2291,7 @@ impl ComponentDef {
             Self::Health {
                 max_hp: _,
                 starting_hp: _,
+                immortal: _,
             } => "health",
             Self::Interactable {
                 prompt: _,

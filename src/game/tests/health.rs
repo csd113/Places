@@ -216,6 +216,68 @@ fn health_hud_preserves_half_hearts_and_optional_display() -> Result<(), String>
     Ok(())
 }
 
+// CPU-only presentation regression: filters the lit state against current
+// destination rules, even when the underlying lamp is carried across maps.
+#[test]
+fn flashlight_hud_only_draws_while_visible_and_lit_across_resets() -> Result<(), String> {
+    use crate::{engine::level::LevelDef, game::ui::append_flashlight_status};
+    let spawn = Vec3::new(0.0, EYE_HEIGHT, 0.0);
+    let enabled_world = || -> Result<CollisionWorld, String> {
+        let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"hud","name":"HUD","spawn":{"x":0,"z":0},"health":{"enabled":true}}"#)
+            .map_err(|error| error.to_string())?;
+        Ok(CollisionWorld::from_level(&level))
+    };
+    let mut game = Game::new(spawn, 0.0, enabled_world()?);
+    let mut vertices = Vec::new();
+    append_flashlight_status(&mut vertices, game.health_settings(), true);
+    assert!(
+        !vertices.is_empty(),
+        "lit status is rendered on the enabled map"
+    );
+    vertices.clear();
+    append_flashlight_status(&mut vertices, game.health_settings(), false);
+    assert!(vertices.is_empty(), "off has no icon, label or placeholder");
+
+    game.set_health_settings(HealthSettings {
+        show_player_health: false,
+        ..enabled_settings()
+    })?;
+    game.apply_health_action(&HealthTarget::Player, HealthAction::Damage { hp: 6 })?;
+    assert!(
+        game.player_is_dead(),
+        "hiding the HUD does not disable damage or death"
+    );
+    append_flashlight_status(&mut vertices, game.health_settings(), true);
+    assert!(
+        vertices.is_empty(),
+        "hidden HUD leaves a lit lamp unlabelled"
+    );
+
+    for _ in 0_u8..2 {
+        game.reset_level(spawn, 0.0, CollisionWorld::default());
+        append_flashlight_status(&mut vertices, game.health_settings(), true);
+        assert!(
+            vertices.is_empty(),
+            "an unconfigured destination adds no stale status"
+        );
+        game.reset_level(spawn, 0.0, enabled_world()?);
+        assert_eq!(
+            game.player_health().current_hp(),
+            6,
+            "a new world clears prior death"
+        );
+        append_flashlight_status(&mut vertices, game.health_settings(), false);
+        assert!(
+            vertices.is_empty(),
+            "reloading a HUD map does not draw an unlit status"
+        );
+        append_flashlight_status(&mut vertices, game.health_settings(), true);
+        assert!(!vertices.is_empty(), "current on state is rendered again");
+        vertices.clear();
+    }
+    Ok(())
+}
+
 #[test]
 fn health_console_rejects_ambiguous_or_fractional_hp() {
     for invalid in [

@@ -6,7 +6,7 @@ use crate::engine::{
     ai::{AiState, NAVIGATION_OVERRIDE_SPEED_MPS},
     game_mode::PLAYER_WALK_SPEED_MPS,
     health::{HealthAction, HealthTarget},
-    level::LevelDef,
+    level::{ComponentDef, LevelDef},
     logging,
 };
 use glam::Vec3;
@@ -177,11 +177,29 @@ pub fn validate(level: &LevelDef) -> Result<(), String> {
                 .iter()
                 .find(|t| t.id == point.template)
                 .ok_or("Encounter point requires a spawn template")?;
-            if template.lifetime_seconds.is_some() || template.shadow_only
-                || !matches!(template.model.as_str(), "mannequin" | "core:mannequin_black")
-                || !template.components.iter().any(|c| matches!(c, crate::engine::level::ComponentDef::Ai(_)))
-                || !template.components.iter().any(|c| matches!(c, crate::engine::level::ComponentDef::Health { starting_hp, max_hp: _ } if *starting_hp > 0))
-            { return Err("Encounter templates require a visible mannequin with AI, positive authored health and no lifetime".into()); }
+            let health = template.components.iter().find(|c| c.kind() == "health");
+            let mortal_and_alive = health.map_or_else(
+                || point.zone.is_some(),
+                |component| {
+                    matches!(component, ComponentDef::Health {
+                    starting_hp, max_hp: _, immortal: false
+                } if *starting_hp > 0)
+                },
+            );
+            if template.lifetime_seconds.is_some()
+                || template.shadow_only
+                || !matches!(
+                    template.model.as_str(),
+                    "mannequin" | "core:mannequin_black"
+                )
+                || !template
+                    .components
+                    .iter()
+                    .any(|c| matches!(c, ComponentDef::Ai(_)))
+                || !mortal_and_alive
+            {
+                return Err("Encounter templates require a visible mannequin with AI, positive mortal health (authored for companions) and no lifetime".into());
+            }
             if point.group.as_ref().is_some_and(|id| {
                 level
                     .spawn_groups
@@ -321,9 +339,13 @@ impl EntityWorld {
             authored.x += rotated.x;
             authored.z += rotated.z;
         }
-        let _handle = self
+        let handle = self
             .spawn_at_point(&authored, None, None, Some(id), 0)
             .map_err(|error| format!("Encounter spawn {id}: {error:?}"))?;
+        // The encounter supplies the role, not the mannequin model or its skin.
+        if authored.zone.is_some() {
+            self.install_default_zombie_health(handle);
+        }
         Ok(Actor {
             id: id.into(),
             dead: false,

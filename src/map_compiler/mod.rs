@@ -769,6 +769,9 @@ fn build_inner(
     if level.tools.crowbar {
         required.push("player-tools-v1".into());
     }
+    if level.requires_entity_health_rules() {
+        required.push("entity-health-rules-v1".into());
+    }
     if level
         .sequences
         .iter()

@@ -75,6 +75,9 @@ impl Game {
         }
         let health = match target {
             HealthTarget::Player => self.player_health,
+            HealthTarget::Entity { id } if self.world.entity_is_immortal(id) => {
+                return Ok(format!("{target:?}: immortal"));
+            }
             HealthTarget::Entity { id } => self
                 .world
                 .entity_health(id)

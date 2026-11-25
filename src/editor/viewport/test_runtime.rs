@@ -80,6 +80,12 @@ impl Viewport {
             .as_ref()
             .map(|session| session.player_health())
     }
+    pub fn runtime_flashlight_status(&self) -> Option<&'static str> {
+        self.testing
+            .session
+            .as_ref()
+            .and_then(|session| session.flashlight_status())
+    }
     pub fn runtime_status(&self) -> Option<&str> {
         self.testing
             .failure

@@ -8,7 +8,7 @@ use crate::game::display::{DisplayStatus, resolution_label, step_resolution};
 use crate::game::settings::{AudioVolume, KeyBindings, Settings, WindowMode};
 
 mod health;
-pub use health::append_player_health;
+pub use health::{append_flashlight_status, append_player_health, flashlight_status};
 mod menu;
 pub(crate) use menu::{LEVEL_IMPORT_ACTIONS, level_icon_bounds};
 mod subtitles;

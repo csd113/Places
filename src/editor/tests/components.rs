@@ -422,8 +422,25 @@ fn individual_health_limits_are_validated_and_saved() -> Result<(), String> {
     assert!(doc.undo());
     assert!(doc.redo());
     assert_eq!(doc.raw(), &valid);
+    let immortal = Field::new(
+        Target::Component("health"),
+        "immortal",
+        "Immortal",
+        Kind::Bool,
+        "false",
+    );
+    doc.set_component_field(npc, immortal, "true")?;
+    let saved = doc.raw().clone();
+    assert_eq!(doc.component_value(npc, immortal), json!(true));
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &valid, "undo preserves the finite override");
+    assert!(doc.redo());
     doc.save_all()?;
-    assert_eq!(Document::open(&fixture.0)?.raw(), &valid);
+    assert_eq!(
+        Document::open(&fixture.0)?.raw(),
+        &saved,
+        "reopening retains immortality"
+    );
     Ok(())
 }
 

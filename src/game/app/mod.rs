@@ -4874,11 +4874,10 @@ impl FrameLoop<'_> {
         cam_yaw: f32,
         cam_pitch: f32,
     ) {
-        ui::append_player_health(
-            self.ui_scratch,
-            self.game.player_health(),
-            self.game.health_settings(),
-        );
+        let flashlight_lit = self.flashlight_is_lit();
+        let health_settings = self.game.health_settings();
+        ui::append_player_health(self.ui_scratch, self.game.player_health(), health_settings);
+        ui::append_flashlight_status(self.ui_scratch, health_settings, flashlight_lit);
         if let Some(subtitle) = self.game.entities().encounter_subtitle() {
             ui::draw_text(self.ui_scratch, subtitle, 160.0, 235.0, 1.0, [1.0; 3]);
         }

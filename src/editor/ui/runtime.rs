@@ -5,6 +5,10 @@ use crate::engine::render::Vertex;
 
 pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>) -> usize {
     health_overlay(app, vertices);
+    if let Some(status) = app.viewport.runtime_flashlight_status() {
+        let y = app.viewport.layout().bottom_offset() + 214.0;
+        text(vertices, status, 402.0, y, INK, 20);
+    }
     if let Some(prompt) = app.viewport.runtime_encounter_prompt() {
         text(vertices, &prompt, 150.0, 205.0, INK, 100);
     }
@@ -186,7 +190,7 @@ fn health_overlay(app: &App, vertices: &mut Vec<Vertex>) {
     let Some((health, settings)) = app.viewport.runtime_health() else {
         return;
     };
-    if !settings.enabled || !settings.show_player_health {
+    if !settings.shows_player_hud() {
         return;
     }
     let y_offset = app.viewport.layout().bottom_offset() - 28.0;

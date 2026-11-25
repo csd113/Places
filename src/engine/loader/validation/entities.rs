@@ -653,6 +653,7 @@ fn validate_component_value<'a>(
         ComponentDef::Health {
             max_hp,
             starting_hp,
+            immortal: _,
         } => {
             let _validated = crate::engine::health::HealthState::new(*starting_hp, *max_hp)
                 .map_err(|error| format!("{context}: {error}"))?;

@@ -71,6 +71,10 @@ impl Session {
         (*self.game.player_health(), *self.game.health_settings())
     }
 
+    pub(super) fn flashlight_status(&self) -> Option<&'static str> {
+        crate::game::ui::flashlight_status(self.game.health_settings(), self.flashlight)
+    }
+
     pub fn new(
         prepared: super::test_prepare::PreparedTest,
         pose: Option<Pose>,

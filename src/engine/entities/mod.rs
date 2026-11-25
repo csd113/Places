@@ -1546,15 +1546,8 @@ impl EntityWorld {
                 ComponentDef::Health {
                     max_hp,
                     starting_hp,
-                } => {
-                    if let Ok(initial) =
-                        crate::engine::health::HealthState::new(*starting_hp, *max_hp)
-                    {
-                        let _previous_initial =
-                            self.components.health_initial.insert(handle, initial);
-                        let _previous_health = self.components.health.insert(handle, initial);
-                    }
-                }
+                    immortal,
+                } => self.install_authored_health(handle, *max_hp, *starting_hp, *immortal),
                 ComponentDef::Interactable {
                     prompt,
                     reach,

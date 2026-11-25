@@ -1264,8 +1264,10 @@ Health is opt-in and disabled by default, including in existing maps. Open
 to activate it. Disabled maps do not process damage, regeneration, hit protection,
 health-kit actions or health HUD, and zero dormant HP cannot block walking.
 
-Use the remaining controls to configure automatic
-regeneration, health kits and visible hearts independently.
+Use the remaining controls to configure automatic regeneration, health kits,
+and **Show player HUD** independently. Turning off the HUD leaves health and
+tools unchanged. When shown, it includes the hearts and a flashlight status
+only while the light is on.
 Regeneration rate is HP per second; delay is seconds since the latest damage.
 All numeric values must be finite and non-negative. Hit protection sets how
 long further damage is ignored after a hit (seconds, default 0). Normal player health is
@@ -1286,11 +1288,18 @@ import/export and scripted modifiers are not implemented by these controls.
 Player maximum and starting HP are separate whole-number settings in **Project >
 Game Modes > Health, recovery and display**. Select an NPC, open **Capabilities > Entity health**,
 and choose **Customize health** to edit that individual's maximum and starting HP.
-**Use default health** removes the override. Both values default to 6; maximum must
-be positive, starting HP may be zero but must not exceed maximum (range 0–65535).
-Raise maximum before raising starting HP; lower starting HP before lowering maximum.
-The source override is `{"component":"health","max_hp":12,"starting_hp":8}`
-in the selected entity's components. All edits use normal save/reopen and undo/redo.
+**Use default health** removes the override. Human NPCs default to 6 HP.
+An unconfigured encounter zombie starts at 18 HP. An authored override, such as
+the encounter lab's 4 HP zombies, takes precedence. Enable **Immortal** on the
+entity's health override to ignore health actions without changing its other
+capabilities. Encounter templates must remain mortal.
+
+Maximum HP must be positive and starting HP must not exceed maximum (range
+0–65535). Zero starting HP is dead for a mortal actor. Raise maximum before
+raising starting HP and lower starting HP before lowering maximum. A source
+override is `{"component":"health","max_hp":4,"starting_hp":4}` in the entity's
+components. Add `"immortal":true` to that component for immortality. These edits
+use normal save/reopen and undo/redo.
 The HUD draws half-heart units up to 40 HP and an exact HP counter above that limit.
 
 Quick tests use the same local player mannequin and head-attached death view as

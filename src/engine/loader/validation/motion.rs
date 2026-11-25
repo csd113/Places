@@ -244,6 +244,7 @@ pub(super) fn validate_routes(level: &LevelDef, geometry: &Geometry<'_>) -> Resu
                 ComponentDef::Health {
                     max_hp: _,
                     starting_hp: _,
+                    immortal: _,
                 }
                 | ComponentDef::Interactable {
                     prompt: _,

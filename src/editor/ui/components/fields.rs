@@ -453,7 +453,7 @@ pub(super) fn health() -> Vec<F> {
         F::new(
             T::Health,
             "show_player_health",
-            "Show player hearts",
+            "Show player HUD",
             K::Bool,
             "true",
         ),
@@ -483,6 +483,13 @@ pub(super) fn health() -> Vec<F> {
 
 pub(super) fn entity_health() -> Vec<F> {
     vec![
+        F::new(
+            T::Component("health"),
+            "immortal",
+            "Immortal",
+            K::Bool,
+            "false",
+        ),
         F::new(
             T::Component("health"),
             "max_hp",

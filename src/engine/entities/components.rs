@@ -764,8 +764,8 @@ impl LightResponse {
 pub struct ComponentTables {
     /// Shared health for entities which have received health operations.
     pub health: ComponentTable<crate::engine::health::HealthState>,
-    /// Authored starting state retained for explicit resets, never regeneration.
-    pub health_initial: ComponentTable<crate::engine::health::HealthState>,
+    /// Initial health policy retained for explicit resets, never regeneration.
+    pub(super) health_initial: ComponentTable<super::health::InitialHealth>,
     /// World pose.
     pub transforms: ComponentTable<Transform>,
     /// What the entity draws.

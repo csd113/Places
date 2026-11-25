@@ -3,12 +3,93 @@ use super::{EntityHandle, EntityWorld, WorldCommand};
 use crate::engine::health::{
     HealthAction, HealthChange, HealthError, HealthEvent, HealthSettings, HealthState, HealthTarget,
 };
+use crate::engine::level::{ComponentDef, LevelDef};
+
+impl LevelDef {
+    /// Older players would ignore immortality or reject unconfigured zombies.
+    #[must_use]
+    pub fn requires_entity_health_rules(&self) -> bool {
+        self.props
+            .iter()
+            .flat_map(|prop| &prop.components)
+            .chain(self.doors.iter().flat_map(|door| &door.components))
+            .chain(
+                self.spawn_templates
+                    .iter()
+                    .flat_map(|template| &template.components),
+            )
+            .any(|component| {
+                matches!(
+                    component,
+                    ComponentDef::Health {
+                        max_hp: _,
+                        starting_hp: _,
+                        immortal: true,
+                    }
+                )
+            })
+            || (self.encounter.is_some()
+                && self.spawn_points.iter().any(|point| {
+                    point.zone.is_some()
+                        && self.spawn_templates.iter().any(|template| {
+                            template.id == point.template
+                                && !template
+                                    .components
+                                    .iter()
+                                    .any(|component| component.kind() == "health")
+                        })
+                }))
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub(super) enum InitialHealth {
+    Finite(HealthState),
+    Immortal,
+}
 
 impl EntityWorld {
+    pub(super) fn install_authored_health(
+        &mut self,
+        handle: EntityHandle,
+        max_hp: u16,
+        starting_hp: u16,
+        immortal: bool,
+    ) {
+        if immortal {
+            let _previous = self
+                .components
+                .health_initial
+                .insert(handle, InitialHealth::Immortal);
+            let _previous_state = self.components.health.remove(handle);
+        } else if let Ok(state) = HealthState::new(starting_hp, max_hp) {
+            self.install_finite_health(handle, state);
+        }
+    }
+
+    fn install_finite_health(&mut self, handle: EntityHandle, state: HealthState) {
+        let _previous = self
+            .components
+            .health_initial
+            .insert(handle, InitialHealth::Finite(state));
+        let _previous_state = self.components.health.insert(handle, state);
+    }
+
+    pub(super) fn install_default_zombie_health(&mut self, handle: EntityHandle) {
+        const ZOMBIE_HP: u16 = 3 * crate::engine::health::NORMAL_MAX_HP;
+        if !self.components.health_initial.contains(handle)
+            && let Ok(state) = HealthState::new(ZOMBIE_HP, ZOMBIE_HP)
+        {
+            self.install_finite_health(handle, state);
+        }
+    }
+
     pub(super) fn reset_health(&mut self) {
         self.components.health.clear();
         for (handle, initial) in self.components.health_initial.iter() {
-            let _previous = self.components.health.insert(handle, *initial);
+            if let InitialHealth::Finite(state) = initial {
+                let _previous = self.components.health.insert(handle, *state);
+            }
         }
         self.health_events.clear();
     }
@@ -24,8 +105,8 @@ impl EntityWorld {
         self.health_settings = settings;
         Ok(())
     }
-    /// Authored actors start at their specified health. Unconfigured entities
-    /// use normal health and allocate a component only on first mutation.
+    /// Finite health, if the entity exists and is not immortal. Entities
+    /// without a specific health policy allocate a state only on mutation.
     #[must_use]
     pub fn entity_health(&self, id: &str) -> Option<HealthState> {
         self.handle_of(id.trim())
@@ -33,15 +114,41 @@ impl EntityWorld {
     }
     #[must_use]
     pub fn health_for_handle(&self, handle: EntityHandle) -> Option<HealthState> {
-        self.store.contains(handle).then(|| {
-            self.components
-                .health
-                .get(handle)
-                .or_else(|| self.components.health_initial.get(handle))
-                .copied()
-                .unwrap_or_default()
-        })
+        if !self.store.contains(handle) {
+            return None;
+        }
+        match self.components.health_initial.get(handle) {
+            Some(InitialHealth::Immortal) => None,
+            Some(InitialHealth::Finite(initial)) => Some(
+                self.components
+                    .health
+                    .get(handle)
+                    .copied()
+                    .unwrap_or(*initial),
+            ),
+            None => Some(
+                self.components
+                    .health
+                    .get(handle)
+                    .copied()
+                    .unwrap_or_default(),
+            ),
+        }
     }
+
+    pub(super) fn health_handle_is_immortal(&self, handle: EntityHandle) -> bool {
+        matches!(
+            self.components.health_initial.get(handle),
+            Some(InitialHealth::Immortal)
+        )
+    }
+
+    #[must_use]
+    pub fn entity_is_immortal(&self, id: &str) -> bool {
+        self.handle_of(id.trim())
+            .is_some_and(|handle| self.health_handle_is_immortal(handle))
+    }
+
     /// # Errors
     /// Rejects stale handles, invalid actions and disabled kits.
     pub fn apply_entity_health(
@@ -49,6 +156,10 @@ impl EntityWorld {
         handle: EntityHandle,
         action: HealthAction,
     ) -> Result<Option<HealthChange>, HealthError> {
+        if self.health_handle_is_immortal(handle) {
+            self.health_settings.validate_action(action)?;
+            return Ok(None);
+        }
         let mut state = self
             .health_for_handle(handle)
             .ok_or(HealthError::MissingTarget)?;
@@ -70,15 +181,7 @@ impl EntityWorld {
         target: &HealthTarget,
         action: HealthAction,
     ) -> Result<(), HealthError> {
-        action.validate()?;
-        self.health_settings.validate()?;
-        if !self.health_settings.enabled {
-            return Err(HealthError::Disabled);
-        }
-        if matches!(action, HealthAction::HealthKit { hp: _ }) && !self.health_settings.health_kits
-        {
-            return Err(HealthError::DisabledHealthKit);
-        }
+        self.health_settings.validate_action(action)?;
         match target {
             HealthTarget::Player => self.commands.push(WorldCommand::PlayerHealth { action }),
             HealthTarget::Entity { id } => {

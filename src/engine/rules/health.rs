@@ -39,6 +39,12 @@ impl Default for HealthSettings {
     }
 }
 impl HealthSettings {
+    /// The existing display choice affects HUD only, never gameplay rules.
+    #[must_use]
+    pub const fn shows_player_hud(&self) -> bool {
+        self.enabled && self.show_player_health
+    }
+
     /// Builds a fresh player state for explicit level/reset/respawn operations.
     /// # Errors
     /// Rejects invalid rules or starting HP above a positive maximum.
@@ -66,6 +72,18 @@ impl HealthSettings {
         } else {
             Err(HealthError::InvalidNumber)
         }
+    }
+
+    pub(crate) fn validate_action(&self, action: HealthAction) -> Result<(), HealthError> {
+        action.validate()?;
+        self.validate()?;
+        if !self.enabled {
+            return Err(HealthError::Disabled);
+        }
+        if matches!(action, HealthAction::HealthKit { hp: _ }) && !self.health_kits {
+            return Err(HealthError::DisabledHealthKit);
+        }
+        Ok(())
     }
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -231,14 +249,7 @@ impl HealthState {
         action: HealthAction,
         settings: &HealthSettings,
     ) -> Result<Option<HealthChange>, HealthError> {
-        settings.validate()?;
-        action.validate()?;
-        if !settings.enabled {
-            return Err(HealthError::Disabled);
-        }
-        if matches!(action, HealthAction::HealthKit { hp: _ }) && !settings.health_kits {
-            return Err(HealthError::DisabledHealthKit);
-        }
+        settings.validate_action(action)?;
         if self.is_dead() {
             return Ok(None);
         }

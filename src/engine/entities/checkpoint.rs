@@ -552,6 +552,9 @@ impl EntityWorld {
         handle: super::EntityHandle,
         record: &EntityState,
     ) -> Result<(), String> {
+        if record.health.is_some() && self.health_handle_is_immortal(handle) {
+            return Err("Checkpoint cannot assign HP to an immortal entity".into());
+        }
         self.restore_state_bag(handle, record)?;
         let _previous_health = self.components.health.remove(handle);
         if let Some(health) = record.health {

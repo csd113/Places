@@ -71,6 +71,67 @@ fn step_with_walls_and_walk_speed(
         nav: None,
     });
 }
+// One mixed encounter protects the runtime role default without rewriting
+// either the original 4 HP lab balance or the companion's authored template.
+#[test]
+fn default_zombie_health_is_role_scoped_and_preserves_authored_values() -> Result<(), String> {
+    let mut definition = level()?;
+    assert!(
+        !definition.requires_entity_health_rules(),
+        "existing authored encounter packages do not need a new capability"
+    );
+    let mut unconfigured = definition
+        .spawn_templates
+        .first()
+        .ok_or("template missing")?
+        .clone();
+    unconfigured.id = "default_zombie".into();
+    unconfigured
+        .components
+        .retain(|component| component.kind() != "health");
+    definition.spawn_templates.push(unconfigured);
+    let first_point = definition
+        .spawn_points
+        .first_mut()
+        .ok_or("first point missing")?;
+    first_point.template = "default_zombie".into();
+    first_point.zone.as_mut().ok_or("first zone missing")?.count = 1;
+    validate(&definition)?;
+    assert!(
+        definition.requires_entity_health_rules(),
+        "older players cannot admit the unconfigured zombie"
+    );
+    let mut world = EntityWorld::from_level(&definition);
+    signal(&mut world, "start")?;
+    signal(&mut world, "companion")?;
+    for _ in 0_u8..4 {
+        step(&mut world, 0.5, Vec3::splat(20.0));
+    }
+    assert_eq!(
+        world
+            .entity_health("encounter:zombie:0")
+            .map(|health| (health.current_hp(), health.max_hp())),
+        Some((18, 18)),
+        "unconfigured zone zombie gets three times normal human HP"
+    );
+    assert_eq!(
+        world
+            .entity_health("encounter:zombie:1")
+            .map(|health| (health.current_hp(), health.max_hp())),
+        Some((4, 4)),
+        "the explicit weak zombie keeps its balance"
+    );
+    assert_eq!(
+        world
+            .companion_tool_id(0)
+            .and_then(|id| world.entity_health(id))
+            .map(crate::engine::health::HealthState::max_hp),
+        Some(4),
+        "the zombie rule does not rebalance a mannequin companion"
+    );
+    Ok(())
+}
+
 #[test]
 fn independent_clocks_and_repeated_rounds_retire_all_owned_state() -> Result<(), String> {
     let definition = level()?;

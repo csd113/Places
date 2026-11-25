@@ -1443,6 +1443,10 @@ fn requires_compound_door_actions(level: &LevelDef) -> bool {
 fn validate_required_capabilities(level: &LevelDef, manifest: &Manifest) -> Result<(), String> {
     for (required, capability) in [
         (level.tools.crowbar, "player-tools-v1"),
+        (
+            level.requires_entity_health_rules(),
+            "entity-health-rules-v1",
+        ),
         (level.game_mode.is_some(), "game-modes-v1"),
         (
             level
