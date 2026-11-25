@@ -126,6 +126,8 @@ Verify the three supported entry points and the affected build and packaging pat
 - **`DropGuard`:** Inspect save/export staging for narrow cleanup-on-early-exit opportunities. Keep explicit rollback where failure must be reported; don’t rewrite working transactions just to use a new API.
 - **Allocators:** Investigate only if compiler profiles show a material cost for allocating/freeing short-lived objects. Benchmark against a matched baseline and preserve parity before any adoption. No speculative allocator or never-type refactor.
 
+**Complete. Independently reviewed.** All 21 direct crates have live callers and both feature switches are used. No narrow DropGuard change was justified. Save and export rollback stays explicit where cleanup failures must be reported. Existing compiler timings do not isolate allocation costs, so no allocator benchmark or change was warranted. On Windows, 20 locked Rust 1.100.0 package, archive and publication tests passed. No source or build inputs changed, and no new release build or map bake was run.
+
 ### 19. Python/tooling follow-up 03, conditional
 **Held on Windows permissions.** The first tooling fixes, ZIP comparison, and STEP follow-up are already shipped. Revisit only the specific unresolved Windows ACL case if still applicable and authorized; don’t replay the completed or archived proposals, broaden platform validation, or change security settings to unlock it. Skip if the tooling removal makes it obsolete; Windows validation is not a release gate for this queue.
 
