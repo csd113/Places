@@ -1,4 +1,4 @@
-# Native editor authoring and safety (0.13.1 development)
+# Places Editor
 
 Project > Package version edits the distributable's numeric `major.minor.patch`
 release. It starts at `1.0.0`, is saved with project metadata and survives complete
@@ -103,6 +103,8 @@ and Enter activates the focused control; hidden Advanced controls lose focus.
 The charcoal/slate panels use restrained teal selection cues and visible focus
 outlines. These bitmap controls do not imply screen-reader support.
 
+## Quick Test
+
 **Test in editor** (Cmd/Ctrl P) prepares a private snapshot of the current level
 and current unsaved script buffers. It stays in the same native editor window,
 uses the shared player movement, collision, doors, item physics, triggers,
@@ -142,6 +144,8 @@ spatial settings and stop controls. All test audio clears on return to editing;
 chooser previews keep their separate, quiet three-second audition. Export the
 complete project through Project for full campaign acceptance.
 
+## Developer diagnostics
+
 Compiler `build --events --progress off` emits versioned NDJSON `started`,
 `progress`, `finished` events on stdout. Final outcomes are `success`, `failed`,
 `cancelled`; success carries `BuildReport`. Diagnostics use stderr. Keep stdin
@@ -150,13 +154,11 @@ to cancel. Neither UI nor event consumers scrape human terminal output.
 
 For developer evidence, `--capture-dir /existing/directory` enables F12 numbered
 PNG framebuffer captures without overwriting existing files. These are evidence,
-never map assets. See the task3 report for native validation.
+never map assets.
 `--verify-script /absolute/script.json` runs an explicit bounded native acceptance
 sequence through the ordinary editor event handlers, with actual framebuffer
-captures and document/state checkpoints. This is developer tooling, inactive
-during normal editing; the task3 evidence retains the scripts used. It permits
-repeatable checks of unbundled direct executables when desktop automation cannot
-address their windows.
+captures and document/state checkpoints. This permits repeatable native checks
+and is inactive during normal editing.
 
 For an explicit CPU authoring comparison, run
 `places-editor --debug document-session /absolute/isolated-project LEVEL_ID`.
@@ -175,6 +177,8 @@ reported latency. Verification checkpoints expose the requested/accepted preview
 generation and active/pending state. Diagnostic builds also report worker source
 image ownership and model storage; shared image/cache figures overlap live owners
 and must not be summed. OS RSS and private commit remain separate measurements.
+
+## Basic authoring
 
 Build exposes **Room**, **Wall**, **Door** and **Doorway opening** beside the
 viewport; Lighting exposes **Place light fixture**. New Room reuses the adjacent-room draft: Preview and Apply
@@ -216,7 +220,6 @@ committed 160x120 texture-and-tint previews as the rest of the catalog. Focus a 
 The desktop layout anchors panels to the actual window edges, uses spare space
 for the viewport and derives control density from logical window size. Pointer
 conversion uses the drawable separately, including doubled-density Retina math.
-Actual macOS acceptance remains deferred for this phase.
 
 More geometry and props remain in contextual sheets. Detailed controls follow the selection. Ramp Offset is
 relative to the carrier room floor; Rise is signed toward the footprint's longer
@@ -410,11 +413,6 @@ their own upright poses; tilted finite-area attached lights retain horizontal
 emitter footprints. Manual transforms and intentional solid intersections remain
 available. Full transport uses actual prop triangles; Static collision/occlusion
 retains conservative transformed envelopes.
-
-Custom runtime asset importers, menu scenes and final distribution
-signoff remain later work. Model integration is deferred until stages 4–7 are
-complete. Other unsupported source data remains preserved. Native Windows/Linux
-acceptance remains outstanding.
 
 ## Luau source workflow
 
@@ -992,7 +990,7 @@ separate from crouch tunnels.
 Five operational fluorescent variants appear in Add Light and use the existing
 Mount/Circuits/Full lighting workflow. Passive prop versions and static utility
 doors are labeled explicitly. The editor viewport is silent; Play owns local
-HVAC playback. See the [kit guide](../assets/references/backrooms/phase6/INTEGRATION.md)
+HVAC playback. See the [kit guide in the source repository](https://github.com/csd113/Places/blob/0.14.0-dev/assets/references/backrooms/phase6/INTEGRATION.md)
 and its non-release showcase for placement, collision and source conventions.
 
 ### Reuse tools: room prefabs, room styles and prop variation (0.13.1)

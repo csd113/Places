@@ -4,8 +4,10 @@ Places started as a small experiment in making spaces worth walking through. The
 
 ## Where to start
 
-- **Building a map?** Start with the illustrated beginner’s guide and editable example linked from [0.13.1](0.13.1/README.md). The [editor reference](EDITOR.md) covers project settings, saving and exporting.
-- **Installing Places or importing a map?** See [Installation and file locations](INSTALLATION.md). Editable projects belong in the editor; compiled `.placesmap` files are what the player loads.
+- **Playing Places?** See the [game controls](../README.md#controls) and [installation and map imports](INSTALLATION.md). Editable projects belong in the editor. The player loads compiled `.placesmap` files.
+- **Building a map?** Start with the illustrated beginner’s guide and editable example linked from [0.13.1](0.13.1/README.md). The [editor reference](EDITOR.md) covers project settings, saving, Quick Test and export.
+- **Checking an export?** The [map distribution guide](../levels/README.md) shows how to export a complete project and verify it with `places-map-compiler`. The [installation guide](INSTALLATION.md#desktop-verification-from-source) covers source and installation checks.
+- **Reading the engine or compiler code?** Start at the [shared engine](../src/engine/mod.rs) or the [offline compiler pipeline](../src/map_compiler/mod.rs).
 - **Following development?** The [changelog](../CHANGELOG.md) records the larger changes. The summaries below describe the version they came from, not what is necessarily current. Several early milestones were never published as downloadable releases.
 
 ## How Places changed

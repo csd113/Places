@@ -31,7 +31,7 @@ The active standalone projects are **It Only Exists in the Beam** (all four
 chapters) and **The Long Way Home**. They remain independent of the collection.
 **The Backrooms**, **Closing Time**, **One Guest Too Many**, **The Shape of an Exit**, **After Hours -
 Rooms Beyond** and **Relay Annex** retain their complete editable sources in the
-[project archive](archive/projects/README.md), outside the current release inventory.
+[project archive](https://github.com/csd113/Places/blob/0.14.0-dev/archive/projects/README.md), outside the current release inventory.
 
 ## Controls
 
@@ -85,9 +85,10 @@ PLACES_ASSET_ROOT="$PWD/assets" PLACES_LEVEL=hub ./target/release/places
 
 Choose **Places / The Quiet Collection** in Explore to enter the collection.
 Authors can open `projects/environments/` in the native editor; an explicit
-[collection export](levels/README.md) is only needed after changing its sources.
+[collection export](https://github.com/csd113/Places/blob/0.14.0-dev/levels/README.md) is only needed after changing its sources.
 
-[Changelog](CHANGELOG.md)
+[Documentation index (source repository)](https://github.com/csd113/Places/blob/0.14.0-dev/docs/README.md) ·
+[Changelog](https://github.com/csd113/Places/blob/0.14.0-dev/CHANGELOG.md)
 
 [Installation, first launch and map imports](docs/INSTALLATION.md) covers
 optional gameplay maps, bundled menu resources, external assets and separate

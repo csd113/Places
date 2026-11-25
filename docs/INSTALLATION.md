@@ -97,10 +97,8 @@ required on the Mac; Windows preparation or cross-compilation cannot establish
 those results. A compiler preparation fingerprint can include its host target;
 the levels receipt identifies the actual preparing compiler.
 
-The older portable-release instructions below describe their historical tested
-layout. See the [0.13.1 acceptance report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md) and the
-release asset inventory for current native scope and checks. Windows
-packaging must use the matching final native tools and runtime dependencies.
+See the [0.13.1 acceptance report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.1.md)
+for the native checks behind that release.
 
 ## Desktop verification from source
 
@@ -203,50 +201,24 @@ installation can supply `PLACES_SDL_LICENSE=/absolute/path/LICENSE.txt`.
 This is a host-architecture export. Developer ID signing, notarization, native
 installers and Linux native acceptance remain deferred. Windows portable-player
 acceptance is documented below and does not establish clean-OS installer coverage.
-Ad-hoc signing
-does not grant Gatekeeper trust to downloaded software.
+Ad-hoc signing does not grant Gatekeeper trust to downloaded software.
 The effective minimum macOS version is the highest deployment target declared
 by the executables and bundled SDL3; it is recorded in `MACOS_RUNTIME.json` and
-the bundle's `LSMinimumSystemVersion`. The October 18 native acceptance payload
-is **arm64, macOS 27.0 or newer** because its host SDL3 requires 27.0. An older
-OS needs a compatible SDL3 build before exporting; Rust's lower target alone
-does not make the payload compatible.
-See the [macOS distribution acceptance report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md#macos-distribution-0120)
-for the tested scope and remaining limits.
-
-The [0.12.0 release report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.12.0.md) preserves the earlier
-distribution evidence. The [0.13.0 staging report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.0.md) records
-the current candidate, repaired gameplay paths and remaining limitations. Native
-Linux, clean-OS installers and downloaded Gatekeeper trust remain open;
-successful installation is not exhaustive gameplay acceptance.
+the bundle's `LSMinimumSystemVersion`. Targeting an older macOS from Rust alone
+does not make the payload compatible if the linked SDL3 needs a newer system.
 
 ## Windows portable game and authoring tools
 
-Extract the entire `Places-0.13.0-Windows.zip`, keep its `Places` folder together,
-and open `Places/places.exe`. Open `Places/places-editor.exe` for the editor;
+Extract the entire Windows application ZIP, keep its `Places` folder together,
+and open `Places/places.exe`. Open `Places/places-editor.exe` for the editor.
 `Places/places-map-compiler.exe` is the offline compiler and offers its native GUI
 with the `gui` argument. The x64 player requires Windows and a Direct3D 12 GPU.
 Rust, Python and the repository are not runtime dependencies.
 
-The payload includes all three EXEs, `SDL3.dll`, `dxcompiler.dll`, `dxil.dll`,
-`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll`, runtime assets and seven
-complete editable project packages: **The Backrooms**, **The Quiet Collection**
-(Hub plus Home, Pool, Office, Arcade, Lantern Hollow, Winter, Beach and Aero),
-**It Only Exists in the Beam** (four chapters), **Closing Time**, **One Guest Too
-Many**, **The Shape of an Exit**, and **After Hours - Rooms Beyond**. Relay Annex
-source remains in the repository and is excluded from release downloads.
-Development gyms, labs and review fixtures are excluded too.
-
-The original seven-package inventory above describes the published 0.13.0 payload.
-The current three-project release inventory is explicit in `release/release-projects.json`;
-`levels/lineup.txt` describes the smaller curated developer build. Complete release
-exports retain their normal Static and Full variants. Explore lists project
-entries, and authored transitions reach their internal members.
-
-On Windows, run the native exporter from the checkout root. Use the same
-`C:\Validated` binaries and prepared menu as in the example above, plus a
-directory of verified gameplay packages. `--with-editor` includes both editor
-and compiler:
+For an optional combined developer install, run the native exporter from the
+checkout root. Use the same `C:\Validated` binaries and prepared menu as above,
+plus a directory of verified gameplay packages. Add `--with-editor` to include
+both authoring tools.
 
 ```powershell
 python release/package-windows.py --with-editor --bin-dir C:\Validated `
@@ -255,8 +227,9 @@ python release/package-windows.py --with-editor --bin-dir C:\Validated `
   C:\Exports\Candidate
 ```
 
-The runtime directory supplies the six x64 DLLs above and a `licenses/` folder
-with their Windows SDK/Visual C++ notices (or pass `--runtime-notices <directory>`).
+The runtime directory supplies `SDL3.dll`, `dxcompiler.dll`, `dxil.dll`,
+`msvcp140.dll`, `vcruntime140.dll`, `vcruntime140_1.dll` and a `licenses/` folder
+with the required Windows SDK/Visual C++ notices (or pass `--runtime-notices <directory>`).
 The exporter preserves those notices and the exact SDL license alongside the
 payload. It validates PE
 architecture and every selected package against the staged assets, then checks
@@ -266,13 +239,8 @@ records actual input identities and source-worktree status; `PAYLOAD_SHA256.json
 covers the payload files. `--build-receipt` can preserve the exact gated build/source
 receipt. The Unix shell exporter is not the Windows packaging entry point.
 
-Writable data uses `%LOCALAPPDATA%\Places`; no writes belong in the extracted
-payload. Each project package includes recoverable authoring sources: use compiler
-`import-project <package> --out <new-project-folder>` and open the new folder in
-the editor. Keep the entire installation beside all three EXEs when moving it.
-The [0.13.0 report](https://github.com/csd113/Places/blob/29e12d9aa52b6c54f1d5d2d46cf8a524cf5862f7/docs/reports/release-0.13.0.md) records exact native scope, hashes
-and remaining gates. This portable candidate is separate from a native installer
-or a public release.
+Writable data uses `%LOCALAPPDATA%\Places`. No writes belong in the extracted
+payload.
 
 ## macOS launch
 
@@ -433,26 +401,30 @@ Run `places --paths` to print the resolved directories as JSON and initialize
 user folders. `places --list-levels` prints installed playable IDs and full paths.
 Both commands validate required resources and report configuration errors.
 
-In Explore choose **Open Import Folder**, copy a compiled `.placesmap` there,
-then choose **Import levels**. The inbox source remains available. Imports are
-staged, bounded, validated and atomically published to user `levels/`; failed
-validation leaves existing maps intact. The legacy `levels/import/` inbox and
-direct user `levels/` discovery remain supported. Raw JSON/ZIP authoring sources
-give the compiler command instead of becoming playable entries.
+In Explore choose **Import file** and select a compiled `.placesmap` or a ZIP
+containing compiled maps. A ZIP reports the result for each map and can add maps,
+but it cannot replace an installed map. To use the inbox instead, choose **Open
+folder**, copy `.placesmap` files there, then choose **Scan folder**. The inbox
+source remains available. Imports are staged, bounded,
+validated and atomically published to user `levels/`; failed validation leaves
+existing maps intact. The legacy `levels/import/` inbox and direct discovery in
+user `levels/` still work. Raw authoring files are not playable. Open their
+containing project folder in Places Editor and export a compiled map first.
 
 `places --import /absolute/path/map.placesmap` uses the same import path without
 opening a window. It prints the level ID, the installed path, and the outcome
 (`installed-or-updated` or `unchanged`) as tab-separated fields. Then launch
 normally or select an installed ID with the
-existing `PLACES_LEVEL` developer override. Imported maps persist across restart
-and changes of working directory. Same-file/repeated imports are safe. Replacing
-a package with the same exact ID/name updates that map. A different ID at the
-same filename, a duplicate ID at another filename, nonportable filenames and
-ASCII case collisions are rejected. Bundled map IDs retain discovery precedence;
+existing `PLACES_LEVEL` developer override. For a ZIP, use `places --import /absolute/path/maps.zip`
+to get an archive report instead. Imported maps persist across restart
+and changes of working directory. Same-file/repeated imports are safe. To update
+an installed map, import the new `.placesmap` on its own, using the same ID and
+filename. A different ID at the same filename, a duplicate ID at another filename,
+nonportable filenames and ASCII case collisions are rejected. Bundled map IDs retain discovery precedence;
 an import cannot silently hide behind a bundled map. Unicode filename equivalence
 follows the native filesystem; Windows/Linux native path acceptance is still due.
 
-## Stage 3 integration boundary
+## Editor and compiler integration
 
 Use `paths::assets()`, `paths::user()` and `paths::initialize_user()`; do not add
 another resolver. `UserPaths::projects()` is a default folder, not a project
@@ -462,46 +434,11 @@ Save validated authoring documents atomically, then invoke `places-map-compiler 
 discovery works without `--asset-root`. `BuildRequest.asset_root` should come from
 the same resolver. The default output still uses `project::output_path`.
 
-For a compact compile/import/play check, use a current tiny editor project with
-a built-in chair dependency. Historical stage1 fixtures contain a metadata-only
-Luau placeholder that predates script execution and is no longer a valid module.
-Import via `places --import <output.placesmap>`, discover via
-`--list-levels`, then run the direct executable with `PLACES_LEVEL=<id>`.
-For native acceptance, use the executables in a staged payload with an isolated
-state root. Verify compile, import and discovery with that payload's assets
-before starting the player. Ordinary unit tests never bake a distribution map.
-
-The [native editor](EDITOR.md) provides source editing and save/build/play.
+The [native editor guide](EDITOR.md), included with authoring installs, covers
+source editing and save/build/play.
 Its compiler/player paths can be overridden independently; editor play uses an
 isolated profile below the shared user cache. Project-local Luau, complete project
 export/recovery and per-map menu artwork are implemented.
 Custom runtime asset importing remains deferred. Historical packages with old
-schema or compiler identities require an explicit export from maintained sources;
-the final 0.13.0 candidate uses explicitly verified current-source exports.
-
-## Stage 2 validation (2026-10-17)
-
-The change passed 74 compact Rust regressions, strict debug/release all-target
-all-feature Clippy, the locked production build, 368 Python tests (16 optional
-skips), packaging safety checks and the 593-entry asset check. No shipped map
-was baked. Three new Rust tests cover platform defaults/overrides, executable
-layouts and first-run preservation/confinement; existing import fixtures cover
-conflicting IDs/names and failed publication without native resources.
-
-On macOS 27.0.1 arm64 / Apple M2 Pro / Metal, 27 explicit installation checks
-and a separate direct bundle-path check passed using a copied payload and the
-tiny stage1 project/package. Five captures cover empty Explore, inbox import,
-imported play, read-only resources and a fresh user root launched from a
-read-only install directory. Native play used Full lighting; screenshots were
-3024x1676 with Fifo presentation. These are correctness checks, not performance
-evidence. Settings/imports survived restart and malformed incoming packages;
-missing models/dependencies and unwritable storage produced named errors.
-
-Raw logs, isolated projects/packages, copied executables and screenshots remain
-outside `target/` in `local/verification/0.12.0-task2/`. The sandbox denied the
-default Mac user-folder probe and initially exposed no displays. Approved direct
-desktop launches passed with isolated writable state; writing to the real default
-user folder was not retried. Windows/Linux policies are covered by pure path
-tests, not native acceptance. Host SDL remains an external system dependency.
-Issue #21 stays open for editor/export integration and complete installation /
-cross-platform acceptance in later stages.
+schemas may need re-exporting from maintained sources. A stale compiler identity
+fails strict currentness checks but does not by itself make a package unplayable.

@@ -85,10 +85,10 @@ and linked reports retain historical implementation and validation details.
   the [documentation index](docs/README.md).
 
 **Validation still open:** [Final lighting acceptance](https://github.com/csd113/Places/issues/55)
-is not complete. A compact native Mac fixture ran, but the stock Menu package
-failed a mannequin asset identity check, and strict compiler validation flagged
-a folding closet door model outside the captured asset set. The compact run is
-not a substitute for validating the shipped Menu or the remaining large maps.
+is not complete. The earlier stock Menu mannequin identity and folding-door
+dependency failures were [fixed and verified on Windows](https://github.com/csd113/Places/commit/5e61b85e0337ed610de843321cd12f414720bb86).
+The compact Mac fixture does not establish native acceptance of the rebuilt Menu
+or the remaining large maps.
 
 ## 0.13.1 — 2026-11-09
 

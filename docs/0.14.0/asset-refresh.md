@@ -267,7 +267,7 @@ on a one-PNG result.
 [prop-fallback]: ../../src/engine/render/common/level_build.rs#L572-L606
 [pick]: ../../src/editor/viewport.rs#L475-L508
 [view-publish]: ../../src/editor/viewport.rs#L753-L795
-[editor-guide]: ../EDITOR.md#L106-L126
+[editor-guide]: ../EDITOR.md#quick-test
 [unbaked]: ../../src/engine/render/common/level_build.rs#L629-L639
 [quick]: ../../src/editor/play_here.rs#L67-L97
 [test-runtime]: ../../src/editor/viewport/test_runtime.rs#L165-L235
