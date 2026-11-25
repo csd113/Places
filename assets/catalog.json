@@ -12810,6 +12810,78 @@
         "tool": "completed",
         "source": "completed-models.json"
       }
+    },
+    {
+      "id": "core:office_wastebasket",
+      "display_name": "Office Wastebasket",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/office/props/office_wastebasket.glb",
+      "size": [
+        0.346,
+        0.45,
+        0.346
+      ],
+      "color": "#8c9093",
+      "category": "Decorative",
+      "solid": true,
+      "description": "Tapered grey open-top plastic wastebasket with a floor-centred origin."
+    },
+    {
+      "id": "core:office_photocopier",
+      "display_name": "Office Photocopier",
+      "asset_class": "environment",
+      "theme": "office",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/office/props/office_photocopier.glb",
+      "size": [
+        0.647,
+        1.09,
+        0.64
+      ],
+      "color": "#d1cbb4",
+      "category": "Appliances",
+      "solid": true,
+      "description": "Floor-standing cream photocopier with a dark scanner lid and recessed paper output bay."
+    },
+    {
+      "id": "home:kitchen_bin",
+      "display_name": "Kitchen Swing-Lid Bin",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/kitchen_bin.glb",
+      "size": [
+        0.363,
+        0.6803,
+        0.321
+      ],
+      "color": "#dcd4bd",
+      "category": "Utility",
+      "solid": true,
+      "description": "Rounded cream kitchen bin with a static swing lid and a floor-centred origin."
+    },
+    {
+      "id": "home:ceiling_fan",
+      "display_name": "Ceiling Fan with Opal Light",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/ceiling_fan.glb",
+      "size": [
+        1.56,
+        0.303,
+        1.56
+      ],
+      "color": "#906540",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Static four-blade walnut fan with a non-emissive opal diffuser and a ceiling-centred mounting origin."
     }
   ]
 }

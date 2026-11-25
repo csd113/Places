@@ -166,6 +166,8 @@ Keep the existing six-HP player, three hearts, disabled-by-default HUD and crowb
 ### 24. [GitHub #42: Four Office/Home props](https://github.com/csd113/Places/issues/42)
 Office: tapered grey open wastebasket and chunky cream floor-standing photocopier with dark lid and simple trays. Home: rounded cream swing-lid kitchen garbage can and a ceiling fan with wide wood blades and a compact light. Keep Places' low-poly look, clear silhouettes, plausible scale and sensible collision. Use Blender/GIMP on the assistant’s desktop for asset creation, add assets to the proper catalogs, and check their appearance under native lighting. Only these four are approved; animation and interaction aren’t implied.
 
+**Complete.** Independent Sol 6.2 Medium review passed. Native macOS checks verified all four picker thumbnails under the correct themes and their appearance with Full lightmaps under Office fluorescent and warm Home lighting. The three floor props sat at floor level and blocked walking at their expected collision edges. The static, non-solid fan mounted 2 mm below the ceiling, and the standing player walked directly beneath it.
+
 ### 25. [GitHub #41: Maintenance environment](https://github.com/csd113/Places/issues/41)
 Build an unfurnished concrete back-of-house environment: service halls and stairs, industrial basements and modular unfinished surfaces. Integrate and rename the existing Janitor closet content instead of duplicating it; migrate catalog/editor references without breaking authored maps. Create assets in Blender/GIMP where needed, build any map by hand in the level editor and validate representative traversal.
 

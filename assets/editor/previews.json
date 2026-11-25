@@ -1090,6 +1090,11 @@
     "sha256": "7db4d34db372a1ac151c6d5ee75b076ee098bcb6abb7a4c3dd29ffbd5ed8079c",
     "source": "environments/office/props/office_noticeboard.glb"
   },
+  "core:office_photocopier": {
+    "path": "editor/previews/546717b338f7a78f7106c003.png",
+    "sha256": "25ad3bbcc4c004a346f9e37e7b062bb1474e2eb021b38991905b9d4eb192f631",
+    "source": "environments/office/props/office_photocopier.glb"
+  },
   "core:office_reception_desk": {
     "path": "editor/previews/1cd11360e3fce6eb1017ff39.png",
     "sha256": "f8a4f4198dcebabfb25519d96acdbcf8a6d352096381e7e85c032b5ffe6351cc",
@@ -1099,6 +1104,11 @@
     "path": "editor/previews/9caf1ff8e744c5f19fda5d3a.png",
     "sha256": "524340672a396bbec5f55ba0e1db14b94c24a3c46bd9b706e4f88dc2bdcf5c0d",
     "source": "environments/office/props/office_snack_machine.glb"
+  },
+  "core:office_wastebasket": {
+    "path": "editor/previews/8d9c2ee92c6b84cd89017af3.png",
+    "sha256": "7d3c3ffe9e34318c09c49ce415a8f7146876bad7a12ab931beeb387f9f74c262",
+    "source": "environments/office/props/office_wastebasket.glb"
   },
   "core:painting_dull_01": {
     "path": "editor/previews/ffd0ed4078dd43a316e66235.png",
@@ -1560,6 +1570,11 @@
     "sha256": "02bfac2257a4cc3e51a3bb603dcadd027fbda70e50b85c0f367a99cc0007ef4c",
     "source": "environments/home/textures/floors/carpet_cream_01.png"
   },
+  "home:ceiling_fan": {
+    "path": "editor/previews/d4f00b3c3867840893a19142.png",
+    "sha256": "26c0201ea91ea4070bae961aa8fc36d1bbee16c1e40c0dccccc8c8cc378ab0f0",
+    "source": "environments/home/props/ceiling_fan.glb"
+  },
   "home:ceiling_light_round": {
     "geometry_revision": 4,
     "method": "native editor Inspect; frame selection; deselect; 200x150 UI viewport crop; 160x120 Lanczos",
@@ -1666,6 +1681,11 @@
     "path": "editor/previews/50f6c81611d067cc49578f81.png",
     "sha256": "3b39271c64bd4c1feb7ef70c13bc37e6fcabb962cdc4e47e10e142085145acf0",
     "source": "environments/home/props/kettle.glb"
+  },
+  "home:kitchen_bin": {
+    "path": "editor/previews/9a1006a0235c85030a4edf06.png",
+    "sha256": "8a5d29c227db7c28f8e47d6b1d5353ee97653f37f69396ce197ce21057d73601",
+    "source": "environments/home/props/kitchen_bin.glb"
   },
   "home:knife": {
     "path": "editor/previews/9442d00909dfea5cafbfc15f.png",
