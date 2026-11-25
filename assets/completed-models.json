@@ -3214,6 +3214,24 @@
       0.03252364695072174
     ]
   },
+  "environments/mall/props/bench.glb": {
+    "sha256": "24d7182770b05eb74daee0622cc9a52ed962774e8ee658ce6e11704589bbec29",
+    "triangles": 240,
+    "texture_edge": 128,
+    "identities": [
+      "mall:bench"
+    ],
+    "bounds_min": [
+      -0.8999999761581421,
+      0.0,
+      -0.2723224461078644
+    ],
+    "bounds_max": [
+      0.8999999761581421,
+      0.8045415282249451,
+      0.24043431878089905
+    ]
+  },
   "environments/mall/props/trash_can.glb": {
     "sha256": "9996ae1f5757321ef1c37a3a89dcbe6d7869e02044e6eb8273638e8f0c76d188",
     "triangles": 1512,

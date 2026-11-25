@@ -13128,6 +13128,28 @@
       }
     },
     {
+      "id": "mall:bench",
+      "display_name": "Mall Bench",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/mall/props/bench.glb",
+      "size": [
+        1.8,
+        0.8045,
+        0.5128
+      ],
+      "color": "#272829",
+      "category": "Furniture",
+      "solid": true,
+      "description": "Matte black mall bench with a continuous seat and subtly reclined back, set on two inset supports.",
+      "authoring": {
+        "tool": "blender",
+        "source": "environments/mall/props/bench.blend"
+      }
+    },
+    {
       "id": "mall:trash_can",
       "display_name": "Mall Trash Can",
       "asset_class": "environment",

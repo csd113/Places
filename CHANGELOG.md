@@ -77,6 +77,7 @@ and linked reports retain historical implementation and validation details.
   include Food-Court Tray, Moulded Clothes Hanger, Concourse Takeaway Coffee,
   Crumpled Paper Ball, Metal Ashtray and Crushed Soft Cigarette Pack.
 - Add the fixed, solid Mall Trash Can to the Mall editor catalog.
+- Add the matte black Mall Bench as fixed, solid furniture in the Mall catalog.
 
 The app bundles the live Menu but no gameplay maps. The separate 0.14.0
 [levels download inventory](release/release-projects.json) lists only the Quiet
