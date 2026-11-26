@@ -22,6 +22,8 @@
 ### 2. Published gameplay changes: outstanding native witnesses
 **Open for native gameplay verification only.** Published NPC findings 47–49 and the prop-release change passed focused tests. Mac player and Quick Test confirmed cup pickup/release, but the exact NPC pursuit-replan deadlock, blocked scripted movement/reissue, and wrong-floor cases remain unverified in native gameplay. Use compact editor-authored fixtures. Record which cases actually ran; a native build, good GPU startup, or focused Rust test is not a substitute for the gameplay witness.
 
+**Additional reviewed Mac evidence:** the native pursuer cleared a stalled route and issued a retry while the obstruction remained. Ordinary AI reached matching horizontal goals on two different floors, but this did not exercise scripted floor selection. A native fixture for a blocked scripted move that stays stopped until explicitly reissued is still needed.
+
 ### 3. Player movement and swimming collision (finding 35)
 **Complete.** Finding 35 was implemented at `0a583b0e3ac41df1393f4db9b7639a512027a9df` and passed independent Sol 6.2 Medium re-review at `d51111fd431a5a3106b6efac59ee6066f88b546a`. Swimming preserves safe ascent after a prop-side hit and stops at a reachable underside. A dormant prop over a rim prevents a blocked exit from restarting during a dive. Held-item slides preserve safe tangential motion and the accepted release velocity.
 
@@ -141,6 +143,8 @@ Finish subjective Office/Pool material and wall/door listening, moving listener/
 The Razer endurance run passed independent Sol Medium review of the recorded results. Pool ran for 721.44 seconds of mixer output on one Realtek WASAPI endpoint, with 14 software mode changes and 15 clean sampled checkpoints. The Pool loop retired on transition to Office, and a nonexistent device produced a silent startup fallback. That run did not verify OS hotplug, physical listening, drivers, leaks, or a current export.
 
 Independent review also verified a separate one-room Windows editor export that passed strict currentness and recovered the source byte-for-byte. After import, its door-linked Luau action started exactly one spatial loop. This is a compact current editor-to-player pipeline check, not a fresh Office or Pool export or evidence of physical listening, localization, hotplug, or wider driver and platform coverage. Item 20 and #32 remain open.
+
+**Reviewed Linux software validation passed.** Two compact editor-exported maps passed strict currentness and byte-for-byte source recovery. The native player started the authored spatial loop after import; the prior Windows export independently covers the complementary Luau action. PulseAudio submitted 131.59 seconds of mixed audio with no reported errors or drops and moved the stream to a virtual fallback sink. Physical listening, physical hotplug, and wider driver coverage remain open.
 
 ### 21. Independent audio sliders
 Under Settings → Audio, add or reuse Master, Ambient and Prop Sound volume sliders. Master affects all audible channels; category sliders affect only their own sounds. Use a small extensible category/mix design, preserve authored gain and spatial attenuation, clamp and persist settings, and retain defaults when older settings lack the fields. Check active loops and new sounds, another channel under Master, and save/reload using a compact Mac scenario.
