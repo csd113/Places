@@ -201,7 +201,7 @@ Research only. Compare Bevy-style data-access-aware scheduling with the current 
 ## Documentation and standalone showcase
 
 ### 31. Broader documentation cleanup
-**Ready for independent review.** Preserved the docs index, version summaries and #45–47 research. Removed superseded staging notes from the maintained guides, checked their links and kept source assets and release inputs intact. No new report, archive or build.
+**Complete.** Independent review passed and the eight reviewed documentation files were published in [`33a3b583`](https://github.com/csd113/Places/commit/33a3b583d96566ad328184b474937c71426ec162). Preserved the docs index, version summaries and #45–47 research; removed superseded staging notes and verified the maintained guides. Source assets and release inputs were unchanged.
 
 ### 32. [GitHub #43: Technical architecture and API documentation](https://github.com/csd113/Places/issues/43)
 **Deferred.** Leave GitHub #43 open. The issue explicitly requests documentation, but the newer standing direction is **no routine task reports or reference sheets**. Reconcile that before writing. Cover current engine/game/editor/compiler responsibilities, shared ownership and important data contracts, and the real editor → compiler → package → player path. Verify links/examples against current code and prefer concise maintained content to copying the issue’s historical multi-document scope verbatim. This isn’t an architecture rewrite.
