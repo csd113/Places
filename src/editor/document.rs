@@ -355,6 +355,39 @@ impl Document {
         asset: Option<&str>,
         catalog: &AssetCatalog,
     ) -> Result<ObjectId, String> {
+        let (edited, id) = self.catalog_add_candidate(kind, position, asset, catalog)?;
+        self.accept_edit(edited)?;
+        Ok(id)
+    }
+
+    pub(super) fn add_snapped_prop(
+        &mut self,
+        position: [f32; 3],
+        asset: &str,
+        catalog: &AssetCatalog,
+        step: f32,
+    ) -> Result<(ObjectId, Option<String>), String> {
+        let (edited, id) =
+            self.catalog_add_candidate(ObjectKind::Prop, position, Some(asset), catalog)?;
+        let level = self.validate_candidate(&edited)?;
+        let mounted = mounting::candidate_with_step(&level, &edited, id, Some(step))
+            .and_then(|candidate| self.accept_edit(candidate));
+        let mount_error = if let Err(error) = mounted {
+            self.accept_edit(edited)?;
+            Some(error)
+        } else {
+            None
+        };
+        Ok((id, mount_error))
+    }
+
+    fn catalog_add_candidate(
+        &self,
+        kind: ObjectKind,
+        position: [f32; 3],
+        asset: Option<&str>,
+        catalog: &AssetCatalog,
+    ) -> Result<(Value, ObjectId), String> {
         let model = asset.unwrap_or(if kind == ObjectKind::Entity {
             "mannequin"
         } else {
@@ -394,8 +427,7 @@ impl Document {
             }
             objects::apply_mechanism_preset(&mut edited, id, model)?;
         }
-        self.accept_edit(edited)?;
-        Ok(id)
+        Ok((edited, id))
     }
 
     /// Deletes the selected object; semantic references must remain valid.

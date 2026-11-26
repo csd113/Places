@@ -15,6 +15,9 @@ use crate::engine::{
 
 pub(super) const LENGTH_FIELD: usize = 24;
 
+const UPPER_LANDING: &str =
+    "Lower landing set. Pick a higher landing near its open edge. Esc cancels.";
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Command {
     Connect,
@@ -121,13 +124,26 @@ impl App {
             .ok_or("Open a project first")?
             .level();
         match self.escalator {
-            Some(Draft::Connect(Some(lower))) => Fit::connect(level, lower, point),
+            Some(Draft::Connect(Some(lower))) => {
+                if point.y <= lower.y + 0.01 {
+                    return Err(UPPER_LANDING.into());
+                }
+                Fit::connect(level, lower, point)
+            }
             Some(Draft::Free {
                 dimensions,
                 turn,
                 hover: _,
             }) => Fit::free(level, point, turn, dimensions),
             Some(Draft::Connect(None)) | None => Err("Pick the lower landing first".into()),
+        }
+    }
+
+    const fn lower_escalator_landing(&self) -> Option<Vec3> {
+        if let Some(Draft::Connect(lower)) = self.escalator {
+            lower
+        } else {
+            None
         }
     }
 
@@ -140,6 +156,7 @@ impl App {
         {
             *hover = Some(point);
         }
+        let lower = self.lower_escalator_landing();
         match self.fitted_escalator(point) {
             Ok(fit) => {
                 let triangles = fit.lane.preview();
@@ -147,7 +164,8 @@ impl App {
                 for &vertex in triangles.iter().flatten() {
                     bounds.expand(vertex);
                 }
-                self.viewport.highlight(Some(bounds), &triangles);
+                self.viewport
+                    .highlight_placement(lower, Some(bounds), &triangles);
                 self.status = format!(
                     "Click to place. {:.2} m long, {:.2} m rise.{}",
                     fit.dimensions.length,
@@ -162,7 +180,7 @@ impl App {
                 );
             }
             Err(problem) => {
-                self.viewport.highlight(None, &[]);
+                self.viewport.highlight_placement(lower, None, &[]);
                 self.status = problem;
             }
         }
@@ -175,12 +193,14 @@ impl App {
             .map_err(|error| error.replace("Play here:", "Escalator:"))?;
         if matches!(self.escalator, Some(Draft::Connect(None))) {
             self.escalator = Some(Draft::Connect(Some(floor)));
-            self.viewport
-                .highlight(Some(Aabb::from_point(floor.to_array())), &[]);
-            self.status = "Now click the upper landing near the open edge. Esc cancels.".into();
+            self.viewport.highlight_placement(Some(floor), None, &[]);
+            self.status = UPPER_LANDING.into();
             return Ok(());
         }
-        let fit = self.fitted_escalator(floor)?;
+        let fit = self.fitted_escalator(floor).inspect_err(|_| {
+            self.viewport
+                .highlight_placement(self.lower_escalator_landing(), None, &[]);
+        })?;
         let selected = self
             .document
             .as_mut()
@@ -219,14 +239,21 @@ impl App {
                 true
             }
             Event::MouseMotion { x, y, .. } => {
-                if !matches!(self.escalator, Some(Draft::Connect(None)))
-                    && let Some(point) = super::input::ui_point(window, [*x, *y])
+                if !matches!(self.escalator, Some(Draft::Connect(None))) {
+                    let hovered_floor = super::input::ui_point(window, [*x, *y])
                         .filter(|p| self.viewport.contains_ui(*p))
-                {
-                    if let Ok(floor) = self.viewport.play_floor(point) {
+                        .and_then(|point| self.viewport.play_floor(point).ok());
+                    if let Some(floor) = hovered_floor {
                         self.update_escalator_preview(floor);
                     } else {
-                        self.viewport.highlight(None, &[]);
+                        let lower = self.lower_escalator_landing();
+                        self.viewport.highlight_placement(lower, None, &[]);
+                        self.status = if lower.is_some() {
+                            UPPER_LANDING
+                        } else {
+                            "Free escalator: pick a visible base floor. Esc cancels."
+                        }
+                        .into();
                     }
                 }
                 false

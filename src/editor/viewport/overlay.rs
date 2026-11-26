@@ -339,14 +339,30 @@ impl Guides {
         }
     }
 
-    pub fn diagnostic(&mut self, bounds: Aabb, surfaces: &[[[f32; 3]; 3]]) {
-        self.box_lines(bounds, [1.0, 0.25, 0.3, 1.0]);
+    pub fn landing_marker(&mut self, point: Vec3) {
+        let [x, y, z] = point.to_array();
+        self.box_lines(
+            Aabb {
+                min: [x - 0.15, y, z - 0.15],
+                max: [x + 0.15, y + 0.2, z + 0.15],
+            },
+            [1.0, 0.79, 0.28, 1.0],
+        );
+    }
+
+    pub fn diagnostic(&mut self, bounds: Aabb, surfaces: &[[[f32; 3]; 3]], ready: bool) {
+        let (outline, edges) = if ready {
+            ([0.26, 0.88, 0.57, 1.0], [0.4, 1.0, 0.68, 1.0])
+        } else {
+            ([1.0, 0.25, 0.3, 1.0], [1.0, 0.3, 0.45, 1.0])
+        };
+        self.box_lines(bounds, outline);
         for triangle in surfaces {
             for (first, second) in triangle.iter().zip(triangle.iter().cycle().skip(1)).take(3) {
                 self.line(
                     Vec3::from_array(*first),
                     Vec3::from_array(*second),
-                    [1.0, 0.3, 0.45, 1.0],
+                    edges,
                     1.2,
                 );
             }

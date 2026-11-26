@@ -59,7 +59,6 @@ pub(super) const DOOR_PREVIEWS: [&str; 6] = [
 ];
 
 pub(super) const PAGE_SIZE: usize = 24;
-pub(super) const DOCK_PAGE_SIZE: usize = 4;
 
 #[derive(Default)]
 pub(super) struct Browser {
@@ -202,12 +201,20 @@ pub(super) fn tile_bounds(offset: usize, compact: bool) -> [f32; 4] {
     ]
 }
 
+pub(super) const fn dock_catalog_top(tab: Tab) -> f32 {
+    match tab {
+        Tab::Build => 184.0,
+        Tab::Assets => 74.0,
+        Tab::Lighting => 98.0,
+    }
+}
+
 /// Shared by inline image placement and its visible pointer target.
 pub(super) fn dock_tile_bounds(offset: usize, tab: Tab) -> [f32; 4] {
     let col = f32::from(u16::try_from(offset.checked_rem(2).unwrap_or(0)).unwrap_or(0));
     let row = f32::from(u16::try_from(offset.checked_div(2).unwrap_or(0)).unwrap_or(0));
     let top = match tab {
-        Tab::Build => 158.0,
+        Tab::Build => return [col.mul_add(48.0, 5.0), 210.0, 40.0, 18.0],
         Tab::Assets => 100.0,
         Tab::Lighting => 124.0,
     };
@@ -215,9 +222,16 @@ pub(super) fn dock_tile_bounds(offset: usize, tab: Tab) -> [f32; 4] {
 }
 
 impl App {
+    pub(super) const fn dock_page_size(&self) -> usize {
+        match self.dock.tab {
+            Tab::Build => 2,
+            Tab::Assets | Tab::Lighting => 4,
+        }
+    }
+
     pub(super) const fn browser_page_size(&self) -> usize {
         if self.popup.is_none() {
-            DOCK_PAGE_SIZE
+            self.dock_page_size()
         } else if self.browser.compact {
             24
         } else {
@@ -445,11 +459,7 @@ impl App {
         let over_catalog =
             super::input::ui_point(window, [*mouse_x, *mouse_y]).is_some_and(|point| {
                 if self.popup.is_none() {
-                    let top = match self.dock.tab {
-                        Tab::Build => 132.0,
-                        Tab::Assets => 74.0,
-                        Tab::Lighting => 98.0,
-                    };
+                    let top = dock_catalog_top(self.dock.tab);
                     let [left, upper, width, height] = self
                         .viewport
                         .layout()

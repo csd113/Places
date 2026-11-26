@@ -453,7 +453,9 @@ impl App {
             }
             Action::BrowserSearch => self.dock.search = true,
             Action::DockChoose(index) => {
-                if self.selected.is_some_and(|id| !self.editable(id)) {
+                if self.dock.catalog != Catalog::Models
+                    && self.selected.is_some_and(|id| !self.editable(id))
+                {
                     return Err("Selection is locked or hidden. Show and unlock it in Layers before editing.".into());
                 }
                 if self.placement.is_some() {
@@ -478,14 +480,15 @@ impl App {
                         self.status = format!("Assigned material {id}");
                     }
                     Catalog::Models => {
-                        self.choose_prop_model(id)?;
+                        self.status = format!("Chosen for placement: {id}. Use Place chosen prop.");
+                        self.prop = id;
                     }
                     Catalog::Fixtures => {
                         let selected = self
                             .selected
-                            .ok_or("Place or select a light before choosing its fixture")?;
+                            .ok_or("Place or select a light first, then apply this fixture.")?;
                         if !matches!(selected, super::document::ObjectId::Light(_)) {
-                            return Err("Select a light before choosing its fixture".into());
+                            return Err("Select a light first, then apply this fixture.".into());
                         }
                         self.document
                             .as_mut()
@@ -517,26 +520,19 @@ impl App {
         Ok(true)
     }
 
-    fn choose_prop_model(&mut self, id: String) -> Result<(), String> {
-        if id == crate::engine::electrical_panel::MODEL {
-            self.prop = id;
-            return self.start_electrical_panel();
+    fn replace_prop_model(&mut self, id: &str) -> Result<(), String> {
+        let Some(selected @ super::document::ObjectId::Prop(_)) = self.selected else {
+            return Err("Select a prop in Properties to replace its model.".into());
+        };
+        if id == crate::engine::electrical_panel::MODEL || id == crate::engine::escalator::MODEL {
+            return Err("Use Assets and Place chosen prop to place this mechanism.".into());
         }
-        if id == crate::engine::escalator::MODEL {
-            self.prop = id;
-            return self.start_escalator(false);
-        }
-        if let Some(selected @ super::document::ObjectId::Prop(_)) = self.selected {
-            self.document
-                .as_mut()
-                .ok_or("Open a project first")?
-                .set_gameplay_asset(selected, &id, &self.catalog)?;
-            self.changed();
-            self.status = format!("Assigned model {id}; Place chosen prop adds another.");
-        } else {
-            self.status = format!("Selected {id}; use Place chosen prop.");
-        }
-        self.prop = id;
+        self.document
+            .as_mut()
+            .ok_or("Open a project first")?
+            .set_gameplay_asset(selected, id, &self.catalog)?;
+        self.changed();
+        self.status = format!("Replaced the selected prop's model with {id}.");
         Ok(())
     }
 
@@ -627,10 +623,7 @@ impl App {
         match action {
             Action::Place(tool) => self.start_placement(tool)?,
             Action::ApplyPlacement => self.apply_path_placement()?,
-            Action::CancelPlacement => {
-                self.cancel_placement();
-                self.status = "Placement cancelled.".into();
-            }
+            Action::CancelPlacement => self.discard_placement(),
             Action::ChainWalls => {
                 if let Some(p) = &mut self.placement {
                     p.chain = !p.chain;
@@ -698,11 +691,7 @@ impl App {
             | ObjectKind::SpawnPoint => {}
         }
         if kind == ObjectKind::Room {
-            let _opened = self.authoring_action(Action::Author(
-                super::authoring::Command::Open(super::authoring::Tool::Room),
-            ))?;
-            let _created = self.authoring_action(Action::Author(super::authoring::Command::New))?;
-            return Ok(());
+            return self.start_room();
         }
         if kind == ObjectKind::Ramp {
             let _opened = self.authoring_action(Action::Author(
@@ -934,22 +923,16 @@ impl App {
             }
         });
         let doc = self.document.as_mut().ok_or("Open a project first")?;
-        self.selected = Some(doc.add_with_catalog(
-            kind,
-            position,
-            if kind == ObjectKind::Prop {
-                Some(&self.prop)
-            } else {
-                None
-            },
-            &self.catalog,
-        )?);
-        let mount_error = if kind == ObjectKind::Prop && self.view.snap {
-            self.selected
-                .and_then(|id| doc.mount_to_surface(id, Some(self.step)).err())
+        let asset = (kind == ObjectKind::Prop).then_some(self.prop.as_str());
+        let (selected, mount_error) = if let Some(model) = asset.filter(|_| self.view.snap) {
+            doc.add_snapped_prop(position, model, &self.catalog, self.step)?
         } else {
-            None
+            (
+                doc.add_with_catalog(kind, position, asset, &self.catalog)?,
+                None,
+            )
         };
+        self.selected = Some(selected);
         let label = match kind {
             ObjectKind::Room => "room",
             ObjectKind::Wall => "wall",
@@ -1029,7 +1012,7 @@ impl App {
                 self.changed();
                 self.status = format!("Assigned material {id}");
             } else {
-                self.choose_prop_model(id)?;
+                self.replace_prop_model(&id)?;
             }
         }
         self.popup = None;

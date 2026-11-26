@@ -19,16 +19,19 @@ pub(super) struct Wizard {
     expected: Value,
     candidate: Option<Value>,
     message: String,
+    needs_upper: bool,
 }
+const CHOOSE_FLOORS: &str = "Choose floors and width, then preview the shaft and landings.";
+
 impl Wizard {
     pub fn new(app: &App) -> Result<Self, String> {
         let doc = app.document.as_ref().ok_or("Open a project first")?;
-        let lower = if let Some(ObjectId::Room(i)) = app.selected {
+        let anchor = if let Some(ObjectId::Room(i)) = app.selected {
             i
         } else {
             0
         };
-        let upper = doc
+        let next_higher = doc
             .level()
             .rooms
             .iter()
@@ -36,20 +39,60 @@ impl Wizard {
             .find(|(_, r)| {
                 doc.level()
                     .rooms
-                    .get(lower)
+                    .get(anchor)
                     .is_some_and(|l| r.floor_y > l.floor_y)
             })
-            .map_or(lower, |(i, _)| i);
+            .map_or(anchor, |(i, _)| i);
+        let (lower, upper) = if app.view.simple && !app.dock.advanced {
+            basic_pair(doc.level(), anchor).ok_or("Add a room before connecting floors.")?
+        } else {
+            (anchor, next_higher)
+        };
+        let needs_upper = app.view.simple && !app.dock.advanced && lower == upper;
         Ok(Self {
             lower,
             upper,
             width: "1.2".into(),
             expected: doc.raw().clone(),
             candidate: None,
-            message: "Choose rooms and width. Preview reviews the shaft and landings.".into(),
+            message: if needs_upper {
+                "Only one floor is available. Add an upper floor above the lower room."
+            } else {
+                CHOOSE_FLOORS
+            }
+            .into(),
+            needs_upper,
         })
     }
 }
+fn basic_pair(level: &LevelDef, anchor: usize) -> Option<(usize, usize)> {
+    let room = level.rooms.get(anchor)?;
+    let (x0, x1, z0, z1) = room.bounds();
+    let partner = level
+        .rooms
+        .iter()
+        .enumerate()
+        .filter_map(|(index, other)| {
+            let (lower, upper) = if other.floor_y < room.floor_y {
+                (index, anchor)
+            } else if other.floor_y > room.floor_y {
+                (anchor, index)
+            } else {
+                return None;
+            };
+            let (a, b, c, d) = other.bounds();
+            let overlaps = x0 < b && x1 > a && z0 < d && z1 > c;
+            let clearance = level.rooms.get(upper)?.floor_y - level.rooms.get(lower)?.eave_y()
+                >= MIN_STRUCTURE_M - 0.0001;
+            Some((
+                (lower, upper),
+                (overlaps, clearance && other.ceiling.is_flat()),
+            ))
+        })
+        .max_by_key(|(_, rank)| *rank);
+    Some(partner.map_or((anchor, anchor), |(pair, _)| pair))
+}
+
 fn split_room(room: &Value, cut: [f32; 4]) -> Result<Vec<Value>, String> {
     let typed: crate::engine::level::RoomDef =
         serde_json::from_value(room.clone()).map_err(|e| e.to_string())?;
@@ -131,9 +174,11 @@ pub(super) fn candidate(
     };
     if available < total + 0.2 || across < width + 0.2 {
         return Err(format!(
-            "Need a shared clear rectangle at least {total:.2} m long × {width:.2} m wide, plus 0.1 m margin; current overlap is {:.2} × {:.2} m. Extend a shaft or use the manual Staircase form.",
-            right - left,
-            far - near
+            "Need {:.2} x {:.2} m shared floor space including landing margins. Overlap is {:.2} x {:.2} m. Resize or align the rooms, or choose another pair.",
+            total + 0.2,
+            width + 0.2,
+            available.max(0.0),
+            across.max(0.0)
         ));
     }
     let x = if along_x {
@@ -155,7 +200,7 @@ pub(super) fn candidate(
     // This is a full standing-volume check of the generated shaft envelope,
     // not a single tread/top-height sample.
     if high.eave_y() - high.floor_y < crate::engine::collision::PLAYER_HEIGHT + 0.1 {
-        return Err("Upper landing has less than 1.9 m standing clearance.".into());
+        return Err("Upper landing needs 1.9 m of headroom. Raise the upper room ceiling or choose another pair.".into());
     }
     clear_envelope(level, lower, upper, cut, landing, catalog)?;
     assemble(
@@ -276,6 +321,7 @@ impl App {
     pub(super) fn stair_action(&mut self, action: Action) -> Result<bool, String> {
         match action {
             Action::StairWizard => self.popup = Some(Popup::Stairs(Box::new(Wizard::new(self)?))),
+            Action::StairAddUpper => self.stair_add_upper()?,
             Action::StairFloor(upper) => {
                 let count = self.document.as_ref().map_or(0, |d| d.level().rooms.len());
                 if let Some(Popup::Stairs(w)) = &mut self.popup {
@@ -284,7 +330,12 @@ impl App {
                         .saturating_add(1)
                         .checked_rem(count.max(1))
                         .unwrap_or(0);
-                    w.candidate = None;
+                    if w.candidate.take().is_some()
+                        && let Some(doc) = &self.document
+                    {
+                        self.viewport.rebuild(doc.level());
+                    }
+                    w.message = CHOOSE_FLOORS.into();
                 }
             }
             Action::StairPreview | Action::StairApply => {
@@ -298,15 +349,21 @@ impl App {
                 if action == Action::StairApply && w.candidate.is_none() {
                     return Err("Preview the proposed flight and shaft before applying.".into());
                 }
-                let proposed = candidate(
-                    doc,
-                    w.lower,
-                    w.upper,
-                    w.width
-                        .parse()
-                        .map_err(|_error| "Enter a width in metres")?,
-                    &self.catalog,
-                )?;
+                let result = w
+                    .width
+                    .parse()
+                    .map_err(|_error| "Enter a width in metres.".into())
+                    .and_then(|width| candidate(doc, w.lower, w.upper, width, &self.catalog));
+                let proposed = match result {
+                    Ok(proposed) => proposed,
+                    Err(message) => {
+                        if w.candidate.take().is_some() {
+                            self.viewport.rebuild(doc.level());
+                        }
+                        w.message.clone_from(&message);
+                        return Err(message);
+                    }
+                };
                 if action == Action::StairApply {
                     let expected = w.expected.clone();
                     self.document
@@ -328,6 +385,31 @@ impl App {
         }
         Ok(true)
     }
+    fn stair_add_upper(&mut self) -> Result<(), String> {
+        let Some(Popup::Stairs(w)) = &self.popup else {
+            return Ok(());
+        };
+        if !w.needs_upper {
+            return Ok(());
+        }
+        let lower = ObjectId::Room(w.lower);
+        if !self.editable(lower) {
+            return Err(
+                "Show and unlock the lower room in Layers before adding an upper floor.".into(),
+            );
+        }
+        let doc = self.document.as_mut().ok_or("Open a project first")?;
+        if doc.raw() != &w.expected {
+            return Err("Scene changed; reopen the stair generator.".into());
+        }
+        self.selected = Some(doc.add_upper_floor(lower)?);
+        self.changed();
+        self.viewport.frame_next_preview();
+        self.popup = Some(Popup::Stairs(Box::new(Wizard::new(self)?)));
+        self.status = "Upper floor added. Preview stairs to check the run and landings.".into();
+        Ok(())
+    }
+
     #[expect(
         clippy::wildcard_enum_match_arm,
         clippy::rest_pattern_accessible_field,
@@ -361,7 +443,7 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, w
     hits.clear();
     ui::rect(
         vertices,
-        [122.0, 176.0, 344.0, 64.0],
+        [122.0, 156.0, 344.0, 84.0],
         [0.075, 0.11, 0.14, 1.0],
     );
     for (x, upper, i) in [(128.0, false, w.lower), (294.0, true, w.upper)] {
@@ -380,29 +462,51 @@ pub(super) fn draw(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<Hit>, w
                     )
                 },
             );
-        ui::popup_button(
+        ui::button(
             vertices,
             hits,
-            [x, 181.0, 160.0, 12.0],
-            &label,
+            [x, 161.0, 160.0, 12.0],
+            if upper && w.needs_upper {
+                "No upper floor"
+            } else {
+                &label
+            },
             Action::StairFloor(upper),
+            !w.needs_upper,
         );
     }
     ui::text(
         vertices,
         &format!("Width m: {}_  (type / Backspace)", w.width),
         128.0,
-        198.0,
+        178.0,
         ui::INK,
         78,
     );
-    ui::text(vertices, &w.message, 128.0, 209.0, ui::INK, 80);
-    for (x, label, action) in [
-        (128.0, "Preview", Action::StairPreview),
-        (240.0, "Apply preview", Action::StairApply),
-        (352.0, "Cancel", Action::ClosePopup),
+    ui::safety::wrapped(vertices, &w.message, [128.0, 190.0], ui::INK, 90, 4);
+    let preview = if w.needs_upper {
+        ("Add Upper Floor", Action::StairAddUpper)
+    } else {
+        ("Preview", Action::StairPreview)
+    };
+    for (x, label, action, enabled) in [
+        (128.0, preview.0, preview.1, true),
+        (
+            240.0,
+            "Apply preview",
+            Action::StairApply,
+            w.candidate.is_some(),
+        ),
+        (352.0, "Cancel", Action::ClosePopup, true),
     ] {
-        ui::popup_button(vertices, hits, [x, 225.0, 104.0, 12.0], label, action);
+        ui::button(
+            vertices,
+            hits,
+            [x, 225.0, 104.0, 12.0],
+            label,
+            action,
+            enabled,
+        );
     }
 }
 

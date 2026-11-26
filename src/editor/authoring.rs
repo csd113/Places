@@ -768,6 +768,22 @@ fn set_path(record: &mut Value, path: &str, value: Option<Value>) -> Result<(), 
     Ok(())
 }
 impl App {
+    pub(super) fn start_room(&mut self) -> Result<(), String> {
+        self.popup = Some(Popup::AuthoringForm(Box::new(Draft::new(
+            self,
+            Tool::Room,
+            None,
+        )?)));
+        if self.view.simple
+            && !self.dock.advanced
+            && let Err(error) = self.checked_authoring_form(false)
+        {
+            self.popup = None;
+            return Err(format!("Can't preview the adjacent room: {error}"));
+        }
+        Ok(())
+    }
+
     #[expect(
         clippy::wildcard_enum_match_arm,
         reason = "This handler owns only the authoring forms."

@@ -102,6 +102,11 @@ struct PreviewCommit {
     local_preview: LocalPreview,
 }
 
+enum HighlightStyle {
+    Diagnostic,
+    Placement,
+}
+
 pub(super) struct Viewport {
     testing: test_runtime::Testing,
     layout: super::layout::Layout,
@@ -128,6 +133,8 @@ pub(super) struct Viewport {
     selected: Option<ObjectId>,
     highlight_bounds: Option<Aabb>,
     highlight_surfaces: Vec<[[f32; 3]; 3]>,
+    placement_marker: Option<Vec3>,
+    highlight_style: HighlightStyle,
     size: DrawableSize,
     window_size: (u32, u32),
     drag: Drag,
@@ -187,6 +194,8 @@ impl Viewport {
             selected: None,
             highlight_bounds: None,
             highlight_surfaces: Vec::new(),
+            placement_marker: None,
+            highlight_style: HighlightStyle::Diagnostic,
             size: DrawableSize::new(width, height),
             window_size: window.size(),
             drag: Drag::Idle,
@@ -305,7 +314,21 @@ impl Viewport {
 
     pub fn highlight(&mut self, bounds: Option<Aabb>, surfaces: &[[[f32; 3]; 3]]) {
         self.highlight_bounds = bounds;
-        self.highlight_surfaces = surfaces.to_vec();
+        self.highlight_surfaces.clear();
+        self.highlight_surfaces.extend_from_slice(surfaces);
+        self.placement_marker = None;
+        self.highlight_style = HighlightStyle::Diagnostic;
+    }
+
+    pub fn highlight_placement(
+        &mut self,
+        marker: Option<Vec3>,
+        bounds: Option<Aabb>,
+        surfaces: &[[[f32; 3]; 3]],
+    ) {
+        self.highlight(bounds, surfaces);
+        self.placement_marker = marker;
+        self.highlight_style = HighlightStyle::Placement;
     }
 
     pub fn navigation_guides(
@@ -747,7 +770,14 @@ impl Viewport {
         }
         self.draw_handles(&mut guides);
         if let Some(bounds) = self.highlight_bounds {
-            guides.diagnostic(bounds, &self.highlight_surfaces);
+            guides.diagnostic(
+                bounds,
+                &self.highlight_surfaces,
+                matches!(self.highlight_style, HighlightStyle::Placement),
+            );
+        }
+        if let Some(marker) = self.placement_marker {
+            guides.landing_marker(marker);
         }
         let mut vertices = guides.finish();
         vertices.extend_from_slice(ui);

@@ -302,7 +302,7 @@ fn primary_tools(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
                 Action::Lighting(crate::editor::lighting::Command::Open),
                 open,
             );
-            text(v, "Select a light to assign", 5.0, 89.0, MUTED, 24);
+            text(v, "Apply to selected light", 5.0, 89.0, MUTED, 27);
         }
     }
 }
@@ -377,7 +377,7 @@ pub(in crate::editor) fn help(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
     for (row, line) in [
         "Build: Room, Elevator, Wall, Door, Stairs and openings.",
         "Assets: choose a prop, then Place chosen prop.",
-        "A selected prop receives the chosen model immediately.",
+        "To replace a model, use Properties / Replace model.",
         "Select an object for dimensions, surfaces and settings.",
         "Advanced / All tools keeps deeper authoring available.",
         "Right drag orbit / middle drag pan / wheel zoom / F frame",

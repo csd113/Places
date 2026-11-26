@@ -31,9 +31,7 @@ impl Tool {
     const fn hint(self) -> &'static str {
         match self {
             Self::Tunnel => "Click two mouth centres on one floor. Preview; Esc cancels.",
-            Self::RailPath => {
-                "Click the floor or walkway edge, then each corner. Apply path to finish."
-            }
+            Self::RailPath => "Click the floor to draft a path. Apply to place it.",
             Self::Wall => "Click start, then end. Walls snap to X/Z. Esc cancels.",
             Self::Doorway => "Click a wall: makes an opening only. Esc cancels.",
             Self::Door => "Click a wall or doorway: fits an interactive door. Esc cancels.",
@@ -114,10 +112,13 @@ pub(super) fn floor_point(app: &App, point: [f32; 2], height: f32) -> Option<[f3
 impl App {
     pub(super) fn start_placement(&mut self, tool: Tool) -> Result<(), String> {
         self.elevators.mode = None;
-        let _document = self
+        let document = self
             .document
             .as_ref()
             .ok_or("Open or create a project first")?;
+        if tool == Tool::Door && document.level().walls.is_empty() {
+            return Err("Add a wall first, then use Door to cut an opening and fit a door.".into());
+        }
         self.popup = None;
         self.focus.isolated = None;
         let layer = if tool == Tool::Light { 2 } else { 0 };
@@ -149,6 +150,18 @@ impl App {
         self.retire_construction();
         self.changed();
     }
+    pub(super) fn discard_placement(&mut self) {
+        let status = match self.placement.as_ref().map(|p| p.tool) {
+            Some(Tool::RailPath) => "Railing draft discarded. Nothing was placed or added to Undo.",
+            Some(Tool::Wall) if self.placement.as_ref().is_some_and(|p| p.chain) => {
+                "Wall chain ended. Placed segments remain in Undo history."
+            }
+            _ => "Placement cancelled.",
+        };
+        self.cancel_placement();
+        self.status = status.into();
+    }
+
     fn placement_position(&mut self, point: [f32; 2]) -> Option<[f32; 3]> {
         if let Some(placement) = &mut self.placement
             && placement.tool == Tool::RailPath
@@ -314,16 +327,7 @@ impl App {
                         if let Some(p) = &mut self.placement {
                             p.candidate = Some((raw, id));
                         }
-                        self.status = if tool == Tool::Wall {
-                            format!(
-                                "Wall {:.2}m | click to place | Esc cancels",
-                                start_point.map_or(0.0, |s| (s[0] - at[0]).hypot(s[2] - at[2]))
-                            )
-                        } else if tool == Tool::ElectricalPanel {
-                            super::electrical_panel::preview_message(&level, id).into()
-                        } else {
-                            "Preview ready. Click to place; Esc cancels.".into()
-                        };
+                        self.status = placement_preview_message(tool, start_point, at, &level, id);
                     }
                     Err(e) => self.placement_error(&e),
                 }
@@ -433,9 +437,7 @@ impl App {
                 win_event: WindowEvent::FocusLost,
                 ..
             } => {
-                self.cancel_placement();
-                self.status =
-                    "Placement cancelled; completed segments remain in undo history.".into();
+                self.discard_placement();
             }
             Event::MouseMotion { x, y, .. } => {
                 if let Some(p) = convert(*x, *y).filter(|p| self.viewport.contains_ui(*p)) {
@@ -463,7 +465,7 @@ impl App {
                             && let Some(end) = p.end
                         {
                             p.points.push(end);
-                            self.status = "Corner added. Continue the path or Apply path; Esc discards the whole preview.".into();
+                            self.status = "Draft point added. Continue or Apply path; Esc discards the whole draft.".into();
                         }
                         return true;
                     }
@@ -525,8 +527,12 @@ impl App {
             && p.start.is_none()
         {
             p.start = Some(at);
-            self.status =
-                "Start set. Move the pointer, then click the endpoint. Esc cancels.".into();
+            self.status = if p.tool == Tool::RailPath {
+                "Draft start set. Click to add the next point; Esc discards the draft."
+            } else {
+                "Start set. Move the pointer, then click the endpoint. Esc cancels."
+            }
+            .into();
             return true;
         }
         false
@@ -554,7 +560,7 @@ impl App {
             .ok_or("Open a project")?
             .apply_authoring_edit(&expected, raw)?;
         self.cancel_placement();
-        self.status = "Railing path placed atomically. Undo restores the full path.".into();
+        self.status = "Railing placed. One Undo removes the entire path.".into();
         Ok(())
     }
     fn begin_wall_drag(&mut self, point: [f32; 2]) -> bool {
@@ -703,10 +709,36 @@ pub(super) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             v,
             hits,
             [308.0, 48.0, 56.0, 12.0],
-            "Cancel / Esc",
+            if p.tool == Tool::RailPath {
+                "Discard"
+            } else {
+                "Cancel / Esc"
+            },
             Action::CancelPlacement,
             true,
         );
+    }
+}
+
+fn placement_preview_message(
+    tool: Tool,
+    start: Option<[f32; 3]>,
+    point: [f32; 3],
+    level: &crate::engine::level::LevelDef,
+    id: ObjectId,
+) -> String {
+    match tool {
+        Tool::Wall => format!(
+            "Wall {:.2}m | click to place | Esc cancels",
+            start.map_or(0.0, |s| (s[0] - point[0]).hypot(s[2] - point[2]))
+        ),
+        Tool::RailPath => {
+            "Click to add a draft point. Apply path places it; Esc discards the draft.".into()
+        }
+        Tool::ElectricalPanel => super::electrical_panel::preview_message(level, id).into(),
+        Tool::Door | Tool::Doorway | Tool::Tunnel | Tool::Light | Tool::WallSign => {
+            "Preview ready. Click to place; Esc cancels.".into()
+        }
     }
 }
 

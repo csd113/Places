@@ -352,13 +352,22 @@ pub(in crate::editor) fn candidate(
     raw: &serde_json::Value,
     id: ObjectId,
 ) -> Result<serde_json::Value, String> {
+    candidate_with_step(level, raw, id, None)
+}
+
+pub(super) fn candidate_with_step(
+    level: &LevelDef,
+    raw: &serde_json::Value,
+    id: ObjectId,
+    step: Option<f32>,
+) -> Result<serde_json::Value, String> {
     let catalog = PropCatalog::load_default();
     let mut assets = PropAssets::load_default();
     let pose = mounted_transform(
         level,
         id,
         objects::transform(level, id)?,
-        None,
+        step,
         &catalog,
         &mut assets,
     )?;

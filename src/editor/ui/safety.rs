@@ -284,7 +284,7 @@ fn correction(v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, finding: &SafetyFinding)
     }
 }
 
-fn wrapped(
+pub(in crate::editor) fn wrapped(
     v: &mut Vec<Vertex>,
     value: &str,
     [x, y]: [f32; 2],

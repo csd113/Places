@@ -213,12 +213,11 @@ fn object_essentials(
                 .document
                 .as_ref()
                 .and_then(|document| document.level().props.get(index));
-            let model = selected_prop.map_or("Model", |prop| prop.model.as_str());
             row_button(
                 vertices,
                 hits,
                 top,
-                &format!("Model: {model} >"),
+                "Replace model >",
                 Action::Assets,
                 editable,
             );

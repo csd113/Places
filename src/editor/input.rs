@@ -111,6 +111,20 @@ impl App {
         if self.popup.is_none()
             && self.translation.is_none()
             && self.wall_drag.is_none()
+            && !(self.escalator.is_some()
+                && matches!(
+                    event,
+                    Event::MouseMotion {
+                        timestamp: _,
+                        window_id: _,
+                        which: _,
+                        mousestate: _,
+                        x: _,
+                        y: _,
+                        xrel: _,
+                        yrel: _,
+                    }
+                ))
             && pointer_on_control(event, window, hits)
         {
             return false;

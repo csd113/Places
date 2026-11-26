@@ -4,9 +4,14 @@ pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit
         && draft.preview
     {
         ui::rect(v, [122.0, 207.0, 348.0, 31.0], [0.075, 0.11, 0.14, 1.0]);
+        let adjacent_room = draft.tool == Tool::Room && app.view.simple && !app.dock.advanced;
         ui::text(
             v,
-            "VALIDATED PREVIEW / source unchanged",
+            if adjacent_room {
+                "ADJACENT ROOM PREVIEW / nothing added yet"
+            } else {
+                "VALIDATED PREVIEW / source unchanged"
+            },
             130.0,
             211.0,
             ui::INK,
@@ -17,7 +22,9 @@ pub(in crate::editor) fn draw(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit
             (242.0, "Apply", Action::Author(Command::Apply)),
             (354.0, "Cancel", Action::ClosePopup),
         ] {
-            ui::popup_button(v, hits, [x, 222.0, 105.0, 12.0], label, action);
+            if !adjacent_room || action != Action::Author(Command::Field(0)) {
+                ui::popup_button(v, hits, [x, 222.0, 105.0, 12.0], label, action);
+            }
         }
         if draft.tool == Tool::Water {
             draw_water_slice(app, draft, v, hits);

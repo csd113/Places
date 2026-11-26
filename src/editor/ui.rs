@@ -15,7 +15,7 @@ mod inspector;
 pub(super) mod library;
 mod navigation;
 mod runtime;
-mod safety;
+pub(super) mod safety;
 mod scripts;
 mod transform;
 mod workspace;
@@ -153,6 +153,7 @@ pub(super) enum Action {
     Add(ObjectKind),
     StairWizard,
     StairFloor(bool),
+    StairAddUpper,
     StairPreview,
     StairApply,
     Geometry,

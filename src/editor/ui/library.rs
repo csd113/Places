@@ -6,7 +6,7 @@ use super::{
 };
 use crate::editor::{
     App,
-    browser::{DOCK_PAGE_SIZE, choice_action, dock_tile_bounds, tile_bounds},
+    browser::{choice_action, dock_catalog_top, dock_tile_bounds, tile_bounds},
     gameplay_actions::GameplayChoice,
 };
 use crate::engine::render::Vertex;
@@ -201,11 +201,7 @@ fn draw_tiles(
 /// Inline catalog tiles occupy the left dock; the modal catalog remains available
 /// for contextual selectors. Both use the same bounded committed-image cache.
 pub(in crate::editor) fn draw_dock(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
-    let top = match app.dock.tab {
-        Tab::Build => 132.0,
-        Tab::Assets => 74.0,
-        Tab::Lighting => 98.0,
-    };
+    let top = dock_catalog_top(app.dock.tab);
     let placeholder = match app.dock.catalog {
         Catalog::Materials => "Search materials...",
         Catalog::Models => "Search props...",
@@ -244,14 +240,26 @@ pub(in crate::editor) fn draw_dock(app: &App, v: &mut Vec<Vertex>, hits: &mut Ve
     let ids = app.dock_choices();
     draw_dock_tiles(app, v, hits, &ids);
     if ids.is_empty() {
-        text(v, "No matching assets", 7.0, top + 36.0, INK, 25);
-        text(v, "Clear search to browse", 7.0, top + 46.0, MUTED, 25);
+        let results_y = if app.dock.tab == Tab::Build {
+            210.0
+        } else {
+            top + 36.0
+        };
+        text(v, "No matching assets", 7.0, results_y, INK, 25);
+        text(
+            v,
+            "Clear search to browse",
+            7.0,
+            results_y + 10.0,
+            MUTED,
+            25,
+        );
     }
     draw_dock_pages(app, v, hits, &ids, top);
 }
 
 fn draw_dock_pages(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, ids: &[String], top: f32) {
-    let page_size = DOCK_PAGE_SIZE;
+    let page_size = app.dock_page_size();
     let final_page = ids
         .len()
         .saturating_sub(1)
@@ -317,7 +325,7 @@ fn search_label(app: &App, placeholder: &str) -> String {
 }
 
 fn draw_dock_tiles(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, ids: &[String]) {
-    let page_size = DOCK_PAGE_SIZE;
+    let page_size = app.dock_page_size();
     for (offset, (index, id)) in ids
         .iter()
         .enumerate()
@@ -375,6 +383,9 @@ fn draw_dock_tiles(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>, ids: &[S
 }
 
 fn dock_assigned(app: &App, id: &str) -> bool {
+    if app.dock.catalog == Catalog::Models {
+        return app.prop == id;
+    }
     let Some(selected) = app.selected else {
         return false;
     };
