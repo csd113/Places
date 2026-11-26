@@ -29,6 +29,14 @@
 ### 35. Audit existing tools for a more beginner-friendly Basic mode
 **Queued, audit only.** Walk common workflows in the native editor as a first-time user, starting in Basic mode. Look for existing tools whose labels, placement flow, defaults, previews, instructions, Undo, or error recovery make a simple job harder than it needs to be. Check room and opening creation, stairs and escalators, railing and prop placement, lighting, and Quick Test. Separate screen-verified findings from source-only observations. Rank the strongest opportunities and describe a concrete simpler flow for each, keeping specialist controls in Advanced and avoiding extra steps for common tasks. Report recommendations before implementing anything.
 
+## Compiler and VR follow-ups
+
+### 36. Find ways to speed up map compilation and lighting bakes
+**Queued.** Measure matched exports of compact and representative editor-authored maps. Compare forced Full builds with unchanged and incremental exports, holding quality and worker counts stable. Break down lighting solve, other compile phases, caching, and packaging; verify output and prioritize the strongest measured opportunities without lowering quality. Do not reuse a cached stage as evidence of faster Full solving or reopen the earlier RTX scope.
+
+### 37. Investigate Valve Index compatibility
+**Queued, feasibility only.** After item 36, assess Windows SteamVR/OpenXR support on the Razer with the Valve Index. Check headset connection and tracking prerequisites, graphics adapter/runtime compatibility, and what the existing renderer, input, and frame timing would need. Separate source findings from anything verified on hardware, and recommend the smallest viable prototype. Do not implement VR under this item.
+
 ## Not in this queue
 
 - GitHub #27–#31 are already closed as completed. Do not reopen, replay their old checklists or restore their work as separate tasks. Only overlapping checks independently required by an active issue still apply.
