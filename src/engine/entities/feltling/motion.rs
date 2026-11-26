@@ -5,13 +5,19 @@ use crate::engine::door::Doors;
 use crate::engine::entities::WorldContext;
 use crate::engine::nav::{NavDoorState, PathQuery};
 use glam::{Vec2, Vec3};
+use std::cell::RefCell;
+use std::collections::HashMap;
+
+const MAX_QUERY_SWEEPS: usize = 4096;
 
 /// Both navigation queries and accepted physical substeps consult the same
 /// live door/obstacle snapshot. A failed route stays blocked and retries.
+/// Sweep results belong to this query only: the next retry gets fresh obstacles.
 struct Overlay<'a> {
     doors: &'a Doors,
     solids: &'a [WallAabb],
     leaves: &'a [DoorCollider],
+    sweeps: RefCell<HashMap<[u32; 8], bool>>,
 }
 impl NavDoorState for Overlay<'_> {
     fn door_open(&self, id: &str) -> bool {
@@ -27,6 +33,32 @@ impl NavDoorState for Overlay<'_> {
         self.doors.door_obstructed(id)
     }
     fn obstacle_segment_blocked(&self, from: Vec3, to: Vec3, radius: f32, height: f32) -> bool {
+        // Keep direction and exact float bits: a sweep may separate from an
+        // initial overlap in one direction but be blocked in the reverse.
+        let key = [
+            from.x.to_bits(),
+            from.y.to_bits(),
+            from.z.to_bits(),
+            to.x.to_bits(),
+            to.y.to_bits(),
+            to.z.to_bits(),
+            radius.to_bits(),
+            height.to_bits(),
+        ];
+        let mut sweeps = self.sweeps.borrow_mut();
+        if let Some(&blocked) = sweeps.get(&key) {
+            return blocked;
+        }
+        let blocked = self.sweep_blocked(from, to, radius, height);
+        if sweeps.len() < MAX_QUERY_SWEEPS {
+            let _previous = sweeps.insert(key, blocked);
+        }
+        blocked
+    }
+}
+
+impl Overlay<'_> {
+    fn sweep_blocked(&self, from: Vec3, to: Vec3, radius: f32, height: f32) -> bool {
         crate::engine::collision::dynamic_disc_segment_blocked(
             Vec2::new(from.x, from.z),
             Vec2::new(to.x, to.z),
@@ -294,6 +326,7 @@ impl Feltling {
                     doors,
                     solids,
                     leaves,
+                    sweeps: RefCell::default(),
                 },
             };
             if nav

@@ -112,6 +112,10 @@ outside that inventory.
 - Fix a periodic gameplay stall caused by collecting full world snapshots for
   the support journal. Ordinary periodic entries now log compact context.
   App-state changes and explicit diagnostic traces retain full snapshots.
+- Reuse exact obstacle checks within each Feltling route query. In a Razer
+  replay of The Long Way Home Introduction, the first two frame spikes fell
+  from about 30 ms to 26 ms without disappearing. Route results matched on
+  identical live snapshots. Other scenes were not tested.
 
 ### Editor, import and export
 

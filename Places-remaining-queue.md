@@ -45,8 +45,12 @@ pairs on stock `706dd2d8` versus the reviewed patch, peak `loop_ms` in the estim
 window fell from 31.14/30.75 to 7.11/7.24 ms. The compact records parsed at 622/623 bytes instead of truncating
 at 4,096. A separate explicit trace recorded 13,039 ready presents with none missed and retained full periodic
 and state-change snapshots. Strict Clippy and the locked all-features release build passed. This covers
-representative Long Way Home scenes, not the full level. The separate Introduction world-tick spike was not
-changed, and item 10 and #53 remain open.
+representative Long Way Home scenes, not the full level. It did not address the separate Introduction spike.
+
+**Reduced the Introduction spike.** Reusing exact obstacle sweeps within each Feltling query reduced the first
+two measured Razer DX12 Immediate loop intervals from 30.40/29.96 ms to 26.24/26.46 ms. All three same-snapshot
+comparisons matched the stock route results exactly. The spike remains, other scenes were not tested for this
+change, and item 10 and #53 remain open.
 
 ## Audio, HUD and environment work
 
