@@ -40,6 +40,18 @@
 
 Use a compact editor-authored fixture and native Basic mode checks. Confirm Quick Test still preserves the camera, unsaved edits, and undo history. Have a separate reviewer verify the exact diff and observed behavior.
 
+## Christmas environment follow-up
+
+### 39. Add four original Christmas shop props
+**Queued.** Create original assets using the Dot Cloud Computer’s Blender and GIMP as appropriate. Match the existing Places style and add all four to the Christmas environment’s editor catalogue. Keep Basic placement simple. Use the existing editable Christmas shop and preserve the oak floor, other furnishings and room layout.
+
+1. **Wind-up Christmas music box.** An interactive display prop that plays a short original or cleared tune when wound and audibly runs down. Give it a clear interaction prompt and verify repeat activation and that playback stops.
+2. **Advent calendar.** A small wall or counter display with a few doors left open. No calendar/date system or new interaction needed.
+3. **Brass sleigh bells on a leather strap.** A pickup physics prop. Jingle while moved, not just on pickup or impact. Gentle movement should sound soft and sparse; harder shaking should sound stronger and denser; stationary bells should fall silent. Verify held movement, gentle and vigorous shaking, and movement after dropping. Avoid continuous chatter from idle physics jitter; build on existing physics/audio hooks where practical.
+4. **Foil tinsel garland.** A draped storefront version and a straight shelf or railing version. Keep both easy to place in Basic mode.
+
+Add the new assets to the changelog. Verify in a compact native editor fixture and save an editable shop checkpoint. Do not start a full lighting bake or playable mall export.
+
 ## Not in this queue
 
 - GitHub #27–#31 are already closed as completed. Do not reopen, replay their old checklists or restore their work as separate tasks. Only overlapping checks independently required by an active issue still apply.
