@@ -36,6 +36,7 @@ and linked reports retain historical implementation and validation details.
   companions that follow the player and fight zombies. Fallen combatants stay as
   ragdolls that the crowbar can still strike. The bound Interact key respawns the
   player and resets the encounter. Update the zombie mannequin skin.
+- Refresh the Man, Woman, Scientist and Robot NPC skins on the shared mannequin rig.
 - Fix forward momentum when jumping with a held prop and use the player’s actual
   movement when releasing one. Keep swimming and held-prop slides moving along
   clear paths without passing through obstructions.
