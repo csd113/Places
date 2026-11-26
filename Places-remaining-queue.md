@@ -54,17 +54,6 @@ change, and item 10 and #53 remain open.
 
 ## Audio, HUD and environment work
 
-### 20. [GitHub #32: Spatial audio](https://github.com/csd113/Places/issues/32)
-**Open for objective software validation only.** Extend leak, resource and performance checks to remaining longer-session and platform coverage. Prior bounded lifetime checks stand. Physical listening, headphone localization, speaker listening, physical hotplug and hardware-driver memory checks are not release requirements. This is a scope change, not a claim that those checks passed.
-
-**Reviewed native Windows evidence.** The existing editor export validated and recovered Office and Pool source byte-for-byte. Both reopened in the editor and played after import through Realtek WASAPI. Office ramp travel started and retired one intercom loop. Pool movement updated the water source and acoustic path, the closet door changed attenuation, and the headphones and stereo software modes both operated. An authored Aero Luau action started its fountain cue. The archive passed integrity validation but failed `--require-current` after compiler preparation changed. No fresh Office or Pool export or lighting bake was run.
-
-The reviewed Razer endurance run submitted 721.44 seconds of Pool mixer output on one Realtek WASAPI endpoint, with 14 software mode changes and 15 clean sampled checkpoints. The Pool loop retired on transition to Office, and a nonexistent device produced a silent startup fallback. This was not a full leak audit.
-
-**Representative authored settings and Luau roundtrip passed independent review.** Two compact Linux editor-exported maps passed strict currentness and byte-for-byte source recovery. The imported native player started the authored spatial water loop on interaction. A separate one-room Windows editor export also passed strict currentness and recovered the source byte-for-byte, and its door-linked Luau action started exactly one spatial loop after import. Neither was a fresh Office or Pool export.
-
-Linux PulseAudio submitted 131.59 seconds of mixed audio without reported mixer errors or voice or capture-tap drops. The stream moved between virtual sinks and stayed on the fallback when the first sink returned. Process-memory bounds apply only to that run, which did not establish gap-free transitions. Item 20 and #32 remain open for the remaining objective software checks.
-
 ### 23. [GitHub #34: Optional HUD, health and melee](https://github.com/csd113/Places/issues/34)
 Keep the existing six-HP player, three hearts, disabled-by-default HUD and crowbar behavior. Finish human NPC defaults (six HP, honoring lower authored values and immortality), monster defaults (generally at least 18 HP with design-specific balancing), and the flashlight indicator (visible only on an enabled map while on, no off-state placeholder). Verify repeated transitions/reloads/toggles without stale HUD state. Keep HUD visibility independent of gameplay enablement.
 
