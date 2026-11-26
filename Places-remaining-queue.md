@@ -24,11 +24,6 @@
 ### 32. [GitHub #43: Technical architecture and API documentation](https://github.com/csd113/Places/issues/43)
 **Deferred.** Leave GitHub #43 open. The issue explicitly requests documentation, but the newer standing direction is **no routine task reports or reference sheets**. Reconcile that before writing. Cover current engine/game/editor/compiler responsibilities, shared ownership and important data contracts, and the real editor → compiler → package → player path. Verify links/examples against current code and prefer concise maintained content to copying the issue’s historical multi-document scope verbatim. This isn’t an architecture rewrite.
 
-## Compiler and VR follow-ups
-
-### 37. Investigate Valve Index compatibility
-**Queued, feasibility only.** Assess Windows SteamVR/OpenXR support on the Razer with the Valve Index. Check headset connection and tracking prerequisites, graphics adapter/runtime compatibility, and what the existing renderer, input, and frame timing would need. Separate source findings from anything verified on hardware, and recommend the smallest viable prototype. Do not implement VR under this item.
-
 ## Editor follow-ups
 
 ### 38. Fix the eight Basic mode usability findings
