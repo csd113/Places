@@ -69,11 +69,6 @@ Independent review also verified a separate one-room Windows editor export that 
 
 **Reviewed Linux software validation passed.** Two compact editor-exported maps passed strict currentness and byte-for-byte source recovery. The native player started the authored spatial loop after import; the prior Windows export independently covers the complementary Luau action. PulseAudio submitted 131.59 seconds of mixed audio with no reported errors or drops and moved the stream to a virtual fallback sink. Physical listening, physical hotplug, and wider driver coverage remain open.
 
-### 22. Static audit of all Settings tabs
-After the audio sliders, inspect grouping, order, labels, duplication, buried controls, discoverability, keyboard/navigation/accessibility concerns, and source organization. Give prioritized concrete improvements, distinguishing actual behavior from source inference and preference. This is read-only; no redesign or code change.
-
-**Static audit complete at `949acdf8`.** Fix first: the Back and Restore Defaults pointer hit targets overlap, so a Back click can reset preferences. Left/Right can also activate Restore Defaults when that row is selected. Next, keep the Console binding from consuming menu Enter, and make pointer scrolling work in Expanded Graphics. In Audio, keep clamped live gain feedback even when the pointer leaves the track, and persist once per release or focus loss rather than writing each drag step. These are source-confirmed findings and separate follow-up fixes. A numeric slider readout and renaming Output to Spatial Audio are usability suggestions. No Settings production code changed.
-
 ### 23. [GitHub #34: Optional HUD, health and melee](https://github.com/csd113/Places/issues/34)
 Keep the existing six-HP player, three hearts, disabled-by-default HUD and crowbar behavior. Finish human NPC defaults (six HP, honoring lower authored values and immortality), monster defaults (generally at least 18 HP with design-specific balancing), and the flashlight indicator (visible only on an enabled map while on, no off-state placeholder). Verify repeated transitions/reloads/toggles without stale HUD state. Keep HUD visibility independent of gameplay enablement.
 
