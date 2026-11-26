@@ -32,6 +32,22 @@
 ### 37. Investigate Valve Index compatibility
 **Queued, feasibility only.** After item 36, assess Windows SteamVR/OpenXR support on the Razer with the Valve Index. Check headset connection and tracking prerequisites, graphics adapter/runtime compatibility, and what the existing renderer, input, and frame timing would need. Separate source findings from anything verified on hardware, and recommend the smallest viable prototype. Do not implement VR under this item.
 
+## Editor follow-ups
+
+### 38. Fix the eight Basic mode usability findings
+**Queued.** Follow up on the completed Basic mode audit. Keep the existing working workflows and prioritize simple, guided controls in Basic. Keep raw records and power-user controls in Advanced. No unrelated redesign.
+
+1. Fix the Materials layout so search results and tiles never cover **Add Escalator** or **Place Railing**. Verify both controls are visible and clickable at the 1440 × 816 audit viewport.
+2. Make browsing or selecting a prop tile choose what to place next, not silently replace an already selected prop. With a Chair selected, browse Armchair and cancel without changing the Chair or undo history; place a separate Armchair and confirm Undo removes only that placement. Preserve explicit replacement in Properties and check the electrical-panel and escalator tile paths.
+3. Give Basic stairs a valid pair of distinct floors when available, or an **Add Upper Floor** shortcut. Make insufficient run and landing clearance actionable without weakening the existing check. Verify a valid pair places stairs and the cramped starter layout still refuses invalid placement.
+4. For escalators, make the first click visibly mark the lower landing and prompt for the higher landing instead of showing a premature same-floor error. Verify valid placement and clear feedback for invalid endpoints.
+5. Make Basic **Room** start with the existing adjacent-room preview and apply flow rather than the raw coordinate editor. Keep record editing in Advanced.
+6. Make railing wording match what it does: clicks add draft points, Cancel describes its actual effect, and committing a railing is one undoable action. Preserve default floor attachment.
+7. When there is no wall for a door, show **Add a wall first** or equivalent actionable guidance. Verify ordinary placement and Undo still work.
+8. Label UV material tiles as applying to the selected surface, not choosing what to place next. Verify the existing default placement flow still works.
+
+Use a compact editor-authored fixture and native Basic mode checks. Confirm Quick Test still preserves the camera, unsaved edits, and undo history. Have a separate reviewer verify the exact diff and observed behavior.
+
 ## Not in this queue
 
 - GitHub #27–#31 are already closed as completed. Do not reopen, replay their old checklists or restore their work as separate tasks. Only overlapping checks independently required by an active issue still apply.
