@@ -211,6 +211,20 @@ Build a small, walkable gallery by hand in the Places level editor. Place one ex
 
 Treat it as a snapshot of the current catalog to show friends, not a test fixture. No automated placement, generated map edits, test suite, coverage checks, or automatic updates when the catalog changes. Save the editable map and export a standalone `.placesmap` separately; do not bundle it with the base game or put it in the default map list.
 
+### 34. Christmas environment props and models
+**Queued.** Create all-new, Christmas-specific models and textures in the Dot’s own Blender and GIMP, not on Connor’s computers. Do not reuse, recolor, or repackage existing Arcade gifts or Winter string lights. Match Places’ low-poly style, in-game scale, and asset conventions.
+
+- Hanging Christmas wreath
+- Wrapped Christmas presents
+- Candy cane
+- Three distinct small wooden toys
+- Small angel statue
+- Small nutcracker
+- German marzipan loaf
+- Christmas lights
+
+This item covers new assets and their editor-catalog validation. No new map, Mall decoration, or full bake is in scope.
+
 ## Not in this queue
 
 - GitHub #27–#31 are already closed as completed. Do not reopen, replay their old checklists or restore their work as separate tasks. Only overlapping checks independently required by an active issue still apply.
