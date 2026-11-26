@@ -457,6 +457,47 @@ impl Renderer {
         self.renderer.set_texture_filtering(mode);
     }
 
+    pub(crate) fn globe_sample(&self) -> (u32, Option<[f32; 3]>) {
+        self.renderer.globe_sample()
+    }
+
+    /// The shared game/Quick Test boundary for solved festive prop impacts.
+    pub(crate) fn sync_prop_fractures(&mut self, world: &mut crate::engine::physics::ItemWorld) {
+        let retired = world.drain_fragment_retirements();
+        if !retired.is_empty() {
+            let _retired = self.despawn_runtime_models(&retired);
+        }
+        for plan in world.drain_break_plans() {
+            let panels = plan.kind.panels();
+            let mut staged = Vec::with_capacity(panels.len());
+            let result: Result<(), String> = panels.iter().copied().try_for_each(|panel| {
+                let key = world.next_fragment_key().ok_or("Fracture piece key unavailable")?;
+                let pose = world.spawn_break_fragment(key, plan, panel)?;
+                staged.push(key);
+                if self.spawn_runtime_model(key, panel.path, pose.position.to_array(), 0.0, plan.scale)
+                    && self.set_runtime_model_pose(key, pose.position.to_array(), pose.rotation.to_array())
+                {
+                    Ok(())
+                } else {
+                    Err("Fracture piece renderer admission failed".into())
+                }
+            });
+            if result.is_ok() && self.set_runtime_model_visible(plan.key, false)
+                && world.commit_break(plan.key, staged.clone())
+            {
+                continue;
+            }
+            let _restored = self.set_runtime_model_visible(plan.key, true);
+            for key in &staged {
+                let _removed = world.remove(*key);
+            }
+            let _discarded = self.despawn_runtime_models(&staged);
+            if let Err(error) = result {
+                crate::engine::logging::warn_once("festive-prop-fracture", error);
+            }
+        }
+    }
+
     /// Spawns the level's dynamic demonstration objects.
     pub fn set_dynamic_demo(&mut self, level: &LevelDef) -> usize {
         self.renderer.set_dynamic_demo(level)

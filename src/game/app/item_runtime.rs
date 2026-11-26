@@ -9,7 +9,6 @@ use super::FrameLoop;
 use crate::engine::{level::LevelDef, physics::PlayerContext};
 use crate::game::AppState;
 
-const AUTHORED_ITEM_KEY_BASE: u64 = 1_u64 << 63;
 
 #[derive(Clone, Copy)]
 pub enum InteractionTarget {
@@ -123,7 +122,7 @@ impl PreparedItems {
                 )?;
             } else {
                 let key =
-                    AUTHORED_ITEM_KEY_BASE.saturating_add(u64::try_from(index).unwrap_or(u64::MAX));
+                    crate::engine::physics::prop_fracture::authored_item_key(index);
                 prepared.world.spawn_authored_oriented(
                     key,
                     def,
@@ -132,6 +131,7 @@ impl PreparedItems {
                     prop.orientation(),
                     prop.scale,
                 )?;
+                prepared.world.install_breakable(key, prop);
                 prepared.spawns.push((key, index, position.to_array()));
                 prepared.authored.push((
                     key,
@@ -777,6 +777,7 @@ impl FrameLoop<'_> {
             self.game.door_colliders(),
             self.game.airborne_velocity(),
         );
+        self.renderer.sync_prop_fractures(&mut self.items.world);
         for recovery in self.items.world.take_recoveries() {
             if recovery.released_held {
                 self.items.input.invalidate();

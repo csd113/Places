@@ -382,6 +382,9 @@ impl Document {
             {
                 return Err("Do not replace a live mechanism's model; place another preset".into());
             }
+            if asset != crate::engine::props::feltling_costume::FELTLING_ID {
+                drop(object.remove("feltling_costume"));
+            }
             objects::apply_mechanism_preset(&mut raw, id, asset)?;
         }
         drop(object_mut(&mut raw, id)?.insert(key.into(), asset.into()));

@@ -252,6 +252,8 @@ pub struct EffectUpdate {
 pub struct EffectScene {
     emitters: Vec<EffectEmitter>,
     textures: Vec<EffectTexture>,
+    globes: Vec<super::globe_snow::Globe>,
+    globe_texture: Option<usize>,
     groups: Vec<EffectDrawGroup>,
     clock: f32,
     snow: Option<super::snow::SnowScene>,
@@ -271,6 +273,8 @@ impl Default for EffectScene {
         Self {
             emitters: Vec::new(),
             textures: Vec::new(),
+            globes: Vec::new(),
+            globe_texture: None,
             groups: Vec::new(),
             clock: f32::NAN,
             snow: None,
@@ -348,6 +352,21 @@ impl EffectScene {
                     crate::engine::weather::strength_compatible(weather, alternate);
             }
         }
+        scene.globes = super::globe_snow::placed(level);
+        if !scene.globes.is_empty() {
+            use crate::engine::materials::{BuiltinImage, TextureOrigin};
+            scene.globe_texture = Some(scene.textures.len());
+            scene.textures.push(EffectTexture {
+                texture: ResolvedTexture {
+                    key: "builtin:globe-snow-white".into(),
+                    origin: TextureOrigin::Catalog,
+                    class: crate::engine::quality::TextureClass::Surface,
+                    image: std::sync::Arc::new(BuiltinImage::EmergencyWhite.decode()),
+                },
+                tile_metres: 1.0,
+                alpha: MaterialAlpha::blend(1.0),
+            });
+        }
         scene.weather = crate::engine::weather::WeatherPlayback::new(level.weather_cycle);
         scene
     }
@@ -379,7 +398,7 @@ impl EffectScene {
     /// True when the level authors no drawable effect.
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.emitters.is_empty() && self.snow.is_none()
+        self.emitters.is_empty() && self.snow.is_none() && self.globes.is_empty()
     }
 
     /// The resolved emitters, in material-grouped order.
@@ -433,7 +452,12 @@ impl EffectScene {
                     .as_ref()
                     .map_or(0, super::snow::SnowScene::budget),
             );
-        self.emitters.iter().fold(snow_budget, |total, emitter| {
+        let globe_budget = if self.globes.is_empty() {
+            0
+        } else {
+            super::globe_snow::BUDGET
+        };
+        self.emitters.iter().fold(snow_budget.saturating_add(globe_budget), |total, emitter| {
             total.saturating_add(emitter.count)
         })
     }
@@ -533,6 +557,8 @@ impl EffectScene {
     /// [`DynamicScene::clear_all`](crate::engine::render::common::dynamic::DynamicScene::clear_all).
     pub fn clear_all(&mut self) {
         self.emitters.clear();
+        self.globes.clear();
+        self.globe_texture = None;
         self.snow = None;
         self.alternate_snow = None;
         self.weather = crate::engine::weather::WeatherPlayback::default();
@@ -606,6 +632,23 @@ impl EffectScene {
             }
         }
         written
+    }
+
+    pub(crate) fn set_globe_pose(&mut self, key: u64, position: [f32; 3], rotation: [f32; 4]) {
+        super::globe_snow::Globe::set_pose(&mut self.globes, key, position, rotation);
+    }
+
+    pub(crate) fn set_globe_visible(&mut self, key: u64, visible: bool) {
+        super::globe_snow::Globe::set_visible(&mut self.globes, key, visible);
+    }
+
+    /// Appends one group of near-only globe particles, before glass rendering.
+    pub(crate) fn append_globe_billboards(
+        &self, camera: [f32; 3], out: &mut Vec<EffectVertex>,
+    ) -> Option<(usize, usize)> {
+        let texture = self.globe_texture?;
+        let count = super::globe_snow::append(&self.globes, self.clock(), Vec3::from_array(camera), out);
+        (count != 0).then_some((texture, count))
     }
 
     /// Rebuilds the contiguous per-material draw ranges from the (already

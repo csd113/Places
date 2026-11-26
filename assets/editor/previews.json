@@ -798,6 +798,126 @@
     "sha256": "0111a91e5581547accda95762ee2b218693b9306eb3d051b07df7f8fb6354e20",
     "source": "entities/carved-pumpkin/model/carved-pumpkin.glb"
   },
+  "christmas:angel_statue": {
+    "path": "editor/previews/item34_angel_statue.png",
+    "sha256": "599b7efc7fd30ba8da456d75682ca2d1ad8d2722f15d367b1c6916d79e7b065d",
+    "source": "environments/christmas/props/angel_statue.glb"
+  },
+  "christmas:candle_cream": {
+    "path": "editor/previews/item34_candle_cream.png",
+    "sha256": "d721e37228d49904f0201cc764f4058a081ef4039a354e85205894d024494f27",
+    "source": "environments/christmas/props/candle_cream.glb"
+  },
+  "christmas:candles_advent": {
+    "path": "editor/previews/item34_candles_advent.png",
+    "sha256": "e239e92ae6fe2a858998684db424b0f240f9f45a1b910dd5be1335c3a518fddc",
+    "source": "environments/christmas/props/candles_advent.glb"
+  },
+  "christmas:candy_cane": {
+    "path": "editor/previews/item34_candy_cane.png",
+    "sha256": "73ce0042b35fb0eff9eb342fc523f496ee460ed274f07aa0147e09a04f3f4f55",
+    "source": "environments/christmas/props/candy_cane.glb"
+  },
+  "christmas:gingerbread_cookie": {
+    "path": "editor/previews/item34_gingerbread_cookie.png",
+    "sha256": "44453aee4a4f7f5f78c87dd5c50cf53b7d6d3a69050cf82df20e40b056bff368",
+    "source": "environments/christmas/props/gingerbread_cookie.glb"
+  },
+  "christmas:gingerbread_house": {
+    "path": "editor/previews/item34_gingerbread_house.png",
+    "sha256": "18cc866d4c545bbbe3950afafe6c6091a0a31abc0e630ed5808b5d1b3944f632",
+    "source": "environments/christmas/props/gingerbread_house.glb"
+  },
+  "christmas:lights_festoon": {
+    "path": "editor/previews/item34_lights_festoon.png",
+    "sha256": "b2427f0afba04f8ddfaadcfc4518c6923dbb818393014e46203cd90a77b61af9",
+    "source": "environments/christmas/props/lights_festoon.glb"
+  },
+  "christmas:marzipan_loaf": {
+    "path": "editor/previews/item34_marzipan_loaf.png",
+    "sha256": "60e1575972a0d74b4e016e3bea3e8330267b8685c971e716e5d9a5effd796a02",
+    "source": "environments/christmas/props/marzipan_loaf.glb"
+  },
+  "christmas:nutcracker": {
+    "path": "editor/previews/item34_nutcracker.png",
+    "sha256": "e42f75af75fbd846667def6cf66e24a53206c3fe83bb60e8b1def8560e56a0f5",
+    "source": "environments/christmas/props/nutcracker.glb"
+  },
+  "christmas:parcel_flake": {
+    "path": "editor/previews/item34_parcel_flake.png",
+    "sha256": "4a6858d4c5717bd966b888f650e1b77b4a594bdbbddcf6e0665ecc82e40f299d",
+    "source": "environments/christmas/props/parcel_flake.glb"
+  },
+  "christmas:parcel_sprig": {
+    "path": "editor/previews/item34_parcel_sprig.png",
+    "sha256": "45bf20ec8de055e5f8bd4680c7b5832d7f63fa1bdfce2c3ae14c2f1dc3567396",
+    "source": "environments/christmas/props/parcel_sprig.glb"
+  },
+  "christmas:parcel_star": {
+    "path": "editor/previews/item34_parcel_star.png",
+    "sha256": "a35e799a30286dc6073f1f6b1f4a8beb5cfc0639461f4c62e08ffc0aa5ad385f",
+    "source": "environments/christmas/props/parcel_star.glb"
+  },
+  "christmas:pinecone_single": {
+    "path": "editor/previews/item34_pinecone_single.png",
+    "sha256": "bcc9ef9f88c6283f73c9983cd054dfd7aca57640f32f88edb9439d424c7cc05e",
+    "source": "environments/christmas/props/pinecone_single.glb"
+  },
+  "christmas:pinecones_pair": {
+    "path": "editor/previews/item34_pinecones_pair.png",
+    "sha256": "0e30f6206d1b5ff56f9c3dd6abc6b491560ce9d55d8efe402c3dcd095a24a4f2",
+    "source": "environments/christmas/props/pinecones_pair.glb"
+  },
+  "christmas:santa_claus": {
+    "path": "editor/previews/item34_santa_claus.png",
+    "sha256": "fe1ef21d707790d2780fb08e1aec6de96196f768aeae98a382f1b16601ac9f5b",
+    "source": "entities/santa_claus/model/santa_claus.glb"
+  },
+  "christmas:snow_globe_spruce": {
+    "path": "editor/previews/item34_snow_globe_spruce.png",
+    "sha256": "2d1c00f10b615ac654b288defca828ea1df4b7ca71aae3f7aae7816c7b880ae2",
+    "source": "environments/christmas/props/snow_globe_spruce.glb"
+  },
+  "christmas:snow_globe_village": {
+    "path": "editor/previews/item34_snow_globe_village.png",
+    "sha256": "f65265a72d0af063f3cc4a7b7adb55982b53679ebb2be9ac59421f6e408ee949",
+    "source": "environments/christmas/props/snow_globe_village.glb"
+  },
+  "christmas:snowflake_wall": {
+    "path": "editor/previews/item34_snowflake_wall.png",
+    "sha256": "0d8ff5a615111c98a031f224a21528555e40eca6a9e7112d353352447a0685c2",
+    "source": "environments/christmas/props/snowflake_wall.glb"
+  },
+  "christmas:snowman_small": {
+    "path": "editor/previews/item34_snowman_small.png",
+    "sha256": "6863c7dfead898dc0e86eb8b3db5c58230ba9062e7484c25bd091239ddec7228",
+    "source": "environments/christmas/props/snowman_small.glb"
+  },
+  "christmas:stocking_wall": {
+    "path": "editor/previews/item34_stocking_wall.png",
+    "sha256": "87c83db8fa8fc8521bf78592b123afd8aa3205379e6c76bee507c43fe4e46468",
+    "source": "environments/christmas/props/stocking_wall.glb"
+  },
+  "christmas:toy_rocking_horse": {
+    "path": "editor/previews/item34_toy_rocking_horse.png",
+    "sha256": "fae70ded5b4817c499a5aac6b5bf48e9f257e8bed8c732b71ce69c960f864b75",
+    "source": "environments/christmas/props/toy_rocking_horse.glb"
+  },
+  "christmas:toy_spinning_top": {
+    "path": "editor/previews/item34_toy_spinning_top.png",
+    "sha256": "368adbfa9858f786088a0f3a72e93be92ef7bc5727dacaaafbc3b3172d41115d",
+    "source": "environments/christmas/props/toy_spinning_top.glb"
+  },
+  "christmas:toy_train": {
+    "path": "editor/previews/item34_toy_train.png",
+    "sha256": "8dbc3cd1b63002ca4082b281f8c6cadb1d4a4cef3d80b75e6843951b185de2af",
+    "source": "environments/christmas/props/toy_train.glb"
+  },
+  "christmas:wreath_hanging": {
+    "path": "editor/previews/item34_wreath_hanging.png",
+    "sha256": "48abf4ef40cab789163ac4c8583e7c2909382254c52a7769778fd7924a0249a4",
+    "source": "environments/christmas/props/wreath_hanging.glb"
+  },
   "collection:sign_aero": {
     "path": "editor/previews/219e34b640612976c5912ca6.png",
     "sha256": "89b7917068da345a665db3e8588f87ceb60a1841ccaddf6e4355b7c2051c5295",

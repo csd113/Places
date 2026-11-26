@@ -2009,6 +2009,13 @@ fn validate_appearance_textures(
     Ok(())
 }
 
+pub(crate) fn companion_models(level: &LevelDef) -> impl Iterator<Item = &'static str> + '_ {
+    let costumes = level.props.iter().any(|prop| prop.feltling_costume.is_some())
+        .then_some(crate::engine::props::feltling_costume::PARTS)
+        .into_iter().flatten().map(|(_, path)| path);
+    crate::engine::physics::prop_fracture::dependency_paths(level).chain(costumes)
+}
+
 fn collect_dependencies(
     level: &LevelDef,
     assets: &AssetInputs,
@@ -2028,15 +2035,12 @@ fn collect_dependencies(
     // different from a point's default. The runtime uses the placement lookup
     // for both routes. GLBs embed their PNGs and reject external images, so one
     // model identity covers its complete runtime texture/mesh closure.
-    for model_id in level
-        .props
-        .iter()
-        .map(|prop| &prop.model)
+    for path in level.props.iter().map(|prop| &prop.model)
         .chain(level.spawn_templates.iter().map(|template| &template.model))
+        .filter_map(|id| catalog.get(id).model)
+        .chain(companion_models(level).map(str::to_owned))
     {
-        if let Some(model) = catalog.get(model_id).model {
-            add(DependencyKind::Model, &model)?;
-        }
+        add(DependencyKind::Model, &path)?;
     }
     if !level.elevators.is_empty() {
         for id in crate::engine::elevator::MODEL_IDS {

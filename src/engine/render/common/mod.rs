@@ -22,6 +22,7 @@ pub mod dynamic;
 pub mod dynamic_lights;
 pub mod dynamic_visibility;
 pub mod effects;
+mod globe_snow;
 pub(in crate::engine::render) mod electrical_panels;
 pub mod elevators;
 pub mod fixtures;

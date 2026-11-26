@@ -55,6 +55,11 @@
       "id": "mall",
       "display_name": "Mall",
       "description": "Underground fluorescent retail and food-court interiors."
+    },
+    {
+      "id": "christmas",
+      "display_name": "Christmas",
+      "description": "Hand-cut festive decorations, vintage toys, confectionery and Christmas characters."
     }
   ],
   "assets": [
@@ -13477,6 +13482,535 @@
       "authoring": {
         "tool": "blender",
         "source": "environments/mall/props/crushed_cigarette_pack.blend"
+      }
+    },
+    {
+      "id": "christmas:wreath_hanging",
+      "display_name": "Hanging Christmas Wreath",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/wreath_hanging.glb",
+      "size": [
+        0.603358,
+        0.606994,
+        0.10755
+      ],
+      "color": "#37694a",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Layered spruce sprays, red winter berries and a claret ribbon, with a flat wall-facing back.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:parcel_star",
+      "display_name": "Cranberry Star Parcel",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/parcel_star.glb",
+      "size": [
+        0.325,
+        0.23344,
+        0.25
+      ],
+      "color": "#a7293c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Original holiday-print paper with a modeled ribbon, folded-loop bow and paper tag.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:parcel_sprig",
+      "display_name": "Spruce Sprig Parcel",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/parcel_sprig.glb",
+      "size": [
+        0.255,
+        0.287075,
+        0.24
+      ],
+      "color": "#214839",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Original holiday-print paper with a modeled ribbon, folded-loop bow and paper tag.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:parcel_flake",
+      "display_name": "Blue Snowflake Parcel",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/parcel_flake.glb",
+      "size": [
+        0.445,
+        0.16117,
+        0.27
+      ],
+      "color": "#3a5973",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Original holiday-print paper with a modeled ribbon, folded-loop bow and paper tag.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:candy_cane",
+      "display_name": "Peppermint Candy Cane",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/candy_cane.glb",
+      "size": [
+        0.132,
+        0.252,
+        0.022825
+      ],
+      "color": "#eee0c6",
+      "category": "Decorative",
+      "solid": false,
+      "description": "A hooked peppermint cane with continuous red spiral stripes, not a decal.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:toy_train",
+      "display_name": "Wooden Toy Locomotive",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/toy_train.glb",
+      "size": [
+        0.27,
+        0.1855,
+        0.138
+      ],
+      "color": "#ca8c50",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Turned maple holiday locomotive with forest-green boiler and brass hubcaps.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:toy_rocking_horse",
+      "display_name": "Wooden Rocking Horse",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/toy_rocking_horse.glb",
+      "size": [
+        0.288935,
+        0.246909,
+        0.119877
+      ],
+      "color": "#ca8c50",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Carved wooden rocking horse on two wine-painted runners, with saddle and bridle.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:toy_spinning_top",
+      "display_name": "Wooden Spinning Top",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/toy_spinning_top.glb",
+      "size": [
+        0.132,
+        0.156,
+        0.129995
+      ],
+      "color": "#d5a45c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Turned wood spinning top, ring-painted in cranberry and spruce.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:angel_statue",
+      "display_name": "Small Angel Statue",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/angel_statue.glb",
+      "size": [
+        0.248891,
+        0.2933,
+        0.123637
+      ],
+      "color": "#fff1d1",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Ivory cast keepsake with modeled folded wings, prayer hands, and a brushed brass halo.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:nutcracker",
+      "display_name": "Small Nutcracker",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/nutcracker.glb",
+      "size": [
+        0.129936,
+        0.3,
+        0.09951
+      ],
+      "color": "#741e35",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Turned parade nutcracker with a crown, gold braid, painted jaw and ornamental lever.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:marzipan_loaf",
+      "display_name": "Marzipanbrot",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/marzipan_loaf.glb",
+      "size": [
+        0.26,
+        0.06,
+        0.12506
+      ],
+      "color": "#7c422a",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Chocolate-coated German marzipan loaf with a pale sliced end and two cross-cut almond slices.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:lights_festoon",
+      "display_name": "Christmas C7 Festoon Lights",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/lights_festoon.glb",
+      "size": [
+        1.62,
+        0.218339,
+        0.04966
+      ],
+      "color": "#214839",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Original Christmas C7 faceted bulbs with bottle-green sockets on a paired vintage-wire swag. Colored emissive lenses.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:snowman_small",
+      "display_name": "Small Snowman",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/snowman_small.glb",
+      "size": [
+        0.390664,
+        0.4775,
+        0.252294
+      ],
+      "color": "#e4edf0",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Hand-cut snowman with a knotted claret scarf, coal face, carrot nose and twig arms.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:gingerbread_cookie",
+      "display_name": "Iced Gingerbread Cookie",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/gingerbread_cookie.glb",
+      "size": [
+        0.183685,
+        0.193813,
+        0.029
+      ],
+      "color": "#b1693c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Traditional gingerbread person with piped icing, currant buttons and toasted beveled edges.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:gingerbread_house",
+      "display_name": "Gingerbread House",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/gingerbread_house.glb",
+      "size": [
+        0.353,
+        0.342,
+        0.284
+      ],
+      "color": "#b1693c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Iced gingerbread cottage assembled from seven independent baked panels. Standalone intact item.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:candle_cream",
+      "display_name": "Lit Ivory Christmas Candle",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/candle_cream.glb",
+      "size": [
+        0.104,
+        0.1895,
+        0.104
+      ],
+      "color": "#eee0c6",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Faceted beeswax with a charred wick, wax drips and visible emissive flame. Named flame node for optional glow.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:candles_advent",
+      "display_name": "Lit Christmas Candle Trio",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/candles_advent.glb",
+      "size": [
+        0.204,
+        0.2295,
+        0.204
+      ],
+      "color": "#741e35",
+      "category": "Lighting",
+      "solid": false,
+      "description": "Faceted beeswax with a charred wick, wax drips and visible emissive flame. Named flame node for optional glow.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:snowflake_wall",
+      "display_name": "Wall Snowflake",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/snowflake_wall.glb",
+      "size": [
+        0.351606,
+        0.406,
+        0.034
+      ],
+      "color": "#a3c9ca",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Six-armed punched-metal snowflake with embossed pale highlights and a flush rear hanger.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:snow_globe_spruce",
+      "display_name": "Spruce Diorama Snow Globe",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/snow_globe_spruce.glb",
+      "size": [
+        0.202,
+        0.231,
+        0.203701
+      ],
+      "color": "#a3c9ca",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Tinted glass globe containing an original miniature diorama. The separate snow-effect contract defines near-only bounded snowfall.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:snow_globe_village",
+      "display_name": "Village Diorama Snow Globe",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/snow_globe_village.glb",
+      "size": [
+        0.202,
+        0.231,
+        0.203701
+      ],
+      "color": "#a3c9ca",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Tinted glass globe containing an original miniature diorama. The separate snow-effect contract defines near-only bounded snowfall.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:stocking_wall",
+      "display_name": "Wall Christmas Stocking",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/stocking_wall.glb",
+      "size": [
+        0.285704,
+        0.365807,
+        0.065141
+      ],
+      "color": "#a7293c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Knit stocking with modeled cuff, contrasting heel and toe, and a hanging loop.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:pinecone_single",
+      "display_name": "Small Pinecone",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/pinecone_single.glb",
+      "size": [
+        0.068988,
+        0.102,
+        0.070195
+      ],
+      "color": "#52382c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Single small pinecone with individual woody spiral scales.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:pinecones_pair",
+      "display_name": "Small Pinecone Pair",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/pinecones_pair.glb",
+      "size": [
+        0.122011,
+        0.09996,
+        0.080771
+      ],
+      "color": "#52382c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Two individually built small pinecones, varied in size and stance.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
+      }
+    },
+    {
+      "id": "christmas:santa_claus",
+      "display_name": "Santa Claus",
+      "asset_class": "entity",
+      "theme": "christmas",
+      "asset_type": "entity",
+      "entity_type": "character",
+      "source": "file",
+      "model": "entities/santa_claus/model/santa_claus.glb",
+      "size": [
+        0.821444,
+        1.751,
+        0.412898
+      ],
+      "color": "#a7293c",
+      "category": "Characters",
+      "solid": false,
+      "description": "Original Santa silhouette with tasseled hat, flowing beard, mittens and boots. Independent seven-joint visual rig.",
+      "authoring": {
+        "tool": "completed",
+        "source": "completed-models.json"
       }
     }
   ]

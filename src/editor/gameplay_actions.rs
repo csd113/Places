@@ -57,6 +57,14 @@ pub(super) fn number_field(setting: GameplaySetting) -> Option<usize> {
 }
 
 impl App {
+    fn toggle_feltling_outfit(&mut self) -> Result<(), String> {
+        self.document.as_mut().ok_or("Open a project first")?
+            .toggle_feltling_elf(self.selected.ok_or("Select a Feltling")?)?;
+        self.changed();
+        self.status = "Changed this Feltling's outfit.".into();
+        Ok(())
+    }
+
     #[expect(
         clippy::wildcard_enum_match_arm,
         reason = "Contextual gameplay commands are routed before the exhaustive application dispatcher."
@@ -65,6 +73,7 @@ impl App {
         match action {
             Action::AddCheckpoint => self.add_checkpoint_tool()?,
             Action::TriggerCheckpoint => self.set_trigger_checkpoint()?,
+            Action::ToggleFeltlingElf => self.toggle_feltling_outfit()?,
             Action::MountSurface => {
                 self.document
                     .as_mut()

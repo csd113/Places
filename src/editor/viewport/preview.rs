@@ -477,7 +477,7 @@ fn prepare_assets(
     assets: &mut PropAssets,
     reuse: &reuse::Reuse,
 ) -> Result<String, String> {
-    let paths: std::collections::BTreeSet<_> = level
+    let mut paths: std::collections::BTreeSet<_> = level
         .props
         .iter()
         .map(|prop| prop.model.as_str())
@@ -496,6 +496,7 @@ fn prepare_assets(
                 .filter_map(|id| catalog.get(id).model),
         )
         .collect();
+    paths.extend(crate::map_compiler::companion_models(level).map(str::to_owned));
     let appearances: std::collections::BTreeSet<&str> = level
         .props
         .iter()

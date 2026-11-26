@@ -294,7 +294,10 @@ impl FrameLoop<'_> {
             campaign_generation: generation,
             player: self.game.checkpoint_player()?,
             world: self.game.entities().checkpoint()?,
-            items: self.items.world.checkpoint(&self.items.authored)?,
+            items: self.items.world.checkpoint_for_player(
+                &self.items.authored,
+                super::item_runtime::player_context(self.game),
+            )?,
             flashlight: self.flashlight.is_on(),
         };
         // Prove closure restoration before replacing the previous valid save.

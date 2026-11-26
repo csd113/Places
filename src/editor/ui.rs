@@ -130,6 +130,7 @@ pub(super) enum Action {
     RemoveTriggerStep(usize),
     EnvironmentPreview,
     MountSurface,
+    ToggleFeltlingElf,
     ToggleLightMount,
     IgnoreFinding,
     ClearFindingIgnore,

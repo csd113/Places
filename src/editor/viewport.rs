@@ -574,6 +574,10 @@ impl Viewport {
         self.renderer.presentation_mode()
     }
 
+    pub(crate) fn globe_sample(&self) -> (u32, Option<[f32; 3]>) {
+        self.renderer.globe_sample()
+    }
+
     pub fn worker_snapshot(&self) -> serde_json::Value {
         self.worker.resource_snapshot()
     }

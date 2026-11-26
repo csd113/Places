@@ -370,21 +370,11 @@ impl Verification {
                 "surface_count":finding.surfaces.len(),"fix":finding.fix.as_ref().map(|fix|&fix.title)
             })).collect::<Vec<_>>()),
         });
-        drop(value.as_object_mut().ok_or("Expected JSON object")?.insert(
-            "room_edge_handles".into(),
-            serde_json::json!(app.viewport.room_edge_handles()),
-        ));
-        drop(
-            value
-                .as_object_mut()
-                .ok_or("Expected JSON object")?
-                .insert("simple_mode".into(), serde_json::json!(app.view.simple)),
-        );
-        drop(value.as_object_mut().ok_or("Expected JSON object")?.insert(
-            "behavior_draft".into(),
-            serde_json::json!(app.behavior.as_ref().map(|d| &d.plan)),
-        ));
         for (key, entry) in [
+            ("room_edge_handles", serde_json::json!(app.viewport.room_edge_handles())),
+            ("simple_mode", serde_json::json!(app.view.simple)),
+            ("behavior_draft", serde_json::json!(app.behavior.as_ref().map(|d| &d.plan))),
+            ("globe_snow", globe_diagnostic(app)),
             ("audio_capture_frames", serde_json::json!(app.audio_capture.as_ref().map(crate::game::audio::Capture::frames))),
             ("audio_voices", serde_json::json!(app.preview_audio.voice_snapshot())),
             ("dock",serde_json::json!({"tab":format!("{:?}",app.dock.tab),"catalog":format!("{:?}",app.dock.catalog),"page":app.dock.page,"search":app.dock.search,"advanced":app.dock.advanced})),
@@ -555,6 +545,11 @@ fn validate(action: &Action) -> Result<(), String> {
     valid
         .then_some(())
         .ok_or_else(|| "Invalid verification coordinates, key, text or evidence basename".into())
+}
+
+fn globe_diagnostic(app: &App) -> serde_json::Value {
+    let (count, vertex) = app.viewport.globe_sample();
+    serde_json::json!({"particles":count,"first_vertex":vertex})
 }
 
 fn valid_point(x: f32, y: f32) -> bool {

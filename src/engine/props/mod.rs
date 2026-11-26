@@ -15,6 +15,7 @@
 //! draws normally and gets one developer warning naming the budget it breaks.
 
 pub(crate) mod catalog;
+pub(crate) mod feltling_costume;
 
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -195,6 +196,7 @@ pub struct PropAssets {
     root: Option<PathBuf>,
     models: HashMap<String, Result<Arc<LoadedPropAsset>, String>>,
     escalator_fits: HashMap<(String, u32), Weak<LoadedPropAsset>>,
+    elf_feltling: Option<Weak<LoadedPropAsset>>,
     /// Weak ownership permits inactive request images to disappear while
     /// equal family atlases share one decoded allocation across model paths.
     textures: HashMap<(u32, u32, String), Weak<crate::engine::materials::RawImage>>,
@@ -230,6 +232,7 @@ impl PropAssets {
             root: resolve_prop_root(),
             models: HashMap::new(),
             escalator_fits: HashMap::new(),
+            elf_feltling: None,
             textures: HashMap::new(),
             inputs: HashMap::new(),
             character_textures: HashMap::new(),
@@ -245,6 +248,7 @@ impl PropAssets {
             root: Some(root.into()),
             models: HashMap::new(),
             escalator_fits: HashMap::new(),
+            elf_feltling: None,
             textures: HashMap::new(),
             inputs: HashMap::new(),
             character_textures: HashMap::new(),
@@ -318,6 +322,7 @@ impl PropAssets {
             .map(|dependency| (dependency.path.clone(), dependency.sha256.clone()))
             .collect();
         self.character_textures.clear();
+        self.elf_feltling = None;
         self.models.retain(|path, cached| {
             cached.is_ok()
                 && self.model_identities.get(path).is_some_and(|previous| {

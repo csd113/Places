@@ -103,6 +103,21 @@ and Enter activates the focused control; hidden Advanced controls lose focus.
 The charcoal/slate panels use restrained teal selection cues and visible focus
 outlines. These bitmap controls do not imply screen-reader support.
 
+### Christmas props
+
+Christmas snow globes have contained snowfall at close range. Enable Physics
+on a globe or gingerbread house in Object settings to make it carryable.
+A hard drop fractures it on impact, while a gentle placement leaves it intact.
+Transient pieces are cleared when the test ends. An authored Physics reset
+group also restores the original intact item. Saved game checkpoints restore
+broken props intact at their authored poses. If that collider would overlap
+the saved player, the checkpoint is refused and the previous save is kept.
+Move clear of the prop's original placement and try again.
+
+On a Feltling, Object settings → Elf outfit changes only that placement's
+hat and collar. Turning it off removes the opt-in. It does not change the
+native creature's movement, routes or behavior.
+
 ## Quick Test
 
 **Test in editor** (Cmd/Ctrl P) prepares a private snapshot of the current level

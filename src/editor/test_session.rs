@@ -589,7 +589,7 @@ impl Session {
             "tasks":agent.controller.runs.iter().map(|run|serde_json::json!({"key":run.request.key,"serial":run.token.serial})).collect::<Vec<_>>(),
         })).collect();
         let hearing = serde_json::json!({"time":self.game.entities().sim_time(),"stimuli":stimuli,"agents":agents});
-        serde_json::json!({
+        let mut snapshot = serde_json::json!({
             "hearing": hearing,
             "player_model": self.player_model.snapshot(),
             "tools": self.game.tool_snapshot(),
@@ -624,7 +624,11 @@ impl Session {
             "subtitles": self.speech.subtitles.snapshot(),
             "queued_messages": self.speech.modal.len().saturating_sub(1),
             "temporary": true,
-        })
+        });
+        if let Some(object) = snapshot.as_object_mut() {
+            drop(object.insert("feltlings".into(), self.game.entities().feltling_diagnostics()));
+        }
+        snapshot
     }
 
     pub fn stop(&mut self, audio: &mut AudioSystem) {

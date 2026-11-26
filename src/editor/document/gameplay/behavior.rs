@@ -6,6 +6,21 @@ use super::super::objects::{array_mut, object_mut};
 use super::super::{Document, ObjectId, objects};
 
 impl Document {
+    pub(crate) fn toggle_feltling_elf(&mut self, id: ObjectId) -> Result<(), String> {
+        if !matches!(id, ObjectId::Prop(_)) { return Err("Select a Feltling".into()); }
+        let mut raw = self.raw().clone();
+        let object = object_mut(&mut raw, id)?;
+        if object.get("model").and_then(Value::as_str)
+            != Some(crate::engine::props::feltling_costume::FELTLING_ID)
+        {
+            return Err("Elf attire belongs to a Feltling".into());
+        }
+        if object.remove("feltling_costume").is_none() {
+            drop(object.insert("feltling_costume".into(), "elf".into()));
+        }
+        self.accept_edit(raw)
+    }
+
     /// Selects fitted mannequin artwork without duplicating geometry or clips.
     ///
     /// # Errors

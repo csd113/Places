@@ -254,6 +254,7 @@ struct EffectsGroupGpu {
     index_count: u32,
     /// Vertices this group draws.
     vertex_count: u32,
+    globe: bool,
 }
 
 /// What one upload or frame submitted, as plain counters.
@@ -401,6 +402,7 @@ impl WgpuEffects {
                 first_index,
                 index_count,
                 vertex_count,
+                globe: false,
             });
             first_index = first_index.saturating_add(index_count);
         }
@@ -451,9 +453,17 @@ impl WgpuEffects {
                 first_index,
                 index_count,
                 vertex_count: u32::try_from(group.vertex_count()).unwrap_or(u32::MAX),
+                globe: false,
             });
             first_index = first_index.saturating_add(index_count);
         }
+        let globe = scene.append_globe_billboards(camera_position, &mut self.vertices);
+        let globe_count = globe.map_or(0, |(texture, count)| {
+            let index_count = u32::try_from(count.saturating_mul(INDICES_PER_PARTICLE)).unwrap_or(u32::MAX);
+            self.groups.push(EffectsGroupGpu { texture, first_index, index_count, vertex_count: u32::try_from(count.saturating_mul(VERTS_PER_PARTICLE)).unwrap_or(u32::MAX), globe: true });
+            first_index = first_index.saturating_add(index_count);
+            count
+        });
         let snow = scene.snow().map_or_else(
             crate::engine::render::common::snow::SnowStats::default,
             |weather| {
@@ -477,6 +487,7 @@ impl WgpuEffects {
                             stats.submitted.saturating_mul(VERTS_PER_PARTICLE),
                         )
                         .unwrap_or(u32::MAX),
+                        globe: false,
                     });
                 }
                 stats
@@ -485,6 +496,7 @@ impl WgpuEffects {
         self.vertex_count = u32::try_from(self.vertices.len()).unwrap_or(u32::MAX);
         self.index_count = u32::try_from(
             steam_particles
+                .saturating_add(globe_count)
                 .saturating_add(snow.submitted)
                 .saturating_mul(INDICES_PER_PARTICLE),
         )
@@ -562,6 +574,7 @@ impl WgpuEffects {
         pass: &mut wgpu::RenderPass<'a>,
         pipeline: &'a EffectsPipeline,
         filtering: TextureFiltering,
+        globes: bool,
     ) -> EffectDrawTotals {
         let mut totals = EffectDrawTotals::default();
         if self.index_count() == 0 || self.vertex_count() == 0 || self.textures.is_empty() {
@@ -571,7 +584,7 @@ impl WgpuEffects {
         pass.set_bind_group(0, &pipeline.bind_group, &[]);
         pass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
         pass.set_index_buffer(self.index_buffer.slice(..), wgpu::IndexFormat::Uint16);
-        for group in &self.groups {
+        for group in self.groups.iter().filter(|group| group.globe == globes) {
             let Some(texture) = self.textures.get(group.texture) else {
                 continue;
             };
@@ -591,6 +604,14 @@ impl WgpuEffects {
                 .saturating_add(usize::try_from(group.vertex_count).unwrap_or(usize::MAX));
         }
         totals
+    }
+
+    /// Per-frame visible globe quads, available to native verification.
+    pub(crate) fn globe_sample(&self) -> (u32, Option<[f32; 3]>) {
+        self.groups.iter().find(|g| g.globe).map_or((0, None), |g| {
+            let particle_offset = usize::try_from(g.first_index / 6).unwrap_or(usize::MAX);
+            (g.vertex_count / 4, self.vertices.get(particle_offset.saturating_mul(4)).map(|v| v.position))
+        })
     }
 
     /// The upload and frame counters.

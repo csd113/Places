@@ -91,6 +91,7 @@ fn fixture() -> Result<Fixture, String> {
                 bounds,
                 pose: original,
                 scale: 1.0,
+                fracture: None,
             },
         },
     );
@@ -212,4 +213,57 @@ fn contact_grip_preserves_first_pose_pauses_and_reaches_authored_metadata() {
         previous, target,
         "the contact offset must not remain a held gap"
     );
+}
+
+// Exercises the real physics removal on handoff and the native carry adapter's
+// shared reinstall for both put-down and reset. A normal later player drop
+// must reach the fracture mechanism in either case. No render or asset needed.
+#[test]
+fn festive_item_still_breaks_after_npc_custody() -> Result<(), String> {
+    use crate::engine::physics::{FIXED_STEP, PlayerContext, prop_fracture::Breakable};
+
+    let level = LevelDef::from_json(
+        r#"{"schema":"places-level","format_version":1,"id":"festive_return","name":"Festive return","spawn":{"x":1,"z":1},"rooms":[{"x":-3,"z":-3,"width":6,"depth":6,"height":3}]}"#,
+    ).map_err(|error| error.to_string())?;
+    let position = Vec3::new(0.0, 1.4, -1.0);
+    let player = PlayerContext {
+        eye: Vec3::new(0.0, 1.5, 0.0),
+        feet: Vec3::ZERO,
+        yaw: 0.0,
+        view: Vec3::NEG_Z,
+        height: 1.8,
+        half: 0.4,
+        active: true,
+    };
+    let prop = OwnedItemReset {
+        definition: PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            pickup: true,
+            shape: Some(ShapeDef::Sphere { radius: 0.1 }),
+            ..PhysicsDef::default()
+        },
+        bounds: (Vec3::new(-0.1, 0.0, -0.1), Vec3::new(0.1, 0.2, 0.1)),
+        pose: ItemPose { position, rotation: Quat::IDENTITY },
+        scale: 1.0,
+        fracture: Some(Breakable::SpruceGlobe),
+    };
+    for live in [None, Some(prop.pose)] {
+        let mut world = ItemWorld::from_level(&level, &[]);
+        prop.restore(&mut world, 1, None)?;
+        assert!(world.pickup(1, player.eye, player.view, player.yaw), "the original body is reachable");
+        assert!(world.transfer_held(1), "handoff removes the original solver owner");
+        prop.restore(&mut world, 1, live)?;
+        assert!(world.pickup(1, player.eye, player.view, player.yaw), "the original body is reachable");
+        assert!(world.drop(), "the player can drop the returned item");
+        assert!(world.drain_break_plans().is_empty(), "release alone cannot break it");
+        for _ in 0_u8..100 {
+            world.step(FIXED_STEP, player, &[]);
+        }
+        let plans = world.drain_break_plans();
+        let plan = plans.first().ok_or("returned item did not fracture on impact")?;
+        assert_eq!(plans.len(), 1, "only the returned item qualifies");
+        assert_eq!(plan.key, 1, "handoff keeps the authored key");
+        assert_eq!(plan.kind.panels().len(), 5, "the restored kind is the original globe");
+    }
+    Ok(())
 }

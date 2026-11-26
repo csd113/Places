@@ -15,6 +15,20 @@ and linked reports retain historical implementation and validation details.
 
 [Version summary](docs/0.14.0/README.md).
 
+### Christmas assets
+
+- Add a Christmas asset theme with original wall decorations, wrapped parcels,
+  wooden toys, sweets, candle flames, light strings, snow globes, a small snowman,
+  pinecones and a separately rigged Santa Claus model.
+- Physical gingerbread houses and both Christmas snow globes stay intact while
+  carried or placed gently. A qualifying drop replaces them with separate biscuit
+  or glass pieces on contact. Intact globes snow inside the glass only when the
+  player is nearby. Feltling elf attire is optional per placement and does not
+  change its controller, rig or default appearance.
+- Preserve festive fracture behavior across NPC put-down and checkpoint
+  resume. Refuse a save at a shattered prop's reoccupied original footprint
+  without replacing the previous checkpoint.
+
 ### Gameplay and maps
 
 - Add reusable, map-local Game Modes for movement, health and crowbar settings.

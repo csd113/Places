@@ -24,30 +24,6 @@
 ### 32. [GitHub #43: Technical architecture and API documentation](https://github.com/csd113/Places/issues/43)
 **Deferred.** Leave GitHub #43 open. The issue explicitly requests documentation, but the newer standing direction is **no routine task reports or reference sheets**. Reconcile that before writing. Cover current engine/game/editor/compiler responsibilities, shared ownership and important data contracts, and the real editor → compiler → package → player path. Verify links/examples against current code and prefer concise maintained content to copying the issue’s historical multi-document scope verbatim. This isn’t an architecture rewrite.
 
-### 34. Christmas environment props and models
-**Queued.** Create all-new, Christmas-specific models and textures in the Dot’s own Blender and GIMP, not on Connor’s computers. Do not reuse, recolor, or repackage existing Arcade gifts or Winter string lights. Match Places’ low-poly style, in-game scale, and asset conventions.
-
-- Hanging Christmas wreath
-- Wrapped Christmas presents
-- Candy cane
-- Three distinct small wooden toys
-- Small angel statue
-- Small nutcracker
-- German marzipan loaf
-- Christmas lights
-- Small snowman model
-- Gingerbread man cookie
-- Gingerbread house that stays intact while held and breaks into separate pieces on impact when dropped. Verify pickup, drop, and breakup in the editor playtest.
-- Lit Christmas candles with visible flames
-- Wall-mounted snowflake decoration
-- Snow globes with animated snowfall visible inside the glass when seen up close. Keep the snow within the globe and skip the effect at a distance.
-- Placeable Santa Claus NPC
-- Optional little elf costumes for Feltlings, selectable per Feltling without replacing their default appearance
-- Wall-mounted Christmas stocking decoration
-- Small pinecone props
-
-This item covers new assets and their editor-catalog validation. No new map, Mall decoration, or full bake is in scope.
-
 ## Not in this queue
 
 - GitHub #27–#31 are already closed as completed. Do not reopen, replay their old checklists or restore their work as separate tasks. Only overlapping checks independently required by an active issue still apply.

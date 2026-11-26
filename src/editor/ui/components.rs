@@ -571,7 +571,7 @@ fn native_creature_button(app: &App, vertices: &mut Vec<Vertex>, hits: &mut Vec<
         button(
             vertices,
             hits,
-            [263.0, 144.0, 117.0, 12.0],
+            [263.0, 158.0, 117.0, 12.0],
             "Native creature >",
             Action::Author(crate::editor::authoring::Command::Open(tool)),
             true,

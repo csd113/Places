@@ -68,8 +68,7 @@ impl PreparedPhysics {
                     prop.scale,
                 )?;
             } else {
-                let key = (1_u64 << 63_i32)
-                    .saturating_add(u64::try_from(index).map_err(|error| error.to_string())?);
+                let key = crate::engine::physics::prop_fracture::authored_item_key(index);
                 prepared.world.spawn_authored_oriented(
                     key,
                     definition,
@@ -78,6 +77,7 @@ impl PreparedPhysics {
                     prop.orientation(),
                     prop.scale,
                 )?;
+                prepared.world.install_breakable(key, prop);
                 prepared.spawns.push((key, index, position.to_array()));
                 prepared.authored.push((
                     key,
@@ -130,6 +130,7 @@ impl PreparedPhysics {
             game.door_colliders(),
             game.airborne_velocity(),
         );
+        renderer.sync_prop_fractures(&mut self.world);
         for recovery in self.world.take_recoveries() {
             if recovery.outcome == crate::engine::physics::RecoveryOutcome::Suspended {
                 let _hidden = renderer.set_runtime_model_visible(recovery.key, false);

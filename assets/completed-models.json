@@ -144,6 +144,24 @@
       0.23615746200084686
     ]
   },
+  "entities/santa_claus/model/santa_claus.glb": {
+    "sha256": "87c96b534ded4e8c148dda40fd49660bda70ceb33ae1652f1d5472fb9b129fe6",
+    "triangles": 2920,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:santa_claus"
+    ],
+    "bounds_min": [
+      -0.4112327,
+      0.0,
+      -0.175136
+    ],
+    "bounds_max": [
+      0.4102112,
+      1.751,
+      0.2377619
+    ]
+  },
   "entities/sheet-ghost-cat/model/sheet-ghost-cat.glb": {
     "sha256": "2991b1680bd080137d4a1f3bc923df726f51a4ffb5ad404171646a0db6c4c938",
     "triangles": 434,
@@ -2186,6 +2204,420 @@
       1.2000000476837158,
       2.549999952316284,
       1.2000000476837158
+    ]
+  },
+  "environments/christmas/props/angel_statue.glb": {
+    "sha256": "816e9d57ab1252c20e73bbd32fe99ed30ef35d61e21822b9d2d6ba3ecc4ce21c",
+    "triangles": 912,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:angel_statue"
+    ],
+    "bounds_min": [
+      -0.1244454,
+      0.0,
+      -0.0618187
+    ],
+    "bounds_max": [
+      0.1244454,
+      0.2933,
+      0.0618187
+    ]
+  },
+  "environments/christmas/props/candle_cream.glb": {
+    "sha256": "7508a97414297216170f28b9201865f311a7f48c81db13aa6ddc5b00f359733c",
+    "triangles": 380,
+    "texture_edge": 0,
+    "identities": [
+      "christmas:candle_cream"
+    ],
+    "bounds_min": [
+      -0.052,
+      0.0,
+      -0.052
+    ],
+    "bounds_max": [
+      0.052,
+      0.1895,
+      0.052
+    ]
+  },
+  "environments/christmas/props/candles_advent.glb": {
+    "sha256": "69ea1410c7b182b6aca7aca01926c3b9ad0362017568e3decf3a8071141b9706",
+    "triangles": 1052,
+    "texture_edge": 0,
+    "identities": [
+      "christmas:candles_advent"
+    ],
+    "bounds_min": [
+      -0.102,
+      0.0,
+      -0.102
+    ],
+    "bounds_max": [
+      0.102,
+      0.2295,
+      0.102
+    ]
+  },
+  "environments/christmas/props/candy_cane.glb": {
+    "sha256": "527a6cca10b978a04f7f52a6700a0fbd4b83fce00cf24d124aa5b1d653349bb8",
+    "triangles": 1336,
+    "texture_edge": 0,
+    "identities": [
+      "christmas:candy_cane"
+    ],
+    "bounds_min": [
+      -0.066,
+      0.0,
+      -0.0114127
+    ],
+    "bounds_max": [
+      0.066,
+      0.252,
+      0.0114127
+    ]
+  },
+  "environments/christmas/props/gingerbread_cookie.glb": {
+    "sha256": "28480fd15ebdce81329adee1ab21eacf21af5806f7c52a5280e638233c7d3590",
+    "triangles": 1040,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:gingerbread_cookie"
+    ],
+    "bounds_min": [
+      -0.0918423,
+      0.0,
+      -0.0145
+    ],
+    "bounds_max": [
+      0.0918423,
+      0.1938129,
+      0.0145
+    ]
+  },
+  "environments/christmas/props/gingerbread_house.glb": {
+    "sha256": "906992c3bdcf44462d726cbfc1440784c2b4245028afa615a5a916ac9b30b752",
+    "triangles": 1488,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:gingerbread_house"
+    ],
+    "bounds_min": [
+      -0.1765,
+      -0.0,
+      -0.142
+    ],
+    "bounds_max": [
+      0.1765001,
+      0.342,
+      0.142
+    ]
+  },
+  "environments/christmas/props/lights_festoon.glb": {
+    "sha256": "ed1b220eece7d20ced73ecbfaf818eb51362c1390446e2879ccc077e5b10e7a5",
+    "triangles": 1288,
+    "texture_edge": 0,
+    "identities": [
+      "christmas:lights_festoon"
+    ],
+    "bounds_min": [
+      -0.81,
+      0.0,
+      0.0
+    ],
+    "bounds_max": [
+      0.81,
+      0.2183388,
+      0.0496603
+    ]
+  },
+  "environments/christmas/props/marzipan_loaf.glb": {
+    "sha256": "9868cf020a5f658fa4ecb792972fb244065e78066d64604d6843f3e514dd1325",
+    "triangles": 346,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:marzipan_loaf"
+    ],
+    "bounds_min": [
+      -0.13,
+      0.0,
+      -0.06253
+    ],
+    "bounds_max": [
+      0.13,
+      0.06,
+      0.06253
+    ]
+  },
+  "environments/christmas/props/nutcracker.glb": {
+    "sha256": "4323932118554c3b1b032e29863dea5a933fe3200bc8e1a6b713660cec238d7e",
+    "triangles": 1260,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:nutcracker"
+    ],
+    "bounds_min": [
+      -0.0649679,
+      0.0,
+      -0.049755
+    ],
+    "bounds_max": [
+      0.0649679,
+      0.3,
+      0.049755
+    ]
+  },
+  "environments/christmas/props/parcel_flake.glb": {
+    "sha256": "42353409afddeddc057b3f9fb4c4d9704cb28ddd556b9dbff155b2d7bc44b8da",
+    "triangles": 404,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:parcel_flake"
+    ],
+    "bounds_min": [
+      -0.2225,
+      0.0,
+      -0.135
+    ],
+    "bounds_max": [
+      0.2225,
+      0.1611699,
+      0.135
+    ]
+  },
+  "environments/christmas/props/parcel_sprig.glb": {
+    "sha256": "e8f7b280ed434e5339b664a3c03ccb54b6f7ddb70a86a6867b70ca3c17481941",
+    "triangles": 404,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:parcel_sprig"
+    ],
+    "bounds_min": [
+      -0.1275,
+      0.0,
+      -0.12
+    ],
+    "bounds_max": [
+      0.1275,
+      0.2870752,
+      0.12
+    ]
+  },
+  "environments/christmas/props/parcel_star.glb": {
+    "sha256": "ea3a6cf5af2d65b9cd25b62128607ea8762e81515a1a6eeb5001191932bbc9b2",
+    "triangles": 404,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:parcel_star"
+    ],
+    "bounds_min": [
+      -0.1625,
+      0.0,
+      -0.125
+    ],
+    "bounds_max": [
+      0.1625,
+      0.2334401,
+      0.125
+    ]
+  },
+  "environments/christmas/props/pinecone_single.glb": {
+    "sha256": "3d179cfcac1477368d3ae268a34796d0a5f3ff29543f149b7274ebb7ffe45142",
+    "triangles": 380,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:pinecone_single"
+    ],
+    "bounds_min": [
+      -0.034494,
+      0.0,
+      -0.0350974
+    ],
+    "bounds_max": [
+      0.034494,
+      0.102,
+      0.0350974
+    ]
+  },
+  "environments/christmas/props/pinecones_pair.glb": {
+    "sha256": "1e6e7ab74c836064d401a79792f654fd9efeffa414c5f714471998c7765c3e09",
+    "triangles": 760,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:pinecones_pair"
+    ],
+    "bounds_min": [
+      -0.0610053,
+      0.0,
+      -0.0403857
+    ],
+    "bounds_max": [
+      0.0610053,
+      0.09996,
+      0.0403857
+    ]
+  },
+  "environments/christmas/props/snow_globe_spruce.glb": {
+    "sha256": "86bfb01df14ce069c60213652b2f858d914abdd8624c2ff57e84b94d74dc7c43",
+    "triangles": 1442,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:snow_globe_spruce"
+    ],
+    "bounds_min": [
+      -0.101,
+      0.0,
+      -0.1018506
+    ],
+    "bounds_max": [
+      0.101,
+      0.231,
+      0.1018506
+    ]
+  },
+  "environments/christmas/props/snow_globe_village.glb": {
+    "sha256": "1d2d651c872df2f69967f4949330998513aba60ca4aeaa3c866ce6ab77b09da2",
+    "triangles": 1446,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:snow_globe_village"
+    ],
+    "bounds_min": [
+      -0.101,
+      0.0,
+      -0.1018507
+    ],
+    "bounds_max": [
+      0.101,
+      0.231,
+      0.1018506
+    ]
+  },
+  "environments/christmas/props/snowflake_wall.glb": {
+    "sha256": "b3c83efac68c7a7eaf74f5d1ec7d471179b0f548e1d785887c58887efbdea8fe",
+    "triangles": 948,
+    "texture_edge": 0,
+    "identities": [
+      "christmas:snowflake_wall"
+    ],
+    "bounds_min": [
+      -0.1758032,
+      0.0,
+      0.0
+    ],
+    "bounds_max": [
+      0.1758032,
+      0.406,
+      0.034
+    ]
+  },
+  "environments/christmas/props/snowman_small.glb": {
+    "sha256": "2e9ff0da8d3d6d6fbe87f4b84583c8729b55793433eab11bc1f93e957af67411",
+    "triangles": 974,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:snowman_small"
+    ],
+    "bounds_min": [
+      -0.1953318,
+      0.0,
+      -0.1261471
+    ],
+    "bounds_max": [
+      0.1953318,
+      0.4775,
+      0.1261471
+    ]
+  },
+  "environments/christmas/props/stocking_wall.glb": {
+    "sha256": "b2e5ff4a7729bc36e8c9736bb48c4b98846ae34b5b08d16df8eef467807632c8",
+    "triangles": 616,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:stocking_wall"
+    ],
+    "bounds_min": [
+      -0.1428521,
+      0.0,
+      0.0
+    ],
+    "bounds_max": [
+      0.1428521,
+      0.3658068,
+      0.0651413
+    ]
+  },
+  "environments/christmas/props/toy_rocking_horse.glb": {
+    "sha256": "b2461543c5987f5f4a74a40e388a907be69343d243e108f3dd56769ffbe09687",
+    "triangles": 1110,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:toy_rocking_horse"
+    ],
+    "bounds_min": [
+      -0.1444675,
+      0.0,
+      -0.0599385
+    ],
+    "bounds_max": [
+      0.1444675,
+      0.2469091,
+      0.0599385
+    ]
+  },
+  "environments/christmas/props/toy_spinning_top.glb": {
+    "sha256": "8942499e782dc7483c12db93ad4bdf8070b8a82c412760ea7b50c3199bcbbc32",
+    "triangles": 412,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:toy_spinning_top"
+    ],
+    "bounds_min": [
+      -0.066,
+      0.0,
+      -0.0649973
+    ],
+    "bounds_max": [
+      0.066,
+      0.156,
+      0.0649973
+    ]
+  },
+  "environments/christmas/props/toy_train.glb": {
+    "sha256": "f05fc82774b5714fda829e87afdc3602746f0c59cc128653a7b68e56a503ee32",
+    "triangles": 824,
+    "texture_edge": 256,
+    "identities": [
+      "christmas:toy_train"
+    ],
+    "bounds_min": [
+      -0.135,
+      0.0,
+      -0.069
+    ],
+    "bounds_max": [
+      0.135,
+      0.1855,
+      0.069
+    ]
+  },
+  "environments/christmas/props/wreath_hanging.glb": {
+    "sha256": "ab245246e6004aac79fe95a21c2910f60690dbf785a7913e7b1aa8a1c80ade51",
+    "triangles": 1486,
+    "texture_edge": 0,
+    "identities": [
+      "christmas:wreath_hanging"
+    ],
+    "bounds_min": [
+      -0.3016791,
+      0.0,
+      0.0
+    ],
+    "bounds_max": [
+      0.3016791,
+      0.6069942,
+      0.1075501
     ]
   },
   "environments/frutiger_aero/props/accent_panel.glb": {

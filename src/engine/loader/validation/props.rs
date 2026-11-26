@@ -31,6 +31,12 @@ pub(super) fn validate_props(level: &LevelDef) -> Result<(), String> {
                 "Prop {i} size must contain positive finite numbers"
             ));
         }
+        if prop.feltling_costume.is_some()
+            && (prop.model != crate::engine::props::feltling_costume::FELTLING_ID
+                || prop.is_physics_movable() || prop.float.is_some())
+        {
+            return Err(format!("Prop {i} elf attire requires a Feltling in the character renderer"));
+        }
         span_slices += validate_static_prop_options(i, prop)?;
         if let Some(door) = &prop.animated_door {
             if prop.solid

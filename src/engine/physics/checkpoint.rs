@@ -26,6 +26,8 @@ struct Provenance {
     inherited: crate::engine::physics::ImpactRelease,
     source: u64,
     incident: u64,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    fracture_contact_tested: Option<bool>,
 }
 impl Provenance {
     fn validate(&self) -> Result<(), String> {
@@ -244,6 +246,50 @@ impl ItemWorld {
         self.checkpoint_records(authored, true)
     }
 
+    /// A fractured prop becomes intact at its authored pose on resume. Check
+    /// only those replacement colliders before publishing a player's save.
+    pub(crate) fn checkpoint_for_player(
+        &self,
+        authored: &[(u64, String, String)],
+        player: super::PlayerContext,
+    ) -> Result<Vec<(String, Item)>, String> {
+        let records = self.checkpoint(authored)?;
+        if let Some(runtime) = self.runtime.as_ref() {
+            for (key, id, _) in authored {
+                if runtime.breakables.get(key).is_none_or(|record| record.pieces.is_empty()) {
+                    continue;
+                }
+                let entry = runtime
+                    .entries
+                    .get(key)
+                    .ok_or("Checkpoint item identity is missing")?;
+                if !player.valid() {
+                    return Err("Checkpoint needs a valid player hull".into());
+                }
+                let (player_pose, hull) = crate::engine::physics::hold::player_item_hull(player);
+                let authored_pose = entry.authored_pose;
+                let restored_pose = pose(
+                    add(
+                        authored_pose.position,
+                        authored_pose.rotation.mul_vec3(entry.center),
+                    ),
+                    authored_pose.rotation,
+                );
+                let clear = rapier3d::parry::query::intersection_test(
+                    &player_pose,
+                    &hull,
+                    &restored_pose,
+                    entry.shape.as_ref(),
+                )
+                .is_ok_and(|hit| !hit.intersecting);
+                if !clear {
+                    return Err(format!("Move clear of the original placement of the broken item '{id}' before saving"));
+                }
+            }
+        }
+        Ok(records)
+    }
+
     /// Bounded transport seam: exports only named rigid bodies. It never
     /// serializes solver handles or articulated actors outside that selection.
     pub(crate) fn transport_checkpoint(
@@ -264,7 +310,13 @@ impl ItemWorld {
         let Some(runtime) = self.runtime.as_ref() else {
             return Ok(Vec::new());
         };
-        if strict && (!runtime.ragdolls.is_empty() || runtime.entries.len() != authored.len()) {
+        // Festive debris is temporary. A persisted checkpoint restores its
+        // intact authored prop and does not widen the save membership schema.
+        let debris = runtime.breakables.values().flat_map(|record| &record.pieces)
+            .filter(|key| runtime.entries.contains_key(key)).count();
+        if strict && (!runtime.ragdolls.is_empty()
+            || runtime.entries.len().saturating_sub(debris) != authored.len())
+        {
             return Err("Checkpoint supports authored rigid items only; remove session props or finish articulated interactions".into());
         }
         let mut result = Vec::new();
@@ -278,6 +330,19 @@ impl ItemWorld {
                 .bodies
                 .get(entry.body)
                 .ok_or("Checkpoint body is missing")?;
+            if runtime.breakables.get(key).is_some_and(|record| !record.pieces.is_empty()) {
+                result.push((id.clone(), Item {
+                    position: entry.authored_pose.position.to_array(),
+                    rotation: entry.authored_pose.rotation.to_array(),
+                    linear: [0.0; 3],
+                    angular: [0.0; 3],
+                    sleeping: true,
+                    dormant: true,
+                    held_rotation: None,
+                    provenance: None,
+                }));
+                continue;
+            }
             if !body.is_enabled() {
                 return Err("Checkpoint cannot retain a suspended item".into());
             }
@@ -313,6 +378,10 @@ impl ItemWorld {
                         inherited: entry.release,
                         source: entry.release_source,
                         incident: entry.release_incident,
+                        fracture_contact_tested: runtime.breakables.get(key).and_then(|record| {
+                            (entry.originating_release == crate::engine::physics::ImpactRelease::Dropped)
+                                .then(|| record.contact_tested(entry.release_serial))
+                        }),
                     }),
                 },
             ));
@@ -412,22 +481,24 @@ impl ItemWorld {
             entry.trigger_path = super::TriggerPath::new(target, entry.center, &entry.shape);
             entry.impact_motion = super::ImpactMotion::default();
             entry.impact_cooldown = 0.0;
-            entry.originating_release = item
-                .provenance
-                .as_ref()
-                .map_or(crate::engine::physics::ImpactRelease::Natural, |p| {
-                    p.originating
-                });
-            entry.release_serial = item.provenance.as_ref().map_or(0, |p| p.serial);
-            entry.release = item
-                .provenance
-                .as_ref()
-                .map_or(crate::engine::physics::ImpactRelease::Natural, |p| {
-                    p.inherited
-                });
-            entry.release_source = item.provenance.as_ref().map_or(key, |p| p.source);
-            entry.release_incident = item.provenance.as_ref().map_or(0, |p| p.incident);
+            let provenance = item.provenance.as_ref();
+            let natural = crate::engine::physics::ImpactRelease::Natural;
+            entry.originating_release = provenance.map_or(natural, |p| p.originating);
+            entry.release_serial = provenance.map_or(0, |p| p.serial);
+            entry.release = provenance.map_or(natural, |p| p.inherited);
+            entry.release_source = provenance.map_or(key, |p| p.source);
+            entry.release_incident = provenance.map_or(0, |p| p.incident);
             entry.recovery.reset(target);
+            if let Some(record) = runtime.breakables.get_mut(&key) {
+                // Old snapshots cannot distinguish already-consumed contacts.
+                // Treat their Dropped generation as tested, not a second drop.
+                let tested = provenance.and_then(|p| p.fracture_contact_tested);
+                record.restore_contact(
+                    entry.originating_release,
+                    entry.release_serial,
+                    tested.unwrap_or(true),
+                );
+            }
             if let Some(relative) = item.held_rotation {
                 runtime.held = Some(HeldItem::from_checkpoint(key, relative));
             }
@@ -440,6 +511,139 @@ impl ItemWorld {
         }
         runtime.refresh_queries();
         runtime.update_poses();
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod festive_regressions {
+    use super::{Item, add};
+    use crate::engine::physics::{
+        BodyMotion, ImpactRelease, ItemPose, ItemWorld, PhysicsDef, PlayerContext, ShapeDef,
+        prop_fracture::Breakable,
+    };
+    use glam::{Quat, Vec3};
+
+    const KEY: u64 = 7;
+    const BOUNDS: (Vec3, Vec3) = (Vec3::new(-0.1, 0.0, -0.1), Vec3::new(0.1, 0.2, 0.1));
+
+    fn shape() -> PhysicsDef {
+        PhysicsDef {
+            motion: BodyMotion::Dynamic,
+            pickup: true,
+            shape: Some(ShapeDef::Sphere { radius: 0.1 }),
+            ..PhysicsDef::default()
+        }
+    }
+
+    fn globe() -> Result<ItemWorld, String> {
+        let mut world = ItemWorld::default();
+        world.spawn_authored(KEY, &shape(), BOUNDS, Vec3::ZERO, 0.0, 1.0)?;
+        world.register_breakable(KEY, Breakable::SpruceGlobe, 1.0);
+        Ok(world)
+    }
+
+    fn player(feet: Vec3) -> PlayerContext {
+        PlayerContext {
+            eye: add(feet, Vec3::new(0.0, 1.6, 0.0)),
+            feet,
+            yaw: 0.0,
+            view: Vec3::NEG_Z,
+            height: 1.8,
+            half: 0.4,
+            active: true,
+        }
+    }
+
+    // Real shape and restored player queries agree. The live debris is away
+    // from the player, but recreating the original collider would block them.
+    #[test]
+    fn festive_checkpoint_preflight_checks_only_recreated_colliders() -> Result<(), String> {
+        let id = [(KEY, "globe".into(), "christmas:snow_globe_spruce".into())];
+        let mut world = globe()?;
+        let standing_inside = player(Vec3::ZERO);
+        assert!(
+            world.checkpoint_for_player(&id, standing_inside).is_ok(),
+            "the new refusal applies to recreated props, not existing checkpoint behavior"
+        );
+        let away = Vec3::new(2.0, 0.0, 0.0);
+        assert!(
+            world.set_dynamic_pose(KEY, ItemPose { position: away, rotation: Quat::IDENTITY }),
+            "the live prop can move away from its authored footprint"
+        );
+        let part = world.next_fragment_key().ok_or("fragment key")?;
+        world.spawn(part, &shape(), BOUNDS, away, 0.0, 1.0)?;
+        assert!(world.commit_break(KEY, vec![part]), "fracture retires the original collider");
+        assert!(world.player_pose_clear(standing_inside), "live footprint must be empty");
+        assert!(
+            world.checkpoint_for_player(&id, standing_inside)
+                .is_err_and(|message| message.contains("globe")),
+            "publishing the blocked checkpoint is refused and identifies the culprit"
+        );
+        assert!(
+            globe()?
+                .restore_player_checkpoint(&id, &world.checkpoint(&id)?, standing_inside)
+                .is_err(),
+            "the otherwise publishable record would refuse resume"
+        );
+        let safe_player = player(Vec3::new(-1.0, 0.0, 0.0));
+        let records = world.checkpoint_for_player(&id, safe_player)?;
+        let mut fresh = globe()?;
+        fresh.restore_player_checkpoint(&id, &records, safe_player)?;
+        let restored = fresh.snapshots();
+        assert_eq!(restored.len(), 1, "debris does not survive resume");
+        assert_eq!(
+            restored.first().ok_or("restored globe")?.pose.position,
+            Vec3::ZERO,
+            "the intact replacement returns to the authored pose"
+        );
+        Ok(())
+    }
+
+    fn contact(world: &mut ItemWorld, generation: u64, speed: f32, impulse: f32) -> Result<(), String> {
+        let runtime = world.runtime.as_mut().ok_or("world")?;
+        let entry = runtime.entries.get_mut(&KEY).ok_or("entry")?;
+        entry.originating_release = ImpactRelease::Dropped;
+        entry.release = ImpactRelease::Dropped;
+        entry.release_serial = generation;
+        entry.release_incident = generation;
+        let breakable = runtime.breakables.get_mut(&KEY).ok_or("breakable")?;
+        breakable.witness_contact(entry, false, speed, impulse);
+        Ok(())
+    }
+
+    // The first gentle contact spends this drop forever. A save taken before
+    // contact and a genuinely new drop remain eligible. Legacy saves never
+    // rearm their ambiguous historical Dropped generation.
+    #[test]
+    fn festive_checkpoint_keeps_the_one_contact_per_drop_gate() -> Result<(), String> {
+        let ids = [(KEY, "globe".into(), "christmas:snow_globe_spruce".into())];
+        for (first_impulse, legacy, expect_fracture) in [
+            (0.05, false, false),
+            (0.05, true, false),
+            (0.0, false, true),
+        ] {
+            let mut original = globe()?;
+            contact(&mut original, 1, 0.4, first_impulse)?;
+            let mut records = original.checkpoint(&ids)?;
+            if legacy {
+                records.first_mut().ok_or("record")?.1.provenance.as_mut()
+                    .ok_or("provenance")?.fracture_contact_tested = None;
+            }
+            let bytes = serde_json::to_vec(&records).map_err(|error| error.to_string())?;
+            let saved: Vec<(String, Item)> = serde_json::from_slice(&bytes)
+                .map_err(|error| error.to_string())?;
+            let mut restored = globe()?;
+            restored.restore_checkpoint(&ids, &saved)?;
+            contact(&mut restored, 1, 3.0, 0.15)?;
+            assert_eq!(
+                !restored.drain_break_plans().is_empty(),
+                expect_fracture,
+                "saved contact consumption must distinguish old and still-pending drops"
+            );
+            contact(&mut restored, 2, 3.0, 0.15)?;
+            assert_eq!(restored.drain_break_plans().len(), 1, "next drop still works");
+        }
         Ok(())
     }
 }

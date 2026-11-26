@@ -23,6 +23,7 @@ pub use impacts::{ImpactEvent, ImpactRelease, ReleaseIdentity, SurfaceMaterial};
 pub use recovery::{EscapeReason, RecoveryEvent, RecoveryOutcome};
 pub use trigger_path::ItemTriggerBody;
 pub use world::checkpoint;
+pub(crate) use world::prop_fracture;
 pub use world::{
     BodySnapshot, BodyState, ContactImpulse, ItemPose, ItemWorld, PhysicsStats, PlayerContext,
     ResetReport, SimulationState,

@@ -2294,6 +2294,7 @@ impl WgpuRenderer {
         }
         let mut removed = 0usize;
         for key in keys {
+            self.effects.set_globe_visible(*key, false);
             if let Some(id) = self.runtime_objects.remove(key) {
                 removed = removed.saturating_add(usize::from(self.dynamic.despawn(id)));
             }
@@ -2343,7 +2344,11 @@ impl WgpuRenderer {
         let Some(id) = self.runtime_objects.get(&key).copied() else {
             return false;
         };
-        self.dynamic.set_pose(id, position, orientation)
+        if !self.dynamic.set_pose(id, position, orientation) {
+            return false;
+        }
+        self.effects.set_globe_pose(key, position, orientation);
+        true
     }
 
     /// Hides or restores a retained runtime model without reloading resources.
@@ -2358,6 +2363,7 @@ impl WgpuRenderer {
         if !self.dynamic.set_visible(id, visible) {
             return false;
         }
+        self.effects.set_globe_visible(key, visible);
         if let Some(slot) = self
             .dynamic
             .objects()
@@ -6664,7 +6670,12 @@ impl WgpuRenderer {
             cull: self.culling,
         };
         totals = match phase {
-            2 => pipeline.encode_transparency(pass, inputs, false),
+            2 => {
+                let mut under_glass = WorldDrawTotals::default();
+                self.encode_globe_snow(pass, self.effects_scene_pipeline.as_ref(), &mut under_glass);
+                under_glass.absorb(pipeline.encode_transparency(pass, inputs, false));
+                under_glass
+            }
             _ => pipeline.encode_opaque(pass, inputs),
         };
         if phase == 2 {
@@ -6694,6 +6705,7 @@ impl WgpuRenderer {
             if !diagnostic_active {
                 self.encode_decals(pass, self.decal_scene_pipeline.as_ref(), frame, &mut totals);
             }
+            self.encode_globe_snow(pass, self.effects_scene_pipeline.as_ref(), &mut totals);
             let transparent = pipeline.encode_transparency(pass, inputs, false);
             totals.translucent_draws = transparent.visible_batches;
             totals.absorb(transparent);
@@ -6707,6 +6719,30 @@ impl WgpuRenderer {
         // draw-order note).
         self.encode_effects(pass, self.effects_scene_pipeline.as_ref(), &mut totals);
         (totals, totals.draw_calls.saturating_add(additional_draws))
+    }
+
+    /// Interior particles depth-test against the diorama and blend under glass.
+    fn encode_globe_snow<'a>(
+        &'a self, pass: &mut wgpu::RenderPass<'a>,
+        pipeline: Option<&'a EffectsPipeline>, totals: &mut WorldDrawTotals,
+    ) {
+        #[cfg(feature = "visual-diagnostics")]
+        if self.visual_diagnostic_active() {
+            return;
+        }
+        if let (Some(effects), Some(effect_pipeline)) = (&self.world_effects, pipeline) {
+            let drawn = effects.encode(pass, effect_pipeline, self.filtering, true);
+            totals.draw_calls = totals.draw_calls.saturating_add(drawn.draws);
+            totals.visible_batches = totals.visible_batches.saturating_add(drawn.draws);
+            totals.visible_vertices = totals.visible_vertices.saturating_add(drawn.vertices);
+            totals.visible_indices = totals.visible_indices.saturating_add(drawn.indices);
+            totals.texture_binds = totals.texture_binds.saturating_add(drawn.texture_binds);
+            totals.effect_geometry.record(drawn.vertices, drawn.draws, true);
+        }
+    }
+
+    pub(crate) fn globe_sample(&self) -> (u32, Option<[f32; 3]>) {
+        self.world_effects.as_ref().map_or((0, None), WgpuEffects::globe_sample)
     }
 
     /// Encodes the effect pass and folds its counters into `totals`.
@@ -6737,7 +6773,7 @@ impl WgpuRenderer {
         else {
             return;
         };
-        let effect_totals = effects.encode(pass, effects_pipeline, self.filtering);
+        let effect_totals = effects.encode(pass, effects_pipeline, self.filtering, false);
         totals
             .effect_geometry
             .record(effect_totals.vertices, effect_totals.draws, true);
@@ -6883,6 +6919,7 @@ impl WgpuRenderer {
             if !diagnostic_active {
                 self.encode_decals(&mut pass, self.decal_pipeline.as_ref(), frame, &mut totals);
             }
+            self.encode_globe_snow(&mut pass, self.effects_pipeline.as_ref(), &mut totals);
             let transparent = pipeline.encode_transparency(&mut pass, inputs, false);
             totals.translucent_draws = transparent.visible_batches;
             totals.absorb(transparent);

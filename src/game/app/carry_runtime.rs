@@ -63,6 +63,40 @@ struct OwnedItemReset {
     bounds: (Vec3, Vec3),
     pose: crate::engine::physics::ItemPose,
     scale: f32,
+    fracture: Option<crate::engine::physics::prop_fracture::Breakable>,
+}
+
+impl OwnedItemReset {
+    fn restore(
+        &self,
+        physics: &mut crate::engine::physics::ItemWorld,
+        key: u64,
+        live: Option<crate::engine::physics::ItemPose>,
+    ) -> Result<(), String> {
+        if let Some(live_pose) = live {
+            physics.restore_transferred(
+                key,
+                &self.definition,
+                self.bounds,
+                self.pose,
+                live_pose,
+                self.scale,
+            )?;
+        } else {
+            physics.spawn_authored_oriented(
+                key,
+                &self.definition,
+                self.bounds,
+                self.pose.position,
+                self.pose.rotation,
+                self.scale,
+            )?;
+        }
+        if let Some(fracture) = self.fracture {
+            physics.register_breakable(key, fracture, self.scale);
+        }
+        Ok(())
+    }
 }
 
 struct RestoredCarry {
@@ -221,14 +255,7 @@ impl CarryRuntime {
         let mut restored: Vec<RestoredCarry> = Vec::with_capacity(self.attachments.len());
         for (actor, attachment) in &self.attachments {
             let original = &attachment.reset;
-            if let Err(problem) = physics.spawn_authored_oriented(
-                attachment.key,
-                &original.definition,
-                original.bounds,
-                original.pose.position,
-                original.pose.rotation,
-                original.scale,
-            ) {
+            if let Err(problem) = original.restore(physics, attachment.key, None) {
                 for previous in &restored {
                     let _removed = physics.remove(previous.key);
                 }
@@ -347,6 +374,7 @@ impl FrameLoop<'_> {
                 rotation: prop.orientation(),
             },
             scale: prop.scale,
+            fracture: crate::engine::physics::prop_fracture::eligible(prop),
         })
     }
 
@@ -700,13 +728,10 @@ impl FrameLoop<'_> {
             .mul_mat4(&attachment.local)
             .to_scale_rotation_translation();
         let original = &attachment.reset;
-        if let Err(problem) = self.items.world.restore_transferred(
+        if let Err(problem) = original.restore(
+            &mut self.items.world,
             attachment.key,
-            &original.definition,
-            original.bounds,
-            original.pose,
-            crate::engine::physics::ItemPose { position, rotation },
-            original.scale,
+            Some(crate::engine::physics::ItemPose { position, rotation }),
         ) {
             self.ui_state.developer_diagnostic(
                 format!("Could not put down the carried item: {problem}"),

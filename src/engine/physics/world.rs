@@ -1,5 +1,7 @@
 //! Bounded rigid-body solver ownership.
 
+pub mod prop_fracture;
+
 use std::collections::{BTreeMap, VecDeque};
 #[cfg(not(target_arch = "wasm32"))]
 use std::sync::Arc;
@@ -308,6 +310,9 @@ pub(super) struct Runtime {
     pub last_player: Option<PlayerContext>,
     static_count: usize,
     impacts: VecDeque<ImpactEvent>,
+    breakables: BTreeMap<u64, prop_fracture::BreakableBody>,
+    next_break_fragment: u64,
+    retired_break_parts: Vec<u64>,
     impact_budget: ImpactBudget,
     contact_onsets: ContactOnsets,
     frame_contacts: Vec<[u64; 2]>,
@@ -560,6 +565,9 @@ impl ItemWorld {
                 last_player: None,
                 static_count,
                 impacts: VecDeque::with_capacity(MAX_IMPACTS),
+                breakables: BTreeMap::new(),
+                next_break_fragment: prop_fracture::first_fragment_key(),
+                retired_break_parts: Vec::new(),
                 impact_budget: ImpactBudget::default(),
                 contact_onsets: ContactOnsets::default(),
                 frame_contacts: Vec::with_capacity(MAX_CONTACT_PAIRS),
@@ -978,6 +986,13 @@ impl ItemWorld {
 
     /// Removes one body, including a held body, without leaving solver handles.
     pub fn remove(&mut self, key: u64) -> bool {
+        let fragments = self.runtime.as_mut().and_then(|r| r.breakables.remove(&key))
+            .map_or_else(Vec::new, |house| house.pieces);
+        for part in fragments {
+            if self.remove(part) && let Some(runtime) = self.runtime.as_mut() {
+                runtime.retired_break_parts.push(part);
+            }
+        }
         let Some(runtime) = self.runtime.as_mut() else {
             return false;
         };
@@ -1026,7 +1041,14 @@ impl ItemWorld {
             return Err(format!("physics reset group '{group}' has no bodies"));
         }
         runtime.refresh_queries();
-        runtime.validate_reset_destinations(&keys)?;
+        let mut exclusions = keys.clone();
+        for key in &keys {
+            if let Some(house) = runtime.breakables.get(key) {
+                exclusions.extend(house.pieces.iter().copied());
+            }
+        }
+        exclusions.sort_unstable();
+        runtime.validate_reset_destinations_with_exclusions(&keys, &exclusions)?;
         let released_held = runtime
             .held
             .as_ref()
@@ -1043,7 +1065,21 @@ impl ItemWorld {
             runtime.clear_item_contacts(key);
         }
         runtime.refresh_queries();
-        runtime.populate_counts(&mut self.stats);
+        let mut fragments = Vec::new();
+        for key in &keys {
+            if let Some(house) = runtime.breakables.get_mut(key) {
+                house.pending = false;
+                fragments.append(&mut house.pieces);
+            }
+        }
+        for part in fragments {
+            if self.remove(part) && let Some(active) = self.runtime.as_mut() {
+                active.retired_break_parts.push(part);
+            }
+        }
+        if let Some(active) = self.runtime.as_mut() {
+            active.populate_counts(&mut self.stats);
+        }
         Ok(ResetReport {
             reset_count: keys.len(),
             released_held,
@@ -1781,12 +1817,14 @@ impl Runtime {
         self.impacts
             .retain(|impact| impact.key != key && impact.other_key != Some(key));
     }
-    fn validate_reset_destinations(&self, keys: &[u64]) -> Result<(), String> {
+    fn validate_reset_destinations_with_exclusions(
+        &self, keys: &[u64], exclusions: &[u64],
+    ) -> Result<(), String> {
         let outside_group = |handle, collider: &rapier3d::prelude::Collider| {
             collider.is_enabled()
                 && self
                     .key_for_collider(handle)
-                    .is_none_or(|key| keys.binary_search(&key).is_err())
+                    .is_none_or(|key| exclusions.binary_search(&key).is_err())
         };
         let filter = query_filter().predicate(&outside_group);
         for key in keys {
@@ -2172,6 +2210,11 @@ impl Runtime {
             let Some((position, speed)) = self.impact_contact(contact) else {
                 continue;
             };
+            for key in [first, second].into_iter().flatten() {
+                if let (Some(house), Some(entry)) = (self.breakables.get_mut(&key), self.entries.get(&key)) {
+                    house.witness_contact(entry, self.held.as_ref().is_some_and(|held| held.key == key), speed, impulse);
+                }
+            }
             let active_key = [first, second]
                 .into_iter()
                 .flatten()

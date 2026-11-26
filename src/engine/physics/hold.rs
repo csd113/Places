@@ -111,6 +111,16 @@ fn view_rotation(yaw: f32) -> Quat {
     Quat::from_rotation_y(-yaw)
 }
 
+pub(super) fn player_item_hull(player: PlayerContext) -> (Pose, Cuboid) {
+    let center = Vec3::new(
+        player.feet.x,
+        player.height.mul_add(0.5, player.feet.y),
+        player.feet.z,
+    );
+    let half = Vector::new(player.half, player.height * 0.5, player.half);
+    (pose(center, Quat::IDENTITY), Cuboid::new(half))
+}
+
 fn camera_clear(candidate: &Pose, shape: &SharedShape, eye: Vec3) -> bool {
     let camera = Ball::new(CAMERA_RADIUS);
     intersection_test(
@@ -279,7 +289,7 @@ impl ItemWorld {
         true
     }
 
-    /// Checks the prescribed player capsule against live item bodies only.
+    /// Checks the prescribed player hull against live item bodies only.
     /// Static level geometry remains the owning controller's responsibility.
     #[must_use]
     pub fn player_pose_clear(&self, player: PlayerContext) -> bool {
@@ -289,20 +299,15 @@ impl ItemWorld {
         let Some(runtime) = self.runtime.as_ref() else {
             return true;
         };
-        let capsule = SharedShape::cuboid(player.half, player.height * 0.5, player.half);
-        let center = Vec3::new(
-            player.feet.x,
-            player.height.mul_add(0.5, player.feet.y),
-            player.feet.z,
-        );
+        let (target, hull) = player_item_hull(player);
         let only_items = |handle, collider: &rapier3d::prelude::Collider| {
             collider.is_enabled() && runtime.key_for_collider(handle).is_some()
         };
         runtime
             .world
             .intersect_shape(
-                pose(center, Quat::IDENTITY),
-                capsule.as_ref(),
+                target,
+                &hull,
                 query_filter().predicate(&only_items),
             )
             .next()

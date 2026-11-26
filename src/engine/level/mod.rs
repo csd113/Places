@@ -6582,6 +6582,9 @@ pub struct PropDef {
     /// Optional benevolent guide with authored routes and one movement/pose owner.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub feltling: Option<crate::engine::feltling::Definition>,
+    /// Cosmetic opt-in; never creates or changes the guide controller.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub feltling_costume: Option<crate::engine::props::feltling_costume::FeltlingCostume>,
     /// Explicit blind hunter capability; ordinary instances remain scenery.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub tall_guest: Option<crate::engine::tall_guest::Definition>,
