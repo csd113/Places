@@ -957,13 +957,16 @@ impl Guest {
     }
 
     fn head(&self) -> (Vec3, Vec3) {
-        self.socket("acoustic_origin")
-            .map_or((self.state.position, Vec3::Z), |m| {
-                (
-                    m.transform_point3(Vec3::ZERO),
-                    m.transform_vector3(Vec3::Y).normalize_or_zero(),
-                )
-            })
+        Self::head_frame(self.state.position, self.socket("acoustic_origin"))
+    }
+
+    fn head_frame(position: Vec3, socket: Option<Mat4>) -> (Vec3, Vec3) {
+        socket.map_or((position, Vec3::Z), |matrix| {
+            (
+                matrix.transform_point3(Vec3::ZERO),
+                matrix.transform_vector3(Vec3::Y).normalize_or_zero(),
+            )
+        })
     }
 
     const fn next_audio_sequence(&mut self) -> u64 {
@@ -2311,18 +2314,23 @@ impl Guest {
         let mut desired = 0.0;
         let mut best = -1.0_f32;
         if let Some(point) = target {
-            for step in 0_u8..=16 {
-                let weight = f32::from(step) / 20.0;
-                self.sample_base();
-                let _aim = self.animator.blend_upper_inspection(weight);
-                let (origin, axis) = self.head();
-                let direction = (point - origin).normalize_or_zero();
-                let score = axis.dot(direction);
-                if score > best {
-                    best = score;
-                    desired = weight;
-                }
-            }
+            self.sample_base();
+            let transform = self.transform();
+            let position = self.state.position;
+            self.animator.visit_upper_inspection_node_globals(
+                "acoustic_origin",
+                (0_u8..=16).map(|step| f32::from(step) / 20.0),
+                |weight, node| {
+                    let (origin, axis) =
+                        Self::head_frame(position, node.map(|model_space| transform * model_space));
+                    let direction = (point - origin).normalize_or_zero();
+                    let score = axis.dot(direction);
+                    if score > best {
+                        best = score;
+                        desired = weight;
+                    }
+                },
+            );
         }
         self.state.aim_weight += (desired - self.state.aim_weight).clamp(-1.6 * sub, 1.6 * sub);
     }

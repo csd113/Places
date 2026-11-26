@@ -384,6 +384,19 @@ pub struct CharacterUpdate {
     pub finished: Vec<String>,
 }
 
+const INSPECTION_CLIP: &str = "inspect_prop";
+const INSPECTION_PROGRESS: f32 = 2.0 / 4.8;
+
+fn upper_blend_node(name: &str) -> bool {
+    name.starts_with("spine_")
+        || name.starts_with("swallow_")
+        || matches!(name, "mouth_capture_socket" | "neck" | "head")
+}
+
+const fn upper_blend_weight(weight: f32) -> bool {
+    weight > 0.0 && weight <= 1.0
+}
+
 /// One node's local pose: the animator's working TRS.
 #[derive(Clone, Copy, Debug, PartialEq)]
 struct LocalTrs {
@@ -3766,22 +3779,102 @@ impl CharacterAnimator {
     /// Distributed authored upper-body blend for an isolated native aim gate.
     /// It does not apply a direct head yaw/pitch overlay or move the root/legs.
     pub fn blend_upper_inspection(&mut self, weight: f32) -> bool {
-        self.blend_upper_clip("inspect_prop", 2.0 / 4.8, weight)
+        self.blend_upper_clip(INSPECTION_CLIP, INSPECTION_PROGRESS, weight)
+    }
+
+    /// Query candidate inspection blends of a named socket against the
+    /// current base pose. Sample the reference once and compose only the
+    /// socket's ancestors, leaving the visible pose and skinning untouched.
+    pub(crate) fn visit_upper_inspection_node_globals(
+        &mut self,
+        name: &str,
+        weights: impl IntoIterator<Item = f32>,
+        mut visit: impl FnMut(f32, Option<Mat4>),
+    ) {
+        let Some(index) = self
+            .rig
+            .nodes
+            .iter()
+            .position(|node| node.name.eq_ignore_ascii_case(name))
+        else {
+            for weight in weights {
+                visit(weight, None);
+            }
+            return;
+        };
+        let base_global = self.node_globals.get(index).copied();
+        let reference_clip = self
+            .clip_index(INSPECTION_CLIP)
+            .and_then(|clip| self.clips.as_ref()?.clips.get(clip));
+        let Some(reference) = reference_clip else {
+            for weight in weights {
+                visit(weight, base_global);
+            }
+            return;
+        };
+        reference.sample(
+            &self.rig,
+            &MorphRig {
+                defaults: &self.morph_defaults,
+                ranges: &self.morph_ranges,
+            },
+            reference.duration * INSPECTION_PROGRESS,
+            false,
+            &mut SampleTargets {
+                pose: &mut self.clip_a,
+                morphs: &mut self.morph_a,
+            },
+        );
+
+        let mut chain = Vec::new();
+        let mut next = Some(index);
+        while let Some(node) = next {
+            let base = self.pose.get(node).copied();
+            let upper = self
+                .rig
+                .nodes
+                .get(node)
+                .is_some_and(|rig_node| upper_blend_node(&rig_node.name))
+                .then(|| self.clip_a.get(node).copied())
+                .flatten();
+            chain.push((base, upper));
+            next = self
+                .rig
+                .parent
+                .get(node)
+                .copied()
+                .flatten()
+                .map(usize::from);
+        }
+        for weight in weights {
+            let global = if upper_blend_weight(weight) {
+                chain
+                    .iter()
+                    .rev()
+                    .map(|(base, upper)| {
+                        base.map_or(Mat4::IDENTITY, |base_trs| {
+                            upper
+                                .map_or(base_trs, |upper_trs| base_trs.blend(upper_trs, weight))
+                                .matrix()
+                        })
+                    })
+                    .reduce(|parent, local| parent.mul_mat4(&local))
+            } else {
+                base_global
+            };
+            visit(weight, global);
+        }
     }
 
     /// Layer a named authored upper body over the current lower-body gait.
     pub fn blend_upper_clip(&mut self, name: &str, progress: f32, weight: f32) -> bool {
-        if !weight.is_finite() || !(0.0..=1.0).contains(&weight) || weight <= 0.0 {
+        if !upper_blend_weight(weight) {
             return false;
         }
         let base = self.pose.clone();
         let _reference = self.sample_fraction(name, progress);
         for ((pose, original), node) in self.pose.iter_mut().zip(base).zip(&self.rig.nodes) {
-            *pose = if node.name.starts_with("spine_")
-                || node.name.starts_with("swallow_")
-                || node.name == "mouth_capture_socket"
-                || matches!(node.name.as_str(), "neck" | "head")
-            {
+            *pose = if upper_blend_node(&node.name) {
                 original.blend(*pose, weight)
             } else {
                 original
@@ -4669,6 +4762,10 @@ pub const fn character_vertex(albedo: [f32; 4], uv: [f32; 2], position: [f32; 3]
         ..Vertex::UNLIT
     }
 }
+
+#[cfg(test)]
+#[path = "../../tests/character_aim.rs"]
+mod aim_tests;
 
 #[cfg(test)]
 #[path = "../../tests/character_clip_selection.rs"]
