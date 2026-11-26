@@ -120,6 +120,20 @@ impl DrawableSize {
     /// letterbox margins and zero-size windows have no menu hit region.
     #[must_use]
     pub fn window_to_ui(self, window: (u32, u32), point: [f32; 2]) -> Option<[f32; 2]> {
+        self.map_window_to_ui(window, point, true)
+    }
+
+    /// Converts captured pointer positions even outside the content viewport.
+    #[must_use]
+    pub(crate) fn window_to_ui_unclipped(
+        self,
+        window: (u32, u32),
+        point: [f32; 2],
+    ) -> Option<[f32; 2]> {
+        self.map_window_to_ui(window, point, false)
+    }
+
+    fn map_window_to_ui(self, window: (u32, u32), point: [f32; 2], clip: bool) -> Option<[f32; 2]> {
         if self.is_empty()
             || window.0 == 0
             || window.1 == 0
@@ -134,10 +148,11 @@ impl DrawableSize {
         let origin_y = dimension_f32(u32::try_from(viewport.y).ok()?);
         let width = dimension_f32(u32::try_from(viewport.width).ok()?);
         let height = dimension_f32(u32::try_from(viewport.height).ok()?);
-        if pixel_x < origin_x
-            || pixel_y < origin_y
-            || pixel_x >= origin_x + width
-            || pixel_y >= origin_y + height
+        if clip
+            && (pixel_x < origin_x
+                || pixel_y < origin_y
+                || pixel_x >= origin_x + width
+                || pixel_y >= origin_y + height)
         {
             return None;
         }

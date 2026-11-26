@@ -3,7 +3,7 @@ pub mod command;
 pub mod runtime;
 mod ui;
 
-use crate::engine::render::Vertex;
+use crate::{engine::render::Vertex, game::AppState};
 use command::Command;
 use sdl3::event::Event;
 use sdl3::keyboard::Keycode;
@@ -33,6 +33,22 @@ impl Console {
     #[must_use]
     pub const fn is_open(&self) -> bool {
         self.open
+    }
+
+    /// A closed gameplay console may claim its binding. Once open, ordinary
+    /// keys belong to the editor (including a rebound Return); Escape closes
+    /// it, and the default grave key remains a toggle.
+    pub(crate) fn wants_toggle(
+        &self,
+        event: &Event,
+        binding: &str,
+        state: AppState,
+        enabled: bool,
+    ) -> bool {
+        enabled
+            && state == AppState::Playing
+            && (!self.open || crate::game::input::pressed_key(event) == Some(Keycode::Grave))
+            && toggle_key(event, binding)
     }
 
     /// Disabled and menu states cannot open the console.

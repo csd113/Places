@@ -2363,7 +2363,7 @@ impl FrameLoop<'_> {
 
     /// All menu clicks use the rendered layout and the renderer's actual
     /// viewport conversion. No desktop coordinates or hard-coded DPI factor.
-    fn menu_hit(&self, x: f32, y: f32) -> Option<ui::MenuHit> {
+    fn menu_pointer_target(&self, x: f32, y: f32) -> Option<(ui::MenuLayout, [f32; 2])> {
         if !self.window_focused
             || self.renderer.transition_frozen()
             || self.startup != StartupPhase::Ready
@@ -2373,13 +2373,20 @@ impl FrameLoop<'_> {
         }
         let (width, height) = self.window.size_in_pixels();
         let point = DrawableSize::new(width, height).window_to_ui(self.window.size(), [x, y])?;
-        ui::menu_layout(
-            self.game.app_state(),
-            self.ui_state,
-            self.settings,
-            self.display_status,
-        )
-        .hit_test(point)
+        Some((
+            ui::menu_layout(
+                self.game.app_state(),
+                self.ui_state,
+                self.settings,
+                self.display_status,
+            ),
+            point,
+        ))
+    }
+
+    fn menu_hit(&self, x: f32, y: f32) -> Option<ui::MenuHit> {
+        let (layout, point) = self.menu_pointer_target(x, y)?;
+        layout.hit_test(point)
     }
 
     fn handle_menu_pointer(&mut self, event: &Event) -> bool {
@@ -2416,11 +2423,12 @@ impl FrameLoop<'_> {
                     y: _
                 }
             );
-            if !down {
-                self.ui_state.volume_drag = None;
+            if !down && self.ui_state.volume_drag_active() {
+                self.update_volume_drag(*x, *y);
+                self.finish_volume_drag();
             }
             if let Some(clicked) = self.ui_state.pointer.button(down, hit) {
-                self.activate_menu_hit(clicked);
+                self.activate_menu_hit(clicked, *x, *y);
                 self.sync_menu_pointer();
                 self.sync_mouse_capture();
             }
@@ -2445,23 +2453,27 @@ impl FrameLoop<'_> {
             integer_y: _,
         } = event
         {
-            if self.window_focused
-                && !self.ui_state.loading_map
+            if !self.ui_state.loading_map
+                && !self.ui_state.volume_drag_active()
                 && self.ui_state.rebinding_action.is_none()
-                && self.menu_hit(*mouse_x, *mouse_y).is_some()
                 && y.is_finite()
                 && *y != 0.0
+                && let Some((layout, point)) = self.menu_pointer_target(*mouse_x, *mouse_y)
             {
+                let hit = layout.hit_test(point);
                 let flipped = *direction == MouseWheelDirection::Flipped;
                 let step = if (*y > 0.0) == flipped { 1_i32 } else { -1_i32 };
-                if self.ui_state.details_open.is_some()
-                    || self
-                        .menu_hit(*mouse_x, *mouse_y)
-                        .is_some_and(|hit| matches!(hit.intent, ui::MenuIntent::Page(_)))
-                {
+                let state = self.game.app_state();
+                if hit.is_some_and(|target| {
+                    self.ui_state.details_open.is_some()
+                        || matches!(target.intent, ui::MenuIntent::Page(_))
+                }) {
                     self.ui_state.scroll_details(step);
-                } else {
-                    self.ui_state.scroll_menu(self.game.app_state(), step);
+                } else if hit.is_some()
+                    || (matches!(state, AppState::Settings | AppState::PauseSettings)
+                        && layout.contains_scroll_area(point))
+                {
+                    self.ui_state.scroll_menu(state, step);
                 }
             }
             return true;
@@ -2484,14 +2496,11 @@ impl FrameLoop<'_> {
             // SDL emits stationary/synthetic events when capture changes. They
             // must not replace keyboard selection or hover on menu opening.
             if self.window_focused && (xrel.abs() > 0.0 || yrel.abs() > 0.0) {
-                let hit = self.menu_hit(*x, *y);
-                if let Some(slider) = hit
-                    && let ui::MenuIntent::Volume(control, _) = slider.intent
-                    && self.ui_state.volume_drag == Some(control)
-                {
-                    self.activate_menu_hit(slider);
+                if self.ui_state.volume_drag_active() {
+                    self.update_volume_drag(*x, *y);
                     return true;
                 }
+                let hit = self.menu_hit(*x, *y);
                 if self.ui_state.pointer.motion([*x, *y], hit)
                     && let Some(hovered) = hit
                     && matches!(
@@ -2508,7 +2517,25 @@ impl FrameLoop<'_> {
         false
     }
 
-    fn activate_menu_hit(&mut self, clicked: ui::MenuHit) {
+    fn update_volume_drag(&mut self, x: f32, y: f32) {
+        let (width, height) = self.window.size_in_pixels();
+        if let Some([track_x, _]) =
+            DrawableSize::new(width, height).window_to_ui_unclipped(self.window.size(), [x, y])
+        {
+            self.ui_state.update_volume_drag(self.settings, track_x);
+        }
+    }
+
+    fn finish_volume_drag(&mut self) {
+        if self.ui_state.volume_drag_active() {
+            self.sdl.mouse().capture(false);
+            if self.ui_state.finish_volume_drag(self.settings) {
+                self.save_settings();
+            }
+        }
+    }
+
+    fn activate_menu_hit(&mut self, clicked: ui::MenuHit, x: f32, y: f32) {
         match clicked.intent {
             ui::MenuIntent::RetryLoad => self.retry_after_unload(),
             ui::MenuIntent::Dismiss => {
@@ -2522,16 +2549,12 @@ impl FrameLoop<'_> {
                 self.ui_state.pointer.invalidate();
             }
             ui::MenuIntent::Page(direction) => self.ui_state.scroll_details(direction),
-            ui::MenuIntent::Volume(control, percent) => {
-                self.ui_state.volume_drag = Some(control);
+            ui::MenuIntent::Volume(control) => {
+                self.ui_state.start_volume_drag(control, self.settings);
                 self.ui_state
                     .select_menu_index(self.game.app_state(), clicked.index);
-                if self
-                    .settings
-                    .set_audio_volume(control, f32::from(percent) / 100.0)
-                {
-                    self.save_settings();
-                }
+                self.sdl.mouse().capture(true);
+                self.update_volume_drag(x, y);
             }
             ui::MenuIntent::CancelRebind => self.ui_state.cancel_rebinding(),
             ui::MenuIntent::CancelLoad => self.cancel_loading(),
@@ -2783,7 +2806,7 @@ impl FrameLoop<'_> {
             }
             if matches!(win_event, WindowEvent::FocusLost) {
                 self.window_focused = false;
-                self.ui_state.volume_drag = None;
+                self.finish_volume_drag();
                 self.game.reset_timing();
                 self.close_console();
                 // A key released while another window had focus may never
@@ -2833,7 +2856,7 @@ impl FrameLoop<'_> {
             return true;
         }
 
-        if !self.window_focused {
+        if !self.window_focused || self.ui_state.volume_drag_active() {
             return true;
         }
 
@@ -3161,6 +3184,17 @@ impl FrameLoop<'_> {
 
     /// Dispatches one menu navigation event for the current screen.
     fn handle_menu_nav(&mut self, nav: MenuNavEvent) {
+        if let Some(confirm) = self.ui_state.restore_confirmation {
+            match nav {
+                MenuNavEvent::Activate => self.activate_settings(),
+                MenuNavEvent::Back => self.ui_state.cancel_restore_defaults(),
+                MenuNavEvent::Up | MenuNavEvent::Down => {
+                    self.ui_state.restore_confirmation = Some(!confirm);
+                }
+                MenuNavEvent::Left | MenuNavEvent::Right => {}
+            }
+            return;
+        }
         if self.ui_state.resume_offer.is_some() {
             match nav {
                 MenuNavEvent::Activate => self.activate_checkpoint_offer(),
@@ -3297,10 +3331,7 @@ impl FrameLoop<'_> {
         }
     }
 
-    /// Left/right on the settings screen adjusts or rebinds the selected item.
-    ///
-    /// A section or Back row ignores left/right (Enter opens or leaves); every
-    /// other row is a value selector, a toggle or a rebind.
+    /// Left/right adjusts values only. Actions require explicit activation.
     fn adjust_settings(&mut self, direction: i32) {
         if matches!(
             self.game.app_state(),
@@ -3308,15 +3339,17 @@ impl FrameLoop<'_> {
         ) {
             let page = self.ui_state.settings_page;
             let index = self.ui_state.settings_idx;
-            let _ = activate_settings_item(
+            if activate_settings_item(
                 page,
                 index,
                 self.ui_state,
                 self.settings,
                 self.display_status,
                 direction,
-            );
-            self.save_settings();
+            ) == SettingsAction::Save
+            {
+                self.save_settings();
+            }
         }
     }
 
@@ -3363,6 +3396,12 @@ impl FrameLoop<'_> {
     /// Activates one Settings row: opens a section, leaves the screen or
     /// adjusts/rebinds the selected option.
     fn activate_settings(&mut self) {
+        if self.ui_state.restore_confirmation.is_some() {
+            if self.ui_state.resolve_restore_defaults(self.settings) {
+                self.save_settings();
+            }
+            return;
+        }
         let page = self.ui_state.settings_page;
         let index = self.ui_state.settings_idx;
         let action = activate_settings_row(
@@ -3372,8 +3411,8 @@ impl FrameLoop<'_> {
             self.settings,
             self.display_status,
         );
-        self.save_settings();
         match action {
+            SettingsAction::Save => self.save_settings(),
             SettingsAction::Open(next) => {
                 self.ui_state.settings_page = next;
                 self.ui_state.settings_idx = 0;
@@ -3413,6 +3452,7 @@ impl FrameLoop<'_> {
             self.load_return_state = state;
         }
         if self.game.app_state() != state {
+            self.ui_state.cancel_restore_defaults();
             self.ui_state.clear_status();
         }
         if state == AppState::MainMenu
