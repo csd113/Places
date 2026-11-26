@@ -70,11 +70,6 @@ Keep the existing six-HP player, three hearts, disabled-by-default HUD and crowb
 ### 32. [GitHub #43: Technical architecture and API documentation](https://github.com/csd113/Places/issues/43)
 **Deferred.** Leave GitHub #43 open. The issue explicitly requests documentation, but the newer standing direction is **no routine task reports or reference sheets**. Reconcile that before writing. Cover current engine/game/editor/compiler responsibilities, shared ownership and important data contracts, and the real editor → compiler → package → player path. Verify links/examples against current code and prefer concise maintained content to copying the issue’s historical multi-document scope verbatim. This isn’t an architecture rewrite.
 
-### 33. Hand-build a compact Model Zoo showcase
-Build a small, walkable gallery by hand in the Places level editor. Place one example of every current editor-available model, prop, decal, wall texture, floor texture, light type, and other placeable asset or surface category. Group related models close together and use small wall and floor swatches. Keep aisles short and leave only the clearance needed to walk around and see each display. Avoid oversized rooms, empty wings, and long corridors.
-
-Treat it as a snapshot of the current catalog to show friends, not a test fixture. No automated placement, generated map edits, test suite, coverage checks, or automatic updates when the catalog changes. Save the editable map and export a standalone `.placesmap` separately; do not bundle it with the base game or put it in the default map list.
-
 ### 34. Christmas environment props and models
 **Queued.** Create all-new, Christmas-specific models and textures in the Dot’s own Blender and GIMP, not on Connor’s computers. Do not reuse, recolor, or repackage existing Arcade gifts or Winter string lights. Match Places’ low-poly style, in-game scale, and asset conventions.
 
