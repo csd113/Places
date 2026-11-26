@@ -231,6 +231,7 @@ Treat it as a snapshot of the current catalog to show friends, not a test fixtur
 - Placeable Santa Claus NPC
 - Optional little elf costumes for Feltlings, selectable per Feltling without replacing their default appearance
 - Wall-mounted Christmas stocking decoration
+- Small pinecone props
 
 This item covers new assets and their editor-catalog validation. No new map, Mall decoration, or full bake is in scope.
 
