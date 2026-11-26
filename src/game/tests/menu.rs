@@ -1,7 +1,7 @@
 //! Essential regression coverage for full error retention, modal input ownership,
 //! and four-card paging. Tiny strings/rows only; no assets, GPU or map bake.
 use super::*;
-use crate::game::ui::activate_settings_item;
+use crate::game::ui::{SettingsAction, activate_settings_item};
 
 #[test]
 fn full_error_pages_retain_long_unicode_paths_and_own_input() {
@@ -312,13 +312,16 @@ fn audio_slider_tracks_and_keys_keep_their_own_setting() -> Result<(), String> {
         let track = layout
             .rows
             .iter()
-            .find(|row| row.slider == Some(control))
+            .find(|row| {
+                row.slider
+                    .is_some_and(|(candidate, _)| candidate == control)
+            })
             .ok_or("missing audio slider")?;
         assert_eq!(
             layout
                 .hit_test([372.0, track.bounds.top + 8.0])
                 .map(|hit| hit.intent),
-            Some(MenuIntent::Volume(control, 50))
+            Some(MenuIntent::Volume(control))
         );
         let mut adjusted = settings.clone();
         let _action = activate_settings_item(
@@ -335,4 +338,263 @@ fn audio_slider_tracks_and_keys_keep_their_own_setting() -> Result<(), String> {
         }
     }
     Ok(())
+}
+
+// Two tiny layouts protect the M/P Settings Back hit and confirm/cancel paths.
+// Non-value directional dispatch previously triggered an immediate reset or rebind.
+#[test]
+fn settings_actions_require_activation_and_reset_requires_confirmation() -> Result<(), String> {
+    let display = DisplayStatus::default();
+    for state in [AppState::Settings, AppState::PauseSettings] {
+        let mut ui = UiState::new();
+        let mut settings = Settings::default();
+        settings.muted = !settings.muted;
+        let nondefault_mute = settings.muted;
+        let layout = menu_layout(state, &ui, &settings, &display);
+        let restore = layout
+            .rows
+            .iter()
+            .find(|row| row.label == "Restore Defaults")
+            .ok_or("missing Restore Defaults")?;
+        let back = layout.rows.last().ok_or("missing Back")?;
+        assert!(restore.bounds.bottom <= back.bounds.top, "targets overlap");
+        for row in [restore, back] {
+            for y in [row.bounds.top, row.bounds.bottom - 1.0] {
+                assert_eq!(
+                    layout.hit_test([40.0, y]).map(|hit| hit.index),
+                    Some(row.index)
+                );
+            }
+        }
+        for (page, index) in [
+            (SettingsPage::Root, 0),
+            (SettingsPage::Root, restore.index),
+            (SettingsPage::Root, back.index),
+            (SettingsPage::Controls, 0),
+        ] {
+            for direction in [-1_i32, 1_i32] {
+                assert_eq!(
+                    activate_settings_item(
+                        page,
+                        index,
+                        &mut ui,
+                        &mut settings,
+                        &display,
+                        direction
+                    ),
+                    SettingsAction::None
+                );
+                assert!(
+                    ui.restore_confirmation.is_none(),
+                    "direction opened confirmation"
+                );
+                assert!(ui.rebinding_action.is_none(), "direction started a rebind");
+                assert_eq!(settings.muted, nondefault_mute);
+            }
+        }
+        for confirm in [false, true] {
+            assert_eq!(
+                activate_settings_item(
+                    SettingsPage::Root,
+                    restore.index,
+                    &mut ui,
+                    &mut settings,
+                    &display,
+                    0,
+                ),
+                SettingsAction::None
+            );
+            assert_eq!(settings.muted, nondefault_mute);
+            assert_eq!(
+                ui.restore_confirmation,
+                Some(false),
+                "Cancel starts selected"
+            );
+            let modal = menu_layout(state, &ui, &settings, &display);
+            assert!(
+                modal.hit_test([40.0, back.bounds.top]).is_none(),
+                "underlying Back must not take clicks"
+            );
+            if confirm {
+                let hit = modal
+                    .hit_test([40.0, 135.0])
+                    .ok_or("missing confirmation action")?;
+                ui.select_menu_index(state, hit.index);
+            }
+            assert_eq!(ui.resolve_restore_defaults(&mut settings), confirm);
+            assert_eq!(settings.muted, nondefault_mute != confirm);
+        }
+    }
+    Ok(())
+}
+
+// Shared arrow/wheel dispatch must reach the final Graphics rows and keep the
+// Static lighting restriction, without a GPU or real Settings files.
+#[test]
+fn expanded_graphics_pointer_scroll_reaches_lighting_and_respects_static_reflections()
+-> Result<(), String> {
+    use crate::engine::quality::LightmapQuality;
+    let display = DisplayStatus::default();
+    let mut settings = Settings::default();
+    let _set_static = settings.set_lightmap_quality(LightmapQuality::Off);
+    for state in [AppState::Settings, AppState::PauseSettings] {
+        let mut ui = UiState {
+            settings_page: SettingsPage::Graphics,
+            settings_idx: 5,
+            advanced_expanded: true,
+            ..UiState::new()
+        };
+        let layout = menu_layout(state, &ui, &settings, &display);
+        let down = layout
+            .hit_test([450.0, 190.0])
+            .ok_or("missing scroll arrow")?;
+        assert_eq!(down.intent, MenuIntent::Scroll(1));
+        ui.scroll_menu(state, 1);
+        assert_eq!(ui.settings_scroll, 1);
+        let scrolled = menu_layout(state, &ui, &settings, &display);
+        let gap = [65.0, 86.0];
+        assert!(
+            scrolled.hit_test(gap).is_none(),
+            "the point is in a row gap"
+        );
+        assert!(
+            scrolled.contains_scroll_area(gap),
+            "the wheel can scroll between rows"
+        );
+        for _ in 0_u8..2 {
+            ui.scroll_menu(state, 1);
+        }
+        let tail = menu_layout(state, &ui, &settings, &display);
+        let lighting = tail.rows.iter().find(|row| row.label == "Lighting");
+        assert!(
+            lighting.is_some_and(|row| row.enabled),
+            "Lighting is reachable"
+        );
+        let reflections = tail
+            .rows
+            .iter()
+            .find(|row| row.label == "Reflections")
+            .ok_or("Reflections must be reachable")?;
+        assert!(!reflections.enabled, "Static must disable Reflections");
+        assert!(
+            reflections.value.contains("Static lighting"),
+            "disabled state is explained"
+        );
+        assert!(
+            tail.hit_test([450.0, 190.0]).is_none(),
+            "no scroll past end"
+        );
+        assert_eq!(
+            tail.hit_test([450.0, 70.0]).map(|hit| hit.intent),
+            Some(MenuIntent::Scroll(-1))
+        );
+        let mut full = settings.clone();
+        let _set_full = full.set_lightmap_quality(LightmapQuality::Full);
+        assert!(
+            menu_layout(state, &ui, &full, &display)
+                .rows
+                .iter()
+                .any(|row| row.label == "Reflections" && row.enabled),
+            "Full lighting re-enables Reflections"
+        );
+    }
+    Ok(())
+}
+
+// One in-memory gesture plus viewport geometry verifies live clamping, row
+// ownership, and a single save request for a changed final value.
+#[test]
+fn audio_drag_clamps_the_captured_row_and_requests_one_save() -> Result<(), String> {
+    use crate::game::settings::AudioVolume::{Ambient, Master};
+    let mut settings = Settings::default();
+    let mut ui = UiState::new();
+    let drawable = DrawableSize::new(1000, 500);
+    let window = (500, 250);
+    let sample = |point| {
+        drawable
+            .window_to_ui_unclipped(window, point)
+            .map(|[x, _]| x)
+            .ok_or("captured pointer must map even outside the window")
+    };
+    let _initial_apply = settings.take_pending_apply();
+    ui.start_volume_drag(Ambient, &settings);
+    ui.update_volume_drag(&mut settings, 372.0);
+    assert_eq!(settings.audio_volume(Ambient).to_bits(), 0.5_f32.to_bits());
+    assert!(
+        settings.take_pending_apply().audio,
+        "live mixer update is due before release"
+    );
+    ui.update_volume_drag(&mut settings, sample([525.0, -30.0])?);
+    assert_eq!(settings.audio_volume(Ambient).to_bits(), 1.0_f32.to_bits());
+    assert!(
+        !ui.finish_volume_drag(&settings),
+        "returning to the original value needs no write"
+    );
+    ui.start_volume_drag(Ambient, &settings);
+    ui.update_volume_drag(&mut settings, sample([-15.0, 300.0])?);
+    assert_eq!(settings.audio_volume(Ambient).to_bits(), 0.0_f32.to_bits());
+    assert_eq!(settings.audio_volume(Master).to_bits(), 1.0_f32.to_bits());
+    assert!(
+        ui.finish_volume_drag(&settings),
+        "only finishing requests a write"
+    );
+    assert!(
+        !ui.finish_volume_drag(&settings),
+        "late release cannot request another write"
+    );
+    Ok(())
+}
+
+// Real SDL motion events exercise the native router's lost button-up path.
+// No window, assets, or on-disk settings are needed.
+#[test]
+fn captured_audio_motion_without_left_button_commits_last_held_sample_once() {
+    use crate::game::settings::AudioVolume::Ambient;
+    use sdl3::mouse::MouseState;
+
+    let mut settings = Settings::default();
+    let mut ui = UiState::new();
+    let hit = MenuHit {
+        index: 1,
+        intent: MenuIntent::Volume(Ambient),
+    };
+    assert_eq!(ui.pointer.button(true, Some(hit)), Some(hit));
+    ui.start_volume_drag(Ambient, &settings);
+    let motion = |x, xrel, left_held| Event::MouseMotion {
+        timestamp: 0,
+        window_id: 1,
+        which: 0,
+        mousestate: MouseState::from_sdl_state(u32::from(left_held)),
+        x,
+        y: 100.0,
+        xrel,
+        yrel: 0.0,
+    };
+    let track_x = |[x, _]: [f32; 2]| Some(x);
+    assert_eq!(
+        ui.handle_captured_volume_motion(&mut settings, &motion(372.0, 48.0, true), track_x),
+        CapturedVolumeMotion::Held,
+    );
+    assert_eq!(settings.audio_volume(Ambient).to_bits(), 0.5_f32.to_bits());
+    assert_eq!(
+        ui.handle_captured_volume_motion(&mut settings, &motion(500.0, 0.0, false), track_x),
+        CapturedVolumeMotion::Recovered { changed: true },
+        "even stationary unpressed motion must recover before sampling its position"
+    );
+    assert!(
+        !ui.volume_drag_active(),
+        "keyboard input must not stay blocked"
+    );
+    assert_eq!(
+        ui.handle_captured_volume_motion(&mut settings, &motion(0.0, -500.0, false), track_x),
+        CapturedVolumeMotion::Unhandled,
+        "later motion must not revive the drag or request another write"
+    );
+    assert_eq!(settings.audio_volume(Ambient).to_bits(), 0.5_f32.to_bits());
+    assert_eq!(ui.recover_volume_drag(&settings, false), None);
+    assert_eq!(
+        ui.pointer.button(true, Some(hit)),
+        Some(hit),
+        "the next click is fresh"
+    );
 }

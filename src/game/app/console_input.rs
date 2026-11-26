@@ -95,16 +95,16 @@ impl FrameLoop<'_> {
         if self.handle_form_event(event) {
             return true;
         }
-        if console::toggle_key(event, &self.settings.bindings.console) {
-            if self.settings.developer_console
-                && self.game.app_state() == AppState::Playing
-                && self.load_intent.is_none()
-            {
-                self.console.toggle(true, true);
-                self.input_handler.clear_gameplay_inputs();
-                self.game.reset_timing();
-                self.sync_mouse_capture();
-            }
+        if self.console.wants_toggle(
+            event,
+            &self.settings.bindings.console,
+            self.game.app_state(),
+            self.settings.developer_console && self.load_intent.is_none(),
+        ) {
+            self.console.toggle(true, true);
+            self.input_handler.clear_gameplay_inputs();
+            self.game.reset_timing();
+            self.sync_mouse_capture();
             return true;
         }
         if !self.console.is_open() {

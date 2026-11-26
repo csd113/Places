@@ -9,6 +9,7 @@ use crate::{
     game::display::DisplayStatus,
     game::settings::{AudioVolume, Settings, WindowMode},
 };
+use sdl3::event::Event;
 use std::hash::{Hash, Hasher};
 
 const TEXT: [f32; 3] = [1.0, 0.95, 0.84];
@@ -16,6 +17,14 @@ const MUTED: [f32; 3] = [0.65, 0.65, 0.59];
 const ACCENT: [f32; 3] = [1.0, 0.86, 0.25];
 const LEFT: f32 = 36.0;
 const RIGHT: f32 = 444.0;
+const SETTINGS_VISIBLE_ROWS: usize = 7;
+const VOLUME_LEFT: f32 = 324.0;
+const VOLUME_RIGHT: f32 = 420.0;
+const VOLUME_WIDTH: f32 = VOLUME_RIGHT - VOLUME_LEFT;
+
+pub(super) fn volume_at(x: f32) -> f32 {
+    (((x - VOLUME_LEFT) / VOLUME_WIDTH).clamp(0.0, 1.0) * 100.0).round() / 100.0
+}
 pub const LEVEL_IMPORT_ACTIONS: [&str; 4] = ["Import file", "Scan folder", "Open folder", "Back"];
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -47,7 +56,7 @@ pub enum MenuIntent {
     Dismiss,
     RetryLoad,
     Page(i32),
-    Volume(AudioVolume, u8),
+    Volume(AudioVolume),
     Details,
 }
 
@@ -65,7 +74,7 @@ pub struct MenuRow {
     pub value: String,
     pub adjustable: bool,
     pub enabled: bool,
-    pub slider: Option<AudioVolume>,
+    pub slider: Option<(AudioVolume, f32)>,
 }
 
 #[derive(Debug, Default)]
@@ -81,6 +90,10 @@ pub struct MenuLayout {
 }
 
 impl MenuLayout {
+    pub(crate) fn contains_scroll_area(&self, point: [f32; 2]) -> bool {
+        self.scroll.is_some() && rect(LEFT, 64.0, 458.0, 224.0).contains(point)
+    }
+
     /// Tests the very same row rectangles the geometry draws. Arrow controls
     /// have fixed generous bounds; text length never changes their hit region.
     #[must_use]
@@ -149,17 +162,10 @@ impl MenuLayout {
             .iter()
             .find(|row| row.bounds.contains(point))
             .map(|row| {
-                let intent = if let Some(control) = row.slider
-                    && point[0] >= 324.0
-                    && point[0] <= 420.0
+                let intent = if let Some((control, _)) = row.slider
+                    && (VOLUME_LEFT..=VOLUME_RIGHT).contains(&point[0])
                 {
-                    let percent = format!(
-                        "{:.0}",
-                        ((point[0] - 324.0) / 96.0 * 100.0).clamp(0.0, 100.0)
-                    )
-                    .parse::<u8>()
-                    .unwrap_or(0);
-                    MenuIntent::Volume(control, percent)
+                    MenuIntent::Volume(control)
                 } else if row.adjustable && row.enabled && point[0] >= 300.0 && point[0] < 324.0 {
                     MenuIntent::Adjust(-1)
                 } else if row.adjustable && row.enabled && point[0] >= 420.0 {
@@ -266,6 +272,18 @@ pub fn menu_layout(
     settings: &Settings,
     display: &DisplayStatus,
 ) -> MenuLayout {
+    if matches!(state, AppState::Settings | AppState::PauseSettings)
+        && ui.restore_confirmation.is_some()
+        && !ui.loading_map
+    {
+        return MenuLayout {
+            rows: vec![
+                row(0, "Cancel".into(), String::new(), 100.0, 22.0),
+                row(1, "Restore Defaults".into(), String::new(), 127.0, 22.0),
+            ],
+            ..MenuLayout::default()
+        };
+    }
     let mut layout = base_layout(state, ui);
     if let Some(resume) = checkpoint_layout(ui) {
         return resume;
@@ -358,15 +376,15 @@ fn settings_layout(
 ) {
     let rows = settings_rows(ui.settings_page, settings, display, ui.advanced_expanded);
     let total = rows.len().saturating_sub(1);
-    let visible = total.min(7);
+    let visible = total.min(SETTINGS_VISIBLE_ROWS);
     let offset = visible_offset(ui.settings_scroll, ui.settings_idx, total, visible);
     let height = if ui.settings_page == SettingsPage::Root {
-        24.0
+        22.0
     } else {
         16.0
     };
     let spacing = if ui.settings_page == SettingsPage::Root {
-        26.0
+        23.0
     } else {
         17.0
     };
@@ -385,7 +403,7 @@ fn settings_layout(
         top += spacing + extra;
         entry.adjustable = matches!(setting.kind, SettingsRowKind::Value(_));
         if let SettingsRowKind::Value(SettingsValue::Volume(control)) = setting.kind {
-            entry.slider = Some(control);
+            entry.slider = Some((control, settings.audio_volume(control)));
         }
         entry.enabled = match setting.kind {
             SettingsRowKind::Value(SettingsValue::Reflections) => settings.lightmaps_enabled(),
@@ -409,7 +427,7 @@ fn settings_layout(
     }
 }
 
-const fn selected_index(state: AppState, ui: &UiState) -> usize {
+fn selected_index(state: AppState, ui: &UiState) -> usize {
     if ui.resume_offer.is_some() {
         return ui.resume_index;
     }
@@ -417,7 +435,9 @@ const fn selected_index(state: AppState, ui: &UiState) -> usize {
         AppState::MainMenu => ui.main_menu_idx,
         AppState::LevelSelect => ui.level_select_idx,
         AppState::Paused => ui.pause_menu_idx,
-        AppState::Settings | AppState::PauseSettings => ui.settings_idx,
+        AppState::Settings | AppState::PauseSettings => {
+            ui.restore_confirmation.map_or(ui.settings_idx, usize::from)
+        }
         AppState::Playing => 0,
     }
 }
@@ -661,26 +681,18 @@ fn draw_scroll(vertices: &mut Vec<Vertex>, layout: &MenuLayout, ui: &UiState) {
 
 fn draw_value(vertices: &mut Vec<Vertex>, entry: &MenuRow, ui: &UiState, color: [f32; 3]) {
     let bounds = entry.bounds;
-    if entry.slider.is_some() {
-        let amount = entry
-            .value
-            .trim_start_matches("< ")
-            .split('%')
-            .next()
-            .and_then(|text| text.parse::<f32>().ok())
-            .unwrap_or(0.0)
-            / 100.0;
+    if let Some((_, amount)) = entry.slider {
         let y = bounds.top + 10.0;
-        add_rect(vertices, 324.0, y, 420.0, y + 2.0, [0.3, 0.3, 0.27]);
+        let x = amount.mul_add(VOLUME_WIDTH, VOLUME_LEFT);
         add_rect(
             vertices,
-            324.0,
+            VOLUME_LEFT,
             y,
-            amount.mul_add(96.0, 324.0),
+            VOLUME_RIGHT,
             y + 2.0,
-            ACCENT,
+            [0.3, 0.3, 0.27],
         );
-        let x = amount.mul_add(96.0, 324.0);
+        add_rect(vertices, VOLUME_LEFT, y, x, y + 2.0, ACCENT);
         add_rect(vertices, x - 2.0, y - 3.0, x + 2.0, y + 5.0, TEXT);
         draw_text(
             vertices,
@@ -945,9 +957,27 @@ pub(super) fn geometry(
     if ui.resume_offer.is_some() {
         return checkpoint_geometry(state, ui, settings, display);
     }
+    let layout = menu_layout(state, ui, settings, display);
+    if matches!(state, AppState::Settings | AppState::PauseSettings)
+        && ui.restore_confirmation.is_some()
+    {
+        panel(
+            &mut vertices,
+            "Restore Defaults?",
+            "This replaces all saved preferences, including key bindings.",
+            false,
+        );
+        draw_rows(&mut vertices, &layout, state, ui);
+        small_line(
+            &mut vertices,
+            "Click / Enter: select   Esc: cancel",
+            250.0,
+            MUTED,
+        );
+        return vertices;
+    }
     let (title, subtitle) = screen_titles(state, ui);
     panel(&mut vertices, title, subtitle, state == AppState::MainMenu);
-    let layout = menu_layout(state, ui, settings, display);
     draw_rows(&mut vertices, &layout, state, ui);
     draw_empty_state(&mut vertices, state, ui);
     if state == AppState::LevelSelect && ui.level_select_idx < ui.level_entries.len() {
@@ -1167,7 +1197,50 @@ pub(super) fn loading(ui: &UiState, _version: &str) -> Vec<Vertex> {
     vertices
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CapturedVolumeMotion {
+    Unhandled,
+    Held,
+    Recovered { changed: bool },
+}
+
 impl UiState {
+    /// An unpressed SDL motion ends a lost-release gesture before its
+    /// coordinates can move the slider. The ordinary button-up path samples
+    /// its release position separately.
+    pub(crate) fn handle_captured_volume_motion(
+        &mut self,
+        settings: &mut Settings,
+        event: &Event,
+        track_x: impl FnOnce([f32; 2]) -> Option<f32>,
+    ) -> CapturedVolumeMotion {
+        if !self.volume_drag_active() {
+            return CapturedVolumeMotion::Unhandled;
+        }
+        let Event::MouseMotion {
+            x,
+            y,
+            xrel,
+            yrel,
+            mousestate,
+            timestamp: _,
+            window_id: _,
+            which: _,
+        } = event
+        else {
+            return CapturedVolumeMotion::Unhandled;
+        };
+        if let Some(changed) = self.recover_volume_drag(settings, mousestate.left()) {
+            return CapturedVolumeMotion::Recovered { changed };
+        }
+        if (xrel.abs() > 0.0 || yrel.abs() > 0.0)
+            && let Some(sample) = track_x([*x, *y])
+        {
+            self.update_volume_drag(settings, sample);
+        }
+        CapturedVolumeMotion::Held
+    }
+
     /// Vertical grid movement never skips a pinned action on an odd last row.
     pub(crate) fn move_level_row(&mut self, up: bool) {
         let total = self.level_entries.len();
@@ -1215,7 +1288,13 @@ impl UiState {
             AppState::MainMenu => self.main_menu_idx = index,
             AppState::LevelSelect => self.level_select_idx = index,
             AppState::Paused => self.pause_menu_idx = index,
-            AppState::Settings | AppState::PauseSettings => self.settings_idx = index,
+            AppState::Settings | AppState::PauseSettings => {
+                if self.restore_confirmation.is_some() {
+                    self.restore_confirmation = Some(index == 1);
+                } else {
+                    self.settings_idx = index;
+                }
+            }
             AppState::Playing => {}
         }
     }
@@ -1228,14 +1307,14 @@ impl UiState {
                 self.level_entries.len(),
                 4,
             );
-        } else if matches!(state, AppState::Settings | AppState::PauseSettings)
-            && self.settings_page == SettingsPage::Controls
-        {
+        } else if matches!(state, AppState::Settings | AppState::PauseSettings) {
             self.settings_scroll = visible_offset(
                 self.settings_scroll,
                 self.settings_idx,
-                self.settings_page.item_count(false).saturating_sub(1),
-                7,
+                self.settings_page
+                    .item_count(self.advanced_expanded)
+                    .saturating_sub(1),
+                SETTINGS_VISIBLE_ROWS,
             );
         }
     }
@@ -1274,14 +1353,19 @@ impl UiState {
                 self.level_entries.len(),
                 4,
             )
-        } else if matches!(state, AppState::Settings | AppState::PauseSettings)
-            && self.settings_page == SettingsPage::Controls
-        {
+        } else if matches!(state, AppState::Settings | AppState::PauseSettings) {
+            let total = self
+                .settings_page
+                .item_count(self.advanced_expanded)
+                .saturating_sub(1);
+            if self.restore_confirmation.is_some() || total <= SETTINGS_VISIBLE_ROWS {
+                return;
+            }
             (
                 &mut self.settings_scroll,
                 &mut self.settings_idx,
-                SettingsPage::Controls.item_count(false).saturating_sub(1),
-                7,
+                total,
+                SETTINGS_VISIBLE_ROWS,
             )
         } else {
             return;
@@ -1316,7 +1400,7 @@ impl UiState {
             super::app_state_tag(state),
             self.settings_page,
             self.advanced_expanded,
-            self.rebinding_action,
+            (self.rebinding_action, self.restore_confirmation.is_some()),
             self.level_entries.len(),
             self.level_scroll,
             self.settings_scroll,

@@ -10,7 +10,7 @@ use crate::game::settings::{AudioVolume, KeyBindings, Settings, WindowMode};
 mod health;
 pub use health::{append_flashlight_status, append_player_health, flashlight_status};
 mod menu;
-pub(crate) use menu::{LEVEL_IMPORT_ACTIONS, level_icon_bounds};
+pub(crate) use menu::{CapturedVolumeMotion, LEVEL_IMPORT_ACTIONS, level_icon_bounds};
 mod subtitles;
 pub(crate) use subtitles::Subtitles;
 mod pointer;
@@ -140,12 +140,21 @@ pub enum SettingsValue {
 /// What activating a Settings row asks the screen to do.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SettingsAction {
-    /// Nothing to do beyond persisting the changed value.
+    /// No persisted preference changed.
     None,
+    /// Persist the adjusted preference.
+    Save,
     /// Leave Settings (the root page's Back row).
     Back,
     /// Open another Settings page.
     Open(SettingsPage),
+}
+
+/// The row owns the gesture until release or focus loss, regardless of hover.
+#[derive(Debug, Clone, Copy)]
+pub(crate) struct VolumeDrag {
+    control: AudioVolume,
+    initial: f32,
 }
 
 /// Menu selection state across screens.
@@ -190,7 +199,9 @@ pub struct UiState {
     pub level_description: String,
     pub description_page: usize,
     pub description_index: Option<usize>,
-    pub volume_drag: Option<AudioVolume>,
+    pub(crate) volume_drag: Option<VolumeDrag>,
+    /// The active reset prompt's selection, with Cancel as the initial choice.
+    pub(crate) restore_confirmation: Option<bool>,
     pub observed_menu_beat: Option<i64>,
 }
 
@@ -198,6 +209,59 @@ impl UiState {
     #[must_use]
     pub fn new() -> Self {
         Self::default()
+    }
+
+    pub(crate) const fn volume_drag_active(&self) -> bool {
+        self.volume_drag.is_some()
+    }
+
+    pub(crate) const fn start_volume_drag(&mut self, control: AudioVolume, settings: &Settings) {
+        self.volume_drag = Some(VolumeDrag {
+            control,
+            initial: settings.audio_volume(control),
+        });
+    }
+
+    pub(crate) fn update_volume_drag(&self, settings: &mut Settings, x: f32) {
+        if let Some(drag) = self.volume_drag {
+            let _changed = settings.set_audio_volume(drag.control, menu::volume_at(x));
+        }
+    }
+
+    /// Consumes the gesture so a late release after focus loss cannot save it twice.
+    pub(crate) fn finish_volume_drag(&mut self, settings: &Settings) -> bool {
+        self.volume_drag.take().is_some_and(|drag| {
+            drag.initial.to_bits() != settings.audio_volume(drag.control).to_bits()
+        })
+    }
+
+    /// When SDL no longer sees a press, commit the last held sample and clear
+    /// the click latch even if the corresponding button-up never arrived.
+    pub(crate) fn recover_volume_drag(
+        &mut self,
+        settings: &Settings,
+        left_held: bool,
+    ) -> Option<bool> {
+        if left_held || !self.volume_drag_active() {
+            return None;
+        }
+        self.pointer.focus(false);
+        Some(self.finish_volume_drag(settings))
+    }
+
+    pub(crate) const fn cancel_restore_defaults(&mut self) {
+        self.restore_confirmation = None;
+        self.pointer.invalidate();
+    }
+
+    pub(crate) fn resolve_restore_defaults(&mut self, settings: &mut Settings) -> bool {
+        let confirmed = self.restore_confirmation == Some(true);
+        self.cancel_restore_defaults();
+        if confirmed {
+            settings.restore_defaults();
+            self.set_status("Restored default settings", false);
+        }
+        confirmed
     }
 
     /// Sets the one-line status shown by the level list and settings screens.
@@ -273,6 +337,7 @@ fn ui_signature(
     ui_state.pause_menu_idx.hash(&mut hasher);
     ui_state.settings_idx.hash(&mut hasher);
     ui_state.settings_page.hash(&mut hasher);
+    ui_state.restore_confirmation.hash(&mut hasher);
     ui_state.advanced_expanded.hash(&mut hasher);
     ui_state.rebinding_action.hash(&mut hasher);
     ui_state.status_message.as_deref().hash(&mut hasher);
@@ -965,8 +1030,7 @@ fn controls_rows(settings: &Settings) -> Vec<SettingsRow> {
 /// it to the running systems), so this stays a pure mutation of the
 /// authoritative settings. Returns what the screen should do next.
 ///
-/// The Advanced group is deliberately Enter-only: a left/right step over it is
-/// ignored.
+/// A directional step over any non-value row is ignored.
 pub fn activate_settings_item(
     page: SettingsPage,
     idx: usize,
@@ -979,6 +1043,9 @@ pub fn activate_settings_item(
     let Some(row) = rows.get(idx) else {
         return SettingsAction::None;
     };
+    if direction != 0_i32 && !matches!(row.kind, SettingsRowKind::Value(_)) {
+        return SettingsAction::None;
+    }
     match &row.kind {
         SettingsRowKind::Binding(action) => {
             ui_state.rebinding_action = Some(action);
@@ -987,26 +1054,24 @@ pub fn activate_settings_item(
         }
         SettingsRowKind::Open(section) => SettingsAction::Open(*section),
         SettingsRowKind::RestoreDefaults => {
-            settings.restore_defaults();
-            ui_state.cancel_rebinding();
-            ui_state.set_status("Restored default settings", false);
+            ui_state.clear_status();
+            ui_state.restore_confirmation = Some(false);
+            ui_state.pointer.invalidate();
             SettingsAction::None
         }
         SettingsRowKind::Back => SettingsAction::Back,
         SettingsRowKind::Advanced => {
-            if direction == 0 {
-                ui_state.advanced_expanded = !ui_state.advanced_expanded;
-                // Collapsing hides the rows after the header; keep the
-                // selection on a row that still exists.
-                let count = page.item_count(ui_state.advanced_expanded);
-                ui_state.settings_idx = ui_state.settings_idx.min(count.saturating_sub(1));
-            }
+            ui_state.advanced_expanded = !ui_state.advanced_expanded;
+            // Collapsing hides the rows after the header; keep the
+            // selection on a row that still exists.
+            let count = page.item_count(ui_state.advanced_expanded);
+            ui_state.settings_idx = ui_state.settings_idx.min(count.saturating_sub(1));
             SettingsAction::None
         }
         SettingsRowKind::Value(value) => {
             let step = if direction == 0 { 1 } else { direction };
             adjust_value(*value, ui_state, settings, display, step);
-            SettingsAction::None
+            SettingsAction::Save
         }
     }
 }

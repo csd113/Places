@@ -1,7 +1,7 @@
 //! One tiny SDL-event regression protects lost short taps, repeat-triggered
 //! actions/rebinds and cleared focus/menu state. No assets or native device.
 use crate::game::{
-    console,
+    AppState, console,
     input::{Control, InputHandler, MenuNavEvent, pressed_control, pressed_key},
     settings::KeyBindings,
 };
@@ -137,6 +137,82 @@ fn encounter_respawn_uses_the_active_interact_binding() -> Result<(), String> {
         key_event(Keycode::Return, false, false),
     ] {
         assert_eq!(pressed_control(&event, &bindings), None);
+    }
+    Ok(())
+}
+
+// Synthetic SDL key/text events cover the same Return key in the menu,
+// gameplay and the open console without booting a window or map.
+#[test]
+fn console_bound_to_enter_yields_to_menu_navigation_and_its_own_editor() -> Result<(), String> {
+    let mut console = console::Console::default();
+    let mut bindings = KeyBindings::default();
+    bindings.set_key("console", "ENTER")?;
+    let enter = key_event(Keycode::Return, true, false);
+    for state in [
+        AppState::MainMenu,
+        AppState::Paused,
+        AppState::Settings,
+        AppState::PauseSettings,
+    ] {
+        assert!(
+            !console.wants_toggle(&enter, &bindings.console, state, true),
+            "menus own Enter"
+        );
+    }
+    assert_eq!(
+        InputHandler::poll_menu_nav_event(&enter),
+        Some(MenuNavEvent::Activate)
+    );
+    assert!(
+        console.wants_toggle(&enter, &bindings.console, AppState::Playing, true),
+        "Enter opens the gameplay console"
+    );
+    console.toggle(true, true);
+    let _command = console.handle_event(&Event::TextInput {
+        timestamp: 0,
+        window_id: 1,
+        text: "/help".into(),
+    });
+    assert!(
+        !console.wants_toggle(&enter, &bindings.console, AppState::Playing, true),
+        "the open console owns text input"
+    );
+    assert!(
+        console
+            .handle_event(&enter)
+            .is_some_and(|command| command.is_ok()),
+        "Enter submits"
+    );
+    assert!(console.is_open(), "submission does not close the console");
+    assert!(
+        console::escape_key(&key_event(Keycode::Escape, true, false)),
+        "Escape can still close"
+    );
+    Ok(())
+}
+
+// Existing configurable toggles must still close a gameplay console. Three
+// synthetic key events cover the ownership decision without a native window.
+#[test]
+fn configurable_non_enter_console_binding_still_toggles_both_ways() -> Result<(), String> {
+    let mut console = console::Console::default();
+    let mut bindings = KeyBindings::default();
+    bindings.set_key("console", "G")?;
+    let toggle = key_event(Keycode::G, true, false);
+    let gameplay = AppState::Playing;
+    for open in [true, false] {
+        assert!(
+            console.wants_toggle(&toggle, &bindings.console, gameplay, true),
+            "the configured binding must own both toggle edges"
+        );
+        console.toggle(true, true);
+        assert_eq!(console.is_open(), open);
+        let repeat = key_event(Keycode::G, true, true);
+        assert!(
+            !console.wants_toggle(&repeat, &bindings.console, gameplay, true),
+            "a held key cannot toggle again"
+        );
     }
     Ok(())
 }
