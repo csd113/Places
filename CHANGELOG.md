@@ -133,6 +133,9 @@ outside that inventory.
 
 ### Editor, import and export
 
+- Improve Basic editor workflows with guided room and stair previews, clearer
+  escalator, railing, door and fixture feedback, and separate prop browsing
+  from model replacement.
 - Place escalators in Basic by picking the lower and upper landings to fit the
   run. Choose Up or Down independently of placement, or use Free Placement for
   a custom length without attached landings.
