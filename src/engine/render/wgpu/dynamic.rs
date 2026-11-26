@@ -19,15 +19,17 @@
 use std::collections::HashMap;
 use std::sync::Arc;
 
+use super::caustics::CausticsReceiver;
 use super::environment::EnvironmentBindings;
 use super::lightmap::LightmapAtlas;
 use super::material::{EmissionRecord, GpuMaterial};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
+use crate::engine::lighting::caustics_field::receiver::CausticsReceiverCache;
+use crate::engine::lighting::ultraviolet::BlacklightReceiverCache;
 use crate::engine::materials::{MaterialEmission, TextureOrigin};
 use crate::engine::quality::{QualityLevel, TextureClass};
 use crate::engine::render::common::dynamic::{DynamicId, DynamicMesh, DynamicScene};
-use crate::engine::render::common::dynamic_visibility::BlacklightReceiverCache;
 use crate::engine::render::common::materials::BatchPass;
 use crate::engine::spatial::Aabb;
 
@@ -86,7 +88,7 @@ struct DynamicObjectGpu {
     emission_scale: f32,
     uv_reactive: bool,
     uv_receiver: BlacklightReceiverCache,
-    caustics_receiver: super::caustics::CausticsReceiverCache,
+    caustics_receiver: CausticsReceiverCache,
 }
 
 /// What one dynamic upload or frame did, as plain counters.
@@ -414,7 +416,7 @@ impl WgpuDynamic {
                     .iter()
                     .any(|submesh| submesh.response.fluorescence.strength > 0.0),
                 uv_receiver: BlacklightReceiverCache::default(),
-                caustics_receiver: super::caustics::CausticsReceiverCache::default(),
+                caustics_receiver: CausticsReceiverCache::default(),
             });
         }
         timer.step("objects");
@@ -698,7 +700,7 @@ impl WgpuDynamic {
         scene: &DynamicScene,
         environment: &EnvironmentUniform,
         receiver_gain: Option<(usize, f32)>,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
         caustics: Option<(
             &super::caustics::Caustics,
             &crate::engine::render::common::dynamic_visibility::DynamicVisibility,
@@ -738,20 +740,27 @@ impl WgpuDynamic {
             {
                 source.color_strength[3] *= gain;
             }
-            uniform.uv_receiver = object.uv_receiver.sample(
-                visibility.filter(|_| object.uv_reactive && environment.has_active_blacklights()),
-                live.mesh().bounds,
-                transform,
-                Some(live.id()),
-            );
-            if let Some((sources, moving_visibility)) = caustics {
-                uniform.caustics_receiver = object.caustics_receiver.sample(
-                    sources,
+            uniform.uv_receiver = object
+                .uv_receiver
+                .sample(
+                    visibility
+                        .filter(|_| object.uv_reactive && environment.has_active_blacklights()),
                     live.mesh().bounds,
                     transform,
                     Some(live.id()),
-                    moving_visibility,
-                );
+                )
+                .into();
+            if let Some((sources, moving_visibility)) = caustics
+                && let Some(inputs) = sources.receiver_inputs()
+            {
+                uniform.caustics_receiver =
+                    CausticsReceiver::from_sample(object.caustics_receiver.sample(
+                        inputs,
+                        live.mesh().bounds,
+                        transform,
+                        Some(live.id()),
+                        moving_visibility,
+                    ));
             }
             let _update_stats = object.environment.update(queue, &uniform);
         }

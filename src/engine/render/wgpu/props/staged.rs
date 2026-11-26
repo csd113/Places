@@ -15,7 +15,7 @@ pub(super) struct Context<'a> {
     pub queue: &'a wgpu::Queue,
     pub cache: &'a mut TextureCache,
     pub material_layout: &'a wgpu::BindGroupLayout,
-    pub visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'a>>,
+    pub visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'a>>,
     pub staged: bool,
 }
 
@@ -53,7 +53,7 @@ impl PropUpload {
         cache: &mut TextureCache,
         material_layout: &wgpu::BindGroupLayout,
         batch: &PropMeshBatch,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
     ) -> Result<bool, String> {
         self.advance_batch(
             &mut Context {
@@ -437,7 +437,8 @@ impl PropUpload {
                                         .unwrap_or(false)
                                 })
                                 .map_or([0.0; 4], |vertex| {
-                                    ctx.visibility.map_or([0.0; 4], |v| v.vertex(&vertex))
+                                    ctx.visibility
+                                        .map_or([0.0; 4], |v| v.vertex(vertex.pos, vertex.normal))
                                 })
                         })
                         .collect::<Vec<_>>()
@@ -447,7 +448,8 @@ impl PropUpload {
         } else {
             let vertices: Vec<_> = if cursor.vertex == 0 && end == batch.vertices.len() {
                 pack_prop_vertices(batch, |vertex| {
-                    ctx.visibility.map_or([0.0; 4], |v| v.vertex(vertex))
+                    ctx.visibility
+                        .map_or([0.0; 4], |v| v.vertex(vertex.pos, vertex.normal))
                 })
             } else {
                 (cursor.vertex..end)
@@ -461,8 +463,9 @@ impl PropUpload {
                             .copied()
                             .unwrap_or(false)
                         {
-                            gpu.uv_visibility =
-                                ctx.visibility.map_or([0.0; 4], |v| v.vertex(&vertex));
+                            gpu.uv_visibility = ctx
+                                .visibility
+                                .map_or([0.0; 4], |v| v.vertex(vertex.pos, vertex.normal));
                         }
                         gpu
                     })

@@ -63,6 +63,10 @@ use crate::engine::entities::balloon::{BalloonPose, STRING_NODE_NAMES};
 use crate::engine::entity::GlowCue;
 use crate::engine::gltf::{AnimationInterpolation, PropAnimation, PropNode, PropSkin};
 use crate::engine::level::LevelSurfaces;
+use crate::engine::lighting::receiver_refresh::{
+    EntityCenterLightKey, EntityLightingRefreshContext, EntityLightingRefreshKey,
+    EntityLightingRefreshPlan,
+};
 use crate::engine::lighting::{LevelLighting, character_cavity::CharacterCavity};
 use crate::engine::props::{LoadedPropAsset, PropAssets};
 use crate::engine::scene::{LocomotionSnapshot, LocomotionState};
@@ -1247,9 +1251,9 @@ pub struct Character {
     albedo_revision: u64,
     albedo_tint: [f32; 3],
     entity_lighting: super::light_transport::EntityLighting,
-    center_light_key: Option<super::dynamic::EntityCenterLightKey>,
-    lighting_refresh_key: Option<super::dynamic::EntityLightingRefreshKey>,
-    lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan,
+    center_light_key: Option<EntityCenterLightKey>,
+    lighting_refresh_key: Option<EntityLightingRefreshKey>,
+    lighting_refresh_plan: EntityLightingRefreshPlan,
     spatial_lighting: Option<Box<super::light_transport::EntitySpatialLighting>>,
     spatial_key: Option<super::light_transport::EntitySpatialKey>,
     lighting_surface_revision: u64,
@@ -2058,7 +2062,7 @@ impl CharacterScene {
                 entity_lighting,
                 center_light_key: None,
                 lighting_refresh_key: None,
-                lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan::default(),
+                lighting_refresh_plan: EntityLightingRefreshPlan::default(),
                 spatial_lighting: None,
                 spatial_key: None,
                 lighting_surface_revision: 0,
@@ -2205,7 +2209,7 @@ impl CharacterScene {
             entity_lighting,
             center_light_key: None,
             lighting_refresh_key: None,
-            lighting_refresh_plan: super::dynamic::EntityLightingRefreshPlan::default(),
+            lighting_refresh_plan: EntityLightingRefreshPlan::default(),
             spatial_lighting: None,
             spatial_key: None,
             lighting_surface_revision: 0,
@@ -2531,11 +2535,11 @@ impl CharacterScene {
             scene,
             visibility.map(super::dynamic_visibility::DynamicVisibility::as_entity_occluders),
         );
-        let refresh_context = super::dynamic::EntityLightingRefreshContext::new(
+        let refresh_context = EntityLightingRefreshContext::new(
             lighting,
             irradiance,
             scene,
-            visibility,
+            visibility.map(super::dynamic_visibility::DynamicVisibility::as_entity_occluders),
             lighting_revision,
         );
         let refresh = |character: &mut Character| {
@@ -2553,7 +2557,7 @@ impl CharacterScene {
                 );
                 character.center_light_key = character
                     .lighting_refresh_key
-                    .map(super::dynamic::EntityLightingRefreshKey::center_key);
+                    .map(EntityLightingRefreshKey::center_key);
             }
             if plan.spatial {
                 let transform = character.transform();
@@ -2589,8 +2593,7 @@ impl CharacterScene {
         for receivers in [&mut self.characters, &mut self.runtime] {
             let mut dirty_count = 0usize;
             for character in &mut *receivers {
-                character.lighting_refresh_plan =
-                    super::dynamic::EntityLightingRefreshPlan::default();
+                character.lighting_refresh_plan = EntityLightingRefreshPlan::default();
                 // A fully faded actor has no receiving-light consumer. Keep all
                 // dependency keys stale until fade-in; animation and sockets advance.
                 if !character.runtime_visible || character.opacity <= 0.0 {
@@ -2605,7 +2608,7 @@ impl CharacterScene {
                     character.lighting_refresh_key,
                     Some(&character.static_rays),
                 );
-                character.lighting_refresh_plan = super::dynamic::EntityLightingRefreshPlan::new(
+                character.lighting_refresh_plan = EntityLightingRefreshPlan::new(
                     key,
                     character.lighting_refresh_key,
                     character.center_light_key,

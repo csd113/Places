@@ -20,9 +20,9 @@
 //!   to whichever face actually owns that direction, so a tap near a face edge
 //!   reads the correct neighbouring face instead of clamping.
 //!
-//! The cube face order and up vectors mirror the renderer's capture order
+//! The cube face order and up vectors define the renderer's capture order
 //! (`+X/-X/+Y/-Y/+Z/-Z` with the reference's up vectors); the reflection module
-//! pins the two lists equal by test. The direction-to-texel mapping is the
+//! uses the same shared lists. The direction-to-texel mapping is the
 //! WebGPU cube-map convention, so a direction sampled from the chain matches a
 //! GPU `textureSampleLevel` of the same cube.
 //!
@@ -42,8 +42,7 @@ pub const MAX_PROBE_MIPS: u32 = 7;
 
 /// The six cube face directions, in the GL cube order the capture uses.
 ///
-/// Mirrored from the reflection module's `CUBE_FACE_DIRECTIONS`; a test there
-/// pins the two lists equal.
+/// The GPU capture uses this same order.
 pub const CUBE_FACE_DIRECTIONS: [[f32; 3]; 6] = [
     [1.0, 0.0, 0.0],  // +X
     [-1.0, 0.0, 0.0], // -X

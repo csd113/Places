@@ -436,7 +436,7 @@ fn narrow_step_treads_keep_clear_cells_beside_a_blocked_riser() -> Result<(), St
 /// One tiny open room and eight anchors require no GPU or assets.
 #[test]
 fn moving_receiver_below_static_platform_carries_rejection_floor() -> Result<(), String> {
-    use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
+    use crate::engine::render::DynamicVisibility;
     use crate::engine::spatial::Aabb;
     let level = LevelDef::from_json(r#"{"schema": "places-level", "format_version":1,"id":"caustics_buried","name":"Caustics buried",
         "spawn":{"x":0,"z":0},
@@ -493,8 +493,8 @@ fn assert_supported_water_sources(field: &ReceiverField) {
 // there are no asset loads, atlas builds, native windows or GPU allocations.
 #[test]
 fn off_water_motion_reuses_certificates_without_losing_changed_blockers() -> Result<(), String> {
-    use crate::engine::render::common::dynamic::{DynamicScene, SpawnOrientation};
-    use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
+    use crate::engine::render::DynamicVisibility;
+    use crate::engine::render::{DynamicScene, SpawnOrientation};
 
     let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"water_dependency","name":"Water dependency",
         "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
@@ -602,8 +602,8 @@ fn off_water_motion_reuses_certificates_without_losing_changed_blockers() -> Res
 // This is a millisecond CPU fixture, with no assets, bake, renderer or GPU.
 #[test]
 fn separated_caster_changes_keep_water_gaps_cached_at_scene_scale() -> Result<(), String> {
-    use crate::engine::render::common::dynamic::{DynamicScene, SpawnOrientation};
-    use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
+    use crate::engine::render::DynamicVisibility;
+    use crate::engine::render::{DynamicScene, SpawnOrientation};
     let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"separate_changes","name":"Separate changes",
         "spawn":{"x":0,"z":0},"rooms":[{"x":-2,"z":-2,"width":4,"depth":4,"floor_y":-1,"height":4,"ceiling":{"kind":"open"}}],
         "water":[{"x":-0.8,"z":-0.8,"width":1.6,"depth":1.6,"surface_y":0,"bottom_y":-1}],
@@ -690,7 +690,7 @@ fn assert_full_water_refresh(
     level: &LevelDef,
     lighting: &LevelLighting,
     volumes: &[crate::engine::level::WaterVolume],
-    visibility: &crate::engine::render::common::dynamic_visibility::DynamicVisibility,
+    visibility: &crate::engine::render::DynamicVisibility,
 ) {
     let mut reference = ReceiverField::build(level, lighting, volumes);
     let _reference_changed = reference.refresh_dynamic_visibility(visibility);
@@ -739,10 +739,10 @@ fn assert_partial_water_refresh(
     level: &LevelDef,
     lighting: &LevelLighting,
     volumes: &WaterVolumes,
-    dynamic: &mut crate::engine::render::common::dynamic::DynamicScene,
-    visibility: &mut crate::engine::render::common::dynamic_visibility::DynamicVisibility,
+    dynamic: &mut crate::engine::render::DynamicScene,
+    visibility: &mut crate::engine::render::DynamicVisibility,
     field: &mut ReceiverField,
-    id: crate::engine::render::common::dynamic::DynamicId,
+    id: crate::engine::render::DynamicId,
 ) -> Result<(), String> {
     // Essential regression for the thrown-in-water slowdown: a small in-water
     // move must retain exact full-refresh shadows without querying the whole bay.
@@ -755,7 +755,7 @@ fn assert_partial_water_refresh(
     let previous_queries = field.dynamic_region_queries;
     let _moved = field.refresh_dynamic_visibility(visibility);
     field.compose();
-    for range in field.upload_spans() {
+    for range in crate::engine::render::caustics_upload_spans(&field.upload_ranges) {
         let source = field
             .samples
             .get(range.clone())
@@ -806,8 +806,9 @@ fn fragmented_water_changes_keep_gpu_transfers_bounded_and_exact() -> Result<(),
             .fill([1.0, 0.5, 0.25, -2.0]);
         field.upload_ranges.push(range);
     }
-    let spans: Vec<_> = field.upload_spans().collect();
-    assert!(spans.len() <= super::MAX_VISIBILITY_UPLOADS);
+    let spans: Vec<_> =
+        crate::engine::render::caustics_upload_spans(&field.upload_ranges).collect();
+    assert!(spans.len() <= crate::engine::render::MAX_VISIBILITY_UPLOADS);
     for span in spans {
         gpu.get_mut(span.clone())
             .ok_or("GPU span missing")?

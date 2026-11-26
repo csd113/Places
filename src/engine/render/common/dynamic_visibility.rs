@@ -14,114 +14,6 @@ use crate::engine::spatial::{
     Aabb, directional_light_region_overlaps, finite_light_region_overlaps,
 };
 
-/// Exact dependencies of a movable ultraviolet receiver. Source geometry is
-/// retained by value because a source set can be replaced in place. Switches
-/// change excitation in the environment, independently of ray visibility.
-#[derive(PartialEq)]
-struct BlacklightReceiverKey {
-    sources: [super::light_transport::EntityDirectLight; super::blacklight::MAX_BLACKLIGHTS],
-    scene: usize,
-    dynamic: usize,
-    dynamic_revision: u64,
-    model: [[u32; 4]; 4],
-    bounds: [[u32; 3]; 2],
-    receiver: Option<DynamicId>,
-}
-
-/// Reuses the eight anchor visibility samples while the receiver, sources and
-/// movable occluders are unchanged. This avoids tracing rays merely to discover
-/// that the GPU environment is identical to the preceding frame.
-pub struct BlacklightReceiverCache {
-    key: Option<BlacklightReceiverKey>,
-    value: super::blacklight::BlacklightReceiver,
-    #[cfg(any(test, feature = "visual-diagnostics"))]
-    samples: usize,
-}
-
-impl Default for BlacklightReceiverCache {
-    fn default() -> Self {
-        Self {
-            key: None,
-            value: super::blacklight::BlacklightReceiver::ZERO,
-            #[cfg(any(test, feature = "visual-diagnostics"))]
-            samples: 0,
-        }
-    }
-}
-
-impl BlacklightReceiverCache {
-    #[cfg(any(test, feature = "visual-diagnostics"))]
-    pub const fn samples(&self) -> usize {
-        self.samples
-    }
-
-    pub fn sample(
-        &mut self,
-        visibility: Option<super::blacklight::BlacklightVisibility<'_>>,
-        bounds: Aabb,
-        model: Mat4,
-        receiver: Option<DynamicId>,
-    ) -> super::blacklight::BlacklightReceiver {
-        let Some(context) = visibility else {
-            self.key = None;
-            self.value = super::blacklight::BlacklightReceiver::ZERO;
-            return self.value;
-        };
-        let key = BlacklightReceiverKey {
-            sources: context.sources.descriptors(None),
-            scene: std::ptr::from_ref(context.scene).addr(),
-            dynamic: context
-                .dynamic
-                .map_or(0, |value| std::ptr::from_ref(value).addr()),
-            dynamic_revision: context.dynamic.map_or(0, DynamicVisibility::revision),
-            model: matrix_bits(model),
-            bounds: [bounds.min.map(f32::to_bits), bounds.max.map(f32::to_bits)],
-            receiver,
-        };
-        if let Some(previous) = self.key.as_mut()
-            && previous.dynamic == key.dynamic
-            && context.dynamic.is_some_and(|dynamic| {
-                dynamic
-                    .changed_regions_since(previous.dynamic_revision)
-                    .is_some_and(|regions| {
-                        regions.iter().all(|dirty| {
-                            !blacklight_visibility_affected(&key.sources, bounds, model, *dirty)
-                        })
-                    })
-            })
-        {
-            previous.dynamic_revision = key.dynamic_revision;
-        }
-        if self.key.as_ref() != Some(&key) {
-            #[cfg(any(test, feature = "visual-diagnostics"))]
-            {
-                self.samples = self.samples.saturating_add(1);
-            }
-            self.value = context.receiver(bounds, model, receiver);
-            self.key = Some(key);
-        }
-        self.value
-    }
-}
-
-fn blacklight_visibility_affected(
-    sources: &[super::light_transport::EntityDirectLight; super::blacklight::MAX_BLACKLIGHTS],
-    bounds: Aabb,
-    model: Mat4,
-    dirty: Aabb,
-) -> bool {
-    let receiver = super::props::transform_bounds(&bounds, &model);
-    sources.iter().any(|source| {
-        let mut emitter = Aabb::EMPTY;
-        for [x, y, z, weight] in source.taps {
-            if weight > 0.0 {
-                emitter.expand([x, y, z]);
-            }
-        }
-        !emitter.is_empty() && finite_light_region_overlaps(emitter, receiver, dirty)
-    })
-}
-
 struct CachedMesh {
     mesh: Arc<DynamicMesh>,
     scene: Arc<TransportScene>,
@@ -168,8 +60,36 @@ impl MovableOccluders for DynamicVisibility {
         self.revision()
     }
 
+    fn changed_regions_since(&self, revision: u64) -> Option<&[Aabb]> {
+        self.changed_regions_since(revision)
+    }
+
     fn transmittance(&self, from: [f32; 3], to: [f32; 3], receiver: Option<DynamicId>) -> f32 {
         self.transmittance(from, to, receiver)
+    }
+}
+
+impl crate::engine::lighting::caustics_field::CausticOccluders for DynamicVisibility {
+    fn has_casters(&self) -> bool {
+        !self.casters.is_empty()
+    }
+
+    fn local_region_visible(
+        &self,
+        source: Aabb,
+        receivers: Aabb,
+        excluded: Option<DynamicId>,
+    ) -> bool {
+        self.local_region_visible(source, receivers, excluded)
+    }
+
+    fn directional_region_visible(
+        &self,
+        receivers: Aabb,
+        incoming: [f32; 3],
+        excluded: Option<DynamicId>,
+    ) -> bool {
+        self.directional_region_visible(receivers, incoming, excluded)
     }
 }
 

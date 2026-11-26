@@ -37,12 +37,12 @@ use super::skinning::{GpuPose, SkinPipeline, SkinSource};
 use super::texture::{CacheOutcome, GpuTexture, TextureCache};
 use super::world::{EnvironmentUniform, WORLD_VERTEX_STRIDE, WorldVertex};
 use crate::engine::lighting::character_cavity::CharacterCavity;
+use crate::engine::lighting::ultraviolet::BlacklightReceiverCache;
 use crate::engine::materials::TextureOrigin;
 use crate::engine::quality::{QualityLevel, TextureClass};
 use crate::engine::render::common::character::{
     Character, CharacterAnimator, CharacterScene, SkinNormalCache, character_vertex,
 };
-use crate::engine::render::common::dynamic_visibility::BlacklightReceiverCache;
 use crate::engine::render::common::materials::BatchPass;
 use crate::engine::spatial::Aabb;
 
@@ -967,7 +967,7 @@ impl WgpuCharacters {
         queue: &wgpu::Queue,
         scene: &CharacterScene,
         environment: &EnvironmentUniform,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
         posed: &super::posed_visibility::PosedVisibility,
     ) -> usize {
         // Static lighting's short GPU workload benefits from interleaved pose
@@ -1025,12 +1025,15 @@ impl WgpuCharacters {
                 .with_posed_ambient_base(posed.ambient_for(character))
                 .with_posed_direct_base(posed.direct_for(character))
                 .with_opacity(character.opacity());
-            gpu.pending_environment.uv_receiver = gpu.uv_receiver.sample(
-                visibility.filter(|_| gpu.uv_reactive && environment.has_active_blacklights()),
-                gpu.pose.bounds,
-                character.transform(),
-                None,
-            );
+            gpu.pending_environment.uv_receiver = gpu
+                .uv_receiver
+                .sample(
+                    visibility.filter(|_| gpu.uv_reactive && environment.has_active_blacklights()),
+                    gpu.pose.bounds,
+                    character.transform(),
+                    None,
+                )
+                .into();
             if character.transform() != gpu.uploaded_transform || pose_changed {
                 gpu.world_bounds = posed_world_bounds(&gpu.pose.bounds, &character.transform());
             }
@@ -1075,7 +1078,7 @@ impl WgpuCharacters {
         queue: &wgpu::Queue,
         scene: &CharacterScene,
         environment: &EnvironmentUniform,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
         posed: &super::posed_visibility::PosedVisibility,
     ) -> usize {
         let mut uploaded = 0_usize;
@@ -1119,12 +1122,15 @@ impl WgpuCharacters {
                 .with_posed_ambient_base(posed.ambient_for(character))
                 .with_posed_direct_base(posed.direct_for(character))
                 .with_opacity(character.opacity());
-            uniform.uv_receiver = gpu.uv_receiver.sample(
-                visibility.filter(|_| gpu.uv_reactive && environment.has_active_blacklights()),
-                gpu.pose.bounds,
-                character.transform(),
-                None,
-            );
+            uniform.uv_receiver = gpu
+                .uv_receiver
+                .sample(
+                    visibility.filter(|_| gpu.uv_reactive && environment.has_active_blacklights()),
+                    gpu.pose.bounds,
+                    character.transform(),
+                    None,
+                )
+                .into();
             let _update_stats = gpu.environment.update(queue, &uniform);
             gpu.uploaded_transform = character.transform();
             if transform_changed || pose_changed {

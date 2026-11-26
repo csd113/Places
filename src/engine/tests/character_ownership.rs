@@ -38,7 +38,7 @@ fn actor(id: &str, asset: Arc<LoadedPropAsset>) -> Result<Character, String> {
         center_light_key: None,
         lighting_refresh_key: None,
         lighting_refresh_plan:
-            crate::engine::render::common::dynamic::EntityLightingRefreshPlan::default(),
+            crate::engine::lighting::receiver_refresh::EntityLightingRefreshPlan::default(),
         spatial_lighting: None,
         spatial_key: None,
         lighting_surface_revision: 0,

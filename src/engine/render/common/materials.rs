@@ -199,11 +199,7 @@ impl ResolvedSurfaceMaterial {
     /// The world shader scales every reflected sample by this value.
     #[must_use]
     pub fn reflection_strength(&self) -> [f32; 3] {
-        [
-            self.specular[0] * self.reflection.strength,
-            self.specular[1] * self.reflection.strength,
-            self.specular[2] * self.reflection.strength,
-        ]
+        crate::engine::lighting::reflections::weighted_strength(self.specular, self.reflection)
     }
 
     /// True when this material would participate in a reflection if one were
@@ -212,7 +208,7 @@ impl ResolvedSurfaceMaterial {
     /// consume it.
     #[must_use]
     pub fn reflection_eligible(&self) -> bool {
-        self.reflection.is_active() && self.reflection_strength().iter().any(|c| *c > 0.0)
+        crate::engine::lighting::reflections::material_eligible(self.specular, self.reflection)
     }
 }
 

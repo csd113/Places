@@ -4408,37 +4408,12 @@ impl EntityWorld {
                         [body.radius * 2.0, body.height, body.radius * 2.0]
                     })
             });
-            let yaw = transform.yaw_degrees.to_radians();
-            let side_x = yaw.cos() * (size[0] * 0.32);
-            let side_z = -yaw.sin() * (size[0] * 0.32);
-            let torso = Vec3::new(
-                transform.position.x,
-                size[1].mul_add(0.62, transform.position.y),
-                transform.position.z,
+            let intensity = crate::engine::lighting::flashlight::observe_receiver(
+                transform.position,
+                transform.yaw_degrees,
+                size,
+                |point| sample(instance_id, point),
             );
-            let samples = [
-                torso,
-                Vec3::new(torso.x + side_x, torso.y, torso.z + side_z),
-                Vec3::new(torso.x - side_x, torso.y, torso.z - side_z),
-                Vec3::new(
-                    transform.position.x,
-                    size[1].mul_add(0.88, transform.position.y),
-                    transform.position.z,
-                ),
-                Vec3::new(
-                    transform.position.x,
-                    size[1].mul_add(0.36, transform.position.y),
-                    transform.position.z,
-                ),
-            ];
-            let intensity = samples.into_iter().fold(0.0_f32, |strongest, point| {
-                let measured = sample(instance_id, point);
-                if measured.is_finite() {
-                    strongest.max(measured)
-                } else {
-                    strongest
-                }
-            });
             response.observe(intensity, delta_seconds);
             let target = (response.active && player_eye.is_finite()).then_some(player_eye);
             let _response_changed = self.ai.set_light_response(handle, target);

@@ -3,10 +3,8 @@
 //! Movable blockers refresh complete cell certificates on scene revisions.
 //! One threaded volume tree serves every camera and receiver. Imagery is a PNG.
 
-#[path = "caustics_field.rs"]
-mod field;
-
-pub use field::receiver::{CausticsReceiver, CausticsReceiverCache};
+use crate::engine::lighting::caustics_field as field;
+use field::receiver::{CausticsReceiver as ReceiverSample, ReceiverInputs};
 
 use std::sync::Arc;
 
@@ -18,6 +16,43 @@ use crate::engine::level::{CausticsDef, LevelDef, WaterVolume, WaterVolumes};
 use crate::engine::lighting::LevelLighting;
 use crate::engine::quality::{QualityLevel, TextureClass};
 use crate::engine::spatial::Aabb;
+
+#[repr(C)]
+#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+pub struct CausticsReceiver {
+    pub bounds_min: [f32; 4],
+    pub bounds_extent: [f32; 4],
+    pub radiance: [[f32; 4]; 8],
+}
+
+const _: [(); 160] = [(); std::mem::size_of::<CausticsReceiver>()];
+
+impl CausticsReceiver {
+    pub const ZERO: Self = Self::from_sample(ReceiverSample::ZERO);
+
+    pub const fn from_sample(receiver: ReceiverSample) -> Self {
+        Self {
+            bounds_min: receiver.bounds_min,
+            bounds_extent: receiver.bounds_extent,
+            radiance: receiver.radiance,
+        }
+    }
+}
+
+pub(in crate::engine) const MAX_VISIBILITY_UPLOADS: usize = 64;
+
+/// Bound queue staging overhead; merged spans still use exact composed bytes.
+pub(in crate::engine) fn upload_spans(
+    ranges: &[std::ops::Range<usize>],
+) -> impl Iterator<Item = std::ops::Range<usize>> {
+    let chunk = ranges.len().div_ceil(MAX_VISIBILITY_UPLOADS).max(1);
+    ranges.chunks(chunk).filter_map(|group| {
+        group
+            .first()
+            .zip(group.last())
+            .map(|(first, last)| first.start..last.end)
+    })
+}
 
 #[repr(C)]
 #[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
@@ -363,7 +398,18 @@ impl Caustics {
                     .water
                     .get(index)
                     .map_or_else(CausticsDef::default, |def| def.caustics);
-                let mut node = leaf(volume, index, controls, self.field.grid(index));
+                let grid = self
+                    .field
+                    .grid(index)
+                    .map_or([0; 4], |([x, y, z], offset)| {
+                        [
+                            u32::from(x),
+                            u32::from(y),
+                            u32::from(z),
+                            u32::try_from(offset).unwrap_or(0),
+                        ]
+                    });
+                let mut node = leaf(volume, index, controls, grid);
                 if let Some(source) = level.water.get(index) {
                     node.params[2] = source.attenuation_per_metre;
                     node.params[3] = source.opacity();
@@ -536,7 +582,7 @@ impl Caustics {
     ) {
         if self.has_active_sources() && self.field.refresh_dynamic_visibility(visibility) {
             self.field.compose();
-            for range in self.field.upload_spans() {
+            for range in upload_spans(&self.field.upload_ranges) {
                 if let Some(samples) = self.field.samples.get(range.clone()) {
                     let offset = u64::try_from(range.start).unwrap_or(0).saturating_mul(16);
                     let bytes = bytemuck::cast_slice(samples);
@@ -547,6 +593,15 @@ impl Caustics {
                 }
             }
         }
+    }
+
+    /// Keep the receiver's previous dependency key while focus is disabled.
+    pub fn receiver_inputs(&self) -> Option<ReceiverInputs<'_>> {
+        self.has_active_sources().then_some(ReceiverInputs {
+            field: &self.field,
+            lighting: self.receiver_lighting.as_deref()?,
+            volumes: &self.receiver_volumes,
+        })
     }
 
     /// Active prepared sources still require movable visibility when currently
@@ -603,7 +658,7 @@ impl Caustics {
             "sources_dropped_by_budget": self.field.dropped_sources,
             "source_uploads": self.source_uploads,
             "visibility_upload_bytes": self.visibility_upload_bytes,
-            "visibility_upload_limit": field::MAX_VISIBILITY_UPLOADS,
+            "visibility_upload_limit": MAX_VISIBILITY_UPLOADS,
             "dynamic_revision": self.field.dynamic_revision,
             "dynamic_visibility_queries": self.field.dynamic_queries,
             "dynamic_region_queries": self.field.dynamic_region_queries,

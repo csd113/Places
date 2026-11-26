@@ -22,21 +22,21 @@ use std::collections::BTreeMap;
 
 use crate::engine::level::{LevelDef, WaterVolumes};
 use crate::engine::lighting::LevelLighting;
-use crate::engine::lighting::entity_receivers::select_baked_direct_lights;
 use crate::engine::lighting::lightmap::{Chart, LightmapPatch};
+use crate::engine::lighting::switchable::{Emitters, prepare_emitters};
 use crate::engine::lighting::transport::{
-    TransportAlphaSurface, TransportEmitter, TransportScene, TransportTextureAddress,
-    TransportTriangle, TransportWaterBody, receiver_targets,
+    TransportAlphaSurface, TransportScene, TransportTextureAddress, TransportTriangle,
+    TransportWaterBody, receiver_targets,
 };
-use crate::engine::materials::{AlphaMode, MaterialTable, RawImage};
-use crate::engine::render::{
-    LevelMesh, MATERIAL_NONE, PropMeshBatch, SurfaceKey, SurfaceKind, Vertex,
+use crate::engine::lighting::transport_surfaces::{
+    alpha_surface, is_water_surface, material_albedo, triangle_albedo,
 };
+use crate::engine::materials::{MaterialTable, RawImage};
+use crate::engine::render::{LevelMesh, MATERIAL_NONE, PropMeshBatch, SurfaceKey, SurfaceKind};
 
 // Keep the existing renderer-facing receiver vocabulary for geometry and pose callers.
 pub use crate::engine::lighting::entity_receivers::{
-    EntityDirectLight, EntityLighting, EntitySpatialKey, EntitySpatialLighting,
-    EntityStaticRayCache, entity_lighting,
+    EntityLighting, EntitySpatialKey, EntitySpatialLighting, EntityStaticRayCache, entity_lighting,
 };
 pub(super) use crate::engine::lighting::entity_receivers::{
     EntitySamplingOptions, EntitySpatialLightingContext, receiver_surface_supports,
@@ -45,10 +45,6 @@ pub(super) use crate::engine::lighting::entity_receivers::{
 pub use crate::engine::lighting::entity_receivers::{
     EntityVisibility, entity_spatial_lighting_cached,
 };
-
-/// World-space tolerance, in metres, for matching a triangle's corners to a
-/// water volume's surface plane and footprint.
-const WATER_SURFACE_EPS_M: f32 = 1.0e-3;
 
 /// What one transport-scene build produced, for the developer report.
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
@@ -106,7 +102,10 @@ pub fn prepare_runtime_transport(
     loaded: &crate::engine::loader::LoadedLevel,
     build: &crate::engine::render::LevelBuild,
 ) -> Option<std::sync::Arc<TransportScene>> {
-    let blacklights = super::blacklight::BlacklightSet::from_level(&loaded.level, &build.lighting);
+    let blacklights = crate::engine::lighting::ultraviolet::BlacklightSet::from_level(
+        &loaded.level,
+        &build.lighting,
+    );
     if blacklights.is_empty()
         && build
             .probes
@@ -211,35 +210,17 @@ pub fn build_transport_scene(
         &mut owners,
     );
 
-    let mut emitters: Vec<TransportEmitter> = Vec::new();
-    let switchable = switchable_lights(level, lighting);
-    let selected = select_baked_direct_lights(lighting, &switchable);
-    let mut runtime_direct = Vec::new();
-    for (index, light) in lighting.lights().iter().enumerate() {
-        let tag = switchable
-            .iter()
-            .copied()
-            .find(|candidate| *candidate == index);
-        // A switchable fixture is prepared even when it is authored off, so a
-        // runtime toggle can turn its contribution on; a plainly inactive
-        // light contributes nothing to any solve.
-        if !light.is_active() && tag.is_none() {
-            continue;
-        }
-        if let Ok(source) = u32::try_from(index)
-            && selected.contains(&source)
-        {
-            runtime_direct.push((emitters.len(), source));
-        }
-        emitters.push(TransportEmitter::from_baked(light, tag));
-        if tag.is_some() {
-            stats.switchable_emitters = stats.switchable_emitters.saturating_add(1);
-        }
-    }
+    let Emitters {
+        sources: emitters,
+        runtime_direct,
+        groups,
+        switchable_count,
+    } = prepare_emitters(level, lighting);
+    stats.switchable_emitters = switchable_count;
     stats.triangles = triangles.len();
     stats.emitters = emitters.len();
     let scene = TransportScene::new(triangles, emitters)?
-        .with_switchable_groups(switchable_groups(level, lighting))
+        .with_switchable_groups(groups)
         .with_runtime_direct_lights(runtime_direct)
         .with_surface_alpha(surfaces.alpha)?
         .with_surface_materials(surfaces.materials)?
@@ -252,7 +233,7 @@ pub fn build_transport_scene(
         )
         .with_receiver_target(receiver_targets(lighting, charts))
         .with_validated_probe_targets(level, lighting, charts)
-        .with_sky(sky_radiance(level));
+        .with_sky(crate::engine::lighting::sky_radiance(level));
     let lit_scene = scene.with_global_lights(
         level
             .global_illuminators
@@ -266,15 +247,6 @@ pub fn build_transport_scene(
         crate::engine::logging::warn(format_args!("[lighting-diagnostics] {error}"));
     }
     Some((lit_scene, stats))
-}
-
-/// The radiance an escaping bounce ray sees, from the level's optional sky.
-///
-/// Zero without a sky (or with `ambient` 0.0), which preserves the historical
-/// "an interior has no sky" solve exactly. The authored scalar is scaled by
-/// [`crate::engine::lighting::SKY_AMBIENT_COLOR`].
-fn sky_radiance(level: &LevelDef) -> [f32; 3] {
-    crate::engine::lighting::sky_radiance(level)
 }
 
 /// Appends every architecture range's triangles to the transport scene.
@@ -302,7 +274,15 @@ fn append_architecture_triangles(
             continue;
         }
         let first = triangles.len();
-        let material = material_albedo(materials, range.key.material);
+        let material = if range.key.material == MATERIAL_NONE {
+            [0.8; 3]
+        } else {
+            materials
+                .entry(range.key.material)
+                .map_or([0.8; 3], |entry| {
+                    material_albedo(entry.tint, entry.image.as_deref())
+                })
+        };
         let material_id = material_id(materials, range.key.material);
         let identity = surfaces.material(SurfaceMaterial::Architecture(range.key));
         for chunk in range.indices.as_chunks::<3>().0 {
@@ -338,7 +318,8 @@ fn append_architecture_triangles(
                                 alpha_surface(
                                     entry.alpha,
                                     entry.image.clone(),
-                                    [va, vb, vc],
+                                    [va.uv, vb.uv, vc.uv],
+                                    [va.color[3], vb.color[3], vc.color[3]],
                                     TransportTextureAddress::Repeat,
                                 )
                             })
@@ -424,7 +405,12 @@ fn append_prop_triangles(
                 ) else {
                     continue;
                 };
-                let albedo = triangle_albedo([1.0; 3], &va, &vb, &vc, image);
+                let albedo = triangle_albedo(
+                    [1.0; 3],
+                    [va.color, vb.color, vc.color],
+                    [va.uv, vb.uv, vc.uv],
+                    image,
+                );
                 match TransportTriangle::new(va.pos, vb.pos, vc.pos, albedo) {
                     Some(triangle) => {
                         triangles
@@ -437,7 +423,8 @@ fn append_prop_triangles(
                                     .texture
                                     .and_then(|texture| batch.textures.get(usize::from(texture)))
                                     .cloned(),
-                                [&va, &vb, &vc],
+                                [va.uv, vb.uv, vc.uv],
+                                [va.color[3], vb.color[3], vc.color[3]],
                                 TransportTextureAddress::Clamp,
                             ),
                         );
@@ -576,288 +563,4 @@ fn material_id(materials: &MaterialTable, material: u32) -> Option<&str> {
         return None;
     }
     materials.entry(material).map(|entry| entry.id.as_str())
-}
-
-fn alpha_surface(
-    alpha: crate::engine::materials::MaterialAlpha,
-    image: Option<std::sync::Arc<RawImage>>,
-    vertices: [&Vertex; 3],
-    address: TransportTextureAddress,
-) -> Option<TransportAlphaSurface> {
-    (alpha.mode != AlphaMode::Opaque).then(|| TransportAlphaSurface {
-        alpha,
-        image,
-        uv: vertices.map(|vertex| vertex.uv),
-        vertex_alpha: vertices.map(|vertex| vertex.color[3]),
-        address,
-    })
-}
-
-/// True when a triangle is one water volume's drawn surface: all three corners
-/// lie on one resolved footprint at its `surface_y` (so the triangle is
-/// horizontal) and the range resolves to that volume's material id.
-///
-/// The surface is drawn only for [`WaterVolumes`] entries, so matching the
-/// authored geometry back to the same resolution is what keeps the transmitted
-/// surface and the attenuating body one thing.
-fn is_water_surface(
-    corners: [[f32; 3]; 3],
-    material_id: Option<&str>,
-    water: &WaterVolumes,
-) -> bool {
-    let Some(surface_material) = material_id else {
-        return false;
-    };
-    water.volumes().iter().any(|volume| {
-        volume.material_id() == surface_material
-            && corners.iter().all(|corner| {
-                (corner[1] - volume.surface_y).abs() <= WATER_SURFACE_EPS_M
-                    && corner[0] >= volume.x0 - WATER_SURFACE_EPS_M
-                    && corner[0] <= volume.x1 + WATER_SURFACE_EPS_M
-                    && corner[2] >= volume.z0 - WATER_SURFACE_EPS_M
-                    && corner[2] <= volume.z1 + WATER_SURFACE_EPS_M
-            })
-    })
-}
-
-/// The light indices of every switchable ceiling fixture, in fixture order.
-///
-/// The compiled lighting record already knows the fixture-to-light mapping, so
-/// this is the same classification the runtime switch uses: a fixture whose
-/// `switchable` flag is set owns one light, and that light's contribution must
-/// be prepared as its own selectable layer.
-#[must_use]
-pub fn switchable_lights(
-    level: &crate::engine::level::LevelDef,
-    lighting: &LevelLighting,
-) -> Vec<usize> {
-    let mut out = Vec::new();
-    for (fixture_index, fixture) in level.ceiling_lights.iter().enumerate() {
-        if !fixture.switchable {
-            continue;
-        }
-        for light in lighting.fixture_light_indices(fixture_index) {
-            if !out.contains(&light) {
-                out.push(light);
-            }
-        }
-    }
-    for (index, prop) in level.props.iter().enumerate() {
-        if prop
-            .light_control()
-            .is_some_and(|control| control.switchable)
-        {
-            out.extend(
-                lighting
-                    .prop_light_indices(index)
-                    .zip(&prop.lights)
-                    .filter_map(|(source, light)| light.enabled.then_some(source)),
-            );
-        }
-    }
-    out
-}
-
-/// Contribution groups in fixture order, retaining each source's live identity.
-pub fn switchable_groups(level: &LevelDef, lighting: &LevelLighting) -> Vec<(usize, Vec<usize>)> {
-    let mut groups: Vec<(usize, Vec<usize>)> = Vec::new();
-    let mut named = BTreeMap::<&str, usize>::new();
-    for (fixture_index, fixture) in level.ceiling_lights.iter().enumerate() {
-        if !fixture.switchable {
-            continue;
-        }
-        let sources = lighting.fixture_light_indices(fixture_index);
-        let Some(light) = sources.first().copied() else {
-            continue;
-        };
-        if let Some(name) = fixture.switch_group.as_deref()
-            && let Some(group) = named.get(name).and_then(|index| groups.get_mut(*index))
-        {
-            group.1.extend(sources);
-        } else {
-            if let Some(name) = fixture.switch_group.as_deref() {
-                let _previous = named.insert(name, groups.len());
-            }
-            groups.push((light, sources));
-        }
-    }
-    for (index, prop) in level.props.iter().enumerate() {
-        if !prop
-            .light_control()
-            .is_some_and(|control| control.switchable)
-        {
-            continue;
-        }
-        let sources: Vec<usize> = lighting
-            .prop_light_indices(index)
-            .zip(&prop.lights)
-            .filter_map(|(source, light)| light.enabled.then_some(source))
-            .collect();
-        if let Some(first) = sources.first().copied() {
-            if let Some(name) = prop.switch_group.as_deref()
-                && let Some(group) = named.get(name).and_then(|ordinal| groups.get_mut(*ordinal))
-            {
-                group.1.extend(sources);
-            } else {
-                if let Some(name) = prop.switch_group.as_deref() {
-                    let _previous = named.insert(name, groups.len());
-                }
-                groups.push((first, sources));
-            }
-        }
-    }
-    groups
-}
-
-/// The albedo of one triangle: the material tint (or the prop vertex's own
-/// base colour) multiplied by the submesh texture's colour at the triangle
-/// centre.
-fn triangle_albedo(
-    material_albedo: [f32; 3],
-    a: &Vertex,
-    b: &Vertex,
-    c: &Vertex,
-    texture: Option<&RawImage>,
-) -> [f32; 3] {
-    let mut base = [
-        material_albedo[0] * ((a.color[0] + b.color[0] + c.color[0]) / 3.0),
-        material_albedo[1] * ((a.color[1] + b.color[1] + c.color[1]) / 3.0),
-        material_albedo[2] * ((a.color[2] + b.color[2] + c.color[2]) / 3.0),
-    ];
-    if let Some(image) = texture {
-        let centroid = [
-            (a.uv[0] + b.uv[0] + c.uv[0]) / 3.0,
-            (a.uv[1] + b.uv[1] + c.uv[1]) / 3.0,
-        ];
-        let sample = sample_texture(image, centroid);
-        base = [
-            base[0] * sample[0],
-            base[1] * sample[1],
-            base[2] * sample[2],
-        ];
-    }
-    [
-        base[0].clamp(0.0, 1.0),
-        base[1].clamp(0.0, 1.0),
-        base[2].clamp(0.0, 1.0),
-    ]
-}
-
-/// The averaged albedo of one level material, or a neutral white for a slot
-/// with no level material.
-fn material_albedo(materials: &MaterialTable, material: u32) -> [f32; 3] {
-    if material == MATERIAL_NONE {
-        return [0.8; 3];
-    }
-    let Some(entry) = materials.entry(material) else {
-        return [0.8; 3];
-    };
-    let mut tint = entry.tint;
-    if let Some(image) = entry.image.as_deref() {
-        let mean = mean_texture_color(image);
-        tint = [tint[0] * mean[0], tint[1] * mean[1], tint[2] * mean[2]];
-    }
-    [
-        tint[0].clamp(0.0, 1.0),
-        tint[1].clamp(0.0, 1.0),
-        tint[2].clamp(0.0, 1.0),
-    ]
-}
-
-/// Mean colour of one texture, sampled on a fixed stride so a large image is
-/// bounded work.
-#[must_use]
-pub fn mean_texture_color(image: &RawImage) -> [f32; 3] {
-    if image.width == 0 || image.height == 0 {
-        return [1.0; 3];
-    }
-    let texels = (usize::try_from(image.width).unwrap_or(0))
-        .saturating_mul(usize::try_from(image.height).unwrap_or(0));
-    if texels == 0 {
-        return [1.0; 3];
-    }
-    let stride = (texels / 1024).max(1);
-    let mut sum = [0.0_f32; 3];
-    let mut count = 0_usize;
-    let mut index = 0usize;
-    while index < texels {
-        let offset = index.saturating_mul(4);
-        if let Some([r, g, b, a]) = image
-            .rgba
-            .get(offset..offset.saturating_add(4))
-            .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
-            && a > 0
-        {
-            sum[0] += crate::engine::materials::color::decode_byte(r);
-            sum[1] += crate::engine::materials::color::decode_byte(g);
-            sum[2] += crate::engine::materials::color::decode_byte(b);
-            count = count.saturating_add(1);
-        }
-        index = index.saturating_add(stride);
-    }
-    if count == 0 {
-        return [1.0; 3];
-    }
-    // The stride caps the sample count near 1024, so the divisor is bounded.
-    let divisor = f32::from(u16::try_from(count).unwrap_or(u16::MAX)).max(1.0);
-    [sum[0] / divisor, sum[1] / divisor, sum[2] / divisor]
-}
-
-/// Nearest-texel sample of a GLB sheet, clamped like the runtime sampler.
-#[must_use]
-pub fn sample_texture(image: &RawImage, uv: [f32; 2]) -> [f32; 3] {
-    if image.width == 0 || image.height == 0 {
-        return [1.0; 3];
-    }
-    let width = usize::try_from(image.width).unwrap_or(1).max(1);
-    let height = usize::try_from(image.height).unwrap_or(1).max(1);
-    let u_coordinate = if uv[0].is_finite() {
-        uv[0].clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    let v_coordinate = if uv[1].is_finite() {
-        uv[1].clamp(0.0, 1.0)
-    } else {
-        0.0
-    };
-    let width_f =
-        f32::from(u16::try_from(width.min(usize::from(u16::MAX))).unwrap_or(u16::MAX)).max(1.0);
-    let height_f =
-        f32::from(u16::try_from(height.min(usize::from(u16::MAX))).unwrap_or(u16::MAX)).max(1.0);
-    #[expect(
-        clippy::as_conversions,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "Finite wrapped UVs become floored texel indices bounded by u16 texture dimensions and clamped to the last texel."
-    )]
-    // Both coordinates are finite and in `0..width` after the modulo and the
-    // multiply, so the truncating cast is exact for the range it receives.
-    let x_texel = ((u_coordinate * width_f).floor() as u32)
-        .min(u32::try_from(width.saturating_sub(1)).unwrap_or(0));
-    #[expect(
-        clippy::as_conversions,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "Finite wrapped UVs become floored texel indices bounded by u16 texture dimensions and clamped to the last texel."
-    )]
-    let y_texel = ((v_coordinate * height_f).floor() as u32)
-        .min(u32::try_from(height.saturating_sub(1)).unwrap_or(0));
-    let offset = usize::try_from(y_texel)
-        .unwrap_or(0)
-        .saturating_mul(width)
-        .saturating_add(usize::try_from(x_texel).unwrap_or(0))
-        .saturating_mul(4);
-    match image
-        .rgba
-        .get(offset..offset.saturating_add(4))
-        .and_then(|slice| <[u8; 4]>::try_from(slice).ok())
-    {
-        Some([r, g, b, _]) => [
-            crate::engine::materials::color::decode_byte(r),
-            crate::engine::materials::color::decode_byte(g),
-            crate::engine::materials::color::decode_byte(b),
-        ],
-        _ => [1.0; 3],
-    }
 }

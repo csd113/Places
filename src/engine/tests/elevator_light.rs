@@ -82,11 +82,8 @@ fn cabin_light_keeps_the_interior_on_and_tracks_the_actual_seal() -> Result<(), 
     assert_eq!(std::mem::size_of::<GpuDynamicLight>(), 112);
     assert_eq!(std::mem::offset_of!(DynamicLightsUniform, lights), 16);
     assert_eq!(std::mem::offset_of!(DynamicLightsUniform, flashlight), 912);
-    let receiver = crate::engine::render::common::elevators::landing_light_probe(
-        &elevator,
-        crate::engine::render::common::elevators::Part::Cabin(0),
-        [7.0, 4.0, -3.0],
-    );
+    let receiver =
+        crate::engine::lighting::elevator::landing_light_probe(&elevator, [7.0, 4.0, -3.0]);
     assert!(
         receiver.distance(definition.point(0.0, 5.1, -0.35)) < 0.0001,
         "A sealed ride must retain the fixed landing receiver"
@@ -123,12 +120,8 @@ fn assert_unselected_cabin_lighting(mut elevator: Elevator, receiver: Vec3) -> R
     assert!((lower.half_gap + 0.004).abs() < 0.00001);
     assert!((upper.half_gap - 0.3365).abs() < 0.00001);
     assert!(
-        crate::engine::render::common::elevators::landing_light_probe(
-            &elevator,
-            crate::engine::render::common::elevators::Part::Cabin(0),
-            [7.0, 4.0, -3.0],
-        )
-        .distance(receiver)
+        crate::engine::lighting::elevator::landing_light_probe(&elevator, [7.0, 4.0, -3.0],)
+            .distance(receiver)
             < 0.0001,
         "Unselected fixed cabins retain their own real landing receiver"
     );

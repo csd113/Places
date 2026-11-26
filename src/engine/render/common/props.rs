@@ -1129,26 +1129,7 @@ fn append_instance_vertices(
     }
 }
 
-/// World-space bounds of a local-space box placed by `transform`.
-///
-/// Only the eight corners are transformed: the result is the AABB of the
-/// rotated box, which is conservative (never smaller than the real geometry),
-/// which is exactly what a culling test needs.
-pub fn transform_bounds(
-    local: &crate::engine::spatial::Aabb,
-    transform: &glam::Mat4,
-) -> crate::engine::spatial::Aabb {
-    let mut bounds = crate::engine::spatial::Aabb::EMPTY;
-    for x in [local.min[0], local.max[0]] {
-        for y in [local.min[1], local.max[1]] {
-            for z in [local.min[2], local.max[2]] {
-                let point = transform.transform_point3(glam::Vec3::new(x, y, z));
-                bounds.expand([point.x, point.y, point.z]);
-            }
-        }
-    }
-    bounds
-}
+pub use crate::engine::spatial::transform_bounds;
 
 /// Instance transform for a placed prop: translate, yaw/pitch/roll and scale.
 ///

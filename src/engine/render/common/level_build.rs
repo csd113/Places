@@ -105,7 +105,10 @@ impl LightmapBuildOptions {
     /// by the actual base and switchable groups the compiler will serialize.
     fn with_prepared_page_budget(mut self, level: &LevelDef, lighting: &LevelLighting) -> Self {
         if self.mode == LightmapMode::On {
-            let switchable = super::light_transport::switchable_groups(level, lighting).len();
+            let switchable =
+                crate::engine::lighting::switchable::SwitchableSources::from_level(level, lighting)
+                    .groups
+                    .len();
             self.config.max_pages = self.config.max_pages.min(
                 crate::engine::package::lightmaps::preparation_page_limit(
                     self.config.page_edge,

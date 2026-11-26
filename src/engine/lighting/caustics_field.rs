@@ -2,23 +2,40 @@
 //! No irradiance bake or imagery generation. Scene revisions refresh bounded
 //! source-specific cell certificates against the existing movable caster bounds.
 
+use super::entity_receivers::MovableOccluders;
+use crate::engine::entity::DynamicId;
 use crate::engine::level::{GlobalIlluminatorDef, LevelDef, LevelSurfaces, WaterVolume};
 use crate::engine::lighting::{BakedLight, LevelLighting, directional::DirectionalLight};
-use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
 use crate::engine::spatial::{
     Aabb, directional_light_region_overlaps, finite_light_region_overlaps,
 };
 
 #[path = "caustics_receiver.rs"]
-pub(super) mod receiver;
+pub(in crate::engine) mod receiver;
 
 #[cfg(test)]
-#[path = "../../tests/caustics_field.rs"]
+#[path = "../tests/caustics_field.rs"]
 mod tests;
 
-pub(super) const MAX_VISIBILITY_UPLOADS: usize = 64;
-pub(super) const MAX_SAMPLES: usize = 65_536;
-pub(super) const MAX_FACTORS: usize = 4_194_304;
+pub(in crate::engine) const MAX_SAMPLES: usize = 65_536;
+pub(in crate::engine) const MAX_FACTORS: usize = 4_194_304;
+/// Current movable caster region certificates, independent of the GPU field.
+pub(in crate::engine) trait CausticOccluders: MovableOccluders {
+    fn has_casters(&self) -> bool;
+    fn local_region_visible(
+        &self,
+        source: Aabb,
+        receivers: Aabb,
+        excluded: Option<DynamicId>,
+    ) -> bool;
+    fn directional_region_visible(
+        &self,
+        receivers: Aabb,
+        incoming: [f32; 3],
+        excluded: Option<DynamicId>,
+    ) -> bool;
+}
+
 const RECEIVER_EPSILON: f32 = 0.012;
 const SAMPLE_SPACING: f32 = 0.15;
 const VERTICAL_SAMPLE_SPACING: f32 = 0.45;
@@ -246,15 +263,6 @@ impl Grid {
         }
     }
 
-    fn gpu(self) -> [u32; 4] {
-        [
-            u32::from(self.dimensions[0]),
-            u32::from(self.dimensions[1]),
-            u32::from(self.dimensions[2]),
-            u32::try_from(self.offset).unwrap_or(0),
-        ]
-    }
-
     fn ordinal(self, x: u16, y: u16, z: u16) -> usize {
         usize::from(z)
             .saturating_mul(usize::from(self.dimensions[1]))
@@ -316,24 +324,24 @@ impl Grid {
 }
 
 #[derive(Default)]
-pub(super) struct ReceiverField {
+pub(in crate::engine) struct ReceiverField {
     /// Eight independent records per interpolation cell, with linear direct
     /// RGB and the column's static receiver floor in W.
-    pub(super) samples: Vec<[f32; 4]>,
+    pub(in crate::engine) samples: Vec<[f32; 4]>,
     grids: Vec<Grid>,
     sources: Vec<Source>,
-    pub(super) dropped_sources: usize,
+    pub(in crate::engine) dropped_sources: usize,
     receivers: Vec<Option<[f32; 3]>>,
-    pub(super) dynamic_revision: Option<u64>,
-    pub(super) dynamic_queries: u64,
-    pub(super) dynamic_region_queries: u64,
-    pub(super) source_revision: u64,
+    pub(in crate::engine) dynamic_revision: Option<u64>,
+    pub(in crate::engine) dynamic_queries: u64,
+    pub(in crate::engine) dynamic_region_queries: u64,
+    pub(in crate::engine) source_revision: u64,
     cells: Vec<ReceiverCell>,
     receiver_bounds: Aabb,
     dirty_cells: Vec<bool>,
     dirty_indices: Vec<usize>,
     compose_all: bool,
-    pub(super) upload_ranges: Vec<std::ops::Range<usize>>,
+    pub(in crate::engine) upload_ranges: Vec<std::ops::Range<usize>>,
 }
 
 fn local_sources(level: &LevelDef, lighting: &LevelLighting) -> Vec<Source> {
@@ -702,7 +710,7 @@ struct CellVisibility<'a> {
     source: Aabb,
     affected: Option<[[f64; 3]; 2]>,
     changed: Option<&'a [Aabb]>,
-    visibility: &'a DynamicVisibility,
+    visibility: &'a dyn CausticOccluders,
     cells: &'a [ReceiverCell],
     has_casters: bool,
 }
@@ -760,7 +768,7 @@ impl CellVisibility<'_> {
 
 fn refresh_source_visibility(
     source: &mut Source,
-    visibility: &DynamicVisibility,
+    visibility: &dyn CausticOccluders,
     cells: &[ReceiverCell],
     has_casters: bool,
     changed_regions: Option<&[Aabb]>,
@@ -829,7 +837,7 @@ fn refresh_source_visibility(
 }
 
 impl ReceiverField {
-    pub(super) fn build(
+    pub(in crate::engine) fn build(
         level: &LevelDef,
         lighting: &LevelLighting,
         volumes: &[WaterVolume],
@@ -932,38 +940,23 @@ impl ReceiverField {
         field
     }
 
-    pub(super) fn grid(&self, index: usize) -> [u32; 4] {
-        self.grids.get(index).map_or([0; 4], |grid| grid.gpu())
+    pub(in crate::engine) fn grid(&self, index: usize) -> Option<([u16; 3], usize)> {
+        self.grids
+            .get(index)
+            .map(|grid| (grid.dimensions, grid.offset))
     }
 
-    /// Bound queue staging/dispatch overhead when many independent props
-    /// fragment a frame's changes. Nearby spans merge across unchanged gaps;
-    /// every byte still comes from the exact composed field.
-    pub(super) fn upload_spans(&self) -> impl Iterator<Item = std::ops::Range<usize>> {
-        let chunk = self
-            .upload_ranges
-            .len()
-            .div_ceil(MAX_VISIBILITY_UPLOADS)
-            .max(1);
-        self.upload_ranges.chunks(chunk).filter_map(|ranges| {
-            ranges
-                .first()
-                .zip(ranges.last())
-                .map(|(first, last)| first.start..last.end)
-        })
-    }
-
-    pub(super) fn factor_count(&self) -> usize {
+    pub(in crate::engine) fn factor_count(&self) -> usize {
         self.sources.iter().map(|source| source.factors.len()).sum()
     }
 
-    pub(super) fn has_active_sources(&self) -> bool {
+    pub(in crate::engine) fn has_active_sources(&self) -> bool {
         self.sources
             .iter()
             .any(|source| source.state.active() && source.receiver_supported)
     }
 
-    pub(super) fn volume_active(&self, index: usize) -> bool {
+    pub(in crate::engine) fn volume_active(&self, index: usize) -> bool {
         self.grids.get(index).is_some_and(|grid| {
             let end = grid.offset.saturating_add(grid.count);
             self.sources.iter().any(|source| {
@@ -977,7 +970,7 @@ impl ReceiverField {
         })
     }
 
-    pub(super) fn compose(&mut self) {
+    pub(in crate::engine) fn compose(&mut self) {
         self.upload_ranges.clear();
         if !self.compose_all {
             self.compose_dirty_cells();
@@ -1063,7 +1056,7 @@ impl ReceiverField {
         }
     }
 
-    pub(super) fn refresh_sources(&mut self, lighting: &LevelLighting) -> bool {
+    pub(in crate::engine) fn refresh_sources(&mut self, lighting: &LevelLighting) -> bool {
         let mut changed = false;
         let mut activated = false;
         let mut source_changed = false;
@@ -1105,7 +1098,7 @@ impl ReceiverField {
         changed
     }
 
-    pub(super) fn inherit_state(&mut self, previous: &Self) {
+    pub(in crate::engine) fn inherit_state(&mut self, previous: &Self) {
         for (source, old) in self.sources.iter_mut().zip(&previous.sources) {
             if source.id == old.id {
                 source.state = old.state;
@@ -1116,7 +1109,7 @@ impl ReceiverField {
         self.source_revision = previous.source_revision;
     }
 
-    pub(super) fn set_source(
+    pub(in crate::engine) fn set_source(
         &mut self,
         id: &str,
         enabled: Option<bool>,
@@ -1168,7 +1161,10 @@ impl ReceiverField {
     /// Reuses the already prepared movable visibility scene, with no model or
     /// world reconstruction. Stationary scenes and dark source sets perform no
     /// new geometry queries; moving scenes refresh complete region certificates.
-    pub(super) fn refresh_dynamic_visibility(&mut self, visibility: &DynamicVisibility) -> bool {
+    pub(in crate::engine) fn refresh_dynamic_visibility(
+        &mut self,
+        visibility: &dyn CausticOccluders,
+    ) -> bool {
         let revision = visibility.revision();
         if self.dynamic_revision == Some(revision) {
             return false;
@@ -1177,7 +1173,7 @@ impl ReceiverField {
             .dynamic_revision
             .and_then(|previous| visibility.changed_regions_since(previous));
         self.dynamic_revision = Some(revision);
-        let has_casters = visibility.stats().casters > 0;
+        let has_casters = visibility.has_casters();
         let cells = &self.cells;
         let receiver_bounds = self.receiver_bounds;
         // Sources own disjoint factor/certificate slots. Reuse the existing
@@ -1239,7 +1235,7 @@ impl ReceiverField {
         changed
     }
 
-    pub(super) fn diagnostics(&self) -> Vec<serde_json::Value> {
+    pub(in crate::engine) fn diagnostics(&self) -> Vec<serde_json::Value> {
         self.sources
             .iter()
             .map(|source| {

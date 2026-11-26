@@ -56,7 +56,7 @@ pub const DECAL_SHADER_SRC: &str = concat!(
     super::posed_visibility::posed_query_source!(),
     include_str!("attached_lights.wgsl"),
     include_str!("../../lighting/attached_light_visibility.wgsl"),
-    include_str!("flashlight_visibility.wgsl"),
+    include_str!("../../lighting/flashlight_visibility.wgsl"),
     include_str!("../../lighting/attached_light_response.wgsl"),
     "\n",
     include_str!("decals.wgsl"),

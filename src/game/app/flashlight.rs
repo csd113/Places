@@ -2,7 +2,8 @@
 
 use glam::Vec3;
 
-use crate::engine::render::{Flashlight, Renderer};
+use crate::engine::lighting::flashlight::camera_attached_light;
+use crate::engine::render::Renderer;
 
 #[derive(Default)]
 pub enum Power {
@@ -24,63 +25,15 @@ impl Power {
     }
 }
 
-/// A near-eye attachment, aimed at view centre six metres away.
-/// The visibility callback keeps the source on the camera side of nearby
-/// geometry, including live doors and movable furniture.
-#[expect(
-    clippy::arithmetic_side_effects,
-    reason = "Finite camera inputs use bounded metre offsets and glam floating-point vector arithmetic."
-)]
-fn attached_light(
-    eye: Vec3,
-    yaw: f32,
-    pitch: f32,
-    mut visibility: impl FnMut(Vec3, Vec3) -> f32,
-) -> Flashlight {
-    let forward = Vec3::new(
-        yaw.sin() * pitch.cos(),
-        pitch.sin(),
-        -yaw.cos() * pitch.cos(),
-    );
-    let right = Vec3::new(yaw.cos(), 0.0, yaw.sin());
-    // Keep a lateral baseline for cast shadows, but no camera-relative drop:
-    // a low source projects close props above their visible tops onto distant
-    // receivers, making the silhouette look like a floating box when looking up.
-    let offset = right * 0.14 + forward * 0.06;
-    let candidate = eye + offset;
-    let position = if visibility(eye, candidate) >= 0.99 {
-        candidate
-    } else {
-        let mut clear = 0.0_f32;
-        let mut blocked = 1.0_f32;
-        // Eight bounded queries resolve this 16 cm offset below a millimetre.
-        for _ in 0_u8..8 {
-            let fraction = clear.midpoint(blocked);
-            if visibility(eye, eye + offset * fraction) >= 0.99 {
-                clear = fraction;
-            } else {
-                blocked = fraction;
-            }
-        }
-        eye + offset * (clear - 0.02 / offset.length()).max(0.0)
-    };
-    Flashlight {
-        position,
-        direction: (eye + forward * 6.0 - position).normalize_or(forward),
-        color: [1.0, 0.965, 0.89],
-        intensity: 12.0,
-        range: 24.0,
-        // Preserve the soft/core relationship while widening the projected
-        // diameter by the requested 50%, followed by another 15%, rather
-        // than scaling angles approximately.
-        inner_cos: (6.0_f32.to_radians().tan() * 1.725).atan().cos(),
-        outer_cos: (12.0_f32.to_radians().tan() * 1.725).atan().cos(),
-    }
-}
-
 pub fn install(renderer: &mut Renderer, enabled: bool, eye: Vec3, yaw: f32, pitch: f32) {
     let light = enabled.then(|| {
-        attached_light(eye, yaw, pitch, |from, to| {
+        let forward = Vec3::new(
+            yaw.sin() * pitch.cos(),
+            pitch.sin(),
+            -yaw.cos() * pitch.cos(),
+        );
+        let right = Vec3::new(yaw.cos(), 0.0, yaw.sin());
+        camera_attached_light(eye, forward, right, |from, to| {
             renderer.light_transmittance(from.to_array(), to.to_array(), None)
         })
     });

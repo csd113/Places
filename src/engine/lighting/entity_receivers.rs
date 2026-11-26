@@ -529,6 +529,8 @@ fn static_ray(
 /// revision publication stay with the caller.
 pub trait MovableOccluders: Sync {
     fn revision(&self) -> u64;
+    /// Latest changed regions, or no certificate when history is unavailable.
+    fn changed_regions_since(&self, revision: u64) -> Option<&[Aabb]>;
     fn transmittance(&self, from: [f32; 3], to: [f32; 3], receiver: Option<DynamicId>) -> f32;
 }
 

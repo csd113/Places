@@ -267,11 +267,12 @@ fn receiver_visibility_tracks_relevant_bounds_and_observed_revisions() -> Result
 fn ultraviolet_receiver_dependencies_preserve_full_refresh_visibility() -> Result<(), String> {
     use crate::engine::{
         level::LevelDef,
-        lighting::{LevelLighting, transport::TransportScene},
-        render::common::{
-            blacklight::{BlacklightSet, BlacklightVisibility},
-            dynamic_visibility::{BlacklightReceiverCache, DynamicVisibility},
+        lighting::{
+            LevelLighting,
+            transport::TransportScene,
+            ultraviolet::{BlacklightReceiverCache, BlacklightSet, BlacklightVisibility},
         },
+        render::common::dynamic_visibility::DynamicVisibility,
         spatial::Aabb,
     };
     let level = LevelDef::from_json(r#"{"schema":"places-level","format_version":1,"id":"uv_dependency","name":"UV dependency",
@@ -359,9 +360,9 @@ fn ultraviolet_receiver_dependencies_preserve_full_refresh_visibility() -> Resul
 
 // Extend the existing triangle fixture with disabled-state movement and first enable.
 fn verify_disabled_uv_restore(
-    cache: &mut crate::engine::render::common::dynamic_visibility::BlacklightReceiverCache,
+    cache: &mut crate::engine::lighting::ultraviolet::BlacklightReceiverCache,
     lighting: &mut crate::engine::lighting::LevelLighting,
-    sources: &crate::engine::render::common::blacklight::BlacklightSet,
+    sources: &crate::engine::lighting::ultraviolet::BlacklightSet,
     scene: &crate::engine::lighting::transport::TransportScene,
     moving: (
         &mut DynamicScene,
@@ -370,7 +371,7 @@ fn verify_disabled_uv_restore(
     ),
     bounds: crate::engine::spatial::Aabb,
 ) -> Result<(), String> {
-    use crate::engine::render::common::blacklight::BlacklightVisibility;
+    use crate::engine::lighting::ultraviolet::BlacklightVisibility;
     let (dynamic, visibility, caster) = moving;
     // Disabled UV may move both receiver and blocker without tracing. The
     // same existing tiny fixture protects first-enable freshness after history loss.
@@ -398,7 +399,7 @@ fn verify_disabled_uv_restore(
                 glam::Mat4::from_translation(glam::Vec3::new(offset, 0.0, 0.0)),
                 None
             ),
-            crate::engine::render::common::blacklight::BlacklightReceiver::ZERO
+            crate::engine::lighting::ultraviolet::BlacklightReceiver::ZERO
         );
     }
     assert_eq!(

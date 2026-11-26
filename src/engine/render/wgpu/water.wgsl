@@ -58,7 +58,7 @@ fn water_composite(in: VsOut, normal: vec3<f32>, view: vec3<f32>, scatter: vec3<
         }
     }
     let contact = smoothstep(0.0, 0.055, thickness);
-    let reflection_mix = clamp(material.reflection_strength * 6.0, vec3<f32>(0.0), vec3<f32>(0.95)) * facing * contact;
+    let reflection_mix = water_reflection_strength(material.reflection_strength) * facing * contact;
     // Project the horizontal perturbation into this camera's screen frame;
     // turning the view must not rotate refraction in world-X/Z screen axes.
     let right = normalize(vec3<f32>(camera.view_projection[0].x, camera.view_projection[1].x, camera.view_projection[2].x));

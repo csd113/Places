@@ -29,15 +29,23 @@ pub use common::prop_vertices::PropVertices;
 pub(crate) use common::props::override_material_textures as override_prop_textures;
 pub(crate) use common::props::{PropDraw, PropDraws, plan_prop_draws};
 pub(crate) use common::subtract_rectangles;
+#[cfg(test)]
+pub(in crate::engine) use common::{
+    dynamic::SpawnOrientation, dynamic_visibility::DynamicVisibility,
+};
+#[cfg(test)]
+pub(in crate::engine) use wgpu::caustics::{
+    MAX_VISIBILITY_UPLOADS, upload_spans as caustics_upload_spans,
+};
 mod facade;
 pub mod font;
 pub mod weather;
 mod wgpu;
 
-pub use common::blacklight::MAX_BLACKLIGHTS;
+pub use crate::engine::lighting::flashlight::Flashlight;
+pub use crate::engine::lighting::ultraviolet::MAX_BLACKLIGHTS;
 pub use common::blood::{BloodEmission, MAX_REQUESTS as MAX_BLOOD_REQUESTS};
 pub use common::camera::RenderCamera;
-pub use common::dynamic_lights::Flashlight;
 pub(crate) use common::level_build::{
     LightmapFillOutcome, dump_lightmaps_for_level, fill_lightmaps_cancellable,
     lightmap_content_key, prepare_compiled_level_geometry, prepare_local_lightmap_geometry,

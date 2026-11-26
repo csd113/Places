@@ -1,20 +1,15 @@
 //! Self-excluded caustics for a moving receiver. Whole-object source-region
 //! certificates prevent leaks between its eight local interpolation anchors.
 
-use bytemuck::{Pod, Zeroable};
 use glam::{Mat4, Vec3};
-use std::sync::Arc;
 
-use super::{Grid, RECEIVER_EPSILON, ReceiverField, SourceKind, source_factor};
+use super::{CausticOccluders, Grid, RECEIVER_EPSILON, ReceiverField, SourceKind, source_factor};
+use crate::engine::entity::DynamicId;
 use crate::engine::level::WaterVolume;
 use crate::engine::lighting::LevelLighting;
-use crate::engine::render::common::dynamic::DynamicId;
-use crate::engine::render::common::dynamic_visibility::DynamicVisibility;
-use crate::engine::render::wgpu::caustics::Caustics;
 use crate::engine::spatial::Aabb;
 
-#[repr(C)]
-#[derive(Clone, Copy, Debug, PartialEq, Pod, Zeroable)]
+#[derive(Clone, Copy, Debug, PartialEq)]
 pub struct CausticsReceiver {
     /// Local minimum XYZ; W marks a selected receiver, even with zero radiance.
     pub bounds_min: [f32; 4],
@@ -23,8 +18,6 @@ pub struct CausticsReceiver {
     /// Source-only RGB at XYZ-bit corners; W is the static receiver floor.
     pub radiance: [[f32; 4]; 8],
 }
-
-const _: [(); 160] = [(); std::mem::size_of::<CausticsReceiver>()];
 
 impl CausticsReceiver {
     pub const ZERO: Self = Self {
@@ -59,28 +52,28 @@ impl Default for CausticsReceiverCache {
     }
 }
 
+/// CPU data required for the self-excluded sample; no GPU handles participate.
+#[derive(Clone, Copy)]
+pub struct ReceiverInputs<'a> {
+    pub field: &'a ReceiverField,
+    pub lighting: &'a LevelLighting,
+    pub volumes: &'a [WaterVolume],
+}
+
 impl CausticsReceiverCache {
     pub fn sample(
         &mut self,
-        caustics: &Caustics,
+        context: ReceiverInputs<'_>,
         bounds: Aabb,
         model: Mat4,
         excluded: Option<DynamicId>,
-        visibility: &DynamicVisibility,
+        visibility: &dyn CausticOccluders,
     ) -> CausticsReceiver {
-        // Retain the last dependency key while focus is disabled. Re-enabling
-        // reuses it only if the sources, receiver and blockers still match.
-        if !caustics.has_active_sources() {
-            return CausticsReceiver::ZERO;
-        }
         let key = ReceiverKey {
-            lighting: caustics
-                .receiver_lighting
-                .as_ref()
-                .map_or(0, |lighting| Arc::as_ptr(lighting).addr()),
+            lighting: std::ptr::from_ref(context.lighting).addr(),
             dynamic: std::ptr::from_ref(visibility).addr(),
             dynamic_revision: visibility.revision(),
-            source_revision: caustics.field.source_revision,
+            source_revision: context.field.source_revision,
             bounds: [bounds.min.map(f32::to_bits), bounds.max.map(f32::to_bits)],
             model: model
                 .to_cols_array_2d()
@@ -93,14 +86,14 @@ impl CausticsReceiverCache {
                 .changed_regions_since(previous.dynamic_revision)
                 .is_some_and(|regions| {
                     regions.iter().all(|dirty| {
-                        !receiver_visibility_affected(&caustics.field, bounds, model, *dirty)
+                        !receiver_visibility_affected(context.field, bounds, model, *dirty)
                     })
                 })
         {
             previous.dynamic_revision = key.dynamic_revision;
         }
         if self.key.as_ref() != Some(&key) {
-            self.value = caustics.receiver(bounds, model, excluded, visibility);
+            self.value = context.receiver(bounds, model, excluded, visibility);
             self.key = Some(key);
         }
         self.value
@@ -119,7 +112,7 @@ fn receiver_visibility_affected(
     if dirty.is_empty() {
         return false;
     }
-    let mut receivers = crate::engine::render::common::props::transform_bounds(&bounds, &model);
+    let mut receivers = crate::engine::spatial::transform_bounds(&bounds, &model);
     receivers.min[1] = receivers.min[1].min(field.receiver_bounds.min[1]);
     receivers.max[1] = receivers.max[1].max(field.receiver_bounds.max[1]);
     field
@@ -198,33 +191,27 @@ fn containing_volume(volumes: &[WaterVolume], world: Aabb) -> Option<(usize, &Wa
     })
 }
 
-impl Caustics {
+impl ReceiverInputs<'_> {
     /// Bounds are in model space. The returned anchors exclude this receiver's
     /// own dynamic caster while retaining every other source-specific blocker.
     #[must_use]
-    pub fn receiver(
+    fn receiver(
         &self,
         bounds: Aabb,
         model: Mat4,
         excluded: Option<DynamicId>,
-        visibility: &DynamicVisibility,
+        visibility: &dyn CausticOccluders,
     ) -> CausticsReceiver {
         if bounds.is_empty() || !model.is_finite() {
             return CausticsReceiver::ZERO;
         }
-        let Some(lighting) = self.receiver_lighting.as_deref() else {
-            return CausticsReceiver::ZERO;
-        };
-        if !self.field.has_active_sources() {
-            return CausticsReceiver::ZERO;
-        }
-        let world = crate::engine::render::common::props::transform_bounds(&bounds, &model);
-        let Some((index, volume)) = containing_volume(&self.receiver_volumes, world) else {
+        let world = crate::engine::spatial::transform_bounds(&bounds, &model);
+        let Some((index, volume)) = containing_volume(self.volumes, world) else {
             return CausticsReceiver::ZERO;
         };
         sample_receiver(
-            &self.field,
-            lighting,
+            self.field,
+            self.lighting,
             (index, volume),
             bounds,
             model,
@@ -241,13 +228,13 @@ pub(super) fn sample_receiver(
     bounds: Aabb,
     model: Mat4,
     excluded: Option<DynamicId>,
-    visibility: &DynamicVisibility,
+    visibility: &dyn CausticOccluders,
 ) -> CausticsReceiver {
     let (index, volume) = water;
     let Some(grid) = field.grids.get(index).copied() else {
         return CausticsReceiver::ZERO;
     };
-    let world = crate::engine::render::common::props::transform_bounds(&bounds, &model);
+    let world = crate::engine::spatial::transform_bounds(&bounds, &model);
     let mut positions = anchor_positions(bounds, model);
     let mut receiver_bounds = Aabb::EMPTY;
     let mut floors = [0.0; 8];

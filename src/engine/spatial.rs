@@ -122,6 +122,57 @@ impl Aabb {
     }
 }
 
+/// World-space bounds of a local-space box placed by `transform`.
+///
+/// Only the eight corners are transformed: the result is the AABB of the
+/// rotated box, which is conservative (never smaller than the real geometry),
+/// which is exactly what a culling test needs.
+#[must_use]
+pub fn transform_bounds(local: &Aabb, transform: &glam::Mat4) -> Aabb {
+    let mut bounds = Aabb::EMPTY;
+    for x in [local.min[0], local.max[0]] {
+        for y in [local.min[1], local.max[1]] {
+            for z in [local.min[2], local.max[2]] {
+                let point = transform.transform_point3(glam::Vec3::new(x, y, z));
+                bounds.expand([point.x, point.y, point.z]);
+            }
+        }
+    }
+    bounds
+}
+
+/// Splits `(lo, hi)` into sub-intervals of at most `max_span` length each.
+///
+/// Non-finite or sufficiently short intervals are returned unchanged.
+pub(crate) fn split_span(lo: f32, hi: f32, max_span: f32) -> Vec<(f32, f32)> {
+    let span = hi - lo;
+    if !max_span.is_finite() || !span.is_finite() || span <= max_span || span <= 1.0e-6 {
+        return vec![(lo, hi)];
+    }
+    let pieces = (span / max_span).ceil().clamp(1.0, 64.0);
+    #[expect(
+        clippy::as_conversions,
+        clippy::cast_possible_truncation,
+        clippy::cast_sign_loss,
+        reason = "The integral subdivision count is clamped to 1..=64 before conversion."
+    )]
+    // `pieces` is clamped to [1, 64] before the cast.
+    let count = pieces as u32;
+    let step = span / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
+    (0..count)
+        .map(|index| {
+            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
+            let start = index_f.mul_add(step, lo);
+            let end = if index.saturating_add(1) >= count {
+                hi
+            } else {
+                start + step
+            };
+            (start, end)
+        })
+        .collect()
+}
+
 /// Conservative overlap with the convex hull of a finite emitter and a receiver
 /// region. A blocker between receiver lattice rays still intersects this hull.
 ///

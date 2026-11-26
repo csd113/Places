@@ -232,7 +232,7 @@ pub fn vertical_fov_for_aspect(configured_vertical_fov_degrees: f32, aspect: f32
 }
 
 /// Largest number of static probes the renderer bakes for one level.
-pub const MAX_REFLECTION_PROBES: usize = 2;
+pub use crate::engine::lighting::reflections::MAX_REFLECTION_PROBES;
 
 /// Divisor from the scene target's size to the emissive/bloom target's.
 ///

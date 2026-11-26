@@ -11,7 +11,6 @@ use crate::engine::materials::{MaterialTable, ResolvedMaterial};
 pub mod animation;
 pub mod architecture;
 pub mod atmosphere;
-pub mod blacklight;
 pub mod blood;
 pub mod camera;
 pub mod canonical_props;
@@ -37,7 +36,6 @@ pub mod occlusion;
 pub mod posed_normals;
 pub mod postprocess;
 pub mod preview_cache;
-pub mod probe_filter;
 pub mod prop_vertices;
 pub mod props;
 pub mod reflections;
@@ -48,6 +46,13 @@ mod structure;
 pub mod view;
 pub mod water;
 
+pub use crate::engine::lighting::attached_lights::{
+    DynamicLight, DynamicLightSet, MAX_DYNAMIC_LIGHTS,
+};
+pub use crate::engine::lighting::flashlight::Flashlight;
+pub use crate::engine::lighting::reflection_probe::{
+    MAX_PROBE_MIPS, mip_levels_for, prefilter_hdr_cube,
+};
 pub use animation::{
     AnimationEffect, EmissionAnimation, MAX_ANIMATION_DEPTH, MAX_FLICKER_HZ, MAX_PULSE_HZ,
 };
@@ -67,7 +72,6 @@ pub use dynamic::{
     DynamicObject, DynamicScene, DynamicSubmesh, DynamicUpdate, MAX_DYNAMIC_MESHES,
     MAX_DYNAMIC_OBJECTS, PROBE_EPSILON_M,
 };
-pub use dynamic_lights::{DynamicLight, DynamicLightSet, Flashlight, MAX_DYNAMIC_LIGHTS};
 use fixtures::{add_flush_mount_fixture, add_panel_fixture, add_round_fixture, add_wall_fixture};
 use geometry::build_level_geometry_mesh;
 pub use level_build::{
@@ -85,7 +89,6 @@ pub use mesh::{
     dequantize_unit, spatial_cell_grid,
 };
 pub use mesh::{MeshChunk, MeshPacker, finish_indexed_mesh};
-pub use probe_filter::{MAX_PROBE_MIPS, mip_levels_for, prefilter_hdr_cube};
 pub use props::{PropMeshBatch, PropSubmeshBatch};
 
 /// Near and far plane of the scene projection, in metres.
@@ -327,39 +330,7 @@ pub fn stamp_lightmap_quad(
     let _ = borrowed_plan.stamp_emitted(vertices, first, kind, corners, room);
 }
 
-/// Splits `(lo, hi)` into sub-intervals of at most `max_span` length each.
-///
-/// Only used on the lightmapped path: with a non-finite span (the vertex-lit
-/// fallback) the original interval is returned unchanged, so no emitter that
-/// calls this can drift from its historical coordinates.
-pub fn split_span(lo: f32, hi: f32, max_span: f32) -> Vec<(f32, f32)> {
-    let span = hi - lo;
-    if !max_span.is_finite() || !span.is_finite() || span <= max_span || span <= 1.0e-6 {
-        return vec![(lo, hi)];
-    }
-    let pieces = (span / max_span).ceil().clamp(1.0, 64.0);
-    #[expect(
-        clippy::as_conversions,
-        clippy::cast_possible_truncation,
-        clippy::cast_sign_loss,
-        reason = "The integral subdivision count is clamped to 1..=64 before conversion."
-    )]
-    // `pieces` is clamped to [1, 64] before the cast.
-    let count = pieces as u32;
-    let step = span / f32::from(u16::try_from(count).unwrap_or(u16::MAX));
-    (0..count)
-        .map(|index| {
-            let index_f = f32::from(u16::try_from(index).unwrap_or(u16::MAX));
-            let start = index_f.mul_add(step, lo);
-            let end = if index.saturating_add(1) >= count {
-                hi
-            } else {
-                start + step
-            };
-            (start, end)
-        })
-        .collect()
-}
+use crate::engine::spatial::split_span;
 
 /// Splits a `(a0, a1, b0, b1)` rectangle into tiles no larger than `max_span`
 /// on either axis. The whole rectangle is returned unchanged when `max_span`

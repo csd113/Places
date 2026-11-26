@@ -4,115 +4,43 @@
 use glam::Vec3;
 use std::cell::RefCell;
 
-use crate::engine::render::common::Flashlight;
+use crate::engine::lighting::flashlight::{Flashlight, PosedBlocker, PosedVisibilityCache};
 use crate::engine::spatial::{DepthRange, Frustum};
 
 use super::world::{WorldFrame, WorldPipeline};
 
 pub const SHADOW_EDGE: u32 = 1024;
 
-/// Only gameplay ray candidates acquire a local posed visibility resource.
-/// Textures are copied once per asset identity; pose refreshes share those PNGs.
-pub struct CharacterVisibility {
-    birth: u64,
-    asset: usize,
-    revision: u64,
-    opacity_bits: u32,
-    textures: Vec<std::sync::Arc<crate::engine::loader::RawImage>>,
-    scene: Option<crate::engine::lighting::transport::TransportScene>,
-}
-
 pub fn character_transmittance(
     characters: &crate::engine::render::common::CharacterScene,
-    cache_store: &RefCell<Vec<CharacterVisibility>>,
+    cache_store: &RefCell<PosedVisibilityCache>,
     from: [f32; 3],
     to: [f32; 3],
     excluded: Option<&str>,
 ) -> f32 {
-    let mut cache = cache_store.borrow_mut();
     let current = || {
         characters
             .characters()
             .iter()
             .chain(characters.runtime_characters())
+            .map(|character| (character.blood_identity(), character))
     };
-    cache.retain(|cached| current().any(|character| character.blood_identity() == cached.birth));
-    let mut throughput = 1.0;
-    for character in current() {
-        if character.opacity() <= 0.0
-            || excluded.is_some_and(|id| character.instance_id() == Some(id))
-        {
-            continue;
-        }
-        let bounds = character.world_bounds();
-        if !from
-            .into_iter()
-            .zip(to)
-            .zip(bounds.min.into_iter().zip(bounds.max))
-            .all(|((a, b), (minimum, maximum))| a.min(b) <= maximum && a.max(b) >= minimum)
-        {
-            continue;
-        }
-        let birth = character.blood_identity();
-        let asset = std::ptr::from_ref(character.asset().as_ref()).addr();
-        let index = cache
-            .iter()
-            .position(|cached| cached.birth == birth)
-            .unwrap_or(cache.len());
-        if index == cache.len() {
-            let textures = cache
-                .iter()
-                .find(|cached| cached.asset == asset)
-                .map_or_else(
-                    || character.asset().model.textures.clone(),
-                    |cached| cached.textures.clone(),
-                );
-            cache.push(CharacterVisibility {
-                birth,
-                asset,
-                revision: u64::MAX,
-                opacity_bits: u32::MAX,
-                textures,
-                scene: None,
-            });
-        }
-        let Some(cached) = cache.get_mut(index) else {
-            return 0.0;
-        };
-        if cached.asset != asset {
-            cached.asset = asset;
-            cached.revision = u64::MAX;
-            cached
-                .textures
-                .clone_from(&character.asset().model.textures);
-        }
-        let opacity_bits = character.opacity().to_bits();
-        if cached.revision != character.animator().revision() || cached.opacity_bits != opacity_bits
-        {
-            cached.scene =
-                crate::engine::render::common::light_transport::character_visibility_scene(
-                    character,
-                    &cached.textures,
-                );
-            cached.revision = character.animator().revision();
-            cached.opacity_bits = opacity_bits;
-        }
-        let Some(scene) = cached.scene.as_ref() else {
-            return 0.0;
-        };
-        let inverse = character.transform().inverse();
-        if !inverse.is_finite() {
-            return 0.0;
-        }
-        throughput *= scene.transmittance(
-            inverse.transform_point3(Vec3::from_array(from)).to_array(),
-            inverse.transform_point3(Vec3::from_array(to)).to_array(),
-        );
-        if throughput <= 0.0 {
-            return 0.0;
-        }
-    }
-    throughput
+    cache_store.borrow_mut().transmittance(
+        current,
+        |character| PosedBlocker {
+            asset: std::ptr::from_ref(character.asset().as_ref()).addr(),
+            instance: character.instance_id(),
+            opacity: character.opacity(),
+            revision: character.animator().revision(),
+            bounds: character.world_bounds(),
+            model: character.transform(),
+            textures: &character.asset().model.textures,
+        },
+        crate::engine::render::common::light_transport::character_visibility_scene,
+        from,
+        to,
+        excluded,
+    )
 }
 
 pub struct FlashlightShadow {

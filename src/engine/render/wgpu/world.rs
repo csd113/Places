@@ -99,7 +99,7 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     super::posed_visibility::posed_query_source!(),
     include_str!("attached_lights.wgsl"),
     include_str!("../../lighting/attached_light_visibility.wgsl"),
-    include_str!("flashlight_visibility.wgsl"),
+    include_str!("../../lighting/flashlight_visibility.wgsl"),
     include_str!("../../lighting/attached_light_response.wgsl"),
     "\n",
     include_str!("world.wgsl"),
@@ -111,7 +111,6 @@ pub const WORLD_SHADER_SRC: &str = concat!(
     include_str!("../../lighting/world_diffuse.wgsl"),
     include_str!("world_material.wgsl"),
     include_str!("../../lighting/world_sheen.wgsl"),
-    include_str!("world_reflection_begin.wgsl"),
     include_str!("../../lighting/world_reflection_weight.wgsl"),
     include_str!("world_reflection_capture.wgsl"),
     include_str!("../../lighting/world_emission.wgsl"),
@@ -640,6 +639,36 @@ impl EntityLightingAnchorUniform {
     }
 }
 
+/// Environment buffer layout shared with the WGSL receiver struct.
+#[repr(C, align(16))]
+#[derive(Clone, Copy, Debug, PartialEq, bytemuck::Pod, bytemuck::Zeroable)]
+pub struct BlacklightReceiverUniform {
+    pub bounds_min: [f32; 4],
+    pub bounds_extent: [f32; 4],
+    pub visibility: [[f32; crate::engine::lighting::ultraviolet::MAX_BLACKLIGHTS]; 8],
+}
+
+impl BlacklightReceiverUniform {
+    const ZERO: Self =
+        Self::from_receiver(crate::engine::lighting::ultraviolet::BlacklightReceiver::ZERO);
+
+    const fn from_receiver(
+        receiver: crate::engine::lighting::ultraviolet::BlacklightReceiver,
+    ) -> Self {
+        Self {
+            bounds_min: receiver.bounds_min,
+            bounds_extent: receiver.bounds_extent,
+            visibility: receiver.visibility,
+        }
+    }
+}
+
+impl From<crate::engine::lighting::ultraviolet::BlacklightReceiver> for BlacklightReceiverUniform {
+    fn from(receiver: crate::engine::lighting::ultraviolet::BlacklightReceiver) -> Self {
+        Self::from_receiver(receiver)
+    }
+}
+
 /// The frame/level environment uniform: the baked-light switch and scale, the
 /// lightmap selection, the fog constants and regional volumes, and the active
 /// planar mirror's projection and plane.
@@ -758,7 +787,7 @@ pub struct EnvironmentUniform {
     pub contact_shadows: [crate::engine::render::common::dynamic_lights::ContactShadowUniform; 8],
     pub contact_shadow_count: [u32; 4],
     pub blacklights: [EntityDirectLightUniform; 4],
-    pub uv_receiver: crate::engine::render::common::blacklight::BlacklightReceiver,
+    pub uv_receiver: BlacklightReceiverUniform,
     /// Self-excluded focused light for a moving receiver.
     pub caustics_receiver: super::caustics::CausticsReceiver,
 }
@@ -773,7 +802,7 @@ impl EnvironmentUniform {
     #[must_use]
     pub fn with_blacklights(
         mut self,
-        sources: &crate::engine::render::common::blacklight::BlacklightSet,
+        sources: &crate::engine::lighting::ultraviolet::BlacklightSet,
         lighting: Option<&crate::engine::lighting::LevelLighting>,
     ) -> Self {
         self.blacklights = sources
@@ -828,7 +857,7 @@ impl EnvironmentUniform {
                 [crate::engine::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8],
             contact_shadow_count: [0; 4],
             blacklights: [EntityDirectLightUniform::ZERO; 4],
-            uv_receiver: crate::engine::render::common::blacklight::BlacklightReceiver::ZERO,
+            uv_receiver: BlacklightReceiverUniform::ZERO,
             caustics_receiver: super::caustics::CausticsReceiver::ZERO,
             storm: crate::engine::render::common::storm::StormUniform {
                 color_density: [0.0; 4],
@@ -1781,7 +1810,7 @@ impl WorldUpload {
         &mut self,
         device: &wgpu::Device,
         queue: &wgpu::Queue,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
         water_source: Option<(&crate::engine::level::LevelDef, &MaterialTable)>,
     ) -> bool {
         if self.water_hints.is_none() {
@@ -1804,7 +1833,7 @@ impl WorldUpload {
             {
                 let mut gpu = WorldVertex::from(vertex);
                 if let Some(context) = visibility {
-                    gpu.uv_visibility = context.vertex(vertex);
+                    gpu.uv_visibility = context.vertex(vertex.pos, vertex.normal);
                 }
                 self.vertices.push(gpu);
             }
@@ -1930,7 +1959,7 @@ impl WgpuWorldGeometry {
         queue: &wgpu::Queue,
         mesh: &LevelMesh,
         materials: &MaterialRenderState,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
         water_source: Option<(
             &crate::engine::level::LevelDef,
             &crate::engine::materials::MaterialTable,

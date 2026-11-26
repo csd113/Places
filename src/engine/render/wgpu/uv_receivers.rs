@@ -41,29 +41,6 @@ struct Corner {
     weights: [f32; 3],
 }
 
-/// The existing lighting-grid density and cap also bound UV sampling.
-fn cuts(minimum: f32, maximum: f32) -> Vec<f32> {
-    let cell = crate::engine::lighting::LIGHT_GRID_CELL_M;
-    let cap = crate::engine::lighting::MAX_LIGHT_GRID_CELLS;
-    let span = maximum - minimum;
-    let cap_f = f32::from(u16::try_from(cap).unwrap_or(u16::MAX));
-    if span > cell * cap_f {
-        // Large receivers retain the existing cap rather than increasing any
-        // geometry budget. Ordinary prepared charts are smaller than this.
-        return crate::engine::render::common::split_span(minimum, maximum, span / cap_f)
-            .into_iter()
-            .skip(1)
-            .map(|(start, _)| start)
-            .collect();
-    }
-    let first = (minimum / cell).floor().mul_add(cell, cell);
-    (0..cap)
-        .map(|index| f32::from(u16::try_from(index).unwrap_or(u16::MAX)).mul_add(cell, first))
-        .take_while(|plane| *plane < maximum)
-        .filter(|plane| *plane > minimum)
-        .collect()
-}
-
 fn split_polygon(polygon: Vec<Corner>, axis: Axis, plane: f32) -> Vec<Vec<Corner>> {
     let has_lower = polygon
         .iter()
@@ -221,7 +198,7 @@ pub(super) fn subdivide_triangle(source: [Vertex; 3]) -> (Vec<Vertex>, Vec<u16>)
         .collect();
     let mut polygons = vec![corners];
     for (_, axis, minimum, maximum) in axes.into_iter().take(2) {
-        for plane in cuts(minimum, maximum) {
+        for plane in crate::engine::lighting::ultraviolet::receiver_grid_cuts(minimum, maximum) {
             polygons = polygons
                 .into_iter()
                 .flat_map(|polygon| split_polygon(polygon, axis, plane))

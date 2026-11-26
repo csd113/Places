@@ -1,26 +1,26 @@
-//! Static baked interior lighting.
-//!
-//! This module prepares the static source field and visibility queries. Offline
-//! map compilation solves transport, lightmap atlases and entity-lighting data
-//! into playable packages; the player loads those prepared results. The legacy
-//! vertex-lit builder also samples this field into ordinary vertex colours.
+//! Baked and runtime lighting for Places.
 //!
 //! ```text
-//! authored level
-//!     -> resolve fixture and prop-attached sources    (self::light, self::bake)
-//!     -> partition rooms and prepare baseline field  (self::bake)
-//!     -> static occluders and doorway visibility     (self::visibility)
-//!     -> offline transport / atlas / entity solve    (render::common)
-//!     -> compiled package                           (map_compiler)
-//!     -> player upload and material evaluation       (render::wgpu)
+//! authored geometry, sources and materials
+//!   -> resolved source identities, switchable membership and static visibility
+//!   -> transport, lightmap charts, probes and prepared reflection radiance
+//!   -> compiler/package records
+//!   -> installed runtime fields and receiver sampling
+//!   -> material responses, composed by the renderer
 //! ```
 //!
-//! At runtime, static surfaces reconstruct prepared HDR lightmap pairs; vertex
-//! colours provide the fallback. Moving objects sample prepared irradiance and
-//! refresh bounded source visibility for their current transforms. Shaders add
-//! bounded attached lights
-//! and the live shadowed flashlight separately. Those realtime terms do not
-//! replace this static field or require a production-map bake at level load.
+//! The compiler schedules preparation, validates and packages its results. The
+//! renderer translates meshes and transforms into lighting inputs, publishes
+//! movable-geometry revisions, and owns GPU layouts, textures, passes and
+//! presentation. The editor authors source intent and chooses a preview/build
+//! path. Game code sends source state and camera pose, then consumes beam
+//! observations through the existing next-tick NPC response.
+//!
+//! Full reconstructs prepared HDR lightmaps and live receiver data. Authored
+//! Static, its supported circuit alternatives, and live reflection capture remain
+//! intentional. A failed Full load must not fall back to Static. Compiler
+//! currentness hashes engine/compiler paths and bytes, so a source move can
+//! invalidate strict currentness without invalidating an otherwise playable map.
 //!
 //! Lighting model
 //! --------------
@@ -123,25 +123,37 @@
 //! Each fixture therefore contributes to exactly one room area and is never
 //! counted twice.
 //!
-//! Module layout
-//! -------------
-//! ```text
-//! color.rs        the emitted-colour type and its sanitising
-//! tuning.rs       every calibrated number, and the fixture family table
-//! math.rs         the pure, bounded falloff and density maths
-//! bake.rs         the bake itself and the queries it answers
-//! visibility.rs   static opaque-geometry visibility for local pools and openings
-//! occlusion.rs    prop occlusion boxes derived from the placed models' triangles
-//! tests.rs        unit tests for the whole tree
-//! ```
+//! Ownership by runtime boundary
+//! -----------------------------
+//! - `switchable` owns prepared membership and the enabled prop-source filter.
+//!   Renderer controller IDs, fixture face emission and Static atlas binding
+//!   are kept separate from membership.
+//! - `ultraviolet` owns source slots, receiver samples, grid density and dirty-
+//!   region keys. The renderer clips/interpolates its mesh and packs the uniform.
+//! - `caustics_field` owns sources, receiver lattice and visibility certificates.
+//!   The renderer supplies volumes and a movable-caster view, and encodes the GPU
+//!   tree, textures and uploads. Moving receivers exclude only their own caster.
+//! - `flashlight` owns placement policy and CPU observation/posed blocker sampling.
+//!   The matching shader uses geometric normal bias and comparison taps. Camera
+//!   pose, input timing, mesh conversion and shadow-target submission are adapters.
+//! - `reflections` and `reflection_probe` own eligibility, routing, clustering and
+//!   prefiltering. Shader weighting/taps/mips live here; capture transforms,
+//!   target textures and readback remain renderer-owned.
+//! - `transport_surfaces` owns sampled material albedo and ray coverage policy.
+//!   Renderer glue maps actual draw ranges and materials to those neutral inputs.
+//!
 
+pub(crate) mod attached_lights;
 mod bake;
+pub(in crate::engine) mod caustics_field;
 pub(crate) mod character_cavity;
 mod color;
 pub(in crate::engine) mod contact_shadows;
 pub mod directional;
 mod directional_index;
+pub(crate) mod elevator;
 pub(in crate::engine) mod entity_receivers;
+pub(crate) mod flashlight;
 mod floor_recovery;
 mod light;
 pub mod lightmap;
@@ -151,8 +163,14 @@ pub(crate) mod prepared_source;
 pub(crate) mod probe_placement;
 pub mod probes;
 pub(crate) mod prop_receivers;
+pub(in crate::engine) mod receiver_refresh;
+pub(crate) mod reflection_probe;
+pub(crate) mod reflections;
 pub(crate) mod studio_preview;
+pub(crate) mod switchable;
 pub mod transport;
+pub(in crate::engine) mod transport_surfaces;
+pub(in crate::engine) mod ultraviolet;
 
 /// Compiled lighting record version, for the package codec and fingerprints.
 pub(crate) const LIGHTING_RECORD_VERSION: u16 = bake::COMPILED_VERSION;

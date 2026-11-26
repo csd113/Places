@@ -12,7 +12,7 @@
 //!   vectors, through [`glam::camera::rh::view::look_at_mat4`] and
 //!   [`glam::camera::rh::proj::opengl::perspective`]. A compiled package
 //!   stores each capture with an offline-prefiltered roughness mip chain
-//!   ([`crate::engine::render::common::probe_filter`]); a developer install that bakes
+//!   ([`crate::engine::lighting::reflection_probe`]); a developer install that bakes
 //!   its own probes fills level 0 only and the shader keeps its two-tap rough
 //!   fallback.
 //! * **Planar mirrors.** A real second view of the level, mirrored through a
@@ -29,6 +29,7 @@
 //! Captures and prefiltered mip chains use linear RGBA16F radiance. They have
 //! no exposure, display curve or sRGB encode, and sampling returns linear HDR.
 
+use crate::engine::lighting::reflection_probe::{CUBE_FACE_DIRECTIONS, CUBE_FACE_UPS};
 use crate::engine::quality::ReflectionQuality;
 use crate::engine::render::common::reflections::{
     ReflectionPlane, mirror_matrix, planar_target_size,
@@ -69,30 +70,6 @@ pub const fn probe_face_size(quality: ReflectionQuality) -> Option<u32> {
 /// pipelines. The reference uses a 16-bit renderbuffer for these targets; the
 /// difference is depth precision only, and no capture samples its own depth.
 pub const REFLECTION_DEPTH_FORMAT: wgpu::TextureFormat = super::surface::DEPTH_FORMAT;
-
-/// The six cube face directions, in the GL cube order the reference used.
-///
-/// Layer `i` of the wgpu cube array is sampled as face `i`; WebGPU's cube
-/// convention is the GL/Vulkan one, so the face order and the up vectors below
-/// are the reference's `CUBE_FACES` verbatim.
-pub const CUBE_FACE_DIRECTIONS: [[f32; 3]; 6] = [
-    [1.0, 0.0, 0.0],  // +X
-    [-1.0, 0.0, 0.0], // -X
-    [0.0, 1.0, 0.0],  // +Y
-    [0.0, -1.0, 0.0], // -Y
-    [0.0, 0.0, 1.0],  // +Z
-    [0.0, 0.0, -1.0], // -Z
-];
-
-/// The up vector of each cube face, in the reference's order.
-pub const CUBE_FACE_UPS: [[f32; 3]; 6] = [
-    [0.0, -1.0, 0.0],
-    [0.0, -1.0, 0.0],
-    [0.0, 0.0, 1.0],
-    [0.0, 0.0, -1.0],
-    [0.0, -1.0, 0.0],
-    [0.0, -1.0, 0.0],
-];
 
 /// The reference's probe projection: 90 degrees square, near 0.1, far 100,
 /// with the one WebGPU capture correction.
@@ -224,17 +201,7 @@ impl CaptureFrame {
     }
 }
 
-/// How far above its reflective geometry a probe is baked, in metres.
-///
-/// The reference's own lift: a floor's centroid is *on* the floor, and a
-/// cubemap baked in a surface sees nothing.
-pub const PROBE_LIFT_M: f32 = 1.2;
-
-/// Where one probe bakes: the routing's centroid lifted off the surface.
-#[must_use]
-pub fn probe_bake_position(point: [f32; 3]) -> [f32; 3] {
-    [point[0], point[1] + PROBE_LIFT_M, point[2]]
-}
+pub use crate::engine::lighting::reflections::probe_bake_position;
 
 /// One probe cubemap with its own depth attachment.
 ///
@@ -467,7 +434,7 @@ impl ProbeFaceReadback {
     ///
     /// Level 0 is a copy of [`Self::faces`]; each later level is a cone average
     /// with roughness growing to one, computed by
-    /// [`crate::engine::render::common::probe_filter`]. The filter is deterministic and
+    /// [`crate::engine::lighting::reflection_probe`]. The filter is deterministic and
     /// thread-free, so two builds of the same capture package identical bytes.
     ///
     /// # Errors

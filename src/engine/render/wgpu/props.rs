@@ -345,7 +345,7 @@ impl PropUpload {
         cache: &mut TextureCache,
         material_layout: &wgpu::BindGroupLayout,
         batch: &PropMeshBatch,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
     ) {
         let mut ctx = staged::Context {
             device,
@@ -703,7 +703,7 @@ impl WgpuProps {
         skip_models: &[String],
         level: QualityLevel,
         lighting_level: QualityLevel,
-        visibility: Option<crate::engine::render::common::blacklight::BlacklightVisibility<'_>>,
+        visibility: Option<crate::engine::lighting::ultraviolet::BlacklightVisibility<'_>>,
     ) -> Self {
         let mut upload = PropUpload::new(skip_models, level, lighting_level, batches);
         for batch in batches {

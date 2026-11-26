@@ -4,57 +4,20 @@ use crate::engine::elevator::{
     door_button_height, door_leaf_x,
 };
 use crate::engine::gltf::{PropModel, PropSubmesh};
+pub use crate::engine::lighting::elevator::cabin_lights;
 use crate::engine::loader::PropCatalog;
 use crate::engine::props::PropAssets;
-use glam::Vec3;
 
 /// Main rendered steel skin; collision intentionally retains wider stock.
 /// The concealed centre seal projects to +.014 without covering the panel.
 pub const LEAF_SURFACE_FRONT: f32 = -0.010;
 pub const LEAF_SURFACE_BACK: f32 = 0.010;
 
-/// Analytic visibility of the manufactured opaque shell and paired door tracks.
-/// It follows gameplay, including the eased leaf overlap, rather than the camera
-/// or a lighting-quality setting. No static light is baked into a landing.
-#[derive(Clone, Copy, Debug, PartialEq)]
-pub struct LightEnclosure {
-    pub origin: Vec3,
-    pub rotation_degrees: f32,
-    pub half_gap: f32,
-    pub landing_doors: bool,
-}
-
-impl LightEnclosure {
-    #[must_use]
-    pub fn is_well_formed(self) -> bool {
-        self.origin.is_finite()
-            && self.rotation_degrees.is_finite()
-            && self.half_gap.is_finite()
-            && (-crate::engine::elevator::DOOR_LEAF_SEAL
-                ..=crate::engine::elevator::DOOR_LEAF_TRAVEL)
-                .contains(&self.half_gap)
-    }
-}
-
 #[derive(Clone, Copy)]
 pub enum Part {
     Cabin(usize),
     Frame,
     Leaf,
-}
-
-/// Elevator stock lies in a wall/shaft, where a geometric-centre probe has no
-/// room and falls back to invented ambient. Receive the real landing's light
-/// from clear hall air instead. Each fixed cabin samples its own landing even
-/// while passengers are using another cabin in the same authored group.
-#[must_use]
-pub fn landing_light_probe(e: &Elevator, _part: Part, position: [f32; 3]) -> Vec3 {
-    let local = e.def.local(Vec3::from_array(position));
-    e.def.point(
-        0.0,
-        crate::engine::elevator::DOOR_HEIGHT.mul_add(0.5, local.y),
-        -0.35,
-    )
 }
 
 /// Select the manufactured assembly's actual adjacent receiver, not a tint.
@@ -65,20 +28,15 @@ pub fn set_landing_receiver(
     part: Part,
     position: [f32; 3],
 ) -> bool {
-    // Concealed leaf overlaps lie inside the sill/header and cannot be used
-    // as light receivers for the entire exposed panel. This is a sampling
-    // subset only; drawing, culling and occluding geometry retain full stock.
-    let bounds = matches!(part, Part::Leaf).then_some(crate::engine::spatial::Aabb {
-        min: [0.02, 0.03, LEAF_SURFACE_FRONT + 0.001],
-        max: [
-            crate::engine::elevator::DOOR_LEAF_WIDTH - 0.02,
-            crate::engine::elevator::DOOR_HEIGHT - 0.03,
-            LEAF_SURFACE_BACK - 0.001,
-        ],
+    let bounds = matches!(part, Part::Leaf).then(|| {
+        crate::engine::lighting::elevator::leaf_receiver_bounds(
+            LEAF_SURFACE_FRONT,
+            LEAF_SURFACE_BACK,
+        )
     });
     scene.set_lighting_receiver(
         id,
-        Some(landing_light_probe(elevator, part, position).into()),
+        Some(crate::engine::lighting::elevator::landing_light_probe(elevator, position).into()),
         bounds,
     )
 }
@@ -223,32 +181,6 @@ fn attach_buttons(
     }
     cabin.triangles = cabin.indices.len() / 3;
     Ok(cabin)
-}
-/// Every authored landing owns a fixed cabin practical as well as fixed geometry.
-#[must_use]
-pub fn cabin_lights(e: &Elevator) -> Vec<super::dynamic_lights::DynamicLight> {
-    e.def
-        .stops
-        .iter()
-        .enumerate()
-        .filter(|(_, stop)| stop.is_landing())
-        .map(|(index, stop)| {
-            let opening = if index == e.at { e.opening } else { 0.0 };
-            super::dynamic_lights::DynamicLight {
-                key: format!("elevator:{}:{index}", e.def.id),
-                position: e.def.point(0.0, stop.y + 2.30, 1.20),
-                color: [1.0, 0.69, 0.38],
-                intensity: 2.0,
-                radius: 3.2,
-                enclosure: Some(LightEnclosure {
-                    origin: e.def.point(0.0, stop.y, 0.0),
-                    rotation_degrees: e.def.rotation_degrees,
-                    half_gap: door_leaf_x(1.0, opening) - crate::engine::elevator::DOOR_LEAF_SEAL,
-                    landing_doors: true,
-                }),
-            }
-        })
-        .collect()
 }
 #[must_use]
 pub fn parts(e: &Elevator) -> Vec<(Part, [f32; 3])> {

@@ -332,7 +332,7 @@ struct PreparedInstall {
     textures: TextureCache,
     graphics: GraphicsConfig,
     materials: MaterialRenderState,
-    blacklights: crate::engine::render::common::blacklight::BlacklightSet,
+    blacklights: crate::engine::lighting::ultraviolet::BlacklightSet,
     uv_transport: Option<Arc<crate::engine::lighting::transport::TransportScene>>,
     transport_prepared: bool,
     upload_complete: std::collections::VecDeque<Arc<std::sync::atomic::AtomicBool>>,
@@ -719,7 +719,8 @@ pub struct WgpuRenderer {
     flashlight: Option<crate::engine::render::common::Flashlight>,
     flashlight_shadow: Option<super::flashlight::FlashlightShadow>,
     flashlight_pipeline: Option<WorldPipeline>,
-    flashlight_characters: std::cell::RefCell<Vec<super::flashlight::CharacterVisibility>>,
+    flashlight_characters:
+        std::cell::RefCell<crate::engine::lighting::flashlight::PosedVisibilityCache>,
     /// The static world mesh uploaded for the loaded level, if any.
     world: Option<WgpuWorldGeometry>,
     /// The loaded level's uploaded prop batches, if any.
@@ -976,7 +977,7 @@ pub struct WgpuRenderer {
     static_visibility: super::lighting_visibility::StaticVisibility,
     contact_shadows: [crate::engine::render::common::dynamic_lights::ContactShadowUniform; 8],
     contact_shadow_count: usize,
-    blacklights: crate::engine::render::common::blacklight::BlacklightSet,
+    blacklights: crate::engine::lighting::ultraviolet::BlacklightSet,
     dynamic_visibility: crate::engine::render::common::dynamic_visibility::DynamicVisibility,
     dynamic_visibility_error: Option<String>,
     #[cfg(feature = "visual-diagnostics")]
@@ -1295,7 +1296,7 @@ impl WgpuRenderer {
             flashlight: None,
             flashlight_shadow: None,
             flashlight_pipeline: None,
-            flashlight_characters: std::cell::RefCell::new(Vec::new()),
+            flashlight_characters: std::cell::RefCell::default(),
             world: None,
             world_props: None,
             static_light_bank: None,
@@ -1412,7 +1413,7 @@ impl WgpuRenderer {
             contact_shadows:
                 [crate::engine::render::common::dynamic_lights::ContactShadowUniform::ZERO; 8],
             contact_shadow_count: 0,
-            blacklights: crate::engine::render::common::blacklight::BlacklightSet::default(),
+            blacklights: crate::engine::lighting::ultraviolet::BlacklightSet::default(),
             dynamic_visibility:
                 crate::engine::render::common::dynamic_visibility::DynamicVisibility::new(),
             dynamic_visibility_error: None,
@@ -1752,7 +1753,7 @@ impl WgpuRenderer {
                 &environment,
                 receiver_gain,
                 self.dynamic_transport.as_deref().map(|scene| {
-                    crate::engine::render::common::blacklight::BlacklightVisibility {
+                    crate::engine::lighting::ultraviolet::BlacklightVisibility {
                         sources: &self.blacklights,
                         scene,
                         dynamic: self
@@ -2512,7 +2513,7 @@ impl WgpuRenderer {
         self.material_animations = LevelEmissionAnimations::default();
         self.flashlight = None;
         self.flashlight_characters.borrow_mut().clear();
-        self.blacklights = crate::engine::render::common::blacklight::BlacklightSet::default();
+        self.blacklights = crate::engine::lighting::ultraviolet::BlacklightSet::default();
         self.textures.release_profile_textures();
         self.caustics = super::caustics::Caustics::empty(&self.device, &self.textures);
         // Keep format-specific pipelines, but release every old-map caustics binding.
@@ -2925,11 +2926,10 @@ impl WgpuRenderer {
             if control.switchable {
                 self.prop_light_bindings.push(PropLightBinding {
                     controller,
-                    sources: lighting
-                        .prop_light_indices(index)
-                        .zip(&prop.lights)
-                        .filter_map(|(source, light)| light.enabled.then_some(source))
-                        .collect(),
+                    sources: crate::engine::lighting::switchable::prop_source_members(
+                        lighting, index, prop,
+                    )
+                    .collect(),
                     baked_enabled: control.enabled,
                 });
             }
@@ -3278,7 +3278,7 @@ impl WgpuRenderer {
                 &self.characters,
                 &environment,
                 self.dynamic_transport.as_deref().map(|scene| {
-                    crate::engine::render::common::blacklight::BlacklightVisibility {
+                    crate::engine::lighting::ultraviolet::BlacklightVisibility {
                         sources: &self.blacklights,
                         scene,
                         dynamic: self
@@ -3932,7 +3932,7 @@ impl WgpuRenderer {
         } else {
             textures.release_profile_textures();
         }
-        let blacklights = crate::engine::render::common::blacklight::BlacklightSet::from_level(
+        let blacklights = crate::engine::lighting::ultraviolet::BlacklightSet::from_level(
             &loaded.level,
             &build.lighting,
         );
@@ -4289,7 +4289,7 @@ impl WgpuRenderer {
             return;
         }
         let visibility = pending.uv_transport.as_deref().map(|scene| {
-            crate::engine::render::common::blacklight::BlacklightVisibility {
+            crate::engine::lighting::ultraviolet::BlacklightVisibility {
                 sources: &pending.blacklights,
                 scene,
                 dynamic: None,
@@ -4539,7 +4539,7 @@ impl WgpuRenderer {
                     &self.material_layout,
                     batch,
                     pending.uv_transport.as_deref().map(|scene| {
-                        crate::engine::render::common::blacklight::BlacklightVisibility {
+                        crate::engine::lighting::ultraviolet::BlacklightVisibility {
                             sources: &pending.blacklights,
                             scene,
                             dynamic: None,
@@ -4781,7 +4781,7 @@ impl WgpuRenderer {
         self.lightmaps = atlas;
         self.lightmaps_resident = self.lightmaps.is_resident();
         let lightmap_stats = build.lightmaps.as_deref().map(|lightmaps| lightmaps.stats);
-        let blacklights = crate::engine::render::common::blacklight::BlacklightSet::from_level(
+        let blacklights = crate::engine::lighting::ultraviolet::BlacklightSet::from_level(
             &loaded.level,
             &build.lighting,
         );
@@ -4801,7 +4801,7 @@ impl WgpuRenderer {
             .map(|(scene, _)| Arc::new(scene))
         };
         let uv_visibility = uv_transport.as_deref().map(|scene| {
-            crate::engine::render::common::blacklight::BlacklightVisibility {
+            crate::engine::lighting::ultraviolet::BlacklightVisibility {
                 sources: &blacklights,
                 scene,
                 dynamic: None,
@@ -5187,7 +5187,7 @@ impl WgpuRenderer {
         };
         let materials = MaterialRenderState::from_table(&loaded.materials);
         let visibility = self.dynamic_transport.as_deref().map(|scene| {
-            crate::engine::render::common::blacklight::BlacklightVisibility {
+            crate::engine::lighting::ultraviolet::BlacklightVisibility {
                 sources: &self.blacklights,
                 scene,
                 dynamic: None,
@@ -8796,7 +8796,7 @@ impl WgpuRenderer {
             return;
         }
         let visibility = pending.uv_transport.as_deref().map(|scene| {
-            crate::engine::render::common::blacklight::BlacklightVisibility {
+            crate::engine::lighting::ultraviolet::BlacklightVisibility {
                 sources: &pending.blacklights,
                 scene,
                 dynamic: None,
@@ -8884,7 +8884,7 @@ impl WgpuRenderer {
         while let Some(batch) = bank.state.batches.get(bank.prop_cursor) {
             if let Some(props) = &mut bank.props {
                 let visibility = pending.uv_transport.as_deref().map(|scene| {
-                    crate::engine::render::common::blacklight::BlacklightVisibility {
+                    crate::engine::lighting::ultraviolet::BlacklightVisibility {
                         sources: &pending.blacklights,
                         scene,
                         dynamic: None,
