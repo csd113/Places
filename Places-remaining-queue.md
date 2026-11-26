@@ -17,41 +17,6 @@
 
 **Additional reviewed Mac evidence:** the native pursuer cleared a stalled route and issued a retry while the obstruction remained. Ordinary AI reached matching horizontal goals on two different floors, but this did not exercise scripted floor selection. A native fixture for a blocked scripted move that stays stopped until explicitly reissued is still needed.
 
-### 10. [GitHub #53: Reproduce and fix the Long Way Home FPS drops](https://github.com/csd113/Places/issues/53)
-**Fixed the reproduced Danger second-exit CPU hitch on the Razer. #53 remains open for broader Long Way Home
-acceptance.** The [published fix](https://github.com/csd113/Places/commit/8c3e216d884a57c1f4d75c47f7457df78ef25eb0)
-is the exact independently reviewed Sol 6.2 Medium diff, originally `8a4cc624` (audited patch SHA-256
-`55814dc3c2fa53e213fdf6a5556822e4554f666191c9560e76a3c1e374cde2fb`).
-
-The same verified Long Way Home archive and first-exit, re-entry, second-exit route ran on the bare release player
-with the RTX 3070 Laptop GPU, actual DX12 Immediate, a physical 1280×720 drawable, V-sync off and no frame limiter.
-Two complete baseline/fixed replays measured second-exit FPS of 84.3/89.4 → 125.7/124.2, CPU update p95 of
-21.78/20.97 → 7.00/7.17 ms and all-frame p99 of 49.75/49.09 → 40.64/39.32 ms. In the nearby control pair,
-first-exit frame p95 was 11.50 → 11.56 ms (172.2 → 187.5 FPS). On the second exit it was 24.53 → 10.90 ms
-(78.2 → 123.0 FPS), with all-frame p99 54.04 → 39.81 ms and CPU update p95 21.81 → 6.99 ms.
-Across all three fixed replays, p99 was 13.36–14.00 ms when excluding only scripted input-trace frames and their
-immediate successors. The unfiltered spikes are recorded above, and the active second exit remains slower.
-
-The Tall Guest was rebuilding the base pose and inspection blend for all 17 aim weights on each safe step.
-The fix scores the same weights in the same order using the acoustic socket chain and leaves the full selected
-pose, contacts, collisions and step budgets unchanged. Instrumented aim p95 fell from 12.02–13.37 to
-0.41–0.42 ms. Clearance still costs about 2.7 ms p95 in the instrumented second exit. Strict workspace Clippy,
-the full locked all-features release build and the exact socket-equivalence regression passed. The workspace
-suite passed 735/736, with the same mannequin carry/reset assertion failing on the unmodified published base.
-No shared bake or whole-level performance acceptance was run.
-
-**Fixed the separate periodic support-journal stall.** In two alternating trace-off Razer DX12 Immediate A/B
-pairs on stock `706dd2d8` versus the reviewed patch, peak `loop_ms` in the estimated ±150 ms Danger journal
-window fell from 31.14/30.75 to 7.11/7.24 ms. The compact records parsed at 622/623 bytes instead of truncating
-at 4,096. A separate explicit trace recorded 13,039 ready presents with none missed and retained full periodic
-and state-change snapshots. Strict Clippy and the locked all-features release build passed. This covers
-representative Long Way Home scenes, not the full level. It did not address the separate Introduction spike.
-
-**Reduced the Introduction spike.** Reusing exact obstacle sweeps within each Feltling query reduced the first
-two measured Razer DX12 Immediate loop intervals from 30.40/29.96 ms to 26.24/26.46 ms. All three same-snapshot
-comparisons matched the stock route results exactly. The spike remains, other scenes were not tested for this
-change, and item 10 and #53 remain open.
-
 ## Audio, HUD and environment work
 
 ### 23. [GitHub #34: Optional HUD, health and melee](https://github.com/csd113/Places/issues/34)
