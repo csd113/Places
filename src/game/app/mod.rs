@@ -914,13 +914,47 @@ impl FrameLoop<'_> {
 
     fn record_diagnostic_context(&mut self) {
         self.record_menu_beat();
-        if self.diagnostic_state != Some(self.game.app_state())
-            || self.diagnostic_tick.elapsed() >= std::time::Duration::from_secs(15)
-        {
-            self.diagnostic_state = Some(self.game.app_state());
-            self.diagnostic_tick = Instant::now();
-            self.trace_world("runtime_context");
+        let state = self.game.app_state();
+        let state_changed = self.diagnostic_state != Some(state);
+        if !state_changed && self.diagnostic_tick.elapsed() < std::time::Duration::from_secs(15) {
+            return;
         }
+        self.diagnostic_state = Some(state);
+        self.diagnostic_tick = Instant::now();
+        if state_changed || self.trace.is_recording() {
+            self.trace_world("runtime_context");
+        } else {
+            self.record_periodic_journal_context(state);
+        }
+    }
+
+    fn record_periodic_journal_context(&mut self, state: AppState) {
+        // The support journal bounds each record. Keep the periodic context
+        // useful without collecting and serializing a whole world first.
+        let (renderer_level, renderer_quality, renderer_lightmaps) =
+            self.renderer.installed_identity();
+        let detail = serde_json::json!({
+            "snapshot_scope": "periodic_journal",
+            "state": format!("{state:?}"),
+            "frame": self.game.frame_count(),
+            "current_level_id": self.current_level.as_ref().map(|loaded| loaded.level.id.as_str()),
+            "renderer_level_id": renderer_level,
+            "player_position": self.game.player_position.to_array(),
+            "physics": {"held": self.items.world.held()},
+            "quality": self.settings.quality_level().name(),
+            "lighting": self.settings.lighting_quality().name(),
+            "lightmaps": self.settings.lightmap_quality().name(),
+            "renderer_quality": renderer_quality.name(),
+            "renderer_lighting": self.renderer.graphics_applied().lighting.name(),
+            "renderer_lightmaps": renderer_lightmaps.name(),
+            "gpu_timing": format!("{:?}", self.renderer.gpu_timing()),
+            "window_focused": self.window_focused,
+            "transition_frozen": self.renderer.transition_frozen(),
+            "loading_step": self.ui_state.loading_step,
+            "rss_bytes": perf::process_resident_bytes(),
+        });
+        self.trace
+            .record("runtime_context", self.load_generation, &detail.to_string());
     }
 
     /// One complete frame: input, simulation, render, present, telemetry.

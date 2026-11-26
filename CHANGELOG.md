@@ -104,10 +104,14 @@ outside that inventory.
   ignoring degenerate triangles. Keep props and their shadows in local lighting
   previews, and prevent an actor’s flashlight state from carrying over to a
   replacement actor.
-- Reduce Tall Guest collision and navigation work in the Danger map. Use lower
-  frame latency for Immediate presentation on Metal. Windows testing reproduced
-  [a slowdown at Danger’s second elevator exit](https://github.com/csd113/Places/issues/53).
-  Its cause and fix remain open.
+- Reduce Tall Guest collision and navigation work in Danger and lower frame
+  latency for Immediate presentation on Metal. Fix the reproduced
+  [Danger second-elevator-exit CPU hitch](https://github.com/csd113/Places/issues/53)
+  by scoring aim weights at the acoustic socket instead of rebuilding a full
+  pose for each candidate.
+- Fix a periodic gameplay stall caused by collecting full world snapshots for
+  the support journal. Ordinary periodic entries now log compact context.
+  App-state changes and explicit diagnostic traces retain full snapshots.
 
 ### Editor, import and export
 

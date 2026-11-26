@@ -40,6 +40,14 @@ the full locked all-features release build and the exact socket-equivalence regr
 suite passed 735/736, with the same mannequin carry/reset assertion failing on the unmodified published base.
 No shared bake or whole-level performance acceptance was run.
 
+**Fixed the separate periodic support-journal stall.** In two alternating trace-off Razer DX12 Immediate A/B
+pairs on stock `706dd2d8` versus the reviewed patch, peak `loop_ms` in the estimated ±150 ms Danger journal
+window fell from 31.14/30.75 to 7.11/7.24 ms. The compact records parsed at 622/623 bytes instead of truncating
+at 4,096. A separate explicit trace recorded 13,039 ready presents with none missed and retained full periodic
+and state-change snapshots. Strict Clippy and the locked all-features release build passed. This covers
+representative Long Way Home scenes, not the full level. The separate Introduction world-tick spike was not
+changed, and item 10 and #53 remain open.
+
 ## Audio, HUD and environment work
 
 ### 20. [GitHub #32: Spatial audio](https://github.com/csd113/Places/issues/32)
