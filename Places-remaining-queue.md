@@ -12,19 +12,7 @@
 
 ## Release blockers and compact checks
 
-### 2. Published gameplay changes: outstanding native witnesses
-**Open for scripted native gameplay verification only.** The published NPC changes and prop release passed focused tests; native Mac checks covered cup pickup/release, stalled pursuit recovery, and ordinary two-floor routing.
-
-**Additional reviewed Mac evidence:** the native pursuer cleared a stalled route and issued a retry while the obstruction remained. Ordinary AI reached matching horizontal goals on two different floors, but this did not exercise scripted floor selection. A native fixture for a blocked scripted move that stays stopped until explicitly reissued is still needed.
-
 ## Audio, HUD and environment work
-
-### 23. [GitHub #34: Optional HUD, health and melee](https://github.com/csd113/Places/issues/34)
-Keep the existing six-HP player, three hearts, disabled-by-default HUD and crowbar behavior. Finish human NPC defaults (six HP, honoring lower authored values and immortality), monster defaults (generally at least 18 HP with design-specific balancing), and the flashlight indicator (visible only on an enabled map while on, no off-state placeholder). Verify repeated transitions/reloads/toggles without stale HUD state. Keep HUD visibility independent of gameplay enablement.
-
-**Implemented. Independent Sol Medium code review and compact Mac native validation passed.** Two rooms hand-authored in the native editor were exported together and imported into an isolated player profile. At six HP the visible HUD showed three full hearts, and one HP of damage emptied one half. The other room still accepted damage with the HUD hidden. The flashlight beam toggled in both rooms, and the indicator appeared only in the visible HUD room while lit. Two round trips through authored transitions and a same-map reload applied the destination rules with no stale indicator in the loaded room. Death and developer respawn showed zero and then six HP while the lit beam and indicator remained in sync. The imported NPCs reported 6/6 default HP, an authored 2/3 HP, and explicit immortality unchanged after damage.
-
-**Native encounter acceptance remains open.** The focused Rust test passed for the 18 HP unconfigured encounter zombie and the authored four-HP exception. No suitable non-Backrooms encounter package is available, and the editor does not author the top-level encounter mode. Leave item 23 and #34 open for that check.
 
 ## Research only, then multiplayer
 
