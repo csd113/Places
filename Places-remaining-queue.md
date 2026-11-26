@@ -228,6 +228,9 @@ Treat it as a snapshot of the current catalog to show friends, not a test fixtur
 - Lit Christmas candles with visible flames
 - Wall-mounted snowflake decoration
 - Snow globes with animated snowfall visible inside the glass when seen up close. Keep the snow within the globe and skip the effect at a distance.
+- Placeable Santa Claus NPC
+- Optional little elf costumes for Feltlings, selectable per Feltling without replacing their default appearance
+- Wall-mounted Christmas stocking decoration
 
 This item covers new assets and their editor-catalog validation. No new map, Mall decoration, or full bake is in scope.
 
