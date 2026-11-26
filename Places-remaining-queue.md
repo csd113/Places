@@ -1,6 +1,6 @@
-# Places: remaining work after the pause
+# Places: remaining work
 
-**Queue status.** Active through item 10. Pause before item 11 and the shared large-map bakes. If item 10 needs a shared bake, leave only the bake-dependent check pending. Resume after the pause only when Connor explicitly asks. Work on `0.14.0-dev`. Sync to the current published branch and check issue state before starting. Finding numbers refer to the internal review.
+**Queue status.** Work on `0.14.0-dev`, on items Connor has approved. Sync to the current branch and check issue status before starting. This file tracks remaining work only; completed entries are preserved in Git history. Item numbers stay stable across cleanups. Keep deferred items deferred. Finding numbers refer to the internal review.
 
 ## Harness instructions
 
@@ -12,49 +12,13 @@
 
 ## Release blockers and compact checks
 
-### 1. NPC wander bounds and one-way doors (findings 50–51)
-**Complete.** Code and independent Sol 6.2 Medium review checked at `09f7a8a531380114493bf402ce89ab6316731c5b`. Findings 50 and 51 are internal review entries.
-- **50: Wander radius.** Enforce the authored horizontal radius after navigation projection and on every actual motion path, including empty-path physical fallback and retreat from a door. Use the 0.65 m wanderers in the editor-authored Performance Lab. Verify multiple distinct in-range goals and actual movement, not just an idle NPC.
-- **51: Door stand-off and route changes.** For a one-way door that swings toward the NPC, allow a physically clear retreat out of the door’s portal cells without making a real obstruction passable. Choose a reachable stand-off and respect the current route leg. Clear the remembered opening door when a replan changes the leg. Test realistic portal coverage, an actor already in it, a real obstruction, and a changed route.
-- **Evidence.** Prior Mac native checks observed 12 moving Performance Lab wanderers within their 0.65 m radius and exercised a real door obstruction and alternate route. The exact follow-up cases, including the ordinary wander detour, projected home recovery, scripted Stay and Return Home, and the last-slot door retry, passed in the 39 focused Razer Rust tests. Strict Clippy and the locked all-features release build passed. No new native gameplay run covered the exact follow-up cases.
-- Keep loose physics-prop behavior unchanged in this batch; [GitHub #60](https://github.com/csd113/Places/issues/60) is queued separately. The earlier combined patch was held at tree `a477126e`; 47–49 were published separately and should not be reapplied.
-
 ### 2. Published gameplay changes: outstanding native witnesses
-**Open for native gameplay verification only.** Published NPC findings 47–49 and the prop-release change passed focused tests. Mac player and Quick Test confirmed cup pickup/release, but the exact NPC pursuit-replan deadlock, blocked scripted movement/reissue, and wrong-floor cases remain unverified in native gameplay. Use compact editor-authored fixtures. Record which cases actually ran; a native build, good GPU startup, or focused Rust test is not a substitute for the gameplay witness.
+**Open for scripted native gameplay verification only.** The published NPC changes and prop release passed focused tests; native Mac checks covered cup pickup/release, stalled pursuit recovery, and ordinary two-floor routing.
 
 **Additional reviewed Mac evidence:** the native pursuer cleared a stalled route and issued a retry while the obstruction remained. Ordinary AI reached matching horizontal goals on two different floors, but this did not exercise scripted floor selection. A native fixture for a blocked scripted move that stays stopped until explicitly reissued is still needed.
 
-### 3. Player movement and swimming collision (finding 35)
-**Complete.** Finding 35 was implemented at `0a583b0e3ac41df1393f4db9b7639a512027a9df` and passed independent Sol 6.2 Medium re-review at `d51111fd431a5a3106b6efac59ee6066f88b546a`. Swimming preserves safe ascent after a prop-side hit and stops at a reachable underside. A dormant prop over a rim prevents a blocked exit from restarting during a dive. Held-item slides preserve safe tangential motion and the accepted release velocity.
-
-All 18 focused Rust tests passed, including dormant floor support, ladder controls, and the finding 36 prop-release regression. Strict Clippy and the locked all-features release build passed. The serial workspace suite passed 663 tests with the known NPC carry-reset case excluded. Razer Pool Quick Test at `0a583b0` confirmed ladder climb, idle hold, backward detachment, and diving. CPU controller tests covered the exact mixed contacts and both follow-up regressions.
-
-### 4. Luau scheduling and terminal events (findings 43 and 45)
-**Complete.** Findings 43 and 45 passed independent Sol 6.2 Medium re-review at `ae136f65926d362bc99b9dd7a2ef55347340e676`. Recurring Luau updates share frame limits fairly and use the current tick's `dt`. A fresh, non-repeat F1 press uses the new frame's shared budget. Admitted one-shot timer and sequence-completion bindings resume at the first unexecuted action, retain their first synchronous child's FIFO slot, and commit once and cooldown on completion. Linked sequence steps get a turn under sustained budget pressure. The checks covered repeat timing, stale cancellation, and the 4,096-event FIFO cap. Finding 44 is already published.
-
-On the Razer, all 22 targeted tests, scoped strict Clippy, and the locked all-features player build passed at the reviewed commit. The preceding audit-fix commit `ced5af4e4dbca1c38dae4e98d0481999c4a38057` passed strict workspace Clippy, the locked all-features workspace release build, and 670 serial workspace tests with the known NPC carry-reset case excluded.
-
-### 5. Exact trigger crossing positions under pressure (finding 46)
-**Complete.** Finding 46 passed independent Sol 6.2 Medium re-review at `4e1feb7069d6cad5ad5d3c94bc412a42e4d8abdc`. Trigger sweeps report crossing positions along the solver-accepted path. The global 4,096-event queue admits crossings in chronological order, preserves FIFO under budget pressure, and drops the newest crossing when full. Occupancy follows the solved motion even when delivery is dropped. A dropped exit stops the visit’s loop when an authored stop identifies the emitter. Cleanup does not replay exit actions, and checkpoint restore preserves the active cue for owned loops.
-
-On the Razer, the four focused movement tests passed at the reviewed commit. They covered the wall slide, accepted vertical peaks, the side-only prop clip, and the crossing order at the last FIFO slot. The mixed-motion test also confirmed that a volume between the solved legs produces no events. Strict workspace Clippy and the locked all-features workspace release build passed.
-
-### 6. Editor Add Level transaction and restart behavior (finding 34)
-**Complete.** Independent Medium re-review passed `697df9f33b471a6f40d4072080570f14b512b0ef` and `3382d77ee060249d9f010b3027ee0b3d93d0c30e`. The editor resumes a pending Add/Import on reopen when it can verify the source and manifest. On disagreement it preserves the prior project and staged originals. A committed record is cleared only after the published level source and required mode copy match the expected bytes. An in-session failure persists a cancellation marker before cleanup. If the editor cannot persist cancellation, it reports that the outcome is uncertain and reopening may still complete the operation.
-
-On the Razer, the compact one-room compiler smoke at `3382d77e` passed export, strict currentness, and package validation for the `off` lighting variant. At `697df9f3`, strict workspace Clippy, the locked all-features release build, and all six recovery tests passed. The tests covered changed readable source bytes, missing and different mode copies, and restart after blocked cancellation or cleanup. The serial workspace run had 688 passes and the inherited carry-reset failure. The earlier compact Mac save/reopen check also passed.
-
-### 7. Compiler asset identity and exFAT (finding 39)
-**Compiler validation complete.** The source fix was published at `d282738b`. Native Razer validation at `09d57e29a7e77ec632ff18e4482912a2942ea350` confirmed that an unchanged build reused the cache and preserved the package modification time. After a sky change, warm and forced-fresh builds produced byte-identical packages and matching decoded reflections. Cancellation and failure preserved the prior outputs. Independent Sol 6.2 Medium review `6b04bb8e-79d0-83e9-b987-3f6f074c9005` cleared the compiler work.
-- **exFAT deferred.** When resumed, check Add/Import on an already-authorized disposable exFAT volume. No formatting, mounting, or drive changes to manufacture a test. Import uses a hard-link path that may fail there; that’s an open test, not a confirmed result. APFS and the compact editor test do not satisfy it.
-
-### 8. Stock main menu/package blockers (part of GitHub #55)
-**Complete.** The compiler captures the folding-door GLB before rig validation and verifies its exact bytes through publication. The stock package was rebuilt with the built-in compiler from the unchanged editor-saved Menu project. On the Razer, strict currentness had zero differences and all 43 installed dependencies matched. The bare player rejected the old package on the mannequin hash, then presented the rebuilt Menu at startup and again after returning from gameplay through the pause menu.
-
-Independent Sol 6.2 Medium review `6b04c98c-0230-83e9-9e67-7f14173ff002` cleared the code, package, and native evidence. Strict Clippy, the locked all-features release build, and all six focused tests passed. [GitHub #55](https://github.com/csd113/Places/issues/55) remains open for the broader lighting acceptance.
-
-### 9. Remaining lighting Clippy cleanup before final bakes
-**Complete.** Tightened the lighting lint exceptions and made probe indexing checked while preserving math, traversal and accumulation order, fallbacks, and valid-dark output. Strict workspace Clippy, the locked all-features release build, and 18 focused tests passed. All 21 compact Static/Full payloads matched byte-for-byte, including 50 valid-dark results. Independent Medium review 6b04d374-0a24-83e8-8ad1-11be41a95015 cleared both files.
+### 7. exFAT Add/Import verification (finding 39)
+**Deferred.** When resumed, check Add/Import on an already-authorized disposable exFAT volume. The hard-link path remains unverified there; APFS does not satisfy the check. No formatting, mounting, or drive changes to create a test.
 
 ### 10. [GitHub #53: Reproduce and fix the Long Way Home FPS drops](https://github.com/csd113/Places/issues/53)
 **Fixed the reproduced Danger second-exit CPU hitch on the Razer. #53 remains open for broader Long Way Home
@@ -81,82 +45,21 @@ No shared bake or whole-level performance acceptance was run.
 
 ## Shared bakes and lighting sign-off
 
-### 11. Rebuild and verify only the maps needed for the remaining checks
-**Complete for shared exports.** At `c5e5dfd`, the Razer native editor exported
-one three-member Long Way Home archive and one nine-member Quiet Collection
-archive. All 12 members passed strict currentness and archive validation, with
-Static and Full variants and a Full atlas for each. Backrooms source is archived
-and its environment assets remain available. Independent review cleared the
-export gate. The exact Danger gameplay check for #53 and lighting acceptance
-for #55 remain open.
-
-Settle compiler changes first. Pin one compiler revision and matching assets; validate provenance, package integrity, and intended quality. Deduplicate requested checks across issues and use compatible evidence where available, but don't keep disposable bakes or rebuild a map merely to regenerate a report.
-- **Backrooms.** Prior Razer Full bake stopped around 52% of direct work after about 54 minutes without an archive or resume checkpoint. Archive the Backrooms level and remove it from the active compile and review pool. Keep the Backrooms environment assets available.
-- **Quiet collection:** One current nine-member Full collection should support Arcade UV and ordinary-wall control, elevator destination/return, and relevant memory/transition comparisons. Don’t repeat eight separate bakes if one qualifying collection will do.
-- **Beam, The Long Way Home, and bundled Menu:** Reuse exact compatible evidence or refresh only what a specific acceptance check requires. Menu is the only current level slated to ship; other current maps are test fixtures, not permanent content.
-- **Danger:** Exact Full cross-room floor-band/camera/blocker and matched native route only where authorized. A stale package or substitute room doesn’t count. Don’t retry any previously denied broad campaign without applicable authorization.
-- If #53 was blocked only on a fresh Long Way Home package, do its remaining reproduction here using a shared qualifying export. Carry any bake-affecting fix back through the relevant compact checks before pinning the final compiler. Run eligible dependent checks after their maps are verified, before lower-priority features.
-
 ### 12. [GitHub #55: Lighting rewrite final acceptance](https://github.com/csd113/Places/issues/55)
-**Partial acceptance. #55 remains open.** Razer DX12 checks at `8b908398` reused the verified item 11 exports. Writer `6b05545e-e284-83ea-9859-8e82d1ab800d` and independent Sol 6.2 Medium reviewer `6b055927-e3f0-83ea-b0c0-18d4cf5e1000` support 21 of 31 checklist rows within the reviewed scope, adding representative scene coverage, Feltlings editor-to-player comparison, and the agreed Menu and shared-map rebuilds.
+**Partial acceptance. #55 remains open.** Razer DX12 checks at `8b908398` reused the verified Long Way Home and Quiet Collection exports. Writer `6b05545e-e284-83ea-9859-8e82d1ab800d` and independent Sol 6.2 Medium reviewer `6b055927-e3f0-83ea-b0c0-18d4cf5e1000` supported 21 of 31 checklist rows in that pass, adding representative scene coverage, Feltlings editor-to-player comparison, and the agreed Menu and shared-map rebuilds.
 
 - Danger showed a continuous lower-floor gradient, a retained wall shadow, and a shaded duck through pickup, a 3.75 m carry, and release. Feltlings showed near and far animated poses and the thin door leaf at 0° and 90°. The moving guide’s lighting updated before a physical block stopped it short of the doorway.
 - Arcade’s UV carpet changed by 18.3 RGB levels on average while ordinary-wall and emissive-screen controls changed by at most one level. Restoring the UV and mirror controls reproduced their original pixels. Pool showed moving Full caustics and restored the sampled receiver energy when the source was re-enabled.
 - Feltlings Quick Test and the compiled player showed corresponding geometry and fixture placement. DX12 passed Full → Static → Full and Hub → Arcade → Hub, with zero retired prepared-build, record, and transport owners at the measured checkpoints.
 
+The compact Mac Metal fixture later verified a complete Feltling doorway crossing and caster lifetime, and stable near/far lighting with source changes. The issue records 23 of 31 checked rows. The sealed-floor and independent fog/exposure follow-ups await independent review.
+
 Lighting ownership remains open for UV sampling and occlusion, switchable contribution grouping, caustics source and receiver evaluation, flashlight shadow bias and filtering, and mixed reflection policy in renderer code. Follow-ups also include controlled floor or passage separation, an animated doorway crossing with near and far views, tinted-glass and fog/exposure controls, matched-quality performance, and final architecture and checklist reconciliation. Historical poses, layouts, and cameras limit exact parity, and the standalone spec and historical bake peak-memory receipt were unavailable.
-
-## NPC and map import follow-ups
-
-### 13. [GitHub #60: NPCs pass through loose physics props](https://github.com/csd113/Places/issues/60)
-After the NPC blocking fixes and their native checks, exclude only loose movable physics props from NPC path planning and movement collision. NPCs must not push the prop or wake it. Walls, doors, fixed props, actors, held props and player interaction keep their existing behavior. Verify on a compact editor-authored route with both loose clutter and a genuine obstruction; no mass thresholds or new authoring options.
-
-**Complete.** In the Razer native run, the NPC passed one and two sleeping props (2 kg and 500 kg) without moving or waking them. Another actor and the locked door blocked passage. The unlocked door opened and allowed passage. Focused Rust checks confirmed held props still block NPCs and that a moving prop wakes a dormant prop through an NPC proxy while a closed door shields it.
-
-Pursuit and wrong-floor behavior passed natively. Finding 48 passed its focused Rust test and remains unverified natively. Independent Sol Medium review, 23 focused tests, strict workspace Clippy, and the locked all-features release build passed. The workspace suite had 692 passes and the inherited NPC carry-reset failure.
-
-### 14. [GitHub #62: Import multiple compiled maps from one local ZIP](https://github.com/csd113/Places/issues/62)
-Build on the existing single-map importer. Find nested `.placesmap` members, ignore unrelated entries, and reuse normal per-map validation and conflict rules without overwriting installed maps. Bound archive expansion and entry count and reject unsafe paths without extracting arbitrary files. Valid maps may succeed despite invalid siblings; report imported and skipped items and reasons. Local compiled-map ZIPs only; no mods, map servers or automatic downloads.
-
-**Complete.** The Razer native picker returned quietly to Explore on Cancel and showed per-file results for a selected ZIP. The direct player check verified nested import, invalid and incompatible siblings, ignored unrelated files, exact byte preservation on collision, and clear rejection of invalid, empty-of-maps, and over-limit ZIPs. The boundary tests checked the 256-entry cap and the streamed byte budget. No staging remained.
-
-Independent Sol Medium review, strict workspace Clippy, the locked all-features release build, and 10 focused tests passed. The earlier serial workspace run had 694 passes and the preexisting NPC carry-reset failure.
-
-## Build and repository cleanup
-
-### 15. Reduce Places to three buildable executables
-Keep exactly `places` (game), `places-editor`, and `places-map-compiler` (rename existing `places-compile`). Remove extra build targets and their exclusive code, flags and dependencies rather than hiding them behind aliases or features. Put diagnostics worth retaining on the owning binary as `--debug <mode>`, off by default. Update build/package scripts and CI, then check Cargo metadata, package contents and relevant CLI behavior. No separate debug binaries or task writeups.
-
-**Complete.** Cargo metadata confirms exactly three executables. Independent Sol Medium review, strict workspace Clippy, and the locked all-features release build passed. The native Windows editor exported the saved menu through the renamed compiler, and Windows packaging verified the current menu and included all three executables with no gameplay maps. macOS menu routing and rollback were checked with shell fixtures, not on a native Mac.
-
-### 16. Move HVAC duct join metadata into the editor
-Move `tools/props/backrooms_phase6/duct_join_metadata.json` beside `src/editor/ducts.rs` or into an editor-owned data subdirectory. Update the `include_str!` path and any live tooling paths. Preserve the JSON bytes and existing duct snapping behavior. Verify a focused `places-editor` build and a representative duct join through preview and apply.
-
-**Complete.** The editor now owns the byte-identical metadata. On the Razer, Preview left the source unchanged, Apply joined the equal-scale short and straight duct flanges, and one Undo restored the saved pose. The focused editor build and duct test, strict workspace Clippy, locked all-features release build, and independent Sol Medium review passed.
-
-### 17. Remove the `tools/` directory
-The goal is to delete `tools/` outright, not tidy it or move it wholesale. Treat legacy files as removable by default. Delete obsolete Blender/Python model and asset generators and their exclusive helpers, fixtures, benchmarks, and tests in bulk. Current models were authored by hand; do not regenerate or audit the assets. A reference from another old script, test, or CI job is not evidence of a current need.
-
-Start from what the current game, editor, and map compiler actually need to build, run, and ship. If deletion exposes a real dependency, move only the live data beside its owner or replace only the necessary behavior. Prefer direct Cargo and simple platform-native packaging over porting Python scripts wholesale. Drop checks that only preserve retired tooling; keep checks that protect current behavior. Reuse the three-binary and duct metadata work above rather than doing it twice.
-
-Verify the three supported entry points and the affected build and packaging paths with focused checks. Leave no replacement catch-all folder, archive of deleted tools, or task report.
-
-**Complete.** Retired the tracked tooling and kept live workflows with their owners. The two unchanged Utility and HVAC Kit Showcase source files are preserved in the [map archive](archive/projects/hvac-utility-showcase/), excluded from default compilation and release packaging. The Windows package passed staged menu freshness, payload hashes, and headless checks of all three executables. POSIX packaging was checked with fixtures, not a native Mac run.
-
-### 18. Rust 1.100 follow-ups
-- **Cargo unused dependencies:** After the three-binary cleanup, check the remaining targets/features. Remove only conclusively unused workspace dependencies; keep valid editor/compiler-only, optional and target-specific dependencies.
-- **`DropGuard`:** Inspect save/export staging for narrow cleanup-on-early-exit opportunities. Keep explicit rollback where failure must be reported; don’t rewrite working transactions just to use a new API.
-- **Allocators:** Investigate only if compiler profiles show a material cost for allocating/freeing short-lived objects. Benchmark against a matched baseline and preserve parity before any adoption. No speculative allocator or never-type refactor.
-
-**Complete. Independently reviewed.** All 21 direct crates have live callers and both feature switches are used. No narrow DropGuard change was justified. Save and export rollback stays explicit where cleanup failures must be reported. Existing compiler timings do not isolate allocation costs, so no allocator benchmark or change was warranted. On Windows, 20 locked Rust 1.100.0 package, archive and publication tests passed. No source or build inputs changed, and no new release build or map bake was run.
-
-### 19. Python/tooling follow-up 03, conditional
-**Skipped after item 17. Independently reviewed.** Item 17 retired the legacy Python execution helper and its tests. No supported build, release, or editor caller for the old ACL follow-up was found, and the queue does not identify a more specific ACL scenario. The Windows packaging fixture and the retained ZIP comparison and STEP regressions passed. No Windows ACLs were changed and no dedicated ACL validation was run.
 
 ## Audio, HUD and environment work
 
 ### 20. [GitHub #32: Spatial audio](https://github.com/csd113/Places/issues/32)
-Finish subjective Office/Pool material and wall/door listening, moving listener/emitter checks, headphone front/back/elevation and speaker stereo fallback. Verify authored settings and any applicable Luau through editor → export/import → runtime, then remaining longer device/resource/performance cases. Don’t rebuild the audio foundation or re-run the bounded lifetime work already covered.
+**Physical checks deferred.** When resumed, finish subjective Office/Pool material and wall/door listening, moving listener/emitter checks, headphone front/back/elevation and speaker stereo fallback. Verify authored settings and any applicable Luau through editor → export/import → runtime, then remaining longer device/resource/performance cases. Don’t rebuild the audio foundation or re-run the bounded lifetime work already covered.
 
 **Partial native acceptance on Windows. Independent review complete.** The existing editor export validated and recovered Office and Pool source byte-for-byte. Both reopened in the native editor and played after import through Realtek WASAPI. Office ramp travel started and retired one intercom loop. Pool movement updated the water source and acoustic path, the closet door changed attenuation, and the headphones and stereo modes both operated. An authored Aero Luau action in the same archive started its fountain cue. Archive integrity passed, but the current compiler rejected `--require-current` because compiler preparation code changed. No fresh export or lighting bake was run. No physical listening, hotplug, or extended driver tests were performed. Subjective material/door and moving-sound listening, physical headphone localization and speaker fallback, and wider platform/resource checks remain open. Prior bounded lifetime evidence stands.
 
@@ -165,15 +68,6 @@ The Razer endurance run passed independent Sol Medium review of the recorded res
 Independent review also verified a separate one-room Windows editor export that passed strict currentness and recovered the source byte-for-byte. After import, its door-linked Luau action started exactly one spatial loop. This is a compact current editor-to-player pipeline check, not a fresh Office or Pool export or evidence of physical listening, localization, hotplug, or wider driver and platform coverage. Item 20 and #32 remain open.
 
 **Reviewed Linux software validation passed.** Two compact editor-exported maps passed strict currentness and byte-for-byte source recovery. The native player started the authored spatial loop after import; the prior Windows export independently covers the complementary Luau action. PulseAudio submitted 131.59 seconds of mixed audio with no reported errors or drops and moved the stream to a virtual fallback sink. Physical listening, physical hotplug, and wider driver coverage remain open.
-
-### 21. Independent audio sliders
-Under Settings → Audio, add or reuse Master, Ambient and Prop Sound volume sliders. Master affects all audible channels; category sliders affect only their own sounds. Use a small extensible category/mix design, preserve authored gain and spatial attenuation, clamp and persist settings, and retain defaults when older settings lack the fields. Check active loops and new sounds, another channel under Master, and save/reload using a compact Mac scenario.
-
-Explicitly prop-owned sounds belong to Prop Sound regardless of whether they loop or are spatial. Keep Ambient distinct and do not blindly rename general Effects. Verify independent control of an active prop loop and a newly played prop sound, with non-prop sound unaffected by Prop Sound and still controlled by Master.
-
-**Complete. Independent functional review passed (Sol 6.2 Medium).** The standalone `places` executable reused the verified 0.14.0 Pool export without rebaking it. At fixed Master, Prop Sound changed the same active nonspatial prop loop without restarting it and changed new spatial duck pickups from nonzero to zero gain. Ambient zero silenced the environmental loops without changing the prop loop. General footsteps were unchanged by Prop Sound and scaled with Master. Master zero produced silent captured output while gameplay and voices continued. Starting with older settings defaulted Prop Sound to 100%. The saved Master 40%, Ambient 30%, Prop Sound 50%, and Effects 75% reloaded in a second process. Native verification used mixer traces and PCM captured before device output. It did not cover physical listening, speaker or headphone behavior, hotplug, or extended device testing. Item 20 retains those checks.
-
-Locked Rust 1.100.0 strict workspace Clippy, the all-features release build, and all four new regressions passed. The asset-backed workspace suite reported 711 passes and only the already tracked carry-reset failure.
 
 ### 22. Static audit of all Settings tabs
 After the audio sliders, inspect grouping, order, labels, duplication, buried controls, discoverability, keyboard/navigation/accessibility concerns, and source organization. Give prioritized concrete improvements, distinguishing actual behavior from source inference and preference. This is read-only; no redesign or code change.
@@ -187,45 +81,12 @@ Keep the existing six-HP player, three hearts, disabled-by-default HUD and crowb
 
 **Native encounter acceptance remains open.** The focused Rust test passed for the 18 HP unconfigured encounter zombie and the authored four-HP exception. No suitable non-Backrooms encounter package is available, and the editor does not author the top-level encounter mode. Leave item 23 and #34 open for that check.
 
-### 24. [GitHub #42: Four Office/Home props](https://github.com/csd113/Places/issues/42)
-Office: tapered grey open wastebasket and chunky cream floor-standing photocopier with dark lid and simple trays. Home: rounded cream swing-lid kitchen garbage can and a ceiling fan with wide wood blades and a compact light. Keep Places' low-poly look, clear silhouettes, plausible scale and sensible collision. Use Blender/GIMP on the assistant’s desktop for asset creation, add assets to the proper catalogs, and check their appearance under native lighting. Only these four are approved; animation and interaction aren’t implied.
-
-**Complete.** Independent Sol 6.2 Medium review passed. Native macOS checks verified all four picker thumbnails under the correct themes and their appearance with Full lightmaps under Office fluorescent and warm Home lighting. The three floor props sat at floor level and blocked walking at their expected collision edges. The static, non-solid fan mounted 2 mm below the ceiling, and the standing player walked directly beneath it.
-
-### 25. [GitHub #41: Maintenance environment](https://github.com/csd113/Places/issues/41)
-Build an unfurnished concrete back-of-house environment: service halls and stairs, industrial basements and modular unfinished surfaces. Integrate and rename the existing Janitor closet content instead of duplicating it; migrate catalog/editor references without breaking authored maps. Create assets in Blender/GIMP where needed, build any map by hand in the level editor and validate representative traversal.
-
-**Complete.** The Maintenance work was published on `0.14.0-dev` in `f152725c3be671ee9723cd3a116eba74a6a67d01`. Independent Sol Medium review passed. Native macOS checks passed closet-to-basement round-trip traversal, fresh Full export/import, and strict currentness for both levels. The player showed Maintenance in Explore and Pause. The 16 Janitor IDs and existing asset mappings are unchanged, and the unchanged editable Quiet Collection Pool resolved its Janitor assets in the editor. On the Windows Razer, the player built from the published commit imported the original Quiet Collection archive and rendered Pool with all 16 Janitor placements resolved, with no missing assets or fallback geometry. This verified backwards compatibility. No rebake was run.
-
-### 26. [GitHub #40: Underground Mall environment](https://github.com/csd113/Places/issues/40)
-Follow the approved underground direction: polished tile and glass storefronts/balcony rails using existing effects, no daylight/skylights or fountain. Use the issue’s approved props and fluorescent lighting. Add six small movable pickup props: a scuffed plastic food-court tray, a chunky moulded clothes hanger, a lidded Starbucks-style takeaway coffee cup with green coffee-shop-style branding, a crumpled paper ball, a small metal ashtray, and a crushed cigarette pack (a soft pack with its top peeled back, placed beside the ashtray). The cup and paper ball are new silhouettes, not replacements for Arcade litter. Reuse the same escalator assets in stopped and working states; triggers toggle them and working escalators carry players, props and entities. Security shutters must open and close. Author and check a compact sample in the editor before expanding.
-
-**Complete.** Independent Sol 6.2 Medium review passed. The native macOS Full export of `projects/underground-mall` passed strict currentness, integrity, byte-for-byte source recovery and native import. Archive SHA-256 `ad1daf845207a37c60e3a6231667885045895bf87a7d5db9dab94a5696255e40`. With Full lightmaps, the player, idle NPC and initially dormant tray stopped, resumed and dismounted at the +3 m landing. The shutter blocked when closed, passed when open and reversed on an obstructing tray. All six pickups passed native pickup and release checks. Strict Clippy, the locked all-features release build and nine focused escalator tests passed. The workspace had 724 passes and only the known baseline carry-ownership failure.
-
 ## Research only, then multiplayer
-
-### 27. [GitHub #45: Research reusable animation graphs and masks](https://github.com/csd113/Places/issues/45)
-Research only. Compare a small reusable graph/mask layer with existing clip transitions, crossfades and upper-body blending. Check whether it would simplify real Places use cases, including mannequin locomotion and tool overlay, without changing gameplay-owned pose or collision behavior. Report adopt, prototype separately, defer, or reject; no code changes or engine migration.
-
-**Finding.** Keep the current animator. [Animation layering research](docs/0.14.0/animation-layering.md) recommends a separately approved experiment with a small Places-native mask. Adopt only if both rigs show reuse and preserve composed sockets and interruption behavior. Performance was not measured.
-
-### 28. [GitHub #46: Research safe live asset reloading](https://github.com/csd113/Places/issues/46)
-Research only. Compare safe editor-only asset refresh with current cache, preview and save/build/play paths. Identify behavior on malformed edits, pipeline and dependency invalidation, resource lifetime, and separation from published packages and script execution. Separate a full scene reload from an in-place refresh. No production file watcher or hot-reload implementation.
-
-**Finding.** [Asset refresh research](docs/0.14.0/asset-refresh.md) recommends a separately approved manual Inspect refresh for one PNG. Current reprepare can publish fallbacks. Keep active tests and packages out of scope. Performance was not measured.
-
-### 29. [GitHub #47: Research ECS scheduling](https://github.com/csd113/Places/issues/47)
-Research only. Compare Bevy-style data-access-aware scheduling with the current Places entity loop and targeted parallelism. Ground recommendations in an actual bottleneck and preserve event order, determinism, and main-thread ownership. No Bevy migration or production scheduler implementation.
-
-**Finding.** [ECS scheduling research](docs/0.14.0/ecs-scheduling.md) recommends keeping the ordered loop. Profile the pre-script visibility batch before considering a separately approved experiment on the existing worker pool. Performance was not measured. [#31](https://github.com/csd113/Places/issues/31) is related and remains closed.
 
 ### 30. [GitHub #15: Multiplayer and in-session text chat](https://github.com/csd113/Places/issues/15)
 **Deferred.** Leave GitHub #15 open. Keep this large feature behind core fixes and smaller work. Define a bounded join/host/leave and reconnect flow, synchronize movement and visible players, choose and document the shared interactions and world state, and add in-session text chat. Validate two players together and cleanup/reconnect under latency or disconnection. Do not broaden into unrelated engine or account work.
 
 ## Documentation and standalone showcase
-
-### 31. Broader documentation cleanup
-**Complete.** Independent review passed and the eight reviewed documentation files were published in [`33a3b583`](https://github.com/csd113/Places/commit/33a3b583d96566ad328184b474937c71426ec162). Preserved the docs index, version summaries and #45–47 research; removed superseded staging notes and verified the maintained guides. Source assets and release inputs were unchanged.
 
 ### 32. [GitHub #43: Technical architecture and API documentation](https://github.com/csd113/Places/issues/43)
 **Deferred.** Leave GitHub #43 open. The issue explicitly requests documentation, but the newer standing direction is **no routine task reports or reference sheets**. Reconcile that before writing. Cover current engine/game/editor/compiler responsibilities, shared ownership and important data contracts, and the real editor → compiler → package → player path. Verify links/examples against current code and prefer concise maintained content to copying the issue’s historical multi-document scope verbatim. This isn’t an architecture rewrite.
