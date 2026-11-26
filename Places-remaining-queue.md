@@ -225,6 +225,8 @@ Treat it as a snapshot of the current catalog to show friends, not a test fixtur
 - Small snowman model
 - Gingerbread man cookie
 - Gingerbread house that stays intact while held and breaks into separate pieces on impact when dropped. Verify pickup, drop, and breakup in the editor playtest.
+- Lit Christmas candles with visible flames
+- Wall-mounted snowflake decoration
 
 This item covers new assets and their editor-catalog validation. No new map, Mall decoration, or full bake is in scope.
 
