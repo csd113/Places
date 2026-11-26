@@ -774,14 +774,54 @@ impl App {
             Tool::Room,
             None,
         )?)));
-        if self.view.simple
-            && !self.dock.advanced
-            && let Err(error) = self.checked_authoring_form(false)
-        {
-            self.popup = None;
-            return Err(format!("Can't preview the adjacent room: {error}"));
+        if !self.view.simple || self.dock.advanced {
+            return Ok(());
         }
-        Ok(())
+        // Keep the established east proposal first. Failed checks do not
+        // change source, history or the viewport.
+        if self.apply_authoring_form(false).is_ok() {
+            return Ok(());
+        }
+        if let Some(alternatives) = self.document.as_ref().and_then(|doc| {
+            room_anchor(self, doc).map(|room| {
+                let (left, _, near, far) = room.bounds();
+                [
+                    [
+                        left - ADJACENT_ROOM_DEPTH,
+                        near,
+                        ADJACENT_ROOM_DEPTH,
+                        room.depth,
+                    ],
+                    [
+                        left,
+                        near - ADJACENT_ROOM_DEPTH,
+                        room.width,
+                        ADJACENT_ROOM_DEPTH,
+                    ],
+                    [left, far, room.width, ADJACENT_ROOM_DEPTH],
+                ]
+            })
+        }) {
+            for [x, z, width, depth] in alternatives {
+                if let Some(Popup::AuthoringForm(draft)) = &mut self.popup {
+                    for (field, content) in &mut draft.fields {
+                        let value = match field.path.as_ref() {
+                            "/x" => x,
+                            "/z" => z,
+                            "/width" => width,
+                            "/depth" => depth,
+                            _ => continue,
+                        };
+                        *content = value.to_string();
+                    }
+                }
+                if self.apply_authoring_form(false).is_ok() {
+                    return Ok(());
+                }
+            }
+        }
+        self.popup = None;
+        Err("No adjacent room fits. Select a room with an open edge and click Room again.".into())
     }
 
     #[expect(
@@ -1276,14 +1316,20 @@ fn room_fields() -> Vec<Field> {
     ]
 }
 
+const ADJACENT_ROOM_DEPTH: f32 = 4.0;
+
+fn room_anchor<'a>(
+    app: &App,
+    doc: &'a super::document::Document,
+) -> Option<&'a crate::engine::level::RoomDef> {
+    let Some(super::document::ObjectId::Room(slot)) = app.selected else {
+        return None;
+    };
+    doc.level().rooms.get(slot)
+}
+
 fn default_room(app: &App, doc: &super::document::Document) -> Value {
-    let anchor = app.selected.and_then(|id| {
-        if let super::document::ObjectId::Room(slot) = id {
-            doc.level().rooms.get(slot)
-        } else {
-            None
-        }
-    });
+    let anchor = room_anchor(app, doc);
     let x = anchor.map_or_else(
         || {
             doc.level()
@@ -1296,7 +1342,7 @@ fn default_room(app: &App, doc: &super::document::Document) -> Value {
     );
 
     serde_json::json!({"x":x,"z":anchor.map_or(0.0,|room|room.z),
-                "floor_y":anchor.map_or(0.0,|room|room.floor_y),"width":4.0_f32,"depth":anchor.map_or(4.0,|room|room.depth),
+                "floor_y":anchor.map_or(0.0,|room|room.floor_y),"width":ADJACENT_ROOM_DEPTH,"depth":anchor.map_or(ADJACENT_ROOM_DEPTH,|room|room.depth),
                 "height":anchor.map_or(2.7,|room|room.height)})
 }
 

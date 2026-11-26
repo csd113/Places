@@ -21,6 +21,7 @@ pub(super) struct Wizard {
     message: String,
     needs_upper: bool,
 }
+const DEFAULT_WIDTH: f32 = 1.2;
 const CHOOSE_FLOORS: &str = "Choose floors and width, then preview the shaft and landings.";
 
 impl Wizard {
@@ -44,7 +45,7 @@ impl Wizard {
             })
             .map_or(anchor, |(i, _)| i);
         let (lower, upper) = if app.view.simple && !app.dock.advanced {
-            basic_pair(doc.level(), anchor).ok_or("Add a room before connecting floors.")?
+            basic_pair(doc, anchor, &app.catalog).ok_or("Add a room before connecting floors.")?
         } else {
             (anchor, next_higher)
         };
@@ -52,7 +53,7 @@ impl Wizard {
         Ok(Self {
             lower,
             upper,
-            width: "1.2".into(),
+            width: DEFAULT_WIDTH.to_string(),
             expected: doc.raw().clone(),
             candidate: None,
             message: if needs_upper {
@@ -65,32 +66,65 @@ impl Wizard {
         })
     }
 }
-fn basic_pair(level: &LevelDef, anchor: usize) -> Option<(usize, usize)> {
-    let room = level.rooms.get(anchor)?;
-    let (x0, x1, z0, z1) = room.bounds();
-    let partner = level
-        .rooms
-        .iter()
-        .enumerate()
-        .filter_map(|(index, other)| {
-            let (lower, upper) = if other.floor_y < room.floor_y {
-                (index, anchor)
-            } else if other.floor_y > room.floor_y {
-                (anchor, index)
-            } else {
-                return None;
-            };
-            let (a, b, c, d) = other.bounds();
-            let overlaps = x0 < b && x1 > a && z0 < d && z1 > c;
-            let clearance = level.rooms.get(upper)?.floor_y - level.rooms.get(lower)?.eave_y()
-                >= MIN_STRUCTURE_M - 0.0001;
-            Some((
-                (lower, upper),
-                (overlaps, clearance && other.ceiling.is_flat()),
-            ))
+fn basic_pair(
+    doc: &Document,
+    anchor: usize,
+    catalog: &crate::engine::assets::AssetCatalog,
+) -> Option<(usize, usize)> {
+    let rooms = &doc.level().rooms;
+    let room = rooms.get(anchor)?;
+    let mut anchored = rooms.iter().enumerate().filter_map(|(index, other)| {
+        if other.floor_y < room.floor_y {
+            Some((index, anchor))
+        } else if other.floor_y > room.floor_y {
+            Some((anchor, index))
+        } else {
+            None
+        }
+    });
+    let heuristic = anchored.clone().max_by_key(|&(lower, upper)| {
+        let Some((low, high)) = rooms.get(lower).zip(rooms.get(upper)) else {
+            return (false, false);
+        };
+        let (x0, x1, z0, z1) = low.bounds();
+        let (a, b, c, d) = high.bounds();
+        let overlaps = x0 < b && x1 > a && z0 < d && z1 > c;
+        let clearance = high.floor_y - low.eave_y() >= MIN_STRUCTURE_M - 0.0001;
+        (
+            overlaps,
+            clearance && low.ceiling.is_flat() && high.ceiling.is_flat(),
+        )
+    });
+    let Some(fallback) = heuristic else {
+        return Some((anchor, anchor));
+    };
+
+    // Search with the same proposal used by Preview, then check the static
+    // edit gates used by Apply. A merely overlapping pair is only a fallback.
+    let fits = |&(lower, upper): &(usize, usize)| {
+        candidate(doc, lower, upper, DEFAULT_WIDTH, catalog).is_ok_and(|raw| {
+            doc.check_locked_edit(&raw).is_ok()
+                && super::document::intent::ensure_automatic_edit_allowed(doc.raw(), &raw).is_ok()
+                && doc.validate_candidate(&raw).is_ok()
         })
-        .max_by_key(|(_, rank)| *rank);
-    Some(partner.map_or((anchor, anchor), |(pair, _)| pair))
+    };
+    anchored
+        .find(fits)
+        .or_else(|| {
+            rooms
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| *index != anchor)
+                .find_map(|(lower, low)| {
+                    rooms
+                        .iter()
+                        .enumerate()
+                        .filter(|(upper, high)| *upper != anchor && high.floor_y > low.floor_y)
+                        .map(|(upper, _)| (lower, upper))
+                        .find(fits)
+                })
+        })
+        .or(Some(fallback))
 }
 
 fn split_room(room: &Value, cut: [f32; 4]) -> Result<Vec<Value>, String> {
