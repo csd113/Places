@@ -227,6 +227,7 @@ Treat it as a snapshot of the current catalog to show friends, not a test fixtur
 - Gingerbread house that stays intact while held and breaks into separate pieces on impact when dropped. Verify pickup, drop, and breakup in the editor playtest.
 - Lit Christmas candles with visible flames
 - Wall-mounted snowflake decoration
+- Snow globes with animated snowfall visible inside the glass when seen up close. Keep the snow within the globe and skip the effect at a distance.
 
 This item covers new assets and their editor-catalog validation. No new map, Mall decoration, or full bake is in scope.
 
