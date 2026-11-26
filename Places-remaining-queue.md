@@ -24,6 +24,11 @@
 ### 32. [GitHub #43: Technical architecture and API documentation](https://github.com/csd113/Places/issues/43)
 **Deferred.** Leave GitHub #43 open. The issue explicitly requests documentation, but the newer standing direction is **no routine task reports or reference sheets**. Reconcile that before writing. Cover current engine/game/editor/compiler responsibilities, shared ownership and important data contracts, and the real editor → compiler → package → player path. Verify links/examples against current code and prefer concise maintained content to copying the issue’s historical multi-document scope verbatim. This isn’t an architecture rewrite.
 
+## Editor usability
+
+### 35. Audit existing tools for a more beginner-friendly Basic mode
+**Queued, audit only.** Walk common workflows in the native editor as a first-time user, starting in Basic mode. Look for existing tools whose labels, placement flow, defaults, previews, instructions, Undo, or error recovery make a simple job harder than it needs to be. Check room and opening creation, stairs and escalators, railing and prop placement, lighting, and Quick Test. Separate screen-verified findings from source-only observations. Rank the strongest opportunities and describe a concrete simpler flow for each, keeping specialist controls in Advanced and avoiding extra steps for common tasks. Report recommendations before implementing anything.
+
 ## Not in this queue
 
 - GitHub #27–#31 are already closed as completed. Do not reopen, replay their old checklists or restore their work as separate tasks. Only overlapping checks independently required by an active issue still apply.
