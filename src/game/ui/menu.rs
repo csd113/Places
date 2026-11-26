@@ -9,6 +9,7 @@ use crate::{
     game::display::DisplayStatus,
     game::settings::{AudioVolume, Settings, WindowMode},
 };
+use sdl3::event::Event;
 use std::hash::{Hash, Hasher};
 
 const TEXT: [f32; 3] = [1.0, 0.95, 0.84];
@@ -1196,7 +1197,50 @@ pub(super) fn loading(ui: &UiState, _version: &str) -> Vec<Vertex> {
     vertices
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CapturedVolumeMotion {
+    Unhandled,
+    Held,
+    Recovered { changed: bool },
+}
+
 impl UiState {
+    /// An unpressed SDL motion ends a lost-release gesture before its
+    /// coordinates can move the slider. The ordinary button-up path samples
+    /// its release position separately.
+    pub(crate) fn handle_captured_volume_motion(
+        &mut self,
+        settings: &mut Settings,
+        event: &Event,
+        track_x: impl FnOnce([f32; 2]) -> Option<f32>,
+    ) -> CapturedVolumeMotion {
+        if !self.volume_drag_active() {
+            return CapturedVolumeMotion::Unhandled;
+        }
+        let Event::MouseMotion {
+            x,
+            y,
+            xrel,
+            yrel,
+            mousestate,
+            timestamp: _,
+            window_id: _,
+            which: _,
+        } = event
+        else {
+            return CapturedVolumeMotion::Unhandled;
+        };
+        if let Some(changed) = self.recover_volume_drag(settings, mousestate.left()) {
+            return CapturedVolumeMotion::Recovered { changed };
+        }
+        if (xrel.abs() > 0.0 || yrel.abs() > 0.0)
+            && let Some(sample) = track_x([*x, *y])
+        {
+            self.update_volume_drag(settings, sample);
+        }
+        CapturedVolumeMotion::Held
+    }
+
     /// Vertical grid movement never skips a pinned action on an odd last row.
     pub(crate) fn move_level_row(&mut self, up: bool) {
         let total = self.level_entries.len();

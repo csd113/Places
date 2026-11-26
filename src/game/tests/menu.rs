@@ -544,3 +544,57 @@ fn audio_drag_clamps_the_captured_row_and_requests_one_save() -> Result<(), Stri
     );
     Ok(())
 }
+
+// Real SDL motion events exercise the native router's lost button-up path.
+// No window, assets, or on-disk settings are needed.
+#[test]
+fn captured_audio_motion_without_left_button_commits_last_held_sample_once() {
+    use crate::game::settings::AudioVolume::Ambient;
+    use sdl3::mouse::MouseState;
+
+    let mut settings = Settings::default();
+    let mut ui = UiState::new();
+    let hit = MenuHit {
+        index: 1,
+        intent: MenuIntent::Volume(Ambient),
+    };
+    assert_eq!(ui.pointer.button(true, Some(hit)), Some(hit));
+    ui.start_volume_drag(Ambient, &settings);
+    let motion = |x, xrel, left_held| Event::MouseMotion {
+        timestamp: 0,
+        window_id: 1,
+        which: 0,
+        mousestate: MouseState::from_sdl_state(u32::from(left_held)),
+        x,
+        y: 100.0,
+        xrel,
+        yrel: 0.0,
+    };
+    let track_x = |[x, _]: [f32; 2]| Some(x);
+    assert_eq!(
+        ui.handle_captured_volume_motion(&mut settings, &motion(372.0, 48.0, true), track_x),
+        CapturedVolumeMotion::Held,
+    );
+    assert_eq!(settings.audio_volume(Ambient).to_bits(), 0.5_f32.to_bits());
+    assert_eq!(
+        ui.handle_captured_volume_motion(&mut settings, &motion(500.0, 0.0, false), track_x),
+        CapturedVolumeMotion::Recovered { changed: true },
+        "even stationary unpressed motion must recover before sampling its position"
+    );
+    assert!(
+        !ui.volume_drag_active(),
+        "keyboard input must not stay blocked"
+    );
+    assert_eq!(
+        ui.handle_captured_volume_motion(&mut settings, &motion(0.0, -500.0, false), track_x),
+        CapturedVolumeMotion::Unhandled,
+        "later motion must not revive the drag or request another write"
+    );
+    assert_eq!(settings.audio_volume(Ambient).to_bits(), 0.5_f32.to_bits());
+    assert_eq!(ui.recover_volume_drag(&settings, false), None);
+    assert_eq!(
+        ui.pointer.button(true, Some(hit)),
+        Some(hit),
+        "the next click is fresh"
+    );
+}

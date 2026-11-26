@@ -35,9 +35,8 @@ impl Console {
         self.open
     }
 
-    /// A closed gameplay console may claim its binding. Once open, ordinary
-    /// keys belong to the editor (including a rebound Return); Escape closes
-    /// it, and the default grave key remains a toggle.
+    /// Only gameplay owns the console binding. Once open, Return submits the
+    /// command (even if it opened the console); all other bindings still toggle.
     pub(crate) fn wants_toggle(
         &self,
         event: &Event,
@@ -47,7 +46,7 @@ impl Console {
     ) -> bool {
         enabled
             && state == AppState::Playing
-            && (!self.open || crate::game::input::pressed_key(event) == Some(Keycode::Grave))
+            && (!self.open || crate::game::input::pressed_key(event) != Some(Keycode::Return))
             && toggle_key(event, binding)
     }
 

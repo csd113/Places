@@ -10,7 +10,7 @@ use crate::game::settings::{AudioVolume, KeyBindings, Settings, WindowMode};
 mod health;
 pub use health::{append_flashlight_status, append_player_health, flashlight_status};
 mod menu;
-pub(crate) use menu::{LEVEL_IMPORT_ACTIONS, level_icon_bounds};
+pub(crate) use menu::{CapturedVolumeMotion, LEVEL_IMPORT_ACTIONS, level_icon_bounds};
 mod subtitles;
 pub(crate) use subtitles::Subtitles;
 mod pointer;
@@ -233,6 +233,20 @@ impl UiState {
         self.volume_drag.take().is_some_and(|drag| {
             drag.initial.to_bits() != settings.audio_volume(drag.control).to_bits()
         })
+    }
+
+    /// When SDL no longer sees a press, commit the last held sample and clear
+    /// the click latch even if the corresponding button-up never arrived.
+    pub(crate) fn recover_volume_drag(
+        &mut self,
+        settings: &Settings,
+        left_held: bool,
+    ) -> Option<bool> {
+        if left_held || !self.volume_drag_active() {
+            return None;
+        }
+        self.pointer.focus(false);
+        Some(self.finish_volume_drag(settings))
     }
 
     pub(crate) const fn cancel_restore_defaults(&mut self) {

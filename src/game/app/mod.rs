@@ -949,6 +949,15 @@ impl FrameLoop<'_> {
         if !self.game.is_running() {
             return;
         }
+        // After queued button-up events had the chance to sample the release,
+        // also recover a lost release even if the pointer has not moved.
+        if self.ui_state.volume_drag_active()
+            && let Some(changed) = self
+                .ui_state
+                .recover_volume_drag(self.settings, self.event_pump.mouse_state().left())
+        {
+            self.complete_volume_drag(changed);
+        }
         // Relative mouse mode follows the app state and window focus exactly;
         // the reconciliation is one per frame and only calls SDL on a change.
         self.sync_mouse_capture();
@@ -2482,6 +2491,21 @@ impl FrameLoop<'_> {
     }
 
     fn handle_menu_motion(&mut self, event: &Event) -> bool {
+        if self.window_focused && self.ui_state.volume_drag_active() {
+            let window: &Window = self.window;
+            match self
+                .ui_state
+                .handle_captured_volume_motion(self.settings, event, |point| {
+                    Self::volume_track_x(window, point)
+                }) {
+                ui::CapturedVolumeMotion::Unhandled => {}
+                ui::CapturedVolumeMotion::Held => return true,
+                ui::CapturedVolumeMotion::Recovered { changed } => {
+                    self.complete_volume_drag(changed);
+                    return true;
+                }
+            }
+        }
         if let Event::MouseMotion {
             x,
             y,
@@ -2496,10 +2520,6 @@ impl FrameLoop<'_> {
             // SDL emits stationary/synthetic events when capture changes. They
             // must not replace keyboard selection or hover on menu opening.
             if self.window_focused && (xrel.abs() > 0.0 || yrel.abs() > 0.0) {
-                if self.ui_state.volume_drag_active() {
-                    self.update_volume_drag(*x, *y);
-                    return true;
-                }
                 let hit = self.menu_hit(*x, *y);
                 if self.ui_state.pointer.motion([*x, *y], hit)
                     && let Some(hovered) = hit
@@ -2517,21 +2537,30 @@ impl FrameLoop<'_> {
         false
     }
 
+    fn volume_track_x(window: &Window, point: [f32; 2]) -> Option<f32> {
+        let (width, height) = window.size_in_pixels();
+        DrawableSize::new(width, height)
+            .window_to_ui_unclipped(window.size(), point)
+            .map(|[track_x, _]| track_x)
+    }
+
     fn update_volume_drag(&mut self, x: f32, y: f32) {
-        let (width, height) = self.window.size_in_pixels();
-        if let Some([track_x, _]) =
-            DrawableSize::new(width, height).window_to_ui_unclipped(self.window.size(), [x, y])
-        {
+        if let Some(track_x) = Self::volume_track_x(self.window, [x, y]) {
             self.ui_state.update_volume_drag(self.settings, track_x);
         }
     }
 
     fn finish_volume_drag(&mut self) {
         if self.ui_state.volume_drag_active() {
-            self.sdl.mouse().capture(false);
-            if self.ui_state.finish_volume_drag(self.settings) {
-                self.save_settings();
-            }
+            let changed = self.ui_state.finish_volume_drag(self.settings);
+            self.complete_volume_drag(changed);
+        }
+    }
+
+    fn complete_volume_drag(&mut self, changed: bool) {
+        self.sdl.mouse().capture(false);
+        if changed {
+            self.save_settings();
         }
     }
 
