@@ -125,7 +125,15 @@ pub(super) fn read_manifest(project: &ProjectFolder) -> Result<Vec<u8>, String> 
     read_bounded_file(&manifest, MAX_MANIFEST_BYTES)
 }
 
+#[cfg(test)]
+thread_local! {
+    // Count at the serialize/parse boundary, independently for each test thread.
+    pub(super) static RAW_VALIDATION_CALLS: std::cell::Cell<usize> = const { std::cell::Cell::new(0) };
+}
+
 pub(super) fn validate_raw(raw: &Value, expected_id: &str) -> Result<(LevelDef, usize), String> {
+    #[cfg(test)]
+    RAW_VALIDATION_CALLS.set(RAW_VALIDATION_CALLS.get().saturating_add(1));
     let mut timing = crate::engine::perf::loading::StageTimer::new("editor-validate");
     super::intent::validate_raw(raw)?;
     timing.step("intent");

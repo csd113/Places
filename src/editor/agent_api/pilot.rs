@@ -133,14 +133,9 @@ pub(in crate::editor) struct ReplaceFixture<'a> {
     pub catalog: &'a AssetCatalog,
 }
 
-impl PilotCommand for ReplaceFixture<'_> {
-    const CAPABILITY: Capability = Capability {
-        id: "light.replace_fixture",
-        version: 1,
-    };
-    type Prepared = Value;
-
-    fn stage(self, doc: &Document) -> Result<Self::Prepared, Error> {
+impl ReplaceFixture<'_> {
+    /// Resolve the target and catalog choice into an unvalidated editor draft.
+    pub(in crate::editor) fn candidate(self, doc: &Document) -> Result<Value, Error> {
         if doc.level().ceiling_lights.get(self.light).is_none() {
             return Err(Error::InvalidInput(
                 "Select a light first, then apply this fixture.",
@@ -155,9 +150,20 @@ impl PilotCommand for ReplaceFixture<'_> {
                 "Choose a light fixture from the catalog",
             ));
         }
-        let candidate = doc
-            .fixture_candidate(self.light, self.asset)
-            .map_err(Error::Rejected)?;
+        doc.fixture_candidate(self.light, self.asset)
+            .map_err(Error::Rejected)
+    }
+}
+
+impl PilotCommand for ReplaceFixture<'_> {
+    const CAPABILITY: Capability = Capability {
+        id: "light.replace_fixture",
+        version: 1,
+    };
+    type Prepared = Value;
+
+    fn stage(self, doc: &Document) -> Result<Self::Prepared, Error> {
+        let candidate = self.candidate(doc)?;
         doc.check_locked_edit(&candidate).map_err(Error::Rejected)?;
         drop(
             doc.validate_candidate(&candidate)

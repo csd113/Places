@@ -5,10 +5,7 @@ use super::super::{Document, ObjectId, objects};
 use super::triggers::set_trigger_policy;
 use super::{GameplaySetting, unused_physics_group};
 use crate::engine::physics::config::{BodyMotion, PhysicsDef};
-use crate::{
-    editor::agent_api::{PilotCommand as _, ReplaceFixture},
-    engine::assets::AssetCatalog,
-};
+use crate::{editor::agent_api::ReplaceFixture, engine::assets::AssetCatalog};
 use serde_json::{Value, json};
 
 impl Document {
@@ -323,7 +320,9 @@ impl Document {
                 asset,
                 catalog,
             }
-            .prepare_current(self)?;
+            .candidate(self)
+            .map_err(|error| error.to_string())?;
+            // The native commit gateway admits the draft before its only full validation.
             return self.accept_edit(candidate);
         }
         let mut raw = self.asset_candidate_base()?;

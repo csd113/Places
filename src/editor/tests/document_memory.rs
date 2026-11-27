@@ -23,6 +23,55 @@ fn memory_refusal_preserves_unsaved_source_and_undo() -> Result<(), String> {
     result
 }
 
+// A constrained starter tests the native fixture workflow without allocating a
+// large scene. It guards budget ordering as well as the cost of accepted edits.
+#[test]
+fn fixture_commit_checks_budget_before_a_single_full_validation() -> Result<(), String> {
+    use super::{ObjectId, ObjectKind, document_memory_error, persistence::RAW_VALIDATION_CALLS};
+    use crate::engine::assets::AssetCatalog;
+
+    let path = std::env::temp_dir().join(format!("places-fixture-budget-{}", std::process::id()));
+    let mut document = Document::create(&path, "fixture_budget", "Fixture budget")?;
+    let result = (|| {
+        let catalog = AssetCatalog::from_json_str(include_str!("../../../assets/catalog.json"))?;
+        let original = document.raw().clone();
+        let _existing_edit = document.add(ObjectKind::Light, [2.0, 1.0, 2.0], None)?;
+        let before = document.raw().clone();
+        let budget = document.heap_budget;
+        document.heap_budget = document.heap_charge();
+        let history = document.resource_snapshot();
+
+        // This wall fixture would fail scene validation for missing height.
+        // Budget refusal must happen first, without entering the validator.
+        RAW_VALIDATION_CALLS.set(0);
+        assert_eq!(
+            document.set_gameplay_asset(ObjectId::Light(0), "core:pool_light_wall", &catalog),
+            Err(document_memory_error())
+        );
+        assert_eq!(RAW_VALIDATION_CALLS.get(), 0);
+        assert_eq!(document.raw(), &before);
+        assert_eq!(document.resource_snapshot(), history);
+        assert!(document.is_dirty() && document.can_undo() && !document.can_redo());
+
+        document.heap_budget = budget;
+        document.set_gameplay_asset(ObjectId::Light(0), "core:pool_light_round", &catalog)?;
+        assert_eq!(
+            RAW_VALIDATION_CALLS.get(),
+            1,
+            "native commit must validate exactly once"
+        );
+        assert!(document.undo());
+        assert_eq!(document.raw(), &before);
+        assert!(document.undo());
+        assert_eq!(document.raw(), &original);
+        assert!(!document.can_undo());
+        Ok(())
+    })();
+    drop(document);
+    std::fs::remove_dir_all(&path).map_err(|error| error.to_string())?;
+    result
+}
+
 // Fragmented unknown JSON previously bypassed admission on first Open. A small
 // injectable budget also proves map-switch refusal preserves dirty source and
 // history; no stress allocations, renderer or asset/bake work are needed.
