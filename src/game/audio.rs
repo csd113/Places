@@ -11,6 +11,8 @@ use glam::{Mat4, Vec3};
 #[path = "tests/audio_environment.rs"]
 mod tests;
 
+pub mod christmas;
+
 pub const HVAC_CUE: &str = "ambience_hvac";
 const ELEVATOR_RIDE_SOURCE: SourceId = SourceId(u64::MAX - 4);
 
@@ -21,6 +23,7 @@ pub struct WorldAudio {
     last_feet: Option<Vec3>,
     distance: f32,
     environment_ready: bool,
+    christmas: christmas::Props,
     fluorescents: Vec<(usize, Vec3, bool)>,
     pools: Vec<crate::engine::level::WaterVolumeDef>,
     ducts: Vec<DuctSource>,
@@ -106,6 +109,26 @@ impl WorldAudio {
         }
     }
 
+    pub(crate) fn play_authored(
+        &mut self, system: &mut AudioSystem, cue: &str, request: PlayRequest,
+    ) -> bool {
+        self.christmas.play(system, cue, request)
+    }
+
+    pub(crate) fn stop_authored(&mut self, system: &mut AudioSystem, source: SourceId) {
+        self.christmas.stop(system, source);
+    }
+
+    pub(crate) fn update_christmas(
+        &mut self, game: &Game, items: &ItemWorld, system: &mut AudioSystem,
+    ) {
+        self.christmas.update(game.entities(), items, game.world_delta_seconds(), system);
+    }
+
+    pub(crate) const fn christmas_witness(&self) -> christmas::Witness {
+        self.christmas.witness
+    }
+
     pub const fn ready(&self) -> bool {
         self.environment_ready
     }
@@ -155,6 +178,7 @@ impl WorldAudio {
             .collect();
         self.pools.clone_from(&level.water);
         self.ducts = duct_sources(level, catalog);
+        self.christmas.prepare(level);
         self.environment_ready = true;
     }
 

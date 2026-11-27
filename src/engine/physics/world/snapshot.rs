@@ -33,6 +33,32 @@ impl ItemWorld {
         ))
     }
 
+    /// Non-interpolated position, accepted linear velocity and angular velocity.
+    /// Carried bodies use the swept hand solver, not mouse input or kinematic lag.
+    pub(crate) fn resolved_body_motion(&self, key: u64) -> Option<(Vec3, Vec3, Vec3)> {
+        let runtime = self.runtime.as_ref()?;
+        let entry = runtime.entries.get(&key)?;
+        if entry.dormant || entry.recovery.suspended {
+            return None;
+        }
+        let body = runtime.world.bodies.get(entry.body)?;
+        let (linear, angular) = runtime
+            .held
+            .as_ref()
+            .filter(|held| held.key == key)
+            .map_or_else(
+                || {
+                    if body.is_sleeping() {
+                        (Vec3::ZERO, Vec3::ZERO)
+                    } else {
+                        (point(body.linvel()), point(body.angvel()))
+                    }
+                },
+                super::super::hold::HeldItem::accepted_motion,
+            );
+        Some((entry.current.position, linear, angular))
+    }
+
     /// Emits interpolated model-origin poses in stable key order.
     pub fn for_each_pose(&self, mut visit: impl FnMut(u64, ItemPose)) {
         let Some(runtime) = self.runtime.as_ref() else {

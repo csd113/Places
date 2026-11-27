@@ -798,10 +798,20 @@
     "sha256": "0111a91e5581547accda95762ee2b218693b9306eb3d051b07df7f8fb6354e20",
     "source": "entities/carved-pumpkin/model/carved-pumpkin.glb"
   },
+  "christmas:advent_calendar_open": {
+    "path": "editor/previews/item39_advent_calendar_open.png",
+    "sha256": "608d0c589cbf08f1a0bb86710076dac52f32a36160c80c193a093ece857a82cb",
+    "source": "environments/christmas/props/advent_calendar_open.glb"
+  },
   "christmas:angel_statue": {
     "path": "editor/previews/item34_angel_statue.png",
     "sha256": "599b7efc7fd30ba8da456d75682ca2d1ad8d2722f15d367b1c6916d79e7b065d",
     "source": "environments/christmas/props/angel_statue.glb"
+  },
+  "christmas:brass_sleigh_bells": {
+    "path": "editor/previews/item39_brass_sleigh_bells.png",
+    "sha256": "1a45014fd7871db1e35255ca90be32d06c137357ff09bb75d77d8c8be64cfcc5",
+    "source": "environments/christmas/props/brass_sleigh_bells.glb"
   },
   "christmas:candle_cream": {
     "path": "editor/previews/item34_candle_cream.png",
@@ -817,6 +827,16 @@
     "path": "editor/previews/item34_candy_cane.png",
     "sha256": "73ce0042b35fb0eff9eb342fc523f496ee460ed274f07aa0147e09a04f3f4f55",
     "source": "environments/christmas/props/candy_cane.glb"
+  },
+  "christmas:foil_tinsel_draped": {
+    "path": "editor/previews/item39_foil_tinsel_draped.png",
+    "sha256": "fa4f791a60d97853a6133980c69f1402d51ce437adf6b03ec602d7a52c4693e7",
+    "source": "environments/christmas/props/foil_tinsel_draped.glb"
+  },
+  "christmas:foil_tinsel_straight": {
+    "path": "editor/previews/item39_foil_tinsel_straight.png",
+    "sha256": "a5ca808a5d5d444fa9f8aa2d244d3dd9af0de0555ce1a822f174a11d6f98dc0d",
+    "source": "environments/christmas/props/foil_tinsel_straight.glb"
   },
   "christmas:gingerbread_cookie": {
     "path": "editor/previews/item34_gingerbread_cookie.png",
@@ -912,6 +932,11 @@
     "path": "editor/previews/item34_toy_train.png",
     "sha256": "8dbc3cd1b63002ca4082b281f8c6cadb1d4a4cef3d80b75e6843951b185de2af",
     "source": "environments/christmas/props/toy_train.glb"
+  },
+  "christmas:windup_music_box": {
+    "path": "editor/previews/item39_windup_music_box.png",
+    "sha256": "71746d87f030f157dbc93a9afc45007d14f7c1bb2e750fb67eae427417d9e7b4",
+    "source": "environments/christmas/props/windup_music_box.glb"
   },
   "christmas:wreath_hanging": {
     "path": "editor/previews/item34_wreath_hanging.png",

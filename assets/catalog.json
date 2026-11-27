@@ -13925,6 +13925,103 @@
       }
     },
     {
+      "id": "christmas:windup_music_box",
+      "display_name": "Wind-up Music Box",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/windup_music_box.glb",
+      "size": [
+        0.327,
+        0.206434,
+        0.231927
+      ],
+      "color": "#705038",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Music box with an open lid and wind key. Wind it to hear the original Counter Window tune slow and fade."
+    },
+    {
+      "id": "christmas:advent_calendar_open",
+      "display_name": "Advent Calendar",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/advent_calendar_open.glb",
+      "size": [
+        0.349,
+        0.302,
+        0.065973
+      ],
+      "color": "#9c302c",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Wall or counter Advent calendar with five doors already open."
+    },
+    {
+      "id": "christmas:brass_sleigh_bells",
+      "display_name": "Brass Sleigh Bells",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/brass_sleigh_bells.glb",
+      "size": [
+        0.396,
+        0.059952,
+        0.07584
+      ],
+      "color": "#a97d3f",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Pickup leather strap with brass bells that jingle in response to motion.",
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.28,
+        "friction": 0.65,
+        "restitution": 0.09,
+        "pickup": true
+      }
+    },
+    {
+      "id": "christmas:foil_tinsel_draped",
+      "display_name": "Foil Tinsel Garland (Draped)",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/foil_tinsel_draped.glb",
+      "size": [
+        1.611651,
+        0.350213,
+        0.128111
+      ],
+      "color": "#caaa71",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Draped foil garland for a storefront, with three hook points."
+    },
+    {
+      "id": "christmas:foil_tinsel_straight",
+      "display_name": "Foil Tinsel Garland (Straight)",
+      "asset_class": "environment",
+      "theme": "christmas",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/christmas/props/foil_tinsel_straight.glb",
+      "size": [
+        1.059702,
+        0.116949,
+        0.123224
+      ],
+      "color": "#caaa71",
+      "category": "Decorative",
+      "solid": false,
+      "description": "Straight foil garland for a shelf edge or railing."
+    },
+    {
       "id": "christmas:stocking_wall",
       "display_name": "Wall Christmas Stocking",
       "asset_class": "environment",

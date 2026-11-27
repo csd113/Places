@@ -198,7 +198,7 @@ impl Session {
                 if sound == crate::game::audio::HVAC_CUE {
                     return Ok(());
                 }
-                let _played = audio.play(&sound, PlayRequest { direction: None,
+                let _played = self.audio.play_authored(audio, &sound, PlayRequest { direction: None,
                     source: Some(SourceId(entity)), position: self.game.entities().audio_source_position(entity), spatial: mix.spatial,
                     attenuation: mix.attenuation, gain, looping: Some(looped), time_domain,
                     bus: mix.bus,
@@ -206,7 +206,7 @@ impl Session {
                     cursor_seconds: 0.0, replacement_fade: 0.0,
                 });
             }
-            WorldCommand::StopSound { entity } => audio.stop_source(SourceId(entity)),
+            WorldCommand::StopSound { entity } => self.audio.stop_authored(audio, SourceId(entity)),
             WorldCommand::ChangeLevel(transition) => return Err(format!("Quick test reached transition to '{}'. Cross-level travel requires a final project package.", transition.level())),
             WorldCommand::SaveCheckpoint { name } => return Err(format!("Quick test requested checkpoint '{name}'. Persistent checkpoints require final package testing.")),
             WorldCommand::ResumeCheckpoint => return Err("Resuming saved checkpoints requires final package testing.".into()),

@@ -676,6 +676,58 @@
       "min_distance": 4,
       "max_distance": 18,
       "rms_amplitude": 0.033999983811618326
+    },
+    {
+      "id": "christmas_music_box_wind",
+      "files": [
+        "christmas_music_box_wind/01.wav"
+      ],
+      "gain": 0.9,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 0.5,
+      "max_distance": 5,
+      "rms_amplitude": 0.04322261
+    },
+    {
+      "id": "christmas_music_box_run_down",
+      "files": [
+        "christmas_music_box_run_down/01.wav"
+      ],
+      "gain": 0.83,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 0.6,
+      "max_distance": 8,
+      "rms_amplitude": 0.09365669
+    },
+    {
+      "id": "christmas_sleigh_jingle_soft",
+      "files": [
+        "christmas_sleigh_jingle_soft/01.wav",
+        "christmas_sleigh_jingle_soft/02.wav",
+        "christmas_sleigh_jingle_soft/03.wav"
+      ],
+      "gain": 0.8,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 0.5,
+      "max_distance": 6,
+      "rms_amplitude": 0.03270616
+    },
+    {
+      "id": "christmas_sleigh_jingle_firm",
+      "files": [
+        "christmas_sleigh_jingle_firm/01.wav",
+        "christmas_sleigh_jingle_firm/02.wav",
+        "christmas_sleigh_jingle_firm/03.wav"
+      ],
+      "gain": 0.8,
+      "looping": false,
+      "spatial": true,
+      "min_distance": 0.7,
+      "max_distance": 8,
+      "rms_amplitude": 0.11689101
     }
   ]
 }

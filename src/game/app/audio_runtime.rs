@@ -55,6 +55,10 @@ impl Audio {
         self.world.light_toggles(toggles);
     }
 
+    pub(super) fn stop_authored(&mut self, source: SourceId) {
+        self.world.stop_authored(&mut self.system, source);
+    }
+
     pub fn finish(&mut self) {
         self.capture_output();
         self.capture = None;
@@ -248,6 +252,9 @@ impl FrameLoop<'_> {
             self.audio.world.reset_movement();
         }
         self.update_environment_audio();
+        if active {
+            self.audio.world.update_christmas(self.game, &self.items.world, &mut self.audio.system);
+        }
         // Only live controls are visited, capped by the backend voice budget.
         // Routed entities publish their current transform through this seam.
         self.audio.system.update_source_positions(|source| {
@@ -341,7 +348,8 @@ impl FrameLoop<'_> {
         // Existing room/vending emitters retain their authored identity and
         // actions, but HVAC playback is derived only from placed duct stock.
         let played = sound != HVAC_CUE
-            && self.audio.system.play(
+            && self.audio.world.play_authored(
+                &mut self.audio.system,
                 sound,
                 PlayRequest {
                     source: Some(SourceId(entity)),

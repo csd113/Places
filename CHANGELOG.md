@@ -17,6 +17,8 @@ and linked reports retain historical implementation and validation details.
 
 ### Christmas assets
 
+- Add the wind-up music box, open Advent calendar, motion-driven brass sleigh
+  bells, and draped and straight foil tinsel to the Christmas prop picker.
 - Add a Christmas asset theme with original wall decorations, wrapped parcels,
   wooden toys, sweets, candle flames, light strings, snow globes, a small snowman,
   pinecones and a separately rigged Santa Claus model.

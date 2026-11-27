@@ -1740,9 +1740,7 @@ impl FrameLoop<'_> {
                     self.play_authored_sound(entity, &sound, gain, looped, time_domain);
                 }
                 crate::engine::entities::WorldCommand::StopSound { entity } => {
-                    self.audio
-                        .system
-                        .stop_source(crate::engine::audio::SourceId(entity));
+                    self.audio.stop_authored(crate::engine::audio::SourceId(entity));
                 }
                 crate::engine::entities::WorldCommand::SetEffectEnabled { index, enabled } => {
                     let effect_index = usize::try_from(index).unwrap_or(usize::MAX);

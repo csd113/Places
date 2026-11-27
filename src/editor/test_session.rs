@@ -307,6 +307,7 @@ impl Session {
         let (listener_position, _) = self.listener_pose();
         self.audio
             .update_environment(listener_position, seconds, audio);
+        self.audio.update_christmas(&self.game, &self.physics.world, audio);
         self.update_audio(audio, false);
         self.update_script_status()?;
         if !self.game.is_running() {
@@ -613,6 +614,7 @@ impl Session {
             "script_failed": self.game.entities().script_failed(),
             "navigation_ready": self.game.navigation().is_some(),
             "audio": self.audio_stats,
+            "christmas_audio": self.audio.christmas_witness(),
             "warning": self.warning,
             "limitations": LIMITATIONS,
             "status": self.status(),

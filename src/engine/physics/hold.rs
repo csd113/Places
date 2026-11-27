@@ -56,6 +56,7 @@ pub(super) struct HeldItem {
     route: Option<CarryRoute>,
     control_delta: f32,
     block_dynamic: bool,
+    accepted_linear_velocity: Vec3,
     angular_velocity: Vec3,
     obstructed_seconds: f32,
     solver_anchor: Option<CarryAnchor>,
@@ -79,6 +80,10 @@ struct CommandCarryAnchor {
 }
 
 impl HeldItem {
+    pub(super) const fn accepted_motion(&self) -> (Vec3, Vec3) {
+        (self.accepted_linear_velocity, self.angular_velocity)
+    }
+
     pub(super) const fn checkpoint_rotation(&self) -> [f32; 4] {
         self.relative_rotation.to_array()
     }
@@ -89,6 +94,7 @@ impl HeldItem {
             route: None,
             control_delta: FIXED_STEP,
             block_dynamic: false,
+            accepted_linear_velocity: Vec3::ZERO,
             angular_velocity: Vec3::ZERO,
             obstructed_seconds: 0.0,
             solver_anchor: None,
@@ -733,6 +739,7 @@ impl ItemWorld {
             route: None,
             control_delta: FIXED_STEP,
             block_dynamic: false,
+            accepted_linear_velocity: Vec3::ZERO,
             angular_velocity: Vec3::ZERO,
             obstructed_seconds: 0.0,
             solver_anchor: None,
@@ -1136,6 +1143,7 @@ impl Runtime {
         if let Some(held) = self.held.as_mut() {
             held.control_delta = delta;
             held.block_dynamic = immediate;
+            held.accepted_linear_velocity = Vec3::ZERO;
             held.angular_velocity = Vec3::ZERO;
         }
         let Some(held) = self.held.as_ref() else {
@@ -1213,6 +1221,10 @@ impl Runtime {
             } else {
                 raw_delta
             };
+            current_held.accepted_linear_velocity = scaled(
+                subtract(point(target.translation), point(start.translation)),
+                1.0 / delta,
+            );
             current_held.angular_velocity = scaled(rotation_delta.to_scaled_axis(), 1.0 / delta);
         }
         if let Some(held_body) = self.world.bodies.get_mut(body_handle) {

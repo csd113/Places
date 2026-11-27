@@ -920,7 +920,9 @@ pub(in crate::editor) fn apply_mechanism_preset(
             }]
         }))
     } else {
-        panel_preset(model).or_else(|| crate::engine::animated_door::preset(model))
+        panel_preset(model)
+            .or_else(|| crate::engine::animated_door::preset(model))
+            .or_else(|| crate::game::audio::christmas::music_box_preset(model))
     };
     let Some(preset) = candidate else {
         return Ok(());
