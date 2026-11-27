@@ -70,12 +70,12 @@ impl App {
                 .ok_or("Open an idle project and close editor tools before enabling the agent")?
                 .clone();
             let command = self.agent.enable(&scope)?;
-            if window
-                .subsystem()
-                .clipboard()
-                .set_clipboard_text(&command)
-                .is_err()
-            {
+            if !Self::copy_agent_command(
+                #[cfg(test)]
+                &mut self.agent_clipboard_capture,
+                window,
+                &command,
+            ) {
                 let _revoked = self.agent.pause();
                 return Err("Could not copy the session command. Agent remains paused.".into());
             }
@@ -88,6 +88,24 @@ impl App {
             let _unsupported = (&self.agent, window);
             Err("Agent sessions are unavailable on this platform".into())
         }
+    }
+
+    #[cfg(windows)]
+    fn copy_agent_command(
+        #[cfg(test)] output: &mut Option<String>,
+        window: &Window,
+        command: &str,
+    ) -> bool {
+        #[cfg(test)]
+        if let Some(capture) = output {
+            command.clone_into(capture);
+            return true;
+        }
+        window
+            .subsystem()
+            .clipboard()
+            .set_clipboard_text(command)
+            .is_ok()
     }
 
     pub(super) fn agent_before_event(&mut self, event: &Event, window: &Window) {

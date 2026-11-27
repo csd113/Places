@@ -96,6 +96,8 @@ impl Capture {
 
 struct App {
     agent: agent_api::Session,
+    #[cfg(all(test, windows))]
+    agent_clipboard_capture: Option<String>,
     capture: Option<Capture>,
     document: Option<Document>,
     viewport: Viewport,
@@ -571,6 +573,8 @@ fn create_app(
     let preview_audio = startup_audio.finish(sdl, pump)?;
     let app = App {
         agent: agent_api::Session::default(),
+        #[cfg(all(test, windows))]
+        agent_clipboard_capture: None,
         capture,
         document: None,
         viewport,
