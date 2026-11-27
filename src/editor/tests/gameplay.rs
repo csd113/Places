@@ -44,6 +44,72 @@ impl Drop for Fixture {
     }
 }
 
+// Compare the native Power setter with a staged draft, preserving authored
+// values, effective intensity and the whole undo snapshot. A tiny fixture
+// also exercises non-finite rejection without a renderer or full map bake.
+#[test]
+fn native_light_power_staging_preserves_values_and_one_step_history() -> Result<(), String> {
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Light power",
+        "spawn":{"x":1_u32,"z":1_u32},"rooms":[{"width":8_u32,"depth":8_u32,"height":3_u32}],
+        "ceiling_lights":[
+            {"id":"target","fixture":"core:fluorescent_panel_01","x":2_u32,"z":3_u32,"range":6_u32},
+            {"id":"neighbor","fixture":"core:fluorescent_panel_01","x":4_u32,"z":3_u32,"brightness":0.75_f32}
+        ]
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let catalog = AssetCatalog::builtin();
+    let selected = ObjectId::Light(0);
+    let before = doc.raw().clone();
+    assert_eq!(doc.gameplay_value(selected, S::Brightness), json!(1.0_f32));
+
+    let mut staged = before.clone();
+    for invalid in [f32::NAN, f32::INFINITY, f32::NEG_INFINITY] {
+        assert_eq!(
+            Document::stage_light_power(&mut staged, 0, invalid)
+                .err()
+                .as_deref(),
+            Some("Enter a finite number")
+        );
+        assert!(
+            doc.set_gameplay_value(selected, S::Brightness, json!(invalid), &catalog)
+                .is_err(),
+            "invalid numeric input must not reach the commit gateway"
+        );
+    }
+    assert_eq!(staged, before);
+    assert!(
+        doc.set_gameplay_value(selected, S::Brightness, json!(-0.5_f32), &catalog)
+            .is_err(),
+        "the native document validator rejects negative Power"
+    );
+    assert_eq!(doc.raw(), &before, "rejected input preserves the scene");
+    assert!(!doc.is_dirty() && !doc.can_undo() && !doc.can_redo());
+
+    // An accepted edit preserves the exact authored value and leaves the
+    // rest of the scene unchanged, including the second light.
+    let power = 2.75_f32;
+    let mut expected = before.clone();
+    let target = expected
+        .pointer_mut("/ceiling_lights/0")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or("missing target light")?;
+    drop(target.insert("brightness".into(), json!(power)));
+    Document::stage_light_power(&mut staged, 0, power)?;
+    assert_eq!(staged, expected);
+    doc.set_gameplay_value(selected, S::Brightness, json!(power), &catalog)?;
+    assert_eq!(doc.raw(), &expected);
+    assert_eq!(doc.gameplay_value(selected, S::Brightness), json!(power));
+
+    assert!(doc.is_dirty() && doc.undo(), "one Undo restores the source");
+    assert_eq!(doc.raw(), &before);
+    assert!(!doc.is_dirty() && !doc.can_undo());
+    assert!(doc.redo(), "one Redo restores the accepted edit");
+    assert_eq!(doc.raw(), &expected);
+    assert!(!doc.can_redo());
+    Ok(())
+}
+
 // A tiny wall and dummy fixture records protect the Basic wall candidate and
 // the master-circuit limit, without baking a shipped map or making GPU calls.
 #[test]

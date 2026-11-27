@@ -197,6 +197,20 @@ impl Document {
         None
     }
 
+    /// Stage the native light Power field without committing or changing history.
+    pub(in crate::editor) fn stage_light_power(
+        raw: &mut Value,
+        light: usize,
+        power: f32,
+    ) -> Result<(), String> {
+        if !power.is_finite() {
+            return Err("Enter a finite number".into());
+        }
+        let object = object_mut(raw, ObjectId::Light(light))?;
+        drop(object.insert(GameplaySetting::Brightness.key().into(), Value::from(power)));
+        Ok(())
+    }
+
     /// Changes one supported property in one validated undo step.
     ///
     /// # Errors
@@ -212,6 +226,12 @@ impl Document {
             return self.set_spawn_zone(id, setting, value);
         }
         let mut raw = self.raw().clone();
+        if let (ObjectId::Light(light), GameplaySetting::Brightness) = (id, setting) {
+            let power = serde_json::from_value(value)
+                .map_err(|error| format!("Invalid light Power: {error}"))?;
+            Self::stage_light_power(&mut raw, light, power)?;
+            return self.accept_edit(raw);
+        }
         if matches!(
             setting,
             GameplaySetting::AudioNear | GameplaySetting::AudioFar
