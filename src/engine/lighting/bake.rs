@@ -1091,7 +1091,13 @@ fn baked_lights(
             room,
             directional: matches!(light.mount, LightMount::Ceiling),
             owner_prop: None,
-            emitter_yaw: EmitterYaw::fixture(light.rotation_degrees),
+            emitter_yaw: if light.mount == LightMount::Wall
+                && light.fixture == "maintenance:warm_bulkhead"
+            {
+                EmitterYaw::attached(light.rotation_degrees)
+            } else {
+                EmitterYaw::fixture(light.rotation_degrees)
+            },
         };
         if let Some(half_gap) = profile.paired_emitter_offset_y() {
             // The luminous strips are separated by an opaque spine. Two thin
@@ -3382,13 +3388,16 @@ impl LevelLighting {
 
     fn write_record(&self, writer: &mut Writer, preview_identity: bool) -> Result<(), String> {
         writer.bytes(&COMPILED_MAGIC);
-        writer.u16(if self.legacy_attached_yaw {
+        let version = if self.legacy_attached_yaw {
             LEGACY_COMPILED_VERSION
-        } else {
+        } else if self.lights.iter().any(needs_exact_wall_yaw) {
             COMPILED_VERSION
-        });
+        } else {
+            ATTACHED_YAW_VERSION
+        };
+        writer.u16(version);
         write_rooms(writer, &self.rooms)?;
-        write_lights(writer, &self.lights)?;
+        write_lights(writer, &self.lights, version)?;
         writer.u8(u8::try_from(self.global_lights.len())
             .map_err(|error| format!("too many directional illuminators: {error}"))?);
         for light in &self.global_lights {
@@ -3416,14 +3425,17 @@ impl LevelLighting {
             return Err("lighting record has the wrong magic".to_string());
         }
         let version = reader.u16()?;
-        if !matches!(version, LEGACY_COMPILED_VERSION | COMPILED_VERSION) {
+        if !matches!(
+            version,
+            LEGACY_COMPILED_VERSION | ATTACHED_YAW_VERSION | COMPILED_VERSION
+        ) {
             return Err(format!(
                 "lighting record version {version} is not supported (this build reads {LEGACY_COMPILED_VERSION}–{COMPILED_VERSION})"
             ));
         }
         let legacy_attached_yaw = version == LEGACY_COMPILED_VERSION;
         let rooms = read_rooms(reader)?;
-        let lights = read_lights(reader, rooms.len(), legacy_attached_yaw)?;
+        let lights = read_lights(reader, rooms.len(), version)?;
         let count = usize::from(reader.u8()?);
         if count > crate::engine::level::MAX_GLOBAL_ILLUMINATORS {
             return Err("too many compiled directional illuminators".to_string());
@@ -3479,9 +3491,10 @@ impl LevelLighting {
 /// Magic identifying a compiled lighting record.
 const COMPILED_MAGIC: [u8; 4] = *b"PLT1";
 
-/// Version 2 gives attached emitters their continuous yaw. Version 1 bakes
-/// retain their original yaw interpretation for runtime sampling.
-pub(super) const COMPILED_VERSION: u16 = 2;
+/// Version 3 adds an exact-yaw wall rectangle tag. Unaffected records retain
+/// v2, and v1 still retains its original attached-emitter interpretation.
+pub(super) const COMPILED_VERSION: u16 = 3;
+const ATTACHED_YAW_VERSION: u16 = 2;
 const LEGACY_COMPILED_VERSION: u16 = 1;
 
 /// Largest room count a compiled record may declare.
@@ -3617,7 +3630,21 @@ fn read_rooms(reader: &mut Reader<'_>) -> Result<Vec<RoomLighting>, String> {
     Ok(rooms)
 }
 
-fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String> {
+fn needs_exact_wall_yaw(light: &BakedLight) -> bool {
+    light.owner_prop.is_none()
+        && !light.directional
+        && matches!(
+            light.source.shape,
+            LightShape::Rect {
+                half_width: _,
+                half_depth: _,
+            }
+        )
+        // The legacy saturating cast can disagree even for an exact cardinal axis.
+        && light.emitter_yaw != EmitterYaw::fixture(light.source.rotation_degrees)
+}
+
+fn write_lights(writer: &mut Writer, lights: &[BakedLight], version: u16) -> Result<(), String> {
     let count = u32::try_from(lights.len())
         .map_err(|error| format!("too many lights to encode: {error}"))?;
     writer.u32(count);
@@ -3628,7 +3655,13 @@ fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String
                 half_width,
                 half_depth,
             } => {
-                writer.u8(1);
+                writer.u8(
+                    if version == COMPILED_VERSION && needs_exact_wall_yaw(light) {
+                        3
+                    } else {
+                        1
+                    },
+                );
                 writer.f32(half_width);
                 writer.f32(half_depth);
             }
@@ -3670,14 +3703,16 @@ fn write_lights(writer: &mut Writer, lights: &[BakedLight]) -> Result<(), String
 fn read_lights(
     reader: &mut Reader<'_>,
     room_count: usize,
-    legacy_attached_yaw: bool,
+    version: u16,
 ) -> Result<Vec<BakedLight>, String> {
     let count = reader.count(MAX_COMPILED_LIGHTS, "light count")?;
     let mut lights = Vec::with_capacity(count.min(16384));
     for _ in 0..count {
-        let shape = match reader.u8()? {
+        let tag = reader.u8()?;
+        let exact_wall = version == COMPILED_VERSION && tag == 3;
+        let shape = match tag {
             0 => LightShape::Point,
-            1 => LightShape::Rect {
+            1 | 3 if tag == 1 || exact_wall => LightShape::Rect {
                 half_width: read_finite(reader, "rect half width")?,
                 half_depth: read_finite(reader, "rect half depth")?,
             },
@@ -3711,11 +3746,15 @@ fn read_lights(
         }
         let directional = reader.bool()?;
         let owner_prop = read_optional_u32(reader)?;
-        let emitter_yaw = if legacy_attached_yaw || owner_prop.is_none() {
-            EmitterYaw::fixture(rotation_degrees)
-        } else {
-            EmitterYaw::attached(rotation_degrees)
-        };
+        if exact_wall && (directional || owner_prop.is_some()) {
+            return Err("exact wall rectangle has incompatible light ownership".to_string());
+        }
+        let emitter_yaw =
+            if exact_wall || (version != LEGACY_COMPILED_VERSION && owner_prop.is_some()) {
+                EmitterYaw::attached(rotation_degrees)
+            } else {
+                EmitterYaw::fixture(rotation_degrees)
+            };
         lights.push(BakedLight {
             source: LightSource {
                 shape,

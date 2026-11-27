@@ -22,12 +22,12 @@ pub mod dynamic;
 pub mod dynamic_lights;
 pub mod dynamic_visibility;
 pub mod effects;
-mod globe_snow;
 pub(in crate::engine::render) mod electrical_panels;
 pub mod elevators;
 pub mod fixtures;
 pub mod framebuffer;
 pub mod geometry;
+mod globe_snow;
 pub mod level_build;
 pub mod light_transport;
 pub mod materials;
@@ -680,7 +680,7 @@ fn merge_light_runs(
 const WALL_COINCIDENCE_EPS: f32 = 1e-3;
 
 /// Current pre-release geometry revision; superseded layouts require recompilation.
-pub const GEOMETRY_REVISION: u32 = 8;
+pub const GEOMETRY_REVISION: u32 = 9;
 
 /// One material run of a coalesced wall group: a rectangle in the group's own
 /// (length, height) space over which the visible material is constant.
@@ -1439,8 +1439,16 @@ pub fn subtract_rectangles(
     exposed: (f32, f32, f32, f32),
     covered: &[(f32, f32, f32, f32)],
 ) -> Vec<(f32, f32, f32, f32)> {
+    subtract_rectangles_with_tolerance(exposed, covered, WALL_COINCIDENCE_EPS)
+}
+
+fn subtract_rectangles_with_tolerance(
+    exposed: (f32, f32, f32, f32),
+    covered: &[(f32, f32, f32, f32)],
+    tolerance: f32,
+) -> Vec<(f32, f32, f32, f32)> {
     let (a0, a1, b0, b1) = exposed;
-    if a1 - a0 <= WALL_COINCIDENCE_EPS || b1 - b0 <= WALL_COINCIDENCE_EPS {
+    if a1 - a0 <= tolerance || b1 - b0 <= tolerance {
         return Vec::new();
     }
     let mut a_cuts = vec![a0, a1];
@@ -1451,7 +1459,7 @@ pub fn subtract_rectangles(
         let high_a = ca1.min(a1);
         let low_b = cb0.max(b0);
         let high_b = cb1.min(b1);
-        if high_a - low_a <= WALL_COINCIDENCE_EPS || high_b - low_b <= WALL_COINCIDENCE_EPS {
+        if high_a - low_a <= tolerance || high_b - low_b <= tolerance {
             continue;
         }
         a_cuts.push(low_a);
@@ -1464,25 +1472,25 @@ pub fn subtract_rectangles(
         return vec![exposed];
     }
     a_cuts.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
-    a_cuts.dedup_by(|x, y| (*x - *y).abs() <= WALL_COINCIDENCE_EPS);
+    a_cuts.dedup_by(|x, y| (*x - *y).abs() <= tolerance);
     b_cuts.sort_by(|x, y| x.partial_cmp(y).unwrap_or(std::cmp::Ordering::Equal));
-    b_cuts.dedup_by(|x, y| (*x - *y).abs() <= WALL_COINCIDENCE_EPS);
+    b_cuts.dedup_by(|x, y| (*x - *y).abs() <= tolerance);
 
     let mut remaining = Vec::new();
     for a_pair in a_cuts.windows(2) {
         let &[a_low, a_high] = a_pair else { continue };
         for b_pair in b_cuts.windows(2) {
             let &[b_low, b_high] = b_pair else { continue };
-            if a_high - a_low <= WALL_COINCIDENCE_EPS || b_high - b_low <= WALL_COINCIDENCE_EPS {
+            if a_high - a_low <= tolerance || b_high - b_low <= tolerance {
                 continue;
             }
             let a_mid = f32::midpoint(a_low, a_high);
             let b_mid = f32::midpoint(b_low, b_high);
             let is_covered = clipped.iter().any(|(ca0, ca1, cb0, cb1)| {
-                a_mid >= *ca0 - WALL_COINCIDENCE_EPS
-                    && a_mid <= *ca1 + WALL_COINCIDENCE_EPS
-                    && b_mid >= *cb0 - WALL_COINCIDENCE_EPS
-                    && b_mid <= *cb1 + WALL_COINCIDENCE_EPS
+                a_mid >= *ca0 - tolerance
+                    && a_mid <= *ca1 + tolerance
+                    && b_mid >= *cb0 - tolerance
+                    && b_mid <= *cb1 + tolerance
             });
             if !is_covered {
                 remaining.push((a_low, a_high, b_low, b_high));

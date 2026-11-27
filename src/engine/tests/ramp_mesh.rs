@@ -165,6 +165,117 @@ fn raised_deck_has_closed_backing_matching_collision() -> Result<(), String> {
     Ok(())
 }
 
+// One CPU-only mesh covers an exact T-join, a lower storey, and slabs that
+// overlap only over part of their thickness. No assets, GPU or bake.
+#[test]
+fn flat_slab_caps_only_exposed_bands_at_mixed_height_t_junction() -> Result<(), String> {
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level","format_version":1,"id":"slab_join","name":"Slab join",
+        "spawn":{"x":3,"z":1.5},
+        "rooms":[
+            {"width":2,"depth":4,"floor_y":3,"ceiling":{"kind":"open"}},
+            {"x":2,"width":2,"depth":1,"floor_y":3,"ceiling":{"kind":"open"}},
+            {"x":2,"z":1,"width":2,"depth":1,"ceiling":{"kind":"open"}},
+            {"x":2,"z":2,"width":2,"depth":1,"floor_y":2.925,"ceiling":{"kind":"open"}}
+        ]
+        }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    crate::engine::loader::validate_level(&level)?;
+
+    let thickness = crate::engine::level::MIN_STRUCTURE_M;
+    let bands = [
+        (1.0_f32, 2.0_f32, 3.0_f32 - thickness, 3.0_f32, 1.0_f32),
+        (1.0, 2.0, -thickness, 0.0, -1.0),
+        (2.0, 3.0, 2.925, 3.0, 1.0),
+        (2.0, 3.0, 2.925 - thickness, 3.0 - thickness, -1.0),
+        (3.0, 4.0, 3.0 - thickness, 3.0, 1.0),
+    ];
+    check_slab_caps(&level, &bands)
+}
+
+#[test]
+fn flat_slab_caps_do_not_repeat_same_side_overlap() -> Result<(), String> {
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level","format_version":1,"id":"slab_overlap","name":"Slab overlap",
+        "spawn":{"x":3,"z":1.5},
+        "rooms":[
+            {"width":2,"depth":3,"floor_y":3,"ceiling":{"kind":"open"}},
+            {"z":1,"width":2,"depth":1,"floor_y":2.925,"ceiling":{"kind":"open"}},
+            {"x":2,"width":2,"depth":3,"ceiling":{"kind":"open"}}
+        ]
+        }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    crate::engine::loader::validate_level(&level)?;
+    let thickness = crate::engine::level::MIN_STRUCTURE_M;
+    check_slab_caps(
+        &level,
+        &[
+            (0.0, 3.0, 3.0 - thickness, 3.0, 1.0),
+            (1.0, 2.0, 2.925 - thickness, 3.0 - thickness, 1.0),
+            (0.0, 3.0, -thickness, 0.0, -1.0),
+        ],
+    )
+}
+
+#[test]
+fn flat_slab_caps_keep_millimetre_reveals() -> Result<(), String> {
+    let level = LevelDef::from_json(
+        r#"{
+        "schema":"places-level","format_version":1,"id":"slab_reveal","name":"Slab reveal",
+        "spawn":{"x":3,"z":0.5},
+        "rooms":[
+            {"width":2,"depth":1,"floor_y":3,"ceiling":{"kind":"open"}},
+            {"x":2,"width":2,"depth":1,"floor_y":2.9985,"ceiling":{"kind":"open"}}
+        ]
+        }"#,
+    )
+    .map_err(|error| error.to_string())?;
+    crate::engine::loader::validate_level(&level)?;
+    let thickness = crate::engine::level::MIN_STRUCTURE_M;
+    check_slab_caps(
+        &level,
+        &[
+            (0.0, 1.0, 2.9985, 3.0, 1.0),
+            (0.0, 1.0, 2.9985 - thickness, 3.0 - thickness, -1.0),
+        ],
+    )
+}
+
+fn check_slab_caps(level: &LevelDef, bands: &[(f32, f32, f32, f32, f32)]) -> Result<(), String> {
+    let eps = 0.000_005_f32;
+    let mut areas = vec![0.0_f32; bands.len()];
+    for triangle in triangles_for(level)
+        .into_iter()
+        .filter(|triangle| triangle.iter().all(|point| (point.x - 2.0).abs() < eps))
+    {
+        let signed_twice_area = normal_x(triangle);
+        let index = bands
+            .iter()
+            .position(|&(near, far, low, high, sign)| {
+                signed_twice_area * sign > 0.0
+                    && triangle.iter().all(|p| {
+                        (near - eps..=far + eps).contains(&p.z)
+                            && (low - eps..=high + eps).contains(&p.y)
+                    })
+            })
+            .ok_or_else(|| format!("Unexpected, inward or internal cap: {triangle:?}"))?;
+        if let Some(area) = areas.get_mut(index) {
+            *area = signed_twice_area.abs().mul_add(0.5, *area);
+        }
+    }
+    for (i, (area, &(near, far, low, high, _))) in areas.into_iter().zip(bands).enumerate() {
+        assert!(
+            (far - near).mul_add(-(high - low), area).abs() < eps,
+            "Cap band {i} must be covered exactly once, found area {area}"
+        );
+    }
+    Ok(())
+}
+
 fn triangles_for(level: &LevelDef) -> Vec<[Vec3; 3]> {
     let mesh = build_level_geometry_mesh(
         level,

@@ -41,6 +41,8 @@ and linked reports retain historical implementation and validation details.
 
 ### Gameplay and maps
 
+- Let loose props pass through open guardrail gaps and hit the actual bars and
+  posts. Guardrails still block players and NPCs.
 - Add warm terrazzo floors, ivory wall panels and acoustic T-grid ceilings to the Mall material picker.
 - Add reusable, map-local Game Modes for movement, health and crowbar settings.
   Health is off by default. Maps can configure starting and maximum health,
@@ -118,6 +120,10 @@ outside that inventory.
 
 ### Lighting and performance
 
+- Render only exposed slab side faces where flat floors meet. Rebuild older
+  geometry caches for the corrected mesh.
+- Preserve the exact authored angle of wall-mounted warm bulkhead lights
+  through compilation.
 - Switch the game and map compiler to the new baked lighting system and move
   shared lighting code into the engine’s lighting module. Rebuild affected maps
   with the matching compiler and assets before validating the result in game.

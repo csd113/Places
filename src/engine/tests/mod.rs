@@ -14,6 +14,7 @@ mod feltling;
 mod floor_recovery;
 mod fog_volumes;
 mod gameplay_authoring;
+mod guardrail_items;
 mod held_auto_drop;
 mod held_obstacle;
 mod level_import;

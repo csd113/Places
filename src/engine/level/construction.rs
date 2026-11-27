@@ -442,8 +442,10 @@ pub fn rail_collision(rail: &GuardrailDef, level: &LevelDef) -> Vec<Architecture
 /// post widths), the last regular post moves onto the run's end instead, so a
 /// 2.5 m run at 1.2 m spacing no longer draws a doubled end post.
 pub fn rail_post_positions(rail: &GuardrailDef) -> Vec<f32> {
-    let run = rail.length;
-    let spacing = rail.post_spacing();
+    post_positions(rail.length, rail.post_spacing())
+}
+
+fn post_positions(run: f32, spacing: f32) -> Vec<f32> {
     let post_half = super::GUARDRAIL_POST_SIZE_M * 0.5;
     let mut positions: Vec<f32> = Vec::with_capacity(64);
     for index in 0..=512_u16 {
@@ -472,6 +474,133 @@ pub fn rail_post_positions(rail: &GuardrailDef) -> Vec<f32> {
         }
     }
     positions
+}
+
+/// Layout of the visible pieces in one run. Character barriers deliberately
+/// keep their separate conservative geometry.
+pub struct RailGeometry {
+    pub origin: [f32; 2],
+    pub rotation_degrees: f32,
+    pub length: f32,
+    pub base_y: f32,
+    rise: f32,
+    height: f32,
+    spacing: f32,
+    miters: [f32; 2],
+    caps: [bool; 2],
+    shared_start: bool,
+    end_post_span: Option<[f32; 2]>,
+}
+
+impl RailGeometry {
+    pub(crate) fn new(
+        rail: &GuardrailDef,
+        (previous, next): (Option<&GuardrailDef>, Option<&GuardrailDef>),
+        surfaces: &LevelSurfaces<'_>,
+    ) -> Option<Self> {
+        if !rail.length.is_finite()
+            || rail.length <= 0.0
+            || !rail.x.is_finite()
+            || !rail.z.is_finite()
+            || !rail.rotation_degrees.is_finite()
+        {
+            return None;
+        }
+        let base_y = rail.base_y(surfaces);
+        let end_y = rail.base_y_at(surfaces, 1.0);
+        let next_y = next.map(|n| n.base_y(surfaces));
+        let height = rail.height();
+        Some(Self {
+            origin: [rail.x, rail.z],
+            rotation_degrees: rail.rotation_degrees,
+            length: rail.length,
+            base_y,
+            rise: rail.resolved_rise(surfaces),
+            height,
+            spacing: rail.post_spacing(),
+            miters: [
+                previous.and_then(|p| rail_miter(rail, p)).unwrap_or(0.0),
+                next.and_then(|n| rail_miter(rail, n)).unwrap_or(0.0),
+            ],
+            caps: [
+                previous.is_none_or(|p| (p.base_y_at(surfaces, 1.0) - base_y).abs() > 0.0001),
+                next_y.is_none_or(|y| (end_y - y).abs() > 0.0001),
+            ],
+            shared_start: previous.is_some(),
+            end_post_span: next_y.map(|y| {
+                [
+                    end_y.min(y),
+                    end_y.max(y) + height - super::GUARDRAIL_RAIL_THICKNESS_M,
+                ]
+            }),
+        })
+    }
+
+    fn base_at(&self, along: f32) -> f32 {
+        self.rise.mul_add(along / self.length, self.base_y)
+    }
+
+    pub(crate) fn bands(&self) -> [RailBand<'_>; 2] {
+        [
+            (self.height, super::GUARDRAIL_RAIL_THICKNESS_M),
+            (
+                super::GUARDRAIL_MIDRAIL_TOP_M,
+                super::GUARDRAIL_MIDRAIL_THICKNESS_M,
+            ),
+        ]
+        .map(|(height, thickness)| RailBand {
+            run: self,
+            height,
+            thickness,
+        })
+    }
+
+    /// Post centres and heights, including the one shared post at each join.
+    pub(crate) fn posts(&self) -> impl Iterator<Item = (f32, f32, f32)> + '_ {
+        post_positions(self.length, self.spacing)
+            .into_iter()
+            .filter(|&at| !self.shared_start || at >= 0.0001)
+            .filter_map(|at| {
+                let base = self.base_at(at);
+                let own = [base, base + self.height - super::GUARDRAIL_RAIL_THICKNESS_M];
+                let [bottom, top] = if self.length - at < 0.0001 {
+                    self.end_post_span.unwrap_or(own)
+                } else {
+                    own
+                };
+                (top - bottom > 1e-3).then_some((at, bottom, top))
+            })
+    }
+}
+
+/// One horizontal or sloped member of the open railing in run coordinates.
+pub struct RailBand<'a> {
+    run: &'a RailGeometry,
+    height: f32,
+    pub thickness: f32,
+}
+
+impl RailBand<'_> {
+    pub(crate) const fn length(&self) -> f32 {
+        self.run.length
+    }
+
+    pub(crate) fn top_at(&self, along: f32) -> f32 {
+        self.run.base_at(along) + self.height
+    }
+
+    pub(crate) fn end(&self, at: f32) -> (bool, f32) {
+        let [start, end] = self.run.caps;
+        let [left, right] = self.run.miters;
+        if at < 0.0001 { (start, left) } else { (end, right) }
+    }
+
+    pub(crate) fn corner(&self, at: f32, across: f32, upper: bool) -> [f32; 3] {
+        let (_, miter) = self.end(at);
+        let along = miter.mul_add(across, at);
+        let y = self.top_at(along) - if upper { 0.0 } else { self.thickness };
+        [along, across, y]
+    }
 }
 
 pub fn rail_neighbors(

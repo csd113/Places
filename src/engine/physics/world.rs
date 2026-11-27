@@ -18,13 +18,14 @@ use rapier3d::prelude::{
 use serde::{Serialize, Serializer};
 
 use crate::engine::collision::{DoorCollider, PLAYER_RADIUS, WallAabb};
+use crate::engine::level::construction::RailGeometry;
 use crate::engine::level::{LevelDef, WalkableCeiling, WalkableFloor, WaterVolumes};
 use crate::engine::materials::MaterialTable;
 
 use super::activation::{WakeSweep, WakeTarget};
 use super::collision::{
-    add, door_pose, install_static, mass_properties, model_shape, point, pose, quaternion,
-    query_filter, refresh_collider, scaled, subtract, vector,
+    add, door_pose, guardrail_geometry, install_guardrails, install_static, mass_properties,
+    model_shape, point, pose, quaternion, query_filter, refresh_collider, scaled, subtract, vector,
 };
 use super::config::{BodyMotion, PhysicsDef, validate_reset_group};
 use super::contact_solver::ContactSolver;
@@ -334,6 +335,7 @@ pub(super) struct Runtime {
 /// on the first spawn, so ordinary levels retain an empty runtime.
 pub struct ItemWorld {
     walls: Vec<WallAabb>,
+    rails: Vec<RailGeometry>,
     floor: WalkableFloor,
     surfaces: FloorSurfaces,
     belt_frame_seconds: Option<f32>,
@@ -356,6 +358,7 @@ impl Default for ItemWorld {
     fn default() -> Self {
         Self {
             walls: Vec::new(),
+            rails: Vec::new(),
             floor: WalkableFloor::default(),
             surfaces: FloorSurfaces::default(),
             belt_frame_seconds: None,
@@ -443,15 +446,8 @@ impl ItemWorld {
     #[must_use]
     pub fn from_level(level: &LevelDef, walls: &[WallAabb]) -> Self {
         Self {
-            walls: if level
-                .props
-                .iter()
-                .any(crate::engine::level::PropDef::has_fixed_physics_shape)
-            {
-                level.item_collision_aabbs()
-            } else {
-                walls.to_vec()
-            },
+            walls: level.item_collision_aabbs_from(walls),
+            rails: guardrail_geometry(level),
             floor: WalkableFloor::from_level(level),
             surfaces: FloorSurfaces::default(),
             belt_frame_seconds: None,
@@ -536,6 +532,7 @@ impl ItemWorld {
                 &self.ceiling,
                 &self.surfaces,
             );
+            install_guardrails(&mut world, &self.rails);
             for fixed in &self.fixed_props {
                 fixed.install(&mut world);
             }

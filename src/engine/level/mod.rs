@@ -8852,6 +8852,80 @@ impl LevelDef {
         self.collision_aabbs_impl(true)
     }
 
+    /// Use the supplied collision record as authoritative for Rapier scenery.
+    /// Remove only exact copies of the typed open-rail safety curtain and the
+    /// legacy boxes of props for which the caller installs a fixed shape.
+    /// Compiled-only boxes and their order are otherwise preserved.
+    pub(crate) fn item_collision_aabbs_from(&self, walls: &[WallAabb]) -> Vec<WallAabb> {
+        if walls.is_empty()
+            || (self.guardrails.is_empty() && !self.props.iter().any(PropDef::has_fixed_physics_shape))
+        {
+            return walls.to_vec();
+        }
+        let mut replaced: Vec<_> = self
+            .guardrails
+            .iter()
+            .flat_map(|rail| construction::rail_collision(rail, self))
+            .map(|bounds| bounds.to_wall_aabb())
+            .collect();
+        let surfaces = LevelSurfaces::new(self);
+        for prop in self.props.iter().filter(|prop| prop.has_fixed_physics_shape()) {
+            prop.push_solid_colliders(&surfaces, &mut replaced);
+        }
+
+        // PCL1 has no provenance tags. Do not infer identity by proximity;
+        // an unmatched box must stay solid. Normalize signed zero only.
+        let key = |wall: &WallAabb| {
+            [
+                wall.min_x, wall.min_y, wall.min_z, wall.max_x, wall.max_y, wall.max_z, wall.step_up,
+            ]
+            .map(|value| {
+                let bits = value.to_bits();
+                if bits == (-0.0_f32).to_bits() { 0 } else { bits }
+            })
+        };
+        let mut matches = std::collections::BTreeMap::<_, [usize; 3]>::new();
+        for wall in &replaced {
+            let [replacement, _, _] = matches.entry(key(wall)).or_default();
+            *replacement = replacement.saturating_add(1);
+        }
+        for wall in walls {
+            if let Some([_, _, supplied]) = matches.get_mut(&key(wall)) {
+                *supplied = supplied.saturating_add(1);
+            }
+        }
+        matches.retain(|_, [_, _, supplied]| *supplied != 0);
+        if matches.is_empty() {
+            return walls.to_vec();
+        }
+
+        // A real wall may coincide exactly with a synthetic box. Reserve all
+        // known ordinary source occurrences before removing any replacements,
+        // including when a caller has already supplied a filtered wall list.
+        for wall in self.collision_aabbs() {
+            if let Some([_, source, _]) = matches.get_mut(&key(&wall)) {
+                *source = source.saturating_add(1);
+            }
+        }
+        for [replacement, source, supplied] in matches.values_mut() {
+            let reserved = source.saturating_sub(*replacement);
+            *replacement = (*replacement).min(supplied.saturating_sub(reserved));
+        }
+        walls
+            .iter()
+            .copied()
+            .filter(|wall| {
+                if let Some([remaining, _, _]) = matches.get_mut(&key(wall))
+                    && *remaining > 0
+                {
+                    *remaining = remaining.saturating_sub(1);
+                    return false;
+                }
+                true
+            })
+            .collect()
+    }
+
     fn collision_aabbs_impl(&self, explicit_fixed_shapes: bool) -> Vec<WallAabb> {
         let surfaces = LevelSurfaces::new(self);
         let mut aabbs = Vec::new();

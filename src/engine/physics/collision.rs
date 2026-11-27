@@ -11,7 +11,11 @@ use rapier3d::prelude::{
 };
 
 use crate::engine::collision::{DoorCollider, WallAabb};
-use crate::engine::level::{PhysicalPatch, WalkableCeiling, WalkableFloor};
+use crate::engine::level::construction::{RailGeometry, rail_neighbors, rail_runs};
+use crate::engine::level::{
+    GUARDRAIL_POST_SIZE_M, GUARDRAIL_RAIL_WIDTH_M, LevelDef, LevelSurfaces, PhysicalPatch,
+    WalkableCeiling, WalkableFloor,
+};
 
 use super::config::{CompoundPart, PhysicsDef, PrimitiveShapeDef, ShapeDef};
 use super::surfaces::{FloorContactHooks, FloorSurfaces};
@@ -229,6 +233,69 @@ fn compound_shape(
     // Rapier derives the compound's mass distribution and rotational inertia
     // from its primitives; the model-bounds cuboid never supplies its inertia.
     Ok((SharedShape::compound(shapes), bounding_radius))
+}
+
+pub(super) fn guardrail_geometry(level: &LevelDef) -> Vec<RailGeometry> {
+    let surfaces = LevelSurfaces::new(level);
+    let mut geometry = Vec::new();
+    for rail in &level.guardrails {
+        let runs = rail_runs(rail, level);
+        for (index, run) in runs.iter().enumerate() {
+            geometry.extend(RailGeometry::new(run, rail_neighbors(&runs, index), &surfaces));
+        }
+    }
+    geometry
+}
+
+/// One fixed compound per run, with disjoint child shapes for the open
+/// railing. Do not hull the compound as a whole: its empty bays are physical.
+pub(super) fn install_guardrails(world: &mut PhysicsWorld, rails: &[RailGeometry]) {
+    let half_width = GUARDRAIL_RAIL_WIDTH_M * 0.5;
+    let post_half = GUARDRAIL_POST_SIZE_M * 0.5;
+    for rail in rails {
+        let mut parts = Vec::new();
+        for band in rail.bands() {
+            let corner = |at, side, upper| {
+                let [along, across, y] = band.corner(at, side, upper);
+                Vector::new(along, y - rail.base_y, across)
+            };
+            let run = band.length();
+            let vertices = [
+                corner(0.0, -half_width, false),
+                corner(0.0, half_width, false),
+                corner(run, -half_width, false),
+                corner(run, half_width, false),
+                corner(0.0, -half_width, true),
+                corner(0.0, half_width, true),
+                corner(run, -half_width, true),
+                corner(run, half_width, true),
+            ];
+            if let Some(shape) = SharedShape::convex_hull(&vertices) {
+                parts.push((Pose::IDENTITY, shape));
+            }
+        }
+        for (at, bottom, top) in rail.posts() {
+            parts.push((
+                Pose::translation(at, f32::midpoint(bottom, top) - rail.base_y, 0.0),
+                SharedShape::cuboid(post_half, (top - bottom) * 0.5, post_half),
+            ));
+        }
+        if !parts.is_empty() {
+            let [x, z] = rail.origin;
+            let position = pose(
+                Vec3::new(x, rail.base_y, z),
+                Quat::from_rotation_y(rail.rotation_degrees.to_radians()),
+            );
+            let handle = world.insert_collider(
+                ColliderBuilder::new(SharedShape::compound(parts))
+                    .position(position)
+                    .friction(0.7)
+                    .restitution(0.02),
+                None,
+            );
+            refresh_collider(world, handle);
+        }
+    }
 }
 
 pub(super) fn install_static(

@@ -5,7 +5,7 @@ use super::{
     MaterialSlot, SurfaceKey, Vertex,
     architecture::{ArchitectureFace, emit_face},
     geometry::EmitContext,
-    subtract_rectangles, tiled_uv,
+    subtract_rectangles, subtract_rectangles_with_tolerance, tiled_uv,
 };
 use crate::engine::{
     level::{MIN_STRUCTURE_M, WalkableFloor},
@@ -15,11 +15,22 @@ use crate::engine::{
 use glam::Vec3;
 use std::collections::BTreeMap;
 
+// Keep true slab reveals down to floating-point noise, independently of the
+// broader tolerance used to hide nearly coincident architectural walls.
+const SLAB_EDGE_EPS: f32 = 0.000_001;
+type Band = (f32, f32, f32, f32);
+
+struct BandClips<'a> {
+    opposing: Vec<Band>,
+    emitted_same_side: &'a mut Vec<Band>,
+}
+
 #[derive(Clone, Copy)]
 struct Edge {
     start: f32,
     end: f32,
     bottom: f32,
+    flat_slab: bool,
     positive: bool,
     key: SurfaceKey,
 }
@@ -33,6 +44,11 @@ pub(super) fn emit(
     let mut groups: BTreeMap<(bool, u32), Vec<Edge>> = BTreeMap::new();
     for patch in &patches {
         let [a, b, c, d] = patch.corners;
+        let flat_slab = patch.belt.is_none()
+            && patch
+                .corners
+                .iter()
+                .all(|point| (point.y - patch.room_floor_y).abs() < 0.0001);
         let centre_x = f32::midpoint(a.x, c.x);
         let centre_z = f32::midpoint(a.z, c.z);
         let reference = context
@@ -97,6 +113,7 @@ pub(super) fn emit(
                     start,
                     end,
                     bottom: patch.backing,
+                    flat_slab,
                     positive,
                     key,
                 });
@@ -112,6 +129,7 @@ fn emit_edges(
 ) {
     for ((axis, line), edges) in groups {
         let at = f32::from_bits(line);
+        let mut emitted = [Vec::new(), Vec::new()];
         for edge in &edges {
             let mut cuts = vec![edge.start, edge.end];
             for other in &edges {
@@ -130,19 +148,47 @@ fn emit_edges(
                     continue;
                 };
                 let mid = f32::midpoint(start, end);
-                // Equal slabs hide one another. At a drop, the higher slab's
-                // band is already part of the ordinary terrain transition skirt;
-                // retain only the lower slab's exposed structural edge.
-                let covered = edges.iter().any(|other| {
-                    other.positive != edge.positive
-                        && other.start <= mid
-                        && other.end >= mid
-                        && other.bottom <= edge.bottom + 0.0001
-                });
-                if covered {
-                    continue;
+                let high = edge.bottom + MIN_STRUCTURE_M;
+                let mut covered = Vec::new();
+                let fully_covered = edges
+                    .iter()
+                    .filter(|other| {
+                        other.positive != edge.positive && other.start <= mid && other.end >= mid
+                    })
+                    .any(|other| {
+                        if !(edge.flat_slab && other.flat_slab) {
+                            // Ordinary terrain skirts still own the upper
+                            // transition between a base and a modified floor.
+                            return other.bottom <= edge.bottom + 0.0001;
+                        }
+                        if (other.bottom - edge.bottom).abs() <= SLAB_EDGE_EPS {
+                            return true;
+                        }
+                        // An opposite edge on another storey is not an
+                        // occluder unless its slab actually intersects ours.
+                        let overlap_bottom = edge.bottom.max(other.bottom);
+                        let overlap_top = high.min(other.bottom + MIN_STRUCTURE_M);
+                        if overlap_top > overlap_bottom {
+                            covered.push((start, end, overlap_bottom, overlap_top));
+                        }
+                        false
+                    });
+                if !fully_covered {
+                    let [negative, positive] = &mut emitted;
+                    let same_side = if edge.positive { positive } else { negative };
+                    emit_band(
+                        context,
+                        buckets,
+                        scratch,
+                        *edge,
+                        (axis, at),
+                        (start, end),
+                        BandClips {
+                            opposing: covered,
+                            emitted_same_side: same_side,
+                        },
+                    );
                 }
-                emit_band(context, buckets, scratch, *edge, (axis, at), (start, end));
             }
         }
     }
@@ -155,10 +201,11 @@ fn emit_band(
     edge: Edge,
     (axis, at): (bool, f32),
     (start, end): (f32, f32),
+    mut clips: BandClips<'_>,
 ) {
     let low = edge.bottom;
     let high = low + MIN_STRUCTURE_M;
-    let mut covered = Vec::new();
+    let mut wall_covered = Vec::new();
     for wall in context.coverages {
         for &(along_start, along_end, bottom, top) in &wall.solids {
             let (x0, x1, z0, z1) = match wall.axis {
@@ -175,11 +222,37 @@ fn emit_band(
                 (x0, x1, z0, z1)
             };
             if at >= plane_low - 0.001 && at <= plane_high + 0.001 {
-                covered.push((run_low, run_high, bottom, top));
+                wall_covered.push((run_low, run_high, bottom, top));
             }
         }
     }
-    for (left, right, bottom, top) in subtract_rectangles((start, end, low, high), &covered) {
+    // Apply the historical wall tolerance before making any thin slab cuts.
+    let wall_spans = subtract_rectangles((start, end, low, high), &wall_covered);
+    if edge.flat_slab {
+        // The first visible flat band owns only the area it actually emitted,
+        // so later slabs retain their material everywhere else.
+        clips
+            .opposing
+            .extend(clips.emitted_same_side.iter().copied().filter(
+                |&(left, right, bottom, top)| {
+                    left < end && right > start && bottom < high && top > low
+                },
+            ));
+    }
+    let spans = if clips.opposing.is_empty() {
+        wall_spans
+    } else {
+        wall_spans
+            .into_iter()
+            .flat_map(|span| {
+                subtract_rectangles_with_tolerance(span, &clips.opposing, SLAB_EDGE_EPS)
+            })
+            .collect()
+    };
+    for (left, right, bottom, top) in spans {
+        if edge.flat_slab {
+            clips.emitted_same_side.push((left, right, bottom, top));
+        }
         let point = |run, y| if axis { [run, y, at] } else { [at, y, run] };
         let sign = if edge.positive { 1.0 } else { -1.0 };
         face(

@@ -37,6 +37,7 @@ use crate::engine::level::{
     HalfWallDef, LevelDef, LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef,
     VoidWallDef, WallAxis, axis_positions, round_point,
 };
+use crate::engine::level::construction::{RailBand, RailGeometry, rail_neighbors, rail_runs};
 use crate::engine::lighting::light_grid_cells;
 use crate::engine::lighting::lightmap::PatchKind;
 use crate::engine::spatial::SpatialBuckets;
@@ -118,30 +119,13 @@ pub fn emit_architecture(
         emit_archway(context, buckets, scratch, piece);
     }
     for source in &context.level.guardrails {
-        let runs = crate::engine::level::construction::rail_runs(source, context.level);
+        let runs = rail_runs(source, context.level);
         for (index, rail) in runs.iter().enumerate() {
-            let (previous, next_run) =
-                crate::engine::level::construction::rail_neighbors(&runs, index);
-            let joints = rail_joints(rail, previous, next_run, context.surfaces);
-            let next = next_run.map(|next| {
-                [
-                    rail.base_y_at(context.surfaces, 1.0)
-                        .min(next.base_y(context.surfaces)),
-                    rail.base_y_at(context.surfaces, 1.0)
-                        .max(next.base_y(context.surfaces))
-                        + rail.height()
-                        - crate::engine::level::GUARDRAIL_RAIL_THICKNESS_M,
-                ]
-            });
-            emit_guardrail(
-                context,
-                buckets,
-                scratch,
-                rail,
-                previous.is_some(),
-                next,
-                joints,
-            );
+            if let Some(geometry) =
+                RailGeometry::new(rail, rail_neighbors(&runs, index), context.surfaces)
+            {
+                emit_guardrail(context, buckets, scratch, rail, &geometry);
+            }
         }
     }
     for piece in crate::engine::level::construction::pieces(context.level) {
@@ -2715,105 +2699,30 @@ fn emit_local_face(
 }
 
 /// Emits one guardrail: its two rails and its posts.
-#[derive(Clone, Copy)]
-struct RailJoints {
-    miters: [f32; 2],
-    caps: [bool; 2],
-}
-fn rail_joints(
-    rail: &GuardrailDef,
-    previous: Option<&GuardrailDef>,
-    next: Option<&GuardrailDef>,
-    surfaces: &LevelSurfaces<'_>,
-) -> RailJoints {
-    RailJoints {
-        miters: [
-            previous
-                .and_then(|p| crate::engine::level::construction::rail_miter(rail, p))
-                .unwrap_or(0.0),
-            next.and_then(|n| crate::engine::level::construction::rail_miter(rail, n))
-                .unwrap_or(0.0),
-        ],
-        caps: [
-            previous.is_none_or(|p| {
-                (p.base_y_at(surfaces, 1.0) - rail.base_y(surfaces)).abs() > 0.0001
-            }),
-            next.is_none_or(|n| {
-                (rail.base_y_at(surfaces, 1.0) - n.base_y(surfaces)).abs() > 0.0001
-            }),
-        ],
-    }
-}
 fn emit_guardrail(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
     scratch: &mut Vec<Vertex>,
     rail: &GuardrailDef,
-    skip_start: bool,
-    end_post_span: Option<[f32; 2]>,
-    joints: RailJoints,
+    geometry: &RailGeometry,
 ) {
-    if !rail.length.is_finite()
-        || rail.length <= 0.0
-        || !rail.x.is_finite()
-        || !rail.z.is_finite()
-        || !rail.rotation_degrees.is_finite()
-    {
-        return;
-    }
     let frame = RunFrame::new((rail.x, rail.z), rail.rotation_degrees);
-    let base = rail.base_y(context.surfaces);
     let key = wall_key(context, rail.material_ref());
     let post_key = wall_key(context, rail.post_ref());
     let tile = context.materials.tile_metres(key);
     let post_tile = context.materials.tile_metres(post_key);
-    let run = rail.length;
-    let rise = rail.resolved_rise(context.surfaces);
-    let base_at = |along: f32| rise.mul_add(along / run, base);
-    let half_width = crate::engine::level::GUARDRAIL_RAIL_WIDTH_M * 0.5;
-    let top_height = rail.height();
-    let top_thickness = crate::engine::level::GUARDRAIL_RAIL_THICKNESS_M;
-
-    // The top rail and the lower rail: the same run at two heights, both with
-    // their own top, sides and ends. The undersides are never visible.
-    for (rail_top, thickness) in [
-        (top_height, top_thickness),
-        (
-            crate::engine::level::GUARDRAIL_MIDRAIL_TOP_M,
-            crate::engine::level::GUARDRAIL_MIDRAIL_THICKNESS_M,
-        ),
-    ] {
-        emit_rail_run(
-            context, buckets, scratch, key, tile, &frame, &base_at, run, rail_top, thickness,
-            half_width, joints,
-        );
+    for band in geometry.bands() {
+        emit_rail_run(context, buckets, scratch, key, tile, &frame, &band);
     }
-
-    // Posts, from the base line to the underside of the top rail.
-    //
-    // Positions are resolved before any post is emitted, because a short
-    // remainder must move the last regular post onto the run's end rather than
-    // add a second post a few centimetres behind it — the doubled end post a
-    // 2.5 m run at 1.2 m spacing used to draw at the stair head.
     let post_half = crate::engine::level::GUARDRAIL_POST_SIZE_M * 0.5;
-    let post_top_at = |along: f32| base_at(along) + top_height - top_thickness;
-    for at in crate::engine::level::construction::rail_post_positions(rail) {
-        if skip_start && at < 0.0001 {
-            continue;
-        }
-        let span = if run - at < 0.0001 {
-            end_post_span.unwrap_or_else(|| [base_at(at), post_top_at(at)])
-        } else {
-            [base_at(at), post_top_at(at)]
-        };
+    for (at, bottom, top) in geometry.posts() {
         emit_post(
-            context, buckets, scratch, post_key, post_tile, &frame, at, span[0], span[1], post_half,
+            context, buckets, scratch, post_key, post_tile, &frame, at, bottom, top, post_half,
         );
     }
 }
 
 /// Emits one rail of a guardrail run: its top, its two sides and its two ends.
-#[expect(clippy::too_many_arguments, reason = "one rail's full frame")] // one rail's full frame
 fn emit_rail_run(
     context: &EmitContext<'_, '_>,
     buckets: &mut SpatialBuckets<SurfaceKey>,
@@ -2821,15 +2730,12 @@ fn emit_rail_run(
     key: SurfaceKey,
     tile: f32,
     frame: &RunFrame,
-    base_at: &impl Fn(f32) -> f32,
-    run: f32,
-    rail_top: f32,
-    thickness: f32,
-    half_width: f32,
-    joints: RailJoints,
+    band: &RailBand<'_>,
 ) {
-    let top_at = |along: f32| base_at(along) + rail_top;
-    let bottom_at = |along: f32| base_at(along) + rail_top - thickness;
+    let run = band.length();
+    let half_width = crate::engine::level::GUARDRAIL_RAIL_WIDTH_M * 0.5;
+    let top_at = |along: f32| band.top_at(along);
+    let bottom_at = |along: f32| top_at(along) - band.thickness;
     if top_at(0.0) - bottom_at(0.0) <= 1e-4 && top_at(run) - bottom_at(run) <= 1e-4 {
         return;
     }
@@ -2843,16 +2749,7 @@ fn emit_rail_run(
         0.0
     };
     let run_scale = slope.mul_add(slope, 1.0).sqrt();
-    let local = |at: f32, across: f32, upper: bool| {
-        let coefficient = if at < 0.0001 {
-            joints.miters[0]
-        } else {
-            joints.miters[1]
-        };
-        let along = coefficient.mul_add(across, at);
-        let y = top_at(along) - if upper { 0.0 } else { thickness };
-        [along, across, y]
-    };
+    let local = |at, across, upper| band.corner(at, across, upper);
     // The top face's own normal, tilted by the run's slope; a level rail gets
     // exactly `[0, 1, 0]` back.
     let top_normal = {
@@ -2907,11 +2804,7 @@ fn emit_rail_run(
         );
     }
     for (at, sign) in [(0.0f32, -1.0f32), (run, 1.0f32)] {
-        let (capped, coefficient) = if at < 0.0001 {
-            (joints.caps[0], joints.miters[0])
-        } else {
-            (joints.caps[1], joints.miters[1])
-        };
+        let (capped, coefficient) = band.end(at);
         if !capped {
             continue;
         }
