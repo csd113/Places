@@ -1,4 +1,5 @@
 //! Direct viewport tools: previews are private; each click commits one edit.
+use super::agent_api::{PilotCommand as _, RailPath};
 use super::{
     App,
     document::{ObjectId, ObjectKind, Transform, wall_edit::DoorwayTarget},
@@ -279,7 +280,12 @@ impl App {
                         .placement
                         .as_ref()
                         .map_or_else(Vec::new, |p| p.points.clone());
-                    super::railings::candidate(doc, start, &points, end)
+                    RailPath {
+                        start,
+                        middle: &points,
+                        end,
+                    }
+                    .prepare_current(doc)
                 }
             }
             Tool::Wall => {
@@ -552,7 +558,12 @@ impl App {
             .get(..p.points.len().saturating_sub(1))
             .unwrap_or_default();
         let doc = self.document.as_ref().ok_or("Open a project")?;
-        let (raw, _) = super::railings::candidate(doc, start, previous, end)?;
+        let (raw, _) = RailPath {
+            start,
+            middle: previous,
+            end,
+        }
+        .prepare_current(doc)?;
         self.check_focused_edit(&raw)?;
         let expected = doc.raw().clone();
         self.document

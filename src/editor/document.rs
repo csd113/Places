@@ -58,6 +58,7 @@ pub struct Document {
     selected: LevelDocument,
     other_levels: BTreeMap<String, LevelDocument>,
     heap_budget: usize,
+    scene_stamp: super::agent_api::SceneStamp,
 }
 
 const MAX_DOCUMENT_HEAP_CHARGE: usize = 256 * 1024 * 1024;
@@ -152,6 +153,7 @@ impl Document {
             selected,
             other_levels: BTreeMap::new(),
             heap_budget,
+            scene_stamp: super::agent_api::SceneStamp::new(),
         })
     }
 
@@ -214,11 +216,16 @@ impl Document {
             })?
         };
         let previous = std::mem::replace(&mut self.selected, next);
+        self.scene_stamp = super::agent_api::SceneStamp::new();
         drop(
             self.other_levels
                 .insert(previous.level.id.clone(), previous),
         );
         Ok(())
+    }
+
+    pub(super) const fn scene_stamp(&self) -> &super::agent_api::SceneStamp {
+        &self.scene_stamp
     }
 
     pub(super) fn resource_snapshot(&self) -> serde_json::Value {
@@ -563,6 +570,7 @@ impl Document {
         self.selected.level = level;
         timing.step("history-install");
         self.selected.update_view();
+        self.scene_stamp.advance();
         timing.step("dirty-enumerate");
     }
 
@@ -616,6 +624,7 @@ impl Document {
         self.selected.level = level;
         self.selected.update_view();
         self.selected.byte_count = byte_count;
+        self.scene_stamp.advance();
         timing.step("dirty-enumerate-install");
         true
     }

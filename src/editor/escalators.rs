@@ -5,10 +5,12 @@ use sdl3::{event::Event, keyboard::Keycode, mouse::MouseButton, video::Window};
 use super::{
     App,
     actions::Popup,
+    agent_api::{ConnectEscalator, PilotCommand as _},
     ui::{self, Action, Hit},
 };
 use crate::engine::{
     escalator::{Dimensions, Fit},
+    level::LevelDef,
     render::Vertex,
     spatial::Aabb,
 };
@@ -17,6 +19,13 @@ pub(super) const LENGTH_FIELD: usize = 24;
 
 const UPPER_LANDING: &str =
     "Lower landing set. Pick a higher landing near its open edge. Esc cancels.";
+
+pub(super) fn fit_connection(level: &LevelDef, lower: Vec3, upper: Vec3) -> Result<Fit, String> {
+    if upper.y <= lower.y + 0.01 {
+        return Err(UPPER_LANDING.into());
+    }
+    Fit::connect(level, lower, upper)
+}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Command {
@@ -118,23 +127,18 @@ impl App {
     }
 
     fn fitted_escalator(&self, point: Vec3) -> Result<Fit, String> {
-        let level = self
-            .document
-            .as_ref()
-            .ok_or("Open a project first")?
-            .level();
+        let doc = self.document.as_ref().ok_or("Open a project first")?;
         match self.escalator {
-            Some(Draft::Connect(Some(lower))) => {
-                if point.y <= lower.y + 0.01 {
-                    return Err(UPPER_LANDING.into());
-                }
-                Fit::connect(level, lower, point)
+            Some(Draft::Connect(Some(lower))) => ConnectEscalator {
+                lower,
+                upper: point,
             }
+            .prepare_current(doc),
             Some(Draft::Free {
                 dimensions,
                 turn,
                 hover: _,
-            }) => Fit::free(level, point, turn, dimensions),
+            }) => Fit::free(doc.level(), point, turn, dimensions),
             Some(Draft::Connect(None)) | None => Err("Pick the lower landing first".into()),
         }
     }

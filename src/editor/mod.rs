@@ -2,6 +2,7 @@
 //! shared; documents, history, panels and child-process lifetimes belong here.
 
 mod actions;
+mod agent_api;
 mod audio_preview;
 mod authoring;
 mod bakes;
