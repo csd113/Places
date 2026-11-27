@@ -368,6 +368,16 @@ fn footer(app: &App, v: &mut Vec<Vertex>, hits: &mut Vec<Hit>) {
             );
         }
     }
+    if let Some(label) = app.agent.label() {
+        button(
+            v,
+            hits,
+            [375.0, 253.0, 45.0, 10.0],
+            label,
+            Action::AgentSession,
+            true,
+        );
+    }
     text(v, &app.visible_status(), 5.0, 265.0, INK, 132);
 }
 

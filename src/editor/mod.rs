@@ -95,6 +95,7 @@ impl Capture {
 }
 
 struct App {
+    agent: agent_api::Session,
     capture: Option<Capture>,
     document: Option<Document>,
     viewport: Viewport,
@@ -569,6 +570,7 @@ fn create_app(
         .collect();
     let preview_audio = startup_audio.finish(sdl, pump)?;
     let app = App {
+        agent: agent_api::Session::default(),
         capture,
         document: None,
         viewport,
@@ -739,14 +741,19 @@ fn application(options: Options) -> Result<(), String> {
         return Ok(());
     }
     app.load_initial(options.project, options.new, options.level)?;
+    if verification.is_none() && !options.performance_test {
+        app.install_agent(&window);
+    }
     startup.step("project-open-request");
     trace.stage("editor_project_requested");
     let mut outcome = Ok(());
     while !app.closing {
         trace.pump(&app.viewport, &window);
         for event in events.poll_iter() {
+            app.agent_before_event(&event, &window);
             let (_, hits) = ui::build(&app);
             app.event(&event, &window, &hits);
+            app.agent_after_event();
         }
         if (app.popup.is_some()
             && !matches!(
@@ -767,6 +774,7 @@ fn application(options: Options) -> Result<(), String> {
         app.viewport.sync_window(&window);
         let presented = app.draw(&window);
         trace.present(&app.viewport, &window, presented);
+        app.agent_tick(presented);
         app.capture_frame();
         if let Some(driver) = &mut verification
             && let Err(error) = driver.advance(&mut app, &mut window)
@@ -778,6 +786,7 @@ fn application(options: Options) -> Result<(), String> {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
+    app.pause_agent();
     app.stop_runtime();
     sdl.mouse().set_relative_mouse_mode(&window, false);
     sdl.mouse().show_cursor(true);
@@ -789,7 +798,12 @@ fn application(options: Options) -> Result<(), String> {
 #[must_use = "use the editor exit status to report success or failure"]
 pub fn run() -> std::process::ExitCode {
     let mut args = std::env::args().skip(1).peekable();
-    let outcome = if args.next_if(|argument| argument == "--debug").is_some() {
+    let outcome = if args.next_if(|argument| argument == "--agent").is_some() {
+        use std::io::Write as _;
+        agent_api::client(&args.collect::<Vec<_>>()).and_then(|status| {
+            writeln!(std::io::stdout().lock(), "{status}").map_err(|error| error.to_string())
+        })
+    } else if args.next_if(|argument| argument == "--debug").is_some() {
         profiling::debug_cli(&args.collect::<Vec<_>>())
     } else {
         options(args).and_then(|value| value.map_or(Ok(()), application))

@@ -334,6 +334,7 @@ impl App {
     }
 
     pub(super) fn request(&mut self, pending: Pending, window: &Window) {
+        self.pause_agent();
         self.stop_runtime();
         if self.compile.is_some() || self.play.is_some() {
             self.status =
@@ -537,6 +538,9 @@ impl App {
     }
 
     pub(super) fn activate(&mut self, action: Action, window: &Window) -> Result<(), String> {
+        if action == Action::AgentSession {
+            return self.agent_toggle(window);
+        }
         if self.runtime_active() || self.runtime_preparing() {
             if matches!(action, Action::Stop | Action::Cancel) {
                 self.stop_runtime();

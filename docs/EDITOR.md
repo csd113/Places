@@ -193,6 +193,24 @@ generation and active/pending state. Diagnostic builds also report worker source
 image ownership and model storage; shared image/cache figures overlap live owners
 and must not be summed. OS RSS and private commit remain separate measurements.
 
+### Visible agent session (Windows pilot)
+
+Agent access starts off. On a supported local Windows console, open an idle
+project and keep the editor uncovered on the active display. Click **Agent
+Off** in the footer to create a read-only grant for the Windows logon and
+open document. The editor copies `places-editor --agent status SESSION` to
+the clipboard. Run it with the same editor binary from a process that does
+not cover the editor. It reports whether that exact session is active and
+cannot read map contents or edit.
+
+**Take Over** revokes the endpoint. Hiding, minimizing or covering the editor,
+locking or leaving the console, changing displays or projects, opening a
+modal, or losing confirmed visibility pauses access. Restoring the window
+does not restore a grant. Click **Resume Agent** for a new code. The pilot
+fails closed on other platforms, multiple displays, unverifiable console or
+display state, and verification or performance modes. Windows visibility
+signals cannot prove that someone is watching the screen.
+
 ### Native workflow inventory for editor command preparation
 
 This is a source-level inventory of the native action and event families. It is

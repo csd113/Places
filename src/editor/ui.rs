@@ -43,6 +43,7 @@ const LINE: [f32; 4] = [0.235, 0.30, 0.37, 1.0];
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub(super) enum Action {
+    AgentSession,
     Workspace,
     Help,
     DockTab(dock::Tab),
