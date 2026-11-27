@@ -1,5 +1,6 @@
 //! Small in-memory rigid-body witnesses for the source-only bottle policy.
 //! No candidate art, renderer, audio device, or map build is required.
+use super::bottle_contacts::{Witness, commit_witnesses};
 use super::{BottleKind, Breakable};
 use crate::engine::{
     level::LevelDef,
@@ -238,5 +239,116 @@ fn bottle_weak_first_contact_stays_consumed_after_restore_and_christmas_policy_i
             "the original drop rule remains in force"
         );
     }
+    Ok(())
+}
+
+fn missed_bottle_pair(
+    release: ImpactRelease,
+    [first_speed, second_speed]: [f32; 2],
+) -> Result<ItemWorld, String> {
+    let initial = Vec3::new(0.0, 1.4, -1.0);
+    let mut world = fixture(BEER, initial)?;
+    world.spawn(
+        STRIKER,
+        &profile(),
+        BOUNDS,
+        Vec3::new(-1.0, 1.4, -1.0),
+        0.0,
+        1.0,
+    )?;
+    world.register_breakable(STRIKER, Breakable::Bottle(BottleKind::Wine), 1.0);
+    label_release(&mut world, release, release, BOTTLE)?;
+    let runtime = world.runtime.as_mut().ok_or("runtime")?;
+    let first = runtime.entries.get(&BOTTLE).ok_or("first bottle")?.collider;
+    let second = runtime
+        .entries
+        .get(&STRIKER)
+        .ok_or("second bottle")?
+        .collider;
+    assert!(
+        !runtime.world.contact_pairs().any(|pair| {
+            [pair.collider1, pair.collider2] == [first, second]
+                || [pair.collider1, pair.collider2] == [second, first]
+        }),
+        "the pair must be absent from the final graph"
+    );
+    // Inject only the solved-substep records. The bodies, throw provenance,
+    // fracture commit and queued audio are real. Reverse collider order for
+    // the two witnesses to test that contact identity is independent of order.
+    let mut contacts = [
+        Witness {
+            key: STRIKER,
+            pair: [second, first],
+            position: initial,
+            speed: second_speed,
+            impulse: 0.2,
+            fracture: false,
+        },
+        Witness {
+            key: BOTTLE,
+            pair: [first, second],
+            position: initial,
+            speed: first_speed,
+            impulse: 0.2,
+            fracture: false,
+        },
+    ];
+    commit_witnesses(&mut contacts, &mut runtime.breakables, &runtime.entries);
+    runtime.collect_impacts(&world.surface_materials, &contacts);
+    assert!(runtime.impacts.is_empty(), "no ordinary graph event");
+    runtime.collect_missed_bottle_impacts(&world.surface_materials, &mut contacts);
+    assert_eq!(runtime.impacts.len(), 1, "one event for the same CCD pair");
+    assert!(
+        runtime
+            .entries
+            .get(&BOTTLE)
+            .is_some_and(|entry| entry.impact_cooldown > 0.0)
+    );
+    assert!(
+        runtime
+            .entries
+            .get(&STRIKER)
+            .is_some_and(|entry| entry.impact_cooldown > 0.0)
+    );
+    runtime.collect_missed_bottle_impacts(&world.surface_materials, &mut contacts);
+    assert_eq!(runtime.impacts.len(), 1, "the cooldown covers both sides");
+    Ok(world)
+}
+
+#[test]
+fn bottle_ccd_pair_a_single_shatter_replaces_the_whole_impact() -> Result<(), String> {
+    let mut world = missed_bottle_pair(ImpactRelease::Thrown, [4.2, 6.0])?;
+    let plans = world.drain_break_plans();
+    assert_eq!(plans.len(), 1);
+    assert_eq!(plans.first().map(|plan| plan.key), Some(BOTTLE));
+    let piece = world.next_fragment_key().ok_or("fragment key")?;
+    world.spawn(
+        piece,
+        &profile(),
+        BOUNDS,
+        Vec3::new(0.0, 1.4, -1.0),
+        0.0,
+        1.0,
+    )?;
+    assert!(world.commit_break(BOTTLE, vec![piece]));
+    let mut audio = Vec::new();
+    world.drain_impact_audio(|event, route| audio.push((event.key, event.other_key, route)));
+    assert_eq!(
+        audio,
+        [(STRIKER, Some(BOTTLE), ImpactAudio::ReplacedByShatter)]
+    );
+    Ok(())
+}
+
+#[test]
+fn bottle_ccd_pair_quiet_intact_contact_keeps_one_glass_cue() -> Result<(), String> {
+    let mut world = missed_bottle_pair(ImpactRelease::Dropped, [0.8, 0.6])?;
+    assert!(world.drain_break_plans().is_empty());
+    let mut audio = Vec::new();
+    world.drain_impact_audio(|event, route| audio.push((event.key, event.release, route)));
+    assert_eq!(
+        audio,
+        [(BOTTLE, ImpactRelease::Dropped, ImpactAudio::BottleGlass)]
+    );
     Ok(())
 }

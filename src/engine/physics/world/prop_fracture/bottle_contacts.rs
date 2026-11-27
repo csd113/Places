@@ -20,6 +20,14 @@ pub(in crate::engine::physics::world) struct Witness {
     pub(in crate::engine::physics::world) fracture: bool,
 }
 
+impl Witness {
+    pub(in crate::engine::physics::world) fn pair_key(&self) -> [(u32, u32); 2] {
+        let mut key = self.pair.map(ColliderHandle::into_raw_parts);
+        key.sort_unstable();
+        key
+    }
+}
+
 pub(in crate::engine::physics::world) struct Step<'a> {
     entries: &'a BTreeMap<u64, BodyEntry>,
     breakables: &'a BTreeMap<u64, BreakableBody>,

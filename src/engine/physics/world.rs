@@ -1784,7 +1784,7 @@ impl Runtime {
             &self.entries,
         );
         self.collect_impacts(surface_materials, &bottle_contacts);
-        self.collect_missed_bottle_impacts(surface_materials, &bottle_contacts);
+        self.collect_missed_bottle_impacts(surface_materials, &mut bottle_contacts);
         for entry in self.entries.values_mut() {
             entry
                 .trigger_path
@@ -2248,56 +2248,84 @@ impl Runtime {
         self.contact_onsets.finish_step();
     }
 
-    /// A fast bottle impact can be solved in an early CCD substep and
-    /// disappear from the final graph. Preserve the glass cue using the same
-    /// budget. The ordinary contact path runs first and sets the item cooldown.
+    /// An early CCD hit can disappear from the final graph. Its two witnesses
+    /// describe one impact, with one cooldown and any fracture on either side.
     fn collect_missed_bottle_impacts(
         &mut self,
         surface_materials: &SurfaceMaterials,
-        contacts: &[prop_fracture::bottle_contacts::Witness],
+        contacts: &mut [prop_fracture::bottle_contacts::Witness],
     ) {
-        for contact in contacts {
-            let Some(entry) = self.entries.get(&contact.key) else {
-                continue;
-            };
-            if entry.dormant || entry.recovery.suspended {
-                continue;
-            }
-            let Some(strength) =
-                self.impact_budget.take(contact.speed, contact.impulse, entry.impact_cooldown)
-            else {
-                continue;
-            };
-            let other_key = contact.pair.into_iter()
-                .filter_map(|handle| self.key_for_collider(handle))
-                .find(|candidate| *candidate != contact.key);
-            inherit_release(&mut self.entries, contact.key, [Some(contact.key), None]);
-            let Some(updated) = self.entries.get(&contact.key) else {
-                continue;
-            };
-            let event = ImpactEvent {
-                key: contact.key,
-                release: updated.release,
-                causal_source: updated.release_source,
-                incident: updated.release_incident,
-                other_key,
-                position: contact.position,
-                impulse: contact.impulse,
-                speed: contact.speed,
-                strength,
-                surface: surface_materials
-                    .at(contact.position)
-                    .map_or(SurfaceMaterial::Hard, SurfaceMaterial::from_material_id),
-            };
-            if self.impacts.len() == MAX_IMPACTS {
-                let _oldest = self.impacts.pop_front();
-            }
-            self.impacts.push_back(QueuedImpact {
-                event,
-                audio: ImpactAudio::BottleGlass,
-                bottle_breaks: [contact.fracture.then_some(contact.key), None],
-            });
+        contacts.sort_unstable_by_key(prop_fracture::bottle_contacts::Witness::pair_key);
+        for pair in contacts.chunk_by(|first, second| first.pair_key() == second.pair_key()) {
+            self.queue_missed_bottle_impact(surface_materials, pair);
         }
+    }
+
+    fn queue_missed_bottle_impact(
+        &mut self,
+        surface_materials: &SurfaceMaterials,
+        witnesses: &[prop_fracture::bottle_contacts::Witness],
+    ) {
+        let Some(primary) = witnesses
+            .iter()
+            .filter(|witness| {
+                ImpactBudget::meaningful(witness.speed, witness.impulse)
+                    && self.entries.get(&witness.key).is_some_and(|entry| {
+                        !entry.dormant && !entry.recovery.suspended
+                    })
+            })
+            .max_by(|left, right| {
+                left.speed.total_cmp(&right.speed).then_with(|| right.key.cmp(&left.key))
+            })
+        else {
+            return;
+        };
+        let keys = primary.pair.map(|handle| self.key_for_collider(handle));
+        // The ordinary path runs first. Its occupied endpoints block fallback
+        // playback, just as a fallback event occupies both endpoints once.
+        let cooldown = keys
+            .into_iter()
+            .flatten()
+            .filter_map(|key| self.entries.get(&key))
+            .map(|entry| entry.impact_cooldown)
+            .fold(0.0_f32, f32::max);
+        let Some(strength) = self.impact_budget.take(primary.speed, primary.impulse, cooldown) else {
+            return;
+        };
+        let other_key = keys.into_iter().flatten().find(|key| *key != primary.key);
+        inherit_release(&mut self.entries, primary.key, [Some(primary.key), None]);
+        // Apply the pair cooldown without lending the other body a release.
+        if let Some(other) = other_key.and_then(|key| self.entries.get_mut(&key)) {
+            other.impact_cooldown = ImpactBudget::item_cooldown();
+        }
+        let Some(entry) = self.entries.get(&primary.key) else {
+            return;
+        };
+        let event = ImpactEvent {
+            key: primary.key,
+            release: entry.release,
+            causal_source: entry.release_source,
+            incident: entry.release_incident,
+            other_key,
+            position: primary.position,
+            impulse: primary.impulse,
+            speed: primary.speed,
+            strength,
+            surface: surface_materials
+                .at(primary.position)
+                .map_or(SurfaceMaterial::Hard, SurfaceMaterial::from_material_id),
+        };
+        let bottle_breaks = keys.map(|side| {
+            side.filter(|key| witnesses.iter().any(|witness| witness.key == *key && witness.fracture))
+        });
+        if self.impacts.len() == MAX_IMPACTS {
+            let _oldest = self.impacts.pop_front();
+        }
+        self.impacts.push_back(QueuedImpact {
+            event,
+            audio: ImpactAudio::BottleGlass,
+            bottle_breaks,
+        });
     }
 }
 
