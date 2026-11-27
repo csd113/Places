@@ -256,7 +256,11 @@ impl ItemWorld {
         let records = self.checkpoint(authored)?;
         if let Some(runtime) = self.runtime.as_ref() {
             for (key, id, _) in authored {
-                if runtime.breakables.get(key).is_none_or(|record| record.pieces.is_empty()) {
+                if runtime
+                    .breakables
+                    .get(key)
+                    .is_none_or(|record| record.pieces.is_empty())
+                {
                     continue;
                 }
                 let entry = runtime
@@ -283,7 +287,9 @@ impl ItemWorld {
                 )
                 .is_ok_and(|hit| !hit.intersecting);
                 if !clear {
-                    return Err(format!("Move clear of the original placement of the broken item '{id}' before saving"));
+                    return Err(format!(
+                        "Move clear of the original placement of the broken item '{id}' before saving"
+                    ));
                 }
             }
         }
@@ -312,10 +318,15 @@ impl ItemWorld {
         };
         // Fracture debris is temporary. A persisted checkpoint restores its
         // intact authored prop and does not widen the save membership schema.
-        let debris = runtime.breakables.values().flat_map(|record| &record.pieces)
-            .filter(|key| runtime.entries.contains_key(key)).count();
-        if strict && (!runtime.ragdolls.is_empty()
-            || runtime.entries.len().saturating_sub(debris) != authored.len())
+        let debris = runtime
+            .breakables
+            .values()
+            .flat_map(|record| &record.pieces)
+            .filter(|key| runtime.entries.contains_key(key))
+            .count();
+        if strict
+            && (!runtime.ragdolls.is_empty()
+                || runtime.entries.len().saturating_sub(debris) != authored.len())
         {
             return Err("Checkpoint supports authored rigid items only; remove session props or finish articulated interactions".into());
         }
@@ -330,17 +341,24 @@ impl ItemWorld {
                 .bodies
                 .get(entry.body)
                 .ok_or("Checkpoint body is missing")?;
-            if runtime.breakables.get(key).is_some_and(|record| !record.pieces.is_empty()) {
-                result.push((id.clone(), Item {
-                    position: entry.authored_pose.position.to_array(),
-                    rotation: entry.authored_pose.rotation.to_array(),
-                    linear: [0.0; 3],
-                    angular: [0.0; 3],
-                    sleeping: true,
-                    dormant: true,
-                    held_rotation: None,
-                    provenance: None,
-                }));
+            if runtime
+                .breakables
+                .get(key)
+                .is_some_and(|record| !record.pieces.is_empty())
+            {
+                result.push((
+                    id.clone(),
+                    Item {
+                        position: entry.authored_pose.position.to_array(),
+                        rotation: entry.authored_pose.rotation.to_array(),
+                        linear: [0.0; 3],
+                        angular: [0.0; 3],
+                        sleeping: true,
+                        dormant: true,
+                        held_rotation: None,
+                        provenance: None,
+                    },
+                ));
                 continue;
             }
             if !body.is_enabled() {
@@ -567,15 +585,28 @@ mod festive_regressions {
         );
         let away = Vec3::new(2.0, 0.0, 0.0);
         assert!(
-            world.set_dynamic_pose(KEY, ItemPose { position: away, rotation: Quat::IDENTITY }),
+            world.set_dynamic_pose(
+                KEY,
+                ItemPose {
+                    position: away,
+                    rotation: Quat::IDENTITY
+                }
+            ),
             "the live prop can move away from its authored footprint"
         );
         let part = world.next_fragment_key().ok_or("fragment key")?;
         world.spawn(part, &shape(), BOUNDS, away, 0.0, 1.0)?;
-        assert!(world.commit_break(KEY, vec![part]), "fracture retires the original collider");
-        assert!(world.player_pose_clear(standing_inside), "live footprint must be empty");
         assert!(
-            world.checkpoint_for_player(&id, standing_inside)
+            world.commit_break(KEY, vec![part]),
+            "fracture retires the original collider"
+        );
+        assert!(
+            world.player_pose_clear(standing_inside),
+            "live footprint must be empty"
+        );
+        assert!(
+            world
+                .checkpoint_for_player(&id, standing_inside)
                 .is_err_and(|message| message.contains("globe")),
             "publishing the blocked checkpoint is refused and identifies the culprit"
         );
@@ -599,7 +630,12 @@ mod festive_regressions {
         Ok(())
     }
 
-    fn contact(world: &mut ItemWorld, generation: u64, speed: f32, impulse: f32) -> Result<(), String> {
+    fn contact(
+        world: &mut ItemWorld,
+        generation: u64,
+        speed: f32,
+        impulse: f32,
+    ) -> Result<(), String> {
         let runtime = world.runtime.as_mut().ok_or("world")?;
         let entry = runtime.entries.get_mut(&KEY).ok_or("entry")?;
         entry.originating_release = ImpactRelease::Dropped;
@@ -626,12 +662,18 @@ mod festive_regressions {
             contact(&mut original, 1, 0.4, first_impulse)?;
             let mut records = original.checkpoint(&ids)?;
             if legacy {
-                records.first_mut().ok_or("record")?.1.provenance.as_mut()
-                    .ok_or("provenance")?.fracture_contact_tested = None;
+                records
+                    .first_mut()
+                    .ok_or("record")?
+                    .1
+                    .provenance
+                    .as_mut()
+                    .ok_or("provenance")?
+                    .fracture_contact_tested = None;
             }
             let bytes = serde_json::to_vec(&records).map_err(|error| error.to_string())?;
-            let saved: Vec<(String, Item)> = serde_json::from_slice(&bytes)
-                .map_err(|error| error.to_string())?;
+            let saved: Vec<(String, Item)> =
+                serde_json::from_slice(&bytes).map_err(|error| error.to_string())?;
             let mut restored = globe()?;
             restored.restore_checkpoint(&ids, &saved)?;
             contact(&mut restored, 1, 3.0, 0.15)?;
@@ -641,7 +683,11 @@ mod festive_regressions {
                 "saved contact consumption must distinguish old and still-pending drops"
             );
             contact(&mut restored, 2, 3.0, 0.15)?;
-            assert_eq!(restored.drain_break_plans().len(), 1, "next drop still works");
+            assert_eq!(
+                restored.drain_break_plans().len(),
+                1,
+                "next drop still works"
+            );
         }
         Ok(())
     }

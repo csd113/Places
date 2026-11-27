@@ -457,9 +457,10 @@ impl EffectScene {
         } else {
             super::globe_snow::BUDGET
         };
-        self.emitters.iter().fold(snow_budget.saturating_add(globe_budget), |total, emitter| {
-            total.saturating_add(emitter.count)
-        })
+        self.emitters.iter().fold(
+            snow_budget.saturating_add(globe_budget),
+            |total, emitter| total.saturating_add(emitter.count),
+        )
     }
 
     #[must_use]
@@ -644,10 +645,13 @@ impl EffectScene {
 
     /// Appends one group of near-only globe particles, before glass rendering.
     pub(crate) fn append_globe_billboards(
-        &self, camera: [f32; 3], out: &mut Vec<EffectVertex>,
+        &self,
+        camera: [f32; 3],
+        out: &mut Vec<EffectVertex>,
     ) -> Option<(usize, usize)> {
         let texture = self.globe_texture?;
-        let count = super::globe_snow::append(&self.globes, self.clock(), Vec3::from_array(camera), out);
+        let count =
+            super::globe_snow::append(&self.globes, self.clock(), Vec3::from_array(camera), out);
         (count != 0).then_some((texture, count))
     }
 

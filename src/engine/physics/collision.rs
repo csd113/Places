@@ -241,7 +241,11 @@ pub(super) fn guardrail_geometry(level: &LevelDef) -> Vec<RailGeometry> {
     for rail in &level.guardrails {
         let runs = rail_runs(rail, level);
         for (index, run) in runs.iter().enumerate() {
-            geometry.extend(RailGeometry::new(run, rail_neighbors(&runs, index), &surfaces));
+            geometry.extend(RailGeometry::new(
+                run,
+                rail_neighbors(&runs, index),
+                &surfaces,
+            ));
         }
     }
     geometry

@@ -592,7 +592,11 @@ impl RailBand<'_> {
     pub(crate) fn end(&self, at: f32) -> (bool, f32) {
         let [start, end] = self.run.caps;
         let [left, right] = self.run.miters;
-        if at < 0.0001 { (start, left) } else { (end, right) }
+        if at < 0.0001 {
+            (start, left)
+        } else {
+            (end, right)
+        }
     }
 
     pub(crate) fn corner(&self, at: f32, across: f32, upper: bool) -> [f32; 3] {

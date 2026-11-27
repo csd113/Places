@@ -7,7 +7,9 @@ use super::super::{Document, ObjectId, objects};
 
 impl Document {
     pub(crate) fn toggle_feltling_elf(&mut self, id: ObjectId) -> Result<(), String> {
-        if !matches!(id, ObjectId::Prop(_)) { return Err("Select a Feltling".into()); }
+        if !matches!(id, ObjectId::Prop(_)) {
+            return Err("Select a Feltling".into());
+        }
         let mut raw = self.raw().clone();
         let object = object_mut(&mut raw, id)?;
         if object.get("model").and_then(Value::as_str)

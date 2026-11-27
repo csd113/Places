@@ -745,6 +745,7 @@ fn application(options: Options) -> Result<(), String> {
         return Ok(());
     }
     app.load_initial(options.project, options.new, options.level)?;
+    #[cfg(windows)]
     if verification.is_none() && !options.performance_test {
         app.install_agent(&window);
     }
@@ -754,9 +755,11 @@ fn application(options: Options) -> Result<(), String> {
     while !app.closing {
         trace.pump(&app.viewport, &window);
         for event in events.poll_iter() {
+            #[cfg(windows)]
             app.agent_before_event(&event, &window);
             let (_, hits) = ui::build(&app);
             app.event(&event, &window, &hits);
+            #[cfg(windows)]
             app.agent_after_event();
         }
         if (app.popup.is_some()
@@ -778,6 +781,7 @@ fn application(options: Options) -> Result<(), String> {
         app.viewport.sync_window(&window);
         let presented = app.draw(&window);
         trace.present(&app.viewport, &window, presented);
+        #[cfg(windows)]
         app.agent_tick(presented);
         app.capture_frame();
         if let Some(driver) = &mut verification
@@ -790,6 +794,7 @@ fn application(options: Options) -> Result<(), String> {
             std::thread::sleep(Duration::from_millis(16));
         }
     }
+    #[cfg(windows)]
     app.pause_agent();
     app.stop_runtime();
     sdl.mouse().set_relative_mouse_mode(&window, false);

@@ -8858,7 +8858,8 @@ impl LevelDef {
     /// Compiled-only boxes and their order are otherwise preserved.
     pub(crate) fn item_collision_aabbs_from(&self, walls: &[WallAabb]) -> Vec<WallAabb> {
         if walls.is_empty()
-            || (self.guardrails.is_empty() && !self.props.iter().any(PropDef::has_fixed_physics_shape))
+            || (self.guardrails.is_empty()
+                && !self.props.iter().any(PropDef::has_fixed_physics_shape))
         {
             return walls.to_vec();
         }
@@ -8869,7 +8870,11 @@ impl LevelDef {
             .map(|bounds| bounds.to_wall_aabb())
             .collect();
         let surfaces = LevelSurfaces::new(self);
-        for prop in self.props.iter().filter(|prop| prop.has_fixed_physics_shape()) {
+        for prop in self
+            .props
+            .iter()
+            .filter(|prop| prop.has_fixed_physics_shape())
+        {
             prop.push_solid_colliders(&surfaces, &mut replaced);
         }
 
@@ -8877,11 +8882,21 @@ impl LevelDef {
         // an unmatched box must stay solid. Normalize signed zero only.
         let key = |wall: &WallAabb| {
             [
-                wall.min_x, wall.min_y, wall.min_z, wall.max_x, wall.max_y, wall.max_z, wall.step_up,
+                wall.min_x,
+                wall.min_y,
+                wall.min_z,
+                wall.max_x,
+                wall.max_y,
+                wall.max_z,
+                wall.step_up,
             ]
             .map(|value| {
                 let bits = value.to_bits();
-                if bits == (-0.0_f32).to_bits() { 0 } else { bits }
+                if bits == (-0.0_f32).to_bits() {
+                    0
+                } else {
+                    bits
+                }
             })
         };
         let mut matches = std::collections::BTreeMap::<_, [usize; 3]>::new();

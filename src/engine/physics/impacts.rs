@@ -153,8 +153,10 @@ impl ImpactBudget {
     }
 
     pub fn meaningful(speed: f32, impulse: f32) -> bool {
-        speed.is_finite() && impulse.is_finite()
-            && speed >= MIN_IMPACT_SPEED && impulse >= MIN_IMPACT_IMPULSE
+        speed.is_finite()
+            && impulse.is_finite()
+            && speed >= MIN_IMPACT_SPEED
+            && impulse >= MIN_IMPACT_IMPULSE
     }
 
     pub const fn item_cooldown() -> f32 {

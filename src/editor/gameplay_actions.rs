@@ -58,7 +58,9 @@ pub(super) fn number_field(setting: GameplaySetting) -> Option<usize> {
 
 impl App {
     fn toggle_feltling_outfit(&mut self) -> Result<(), String> {
-        self.document.as_mut().ok_or("Open a project first")?
+        self.document
+            .as_mut()
+            .ok_or("Open a project first")?
             .toggle_feltling_elf(self.selected.ok_or("Select a Feltling")?)?;
         self.changed();
         self.status = "Changed this Feltling's outfit.".into();

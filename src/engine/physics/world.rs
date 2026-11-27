@@ -31,7 +31,9 @@ use super::config::{BodyMotion, PhysicsDef, validate_reset_group};
 use super::contact_solver::ContactSolver;
 use super::contacts::ContactOnsets;
 use super::hold::HeldItem;
-use super::impacts::{ImpactAudio, ImpactBudget, ImpactEvent, ImpactMotion, QueuedImpact, SurfaceMaterial};
+use super::impacts::{
+    ImpactAudio, ImpactBudget, ImpactEvent, ImpactMotion, QueuedImpact, SurfaceMaterial,
+};
 use super::recovery::{RecoverySpace, RecoveryState, RecoveryTracker};
 use super::surfaces::{FloorContactHooks, FloorSurfaces, SurfaceMaterials};
 use super::trigger_path::{ItemTriggerBody, TriggerPath};
@@ -983,10 +985,15 @@ impl ItemWorld {
 
     /// Removes one body, including a held body, without leaving solver handles.
     pub fn remove(&mut self, key: u64) -> bool {
-        let fragments = self.runtime.as_mut().and_then(|r| r.breakables.remove(&key))
+        let fragments = self
+            .runtime
+            .as_mut()
+            .and_then(|r| r.breakables.remove(&key))
             .map_or_else(Vec::new, |house| house.pieces);
         for part in fragments {
-            if self.remove(part) && let Some(runtime) = self.runtime.as_mut() {
+            if self.remove(part)
+                && let Some(runtime) = self.runtime.as_mut()
+            {
                 runtime.retired_break_parts.push(part);
             }
         }
@@ -1070,7 +1077,9 @@ impl ItemWorld {
             }
         }
         for part in fragments {
-            if self.remove(part) && let Some(active) = self.runtime.as_mut() {
+            if self.remove(part)
+                && let Some(active) = self.runtime.as_mut()
+            {
                 active.retired_break_parts.push(part);
             }
         }
@@ -1654,9 +1663,13 @@ impl ItemWorld {
     /// Allocating diagnostic convenience; runtime consumers drain in place.
     #[must_use]
     pub fn take_impacts(&mut self) -> Vec<ImpactEvent> {
-        self.runtime
-            .as_mut()
-            .map_or_else(Vec::new, |runtime| runtime.impacts.drain(..).map(|impact| impact.event).collect())
+        self.runtime.as_mut().map_or_else(Vec::new, |runtime| {
+            runtime
+                .impacts
+                .drain(..)
+                .map(|impact| impact.event)
+                .collect()
+        })
     }
 
     /// Item-only solver contacts accumulated across the latest frame's fixed
@@ -1768,7 +1781,8 @@ impl Runtime {
             self.held.as_ref().map(|held| held.key),
             (self.player_collider, self.player_velocity),
         );
-        self.world.step_with_events(&self.floor_contacts, &bottle_listener);
+        self.world
+            .step_with_events(&self.floor_contacts, &bottle_listener);
         let mut bottle_contacts = bottle_listener.finish();
         self.update_poses();
         self.update_ragdolls(false);
@@ -1832,7 +1846,9 @@ impl Runtime {
             .retain(|impact| impact.event.key != key && impact.event.other_key != Some(key));
     }
     fn validate_reset_destinations_with_exclusions(
-        &self, keys: &[u64], exclusions: &[u64],
+        &self,
+        keys: &[u64],
+        exclusions: &[u64],
     ) -> Result<(), String> {
         let outside_group = |handle, collider: &rapier3d::prelude::Collider| {
             collider.is_enabled()
@@ -2159,20 +2175,32 @@ impl Runtime {
                 .zip(second.or_else(|| self.contact_aliases.get(&contact.collider2).copied()))
                 .filter(|(a, b)| a != b)
                 .map(|(a, b)| [a.min(b), a.max(b)]);
-            record_frame_contact(&mut self.frame_contacts, &mut self.frame_contact_impulses, pair, impulse);
+            record_frame_contact(
+                &mut self.frame_contacts,
+                &mut self.frame_contact_impulses,
+                pair,
+                impulse,
+            );
             if !self
                 .contact_onsets
                 .observe(contact.collider1, contact.collider2, impulse)
             {
                 continue;
             }
-            let Some((position, speed, _normal)) = impact_contact(
-                &self.world.colliders, contact, |handle, at| self.incoming_velocity(handle, at),
-            ) else {
+            let Some((position, speed, _normal)) =
+                impact_contact(&self.world.colliders, contact, |handle, at| {
+                    self.incoming_velocity(handle, at)
+                })
+            else {
                 continue;
             };
             prop_fracture::witness_festive_sides(
-                &mut self.breakables, &self.entries, self.held.as_ref().map(|held| held.key), keys, speed, impulse,
+                &mut self.breakables,
+                &self.entries,
+                self.held.as_ref().map(|held| held.key),
+                keys,
+                speed,
+                impulse,
             );
             let active_key = keys
                 .into_iter()
@@ -2226,23 +2254,44 @@ impl Runtime {
                     .at(position)
                     .map_or(SurfaceMaterial::Hard, SurfaceMaterial::from_material_id),
             };
-            let audio = if self.breakables.get(&key).is_some_and(prop_fracture::BreakableBody::is_bottle) {
-                ImpactAudio::BottleGlass
-            } else {
-                ImpactAudio::Surface
-            };
-            let collider_pair = [contact.collider1, contact.collider2];
-            let bottle_breaks = keys.map(|side| {
-                side.filter(|bottle_key| {
-                    bottle_contacts.iter().any(|contact_witness| {
-                        contact_witness.fracture && contact_witness.key == *bottle_key
-                            && contact_witness.pair == collider_pair
-                    })
-                })
-            });
-            self.impacts.push_back(QueuedImpact { event, audio, bottle_breaks });
+            let queued = self.queued_contact_impact(event, keys, contact, bottle_contacts);
+            self.impacts.push_back(queued);
         }
         self.contact_onsets.finish_step();
+    }
+
+    fn queued_contact_impact(
+        &self,
+        event: ImpactEvent,
+        keys: [Option<u64>; 2],
+        contact: &ContactPair,
+        bottle_contacts: &[prop_fracture::bottle_contacts::Witness],
+    ) -> QueuedImpact {
+        let key = event.key;
+        let audio = if self
+            .breakables
+            .get(&key)
+            .is_some_and(prop_fracture::BreakableBody::is_bottle)
+        {
+            ImpactAudio::BottleGlass
+        } else {
+            ImpactAudio::Surface
+        };
+        let collider_pair = [contact.collider1, contact.collider2];
+        let bottle_breaks = keys.map(|side| {
+            side.filter(|bottle_key| {
+                bottle_contacts.iter().any(|contact_witness| {
+                    contact_witness.fracture
+                        && contact_witness.key == *bottle_key
+                        && contact_witness.pair == collider_pair
+                })
+            })
+        });
+        QueuedImpact {
+            event,
+            audio,
+            bottle_breaks,
+        }
     }
 
     /// An early CCD hit can disappear from the final graph. Its two witnesses
@@ -2267,12 +2316,15 @@ impl Runtime {
             .iter()
             .filter(|witness| {
                 ImpactBudget::meaningful(witness.speed, witness.impulse)
-                    && self.entries.get(&witness.key).is_some_and(|entry| {
-                        !entry.dormant && !entry.recovery.suspended
-                    })
+                    && self
+                        .entries
+                        .get(&witness.key)
+                        .is_some_and(|entry| !entry.dormant && !entry.recovery.suspended)
             })
             .max_by(|left, right| {
-                left.speed.total_cmp(&right.speed).then_with(|| right.key.cmp(&left.key))
+                left.speed
+                    .total_cmp(&right.speed)
+                    .then_with(|| right.key.cmp(&left.key))
             })
         else {
             return;
@@ -2286,7 +2338,10 @@ impl Runtime {
             .filter_map(|key| self.entries.get(&key))
             .map(|entry| entry.impact_cooldown)
             .fold(0.0_f32, f32::max);
-        let Some(strength) = self.impact_budget.take(primary.speed, primary.impulse, cooldown) else {
+        let Some(strength) = self
+            .impact_budget
+            .take(primary.speed, primary.impulse, cooldown)
+        else {
             return;
         };
         let other_key = keys.into_iter().flatten().find(|key| *key != primary.key);
@@ -2313,7 +2368,11 @@ impl Runtime {
                 .map_or(SurfaceMaterial::Hard, SurfaceMaterial::from_material_id),
         };
         let bottle_breaks = keys.map(|side| {
-            side.filter(|key| witnesses.iter().any(|witness| witness.key == *key && witness.fracture))
+            side.filter(|key| {
+                witnesses
+                    .iter()
+                    .any(|witness| witness.key == *key && witness.fracture)
+            })
         });
         if self.impacts.len() == MAX_IMPACTS {
             let _oldest = self.impacts.pop_front();
@@ -2336,7 +2395,10 @@ fn collider_key(
 
 fn incoming_velocity(
     entries: &BTreeMap<u64, BodyEntry>,
-    (colliders, bodies): (&rapier3d::prelude::ColliderSet, &rapier3d::prelude::RigidBodySet),
+    (colliders, bodies): (
+        &rapier3d::prelude::ColliderSet,
+        &rapier3d::prelude::RigidBodySet,
+    ),
     (player_collider, player_velocity): (ColliderHandle, Vec3),
     collider: ColliderHandle,
     position: Vec3,
@@ -2351,7 +2413,9 @@ fn incoming_velocity(
         .get(collider)
         .and_then(rapier3d::prelude::Collider::parent)
         .and_then(|body| bodies.get(body))
-        .map_or(Vec3::ZERO, |body| point(body.velocity_at_point(vector(position))))
+        .map_or(Vec3::ZERO, |body| {
+            point(body.velocity_at_point(vector(position)))
+        })
 }
 
 fn impact_contact(
@@ -2392,7 +2456,6 @@ fn impact_contact(
         .map(|(_, position, speed, normal)| (position, speed, normal))
 }
 
-
 fn record_frame_contact(
     contacts: &mut Vec<[u64; 2]>,
     impulses: &mut Vec<ContactImpulse>,
@@ -2407,7 +2470,10 @@ fn record_frame_contact(
         if let Some(row) = impulses.iter_mut().find(|row| row.pair == contact_pair) {
             row.impulse = row.impulse.max(impulse);
         } else if impulses.len() < MAX_CONTACT_PAIRS {
-            impulses.push(ContactImpulse { pair: contact_pair, impulse });
+            impulses.push(ContactImpulse {
+                pair: contact_pair,
+                impulse,
+            });
         }
     }
 }

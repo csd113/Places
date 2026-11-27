@@ -32,12 +32,12 @@ use super::{
     WALL_FACE_NORTH_MULT, WALL_FACE_SOUTH_MULT, WALL_FACE_WEST_MULT, add_quad,
     emit_lit_surface_grid, lit_surface_grid, shade, tiled_uv,
 };
+use crate::engine::level::construction::{RailBand, RailGeometry, rail_neighbors, rail_runs};
 use crate::engine::level::{
     ArcWallDef, ArchwayDef, BaseboardDef, BaseboardUvProjection, ColumnDef, GuardrailDef,
     HalfWallDef, LevelDef, LevelSurfaces, MaterialRef, PillarDef, RampDef, StairDef, ThresholdDef,
     VoidWallDef, WallAxis, axis_positions, round_point,
 };
-use crate::engine::level::construction::{RailBand, RailGeometry, rail_neighbors, rail_runs};
 use crate::engine::lighting::light_grid_cells;
 use crate::engine::lighting::lightmap::PatchKind;
 use crate::engine::spatial::SpatialBuckets;

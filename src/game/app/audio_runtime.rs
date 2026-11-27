@@ -253,7 +253,9 @@ impl FrameLoop<'_> {
         }
         self.update_environment_audio();
         if active {
-            self.audio.world.update_christmas(self.game, &self.items.world, &mut self.audio.system);
+            self.audio
+                .world
+                .update_christmas(self.game, &self.items.world, &mut self.audio.system);
         }
         // Only live controls are visited, capped by the backend voice budget.
         // Routed entities publish their current transform through this seam.

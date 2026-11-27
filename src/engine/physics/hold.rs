@@ -311,11 +311,7 @@ impl ItemWorld {
         };
         runtime
             .world
-            .intersect_shape(
-                target,
-                &hull,
-                query_filter().predicate(&only_items),
-            )
+            .intersect_shape(target, &hull, query_filter().predicate(&only_items))
             .next()
             .is_none()
     }

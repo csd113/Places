@@ -459,8 +459,16 @@ impl WgpuEffects {
         }
         let globe = scene.append_globe_billboards(camera_position, &mut self.vertices);
         let globe_count = globe.map_or(0, |(texture, count)| {
-            let index_count = u32::try_from(count.saturating_mul(INDICES_PER_PARTICLE)).unwrap_or(u32::MAX);
-            self.groups.push(EffectsGroupGpu { texture, first_index, index_count, vertex_count: u32::try_from(count.saturating_mul(VERTS_PER_PARTICLE)).unwrap_or(u32::MAX), globe: true });
+            let index_count =
+                u32::try_from(count.saturating_mul(INDICES_PER_PARTICLE)).unwrap_or(u32::MAX);
+            self.groups.push(EffectsGroupGpu {
+                texture,
+                first_index,
+                index_count,
+                vertex_count: u32::try_from(count.saturating_mul(VERTS_PER_PARTICLE))
+                    .unwrap_or(u32::MAX),
+                globe: true,
+            });
             first_index = first_index.saturating_add(index_count);
             count
         });
@@ -610,7 +618,12 @@ impl WgpuEffects {
     pub(crate) fn globe_sample(&self) -> (u32, Option<[f32; 3]>) {
         self.groups.iter().find(|g| g.globe).map_or((0, None), |g| {
             let particle_offset = usize::try_from(g.first_index / 6).unwrap_or(usize::MAX);
-            (g.vertex_count / 4, self.vertices.get(particle_offset.saturating_mul(4)).map(|v| v.position))
+            (
+                g.vertex_count / 4,
+                self.vertices
+                    .get(particle_offset.saturating_mul(4))
+                    .map(|v| v.position),
+            )
         })
     }
 

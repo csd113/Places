@@ -1,6 +1,8 @@
 //! Automatic world audio shared by the player and disposable editor sessions.
 use super::Game;
-use crate::engine::audio::{AudioBus, AudioSystem, PerceptionOwner, PlayRequest, SourceId, TimeDomain};
+use crate::engine::audio::{
+    AudioBus, AudioSystem, PerceptionOwner, PlayRequest, SourceId, TimeDomain,
+};
 use crate::engine::door::DoorPhase;
 use crate::engine::level::{LevelDef, LevelSurfaces};
 use crate::engine::loader::PropCatalog;
@@ -17,16 +19,26 @@ pub fn play_impact_cue(audio: &mut AudioSystem, cue: &str, impact: ImpactEvent) 
     let dropped = impact.release == ImpactRelease::Dropped;
     // Ordinary drops preserve their one-metre footstep radius. Let a bottle's
     // quiet glass clink reach the standing player's ears from the floor.
-    let drop_range = if cue == "impact_glass" { [0.35, 3.5] } else { [0.01, 1.0] };
+    let drop_range = if cue == "impact_glass" {
+        [0.35, 3.5]
+    } else {
+        [0.01, 1.0]
+    };
     audio.play(
         cue,
         PlayRequest {
-            perception: PerceptionOwner::Gameplay { event: impact.incident },
+            perception: PerceptionOwner::Gameplay {
+                event: impact.incident,
+            },
             position: Some(impact.position),
             spatial: Some(true),
             attenuation: dropped.then_some(drop_range),
             bus: AudioBus::Prop,
-            gain: if dropped { 0.35 * impact.strength } else { impact.strength },
+            gain: if dropped {
+                0.35 * impact.strength
+            } else {
+                impact.strength
+            },
             ..PlayRequest::default()
         },
     )
@@ -142,7 +154,10 @@ impl WorldAudio {
     }
 
     pub(crate) fn play_authored(
-        &mut self, system: &mut AudioSystem, cue: &str, request: PlayRequest,
+        &mut self,
+        system: &mut AudioSystem,
+        cue: &str,
+        request: PlayRequest,
     ) -> bool {
         self.christmas.play(system, cue, request)
     }
@@ -152,9 +167,13 @@ impl WorldAudio {
     }
 
     pub(crate) fn update_christmas(
-        &mut self, game: &Game, items: &ItemWorld, system: &mut AudioSystem,
+        &mut self,
+        game: &Game,
+        items: &ItemWorld,
+        system: &mut AudioSystem,
     ) {
-        self.christmas.update(game.entities(), items, game.world_delta_seconds(), system);
+        self.christmas
+            .update(game.entities(), items, game.world_delta_seconds(), system);
     }
 
     pub(crate) const fn christmas_witness(&self) -> christmas::Witness {

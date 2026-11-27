@@ -307,7 +307,8 @@ impl Session {
         let (listener_position, _) = self.listener_pose();
         self.audio
             .update_environment(listener_position, seconds, audio);
-        self.audio.update_christmas(&self.game, &self.physics.world, audio);
+        self.audio
+            .update_christmas(&self.game, &self.physics.world, audio);
         self.update_audio(audio, false);
         self.update_script_status()?;
         if !self.game.is_running() {
@@ -629,7 +630,10 @@ impl Session {
             "temporary": true,
         });
         if let Some(object) = snapshot.as_object_mut() {
-            drop(object.insert("feltlings".into(), self.game.entities().feltling_diagnostics()));
+            drop(object.insert(
+                "feltlings".into(),
+                self.game.entities().feltling_diagnostics(),
+            ));
         }
         snapshot
     }

@@ -9,7 +9,6 @@ use super::FrameLoop;
 use crate::engine::{level::LevelDef, physics::PlayerContext};
 use crate::game::AppState;
 
-
 #[derive(Clone, Copy)]
 pub enum InteractionTarget {
     Item { key: u64, distance: f32 },
@@ -121,8 +120,7 @@ impl PreparedItems {
                     prop.scale,
                 )?;
             } else {
-                let key =
-                    crate::engine::physics::prop_fracture::authored_item_key(index);
+                let key = crate::engine::physics::prop_fracture::authored_item_key(index);
                 prepared.world.spawn_authored_oriented(
                     key,
                     def,
@@ -777,9 +775,11 @@ impl FrameLoop<'_> {
             self.game.door_colliders(),
             self.game.airborne_velocity(),
         );
-        self.renderer.sync_prop_fractures(&mut self.items.world, |position| {
-            let _played = crate::game::audio::play_bottle_shatter(&mut self.audio.system, position);
-        });
+        self.renderer
+            .sync_prop_fractures(&mut self.items.world, |position| {
+                let _played =
+                    crate::game::audio::play_bottle_shatter(&mut self.audio.system, position);
+            });
         for recovery in self.items.world.take_recoveries() {
             if recovery.released_held {
                 self.items.input.invalidate();

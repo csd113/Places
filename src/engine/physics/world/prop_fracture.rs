@@ -1,8 +1,8 @@
 //! Opt-in props fracture on their own first solved contact after the required release.
 use glam::Vec3;
 
-mod bottles;
 pub(super) mod bottle_contacts;
+mod bottles;
 
 use crate::engine::level::PropDef;
 use crate::engine::physics::{BodyMotion, ImpactRelease, PhysicsDef};
@@ -186,10 +186,13 @@ pub(super) fn witness_festive_sides(
     impulse: f32,
 ) {
     for key in keys.into_iter().flatten() {
-        if let Some(breakable) = breakables.get_mut(&key).filter(|record| !record.is_bottle())
+        if let Some(breakable) = breakables
+            .get_mut(&key)
+            .filter(|record| !record.is_bottle())
             && let Some(entry) = entries.get(&key)
         {
-            let _qualified = breakable.witness_contact(key, entry, held == Some(key), speed, impulse);
+            let _qualified =
+                breakable.witness_contact(key, entry, held == Some(key), speed, impulse);
         }
     }
 }
@@ -208,7 +211,11 @@ impl ItemWorld {
                 && let Some(collider) = runtime.world.colliders.get_mut(entry.collider)
             {
                 use rapier3d::prelude::ActiveEvents;
-                collider.set_active_events(collider.active_events().union(ActiveEvents::CONTACT_FORCE_EVENTS));
+                collider.set_active_events(
+                    collider
+                        .active_events()
+                        .union(ActiveEvents::CONTACT_FORCE_EVENTS),
+                );
                 collider.set_contact_force_event_threshold(0.0);
             }
             drop(runtime.breakables.insert(

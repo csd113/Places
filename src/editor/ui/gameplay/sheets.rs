@@ -429,14 +429,22 @@ pub(super) fn prop_sheet(
         Action::MountSurface,
         true,
     );
-    if let Some(feltling) = prop.filter(|record| {
-        record.model == crate::engine::props::feltling_costume::FELTLING_ID
-    }) {
-        button(vertices, hits, [140.0, 172.0, 240.0, 11.0],
-            if feltling.feltling_costume.is_some() { "Elf outfit: On" } else { "Elf outfit: Off" },
-            Action::ToggleFeltlingElf, true);
+    if let Some(feltling) =
+        prop.filter(|record| record.model == crate::engine::props::feltling_costume::FELTLING_ID)
+    {
+        button(
+            vertices,
+            hits,
+            [140.0, 172.0, 240.0, 11.0],
+            if feltling.feltling_costume.is_some() {
+                "Elf outfit: On"
+            } else {
+                "Elf outfit: Off"
+            },
+            Action::ToggleFeltlingElf,
+            true,
+        );
     }
-
 }
 
 pub(super) fn fog_sheet(

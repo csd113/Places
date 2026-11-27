@@ -129,7 +129,11 @@ impl PreparedPhysics {
     }
 
     pub(super) fn step(
-        &mut self, game: &mut Game, seconds: f32, renderer: &mut Renderer, audio: &mut AudioSystem,
+        &mut self,
+        game: &mut Game,
+        seconds: f32,
+        renderer: &mut Renderer,
+        audio: &mut AudioSystem,
     ) {
         self.world.sync_water(&game.water);
         self.world.sync_escalators(

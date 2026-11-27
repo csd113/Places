@@ -239,7 +239,8 @@ fn character_claim_plan(
             continue;
         }
         let Some(animator) = CharacterAnimator::new_shared_appearance(
-            &asset, &fitted.as_ref().unwrap_or(&asset).model,
+            &asset,
+            &fitted.as_ref().unwrap_or(&asset).model,
         ) else {
             continue;
         };
@@ -3380,7 +3381,10 @@ impl CharacterAnimator {
         Self::new_shared_appearance(asset, &asset.model)
     }
 
-    fn new_shared_appearance(asset: &Arc<LoadedPropAsset>, visible: &crate::engine::gltf::PropModel) -> Option<Self> {
+    fn new_shared_appearance(
+        asset: &Arc<LoadedPropAsset>,
+        visible: &crate::engine::gltf::PropModel,
+    ) -> Option<Self> {
         type Definitions = std::collections::HashMap<usize, std::sync::Weak<AnimatorDefinition>>;
         static CACHE: std::sync::OnceLock<std::sync::Mutex<Definitions>> =
             std::sync::OnceLock::new();

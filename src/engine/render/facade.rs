@@ -478,18 +478,29 @@ impl Renderer {
             }
             let mut staged = Vec::with_capacity(panels.len());
             let result: Result<(), String> = panels.iter().copied().try_for_each(|panel| {
-                let key = world.next_fragment_key().ok_or("Fracture piece key unavailable")?;
+                let key = world
+                    .next_fragment_key()
+                    .ok_or("Fracture piece key unavailable")?;
                 let pose = world.spawn_break_fragment(key, plan, panel)?;
                 staged.push(key);
-                if self.spawn_runtime_model(key, panel.path, pose.position.to_array(), 0.0, plan.scale)
-                    && self.set_runtime_model_pose(key, pose.position.to_array(), pose.rotation.to_array())
-                {
+                if self.spawn_runtime_model(
+                    key,
+                    panel.path,
+                    pose.position.to_array(),
+                    0.0,
+                    plan.scale,
+                ) && self.set_runtime_model_pose(
+                    key,
+                    pose.position.to_array(),
+                    pose.rotation.to_array(),
+                ) {
                     Ok(())
                 } else {
                     Err("Fracture piece renderer admission failed".into())
                 }
             });
-            if result.is_ok() && self.set_runtime_model_visible(plan.key, false)
+            if result.is_ok()
+                && self.set_runtime_model_visible(plan.key, false)
                 && world.commit_break(plan.key, staged.clone())
             {
                 if plan.kind.is_bottle() {

@@ -243,27 +243,48 @@ fn festive_item_still_breaks_after_npc_custody() -> Result<(), String> {
             ..PhysicsDef::default()
         },
         bounds: (Vec3::new(-0.1, 0.0, -0.1), Vec3::new(0.1, 0.2, 0.1)),
-        pose: ItemPose { position, rotation: Quat::IDENTITY },
+        pose: ItemPose {
+            position,
+            rotation: Quat::IDENTITY,
+        },
         scale: 1.0,
         fracture: Some(Breakable::SpruceGlobe),
     };
     for live in [None, Some(prop.pose)] {
         let mut world = ItemWorld::from_level(&level, &[]);
         prop.restore(&mut world, 1, None)?;
-        assert!(world.pickup(1, player.eye, player.view, player.yaw), "the original body is reachable");
-        assert!(world.transfer_held(1), "handoff removes the original solver owner");
+        assert!(
+            world.pickup(1, player.eye, player.view, player.yaw),
+            "the original body is reachable"
+        );
+        assert!(
+            world.transfer_held(1),
+            "handoff removes the original solver owner"
+        );
         prop.restore(&mut world, 1, live)?;
-        assert!(world.pickup(1, player.eye, player.view, player.yaw), "the original body is reachable");
+        assert!(
+            world.pickup(1, player.eye, player.view, player.yaw),
+            "the original body is reachable"
+        );
         assert!(world.drop(), "the player can drop the returned item");
-        assert!(world.drain_break_plans().is_empty(), "release alone cannot break it");
+        assert!(
+            world.drain_break_plans().is_empty(),
+            "release alone cannot break it"
+        );
         for _ in 0_u8..100 {
             world.step(FIXED_STEP, player, &[]);
         }
         let plans = world.drain_break_plans();
-        let plan = plans.first().ok_or("returned item did not fracture on impact")?;
+        let plan = plans
+            .first()
+            .ok_or("returned item did not fracture on impact")?;
         assert_eq!(plans.len(), 1, "only the returned item qualifies");
         assert_eq!(plan.key, 1, "handoff keeps the authored key");
-        assert_eq!(plan.kind.panels().len(), 5, "the restored kind is the original globe");
+        assert_eq!(
+            plan.kind.panels().len(),
+            5,
+            "the restored kind is the original globe"
+        );
     }
     Ok(())
 }

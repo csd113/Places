@@ -6672,7 +6672,11 @@ impl WgpuRenderer {
         totals = match phase {
             2 => {
                 let mut under_glass = WorldDrawTotals::default();
-                self.encode_globe_snow(pass, self.effects_scene_pipeline.as_ref(), &mut under_glass);
+                self.encode_globe_snow(
+                    pass,
+                    self.effects_scene_pipeline.as_ref(),
+                    &mut under_glass,
+                );
                 under_glass.absorb(pipeline.encode_transparency(pass, inputs, false));
                 under_glass
             }
@@ -6723,8 +6727,10 @@ impl WgpuRenderer {
 
     /// Interior particles depth-test against the diorama and blend under glass.
     fn encode_globe_snow<'a>(
-        &'a self, pass: &mut wgpu::RenderPass<'a>,
-        pipeline: Option<&'a EffectsPipeline>, totals: &mut WorldDrawTotals,
+        &'a self,
+        pass: &mut wgpu::RenderPass<'a>,
+        pipeline: Option<&'a EffectsPipeline>,
+        totals: &mut WorldDrawTotals,
     ) {
         #[cfg(feature = "visual-diagnostics")]
         if self.visual_diagnostic_active() {
@@ -6737,12 +6743,16 @@ impl WgpuRenderer {
             totals.visible_vertices = totals.visible_vertices.saturating_add(drawn.vertices);
             totals.visible_indices = totals.visible_indices.saturating_add(drawn.indices);
             totals.texture_binds = totals.texture_binds.saturating_add(drawn.texture_binds);
-            totals.effect_geometry.record(drawn.vertices, drawn.draws, true);
+            totals
+                .effect_geometry
+                .record(drawn.vertices, drawn.draws, true);
         }
     }
 
     pub(crate) fn globe_sample(&self) -> (u32, Option<[f32; 3]>) {
-        self.world_effects.as_ref().map_or((0, None), WgpuEffects::globe_sample)
+        self.world_effects
+            .as_ref()
+            .map_or((0, None), WgpuEffects::globe_sample)
     }
 
     /// Encodes the effect pass and folds its counters into `totals`.
