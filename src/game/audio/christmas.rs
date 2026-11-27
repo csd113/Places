@@ -88,6 +88,12 @@ impl Props {
         request: PlayRequest,
     ) -> bool {
         if cue != WIND {
+            // The newer authored command owns this source from here on. The
+            // mixer may stop the wind before admitting its replacement, so a
+            // missing wind on the next tick cannot advance the old sequence.
+            if let Some(source) = request.source {
+                self.boxes.retain(|voice| voice.source != source);
+            }
             return system.play(cue, request);
         }
         let Some(source) = request.source else {
