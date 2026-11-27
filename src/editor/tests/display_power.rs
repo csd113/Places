@@ -170,10 +170,8 @@ fn refresh_does_not_duplicate_or_reuse_an_owned_registration() {
     clippy::print_stdout,
     reason = "Explicitly invoked native QA prints sanitized receipts."
 )]
-fn native_monitor_verifies_adjacent_and_rejects_a_real_cover() -> Result<(), String> {
-    use super::Monitor;
+fn native_session_requires_new_code_after_real_cover() -> Result<(), String> {
     use sdl3::video::WindowPos::Positioned;
-    use std::time::{Duration, Instant};
 
     let sdl = sdl3::init().map_err(|error| error.to_string())?;
     let video = sdl.video().map_err(|error| error.to_string())?;
@@ -188,29 +186,18 @@ fn native_monitor_verifies_adjacent_and_rejects_a_real_cover() -> Result<(), Str
     let x = work.x() + 60_i32;
     let y = work.y() + 90_i32;
     let adjacent = x + 550_i32;
-    let mut window = video
-        .window("Places QA viewport (no grants)", 480, 300)
+    let window = video
+        .window("Places QA viewport (test-only session)", 480, 300)
         .position(x, y)
         .build()
         .map_err(|error| error.to_string())?;
-    let monitor = Monitor::install(&window).ok_or("Cannot install the production monitor")?;
+    let mut canvas = window.into_canvas();
+    canvas.set_draw_color(sdl3::pixels::Color::RGB(20, 38, 48));
     let mut events = sdl.event_pump().map_err(|error| error.to_string())?;
-    let mut wait_for = |expected| {
-        let until = Instant::now() + Duration::from_secs(2);
-        loop {
-            events.pump_events();
-            let observed = monitor.verified();
-            if observed == expected {
-                return Ok(());
-            }
-            if Instant::now() >= until {
-                return Err(format!("Expected {expected:?}, observed {observed:?}"));
-            }
-            std::thread::sleep(Duration::from_millis(16));
-        }
-    };
-
-    if !window.raise() {
+    let mut session = Session::default();
+    session.install(canvas.window());
+    assert_eq!(session.label(), Some("Agent Off"));
+    if !canvas.window_mut().raise() {
         return Err("Could not show the owned QA viewport above ordinary windows".into());
     }
     let lower_y =
@@ -222,17 +209,23 @@ fn native_monitor_verifies_adjacent_and_rejects_a_real_cover() -> Result<(), Str
         (x, lower_y, adjacent),
         (adjacent, lower_y, x),
     ] {
-        if !window.set_position(Positioned(test_x), Positioned(test_y)) {
+        if !canvas
+            .window_mut()
+            .set_position(Positioned(test_x), Positioned(test_y))
+        {
             continue;
         }
-        match wait_for(Ok(())) {
+        let monitor = session
+            .monitor_for_qa()
+            .ok_or("Cannot install the production monitor")?;
+        match qa_wait_for_visibility(&session, &mut events, Ok(())) {
             Ok(()) => {
                 picked = Some((test_x, test_y, cover_x));
                 break;
             }
             Err(reason) if monitor.verified() == Err(VisibilityDenial::Covered) => {
                 println!("NATIVE_MONITOR_SLOT_BLOCKED {reason}");
-                println!("{}", describe_qa_cover(&monitor));
+                println!("{}", describe_qa_cover(monitor));
             }
             Err(reason) => return Err(reason),
         }
@@ -245,21 +238,163 @@ fn native_monitor_verifies_adjacent_and_rejects_a_real_cover() -> Result<(), Str
         .position(cover_x, viewport_y - 12)
         .build()
         .map_err(|error| error.to_string())?;
-    wait_for(Ok(()))?;
-    println!("NATIVE_MONITOR_ADJACENT=verified");
-    if !cover.set_position(Positioned(viewport_x - 12), Positioned(viewport_y - 12)) {
-        return Err("Could not place the disposable cover".into());
+    qa_wait_for_visibility(&session, &mut events, Ok(()))?;
+    qa_exercise_session(
+        &mut session,
+        &mut canvas,
+        &mut events,
+        &mut cover,
+        (viewport_x, viewport_y, cover_x),
+    )
+}
+
+use crate::editor::agent_api::{
+    SceneStamp,
+    session_windows::{Session, Tick, client},
+};
+use sdl3::{EventPump, render::WindowCanvas, video::Window};
+use std::time::{Duration, Instant};
+
+fn qa_wait_for_visibility(
+    session: &Session,
+    events: &mut EventPump,
+    expected: Result<(), VisibilityDenial>,
+) -> Result<(), String> {
+    let monitor = session
+        .monitor_for_qa()
+        .ok_or("Missing native viewport monitor")?;
+    let started = Instant::now();
+    loop {
+        events.pump_events();
+        let observed = monitor.verified();
+        if observed == expected {
+            return Ok(());
+        }
+        if started.elapsed() >= Duration::from_secs(2) {
+            return Err(format!("Expected {expected:?}, observed {observed:?}"));
+        }
+        std::thread::sleep(Duration::from_millis(16));
     }
-    wait_for(Err(VisibilityDenial::Covered))?;
-    println!("NATIVE_MONITOR_OVERLAP=covered");
-    if !cover.set_position(Positioned(cover_x), Positioned(viewport_y - 12)) {
-        return Err("Could not return the cover beside the viewport".into());
+}
+
+fn qa_frame(canvas: &mut WindowCanvas) -> Result<bool, String> {
+    canvas.clear();
+    if canvas.present() {
+        Ok(true)
+    } else {
+        Err("Could not present the disposable viewport".into())
     }
-    wait_for(Ok(()))?;
-    println!("NATIVE_MONITOR_UNCOVERED_AGAIN=verified");
+}
+
+fn qa_code(session: &mut Session, scope: &SceneStamp) -> Result<String, String> {
+    // A deliberate QA call exercises the same native gate as the editor, with
+    // no App, real project, clipboard, saved credentials or automatic UI input.
+    let command = session.enable(scope)?;
+    command
+        .strip_prefix("places-editor --agent status ")
+        .map(str::to_owned)
+        .ok_or_else(|| "Missing test session command".into())
+}
+
+fn qa_reply_while_visible(
+    session: &mut Session,
+    scope: &SceneStamp,
+    canvas: &mut WindowCanvas,
+    events: &mut EventPump,
+    code: &str,
+) -> Result<(), String> {
+    let _poll = session.tick(Some(scope), qa_frame(canvas)?);
+    let query = ["status".into(), code.into()];
+    let request = std::thread::spawn(move || {
+        client(&query)
+            .is_ok_and(|reply| reply == "Places Editor agent session is active (status only).")
+    });
+    let started = Instant::now();
+    let mut replied = false;
+    while started.elapsed() < Duration::from_secs(2) && !request.is_finished() {
+        events.pump_events();
+        replied |= matches!(session.tick(Some(scope), qa_frame(canvas)?), Tick::Read);
+        std::thread::sleep(Duration::from_millis(5));
+    }
+    let ready = request.join().unwrap_or(false);
+    if !replied || !ready {
+        return Err("The visible QA endpoint did not answer through the editor loop".into());
+    }
     Ok(())
 }
 
+fn qa_denied(code: &str) -> bool {
+    client(&["status".into(), code.into()])
+        .is_err_and(|reason| reason.starts_with("Editor session unavailable:"))
+}
+
+#[expect(
+    clippy::print_stdout,
+    reason = "Explicitly invoked native QA prints sanitized receipts."
+)]
+fn qa_exercise_session(
+    session: &mut Session,
+    canvas: &mut WindowCanvas,
+    events: &mut EventPump,
+    cover: &mut Window,
+    (x, y, adjacent): (i32, i32, i32),
+) -> Result<(), String> {
+    use sdl3::video::WindowPos::Positioned;
+
+    let scope = SceneStamp::new();
+    assert!(matches!(
+        session.tick(Some(&scope), qa_frame(canvas)?),
+        Tick::Idle
+    ));
+    let first = qa_code(session, &scope)?;
+    assert_eq!(session.label(), Some("Take Over"));
+    qa_reply_while_visible(session, &scope, canvas, events, &first)?;
+    println!("NATIVE_QA_VISIBLE=ready");
+
+    if !cover.set_position(
+        Positioned(x.saturating_sub(12)),
+        Positioned(y.saturating_sub(12)),
+    ) {
+        return Err("Could not place the disposable cover".into());
+    }
+    qa_wait_for_visibility(session, events, Err(VisibilityDenial::Covered))?;
+    assert!(matches!(
+        session.tick(Some(&scope), qa_frame(canvas)?),
+        Tick::Paused
+    ));
+    assert_eq!(session.label(), Some("Resume Agent"));
+    assert!(qa_denied(&first));
+    assert!(
+        qa_code(session, &scope).is_err(),
+        "a covered viewport cannot grant"
+    );
+    println!("NATIVE_QA_COVERED=revoked");
+
+    if !cover.set_position(Positioned(adjacent), Positioned(y.saturating_sub(12))) {
+        return Err("Could not return the cover beside the viewport".into());
+    }
+    qa_wait_for_visibility(session, events, Ok(()))?;
+    assert!(matches!(
+        session.tick(Some(&scope), qa_frame(canvas)?),
+        Tick::Idle
+    ));
+    assert_eq!(session.label(), Some("Resume Agent"));
+    assert!(qa_denied(&first));
+    println!("NATIVE_QA_UNCOVERED=still_revoked");
+
+    let fresh = qa_code(session, &scope)?;
+    assert!(fresh != first, "the test must receive a fresh session");
+    assert_eq!(session.label(), Some("Take Over"));
+    assert!(qa_denied(&first));
+    qa_reply_while_visible(session, &scope, canvas, events, &fresh)?;
+    println!("NATIVE_QA_EXPLICIT_RESUME=only_fresh_ready");
+
+    assert!(session.pause(), "Take Over must retire the grant");
+    assert_eq!(session.label(), Some("Resume Agent"));
+    assert!(qa_denied(&fresh));
+    println!("NATIVE_QA_TAKE_OVER=revoked");
+    Ok(())
+}
 fn describe_qa_cover(monitor: &super::Monitor) -> &'static str {
     use super::{
         GW_HWNDNEXT, GetTopWindow, GetWindow, GetWindowRect, IsIconic, IsWindowVisible, RECT,

@@ -34,6 +34,11 @@ pub(in crate::editor) struct Session {
 }
 
 impl Session {
+    #[cfg(test)]
+    pub(super) const fn monitor_for_qa(&self) -> Option<&Monitor> {
+        self.monitor.as_ref()
+    }
+
     pub(in crate::editor) fn install(&mut self, window: &Window) {
         self.monitor = Monitor::install(window);
     }
