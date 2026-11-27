@@ -76,20 +76,17 @@ fn fixed_protocol_rejects_stale_version_and_non_status_messages() {
     );
 }
 
-#[test]
-fn local_pipe_status_disconnect_and_revoke_close_the_endpoint() -> Result<(), String> {
+fn windows_session() -> Result<u32, String> {
     use windows_sys::Win32::System::RemoteDesktop::ProcessIdToSessionId;
     let mut session_id = 0;
     // SAFETY: querying the current process and writing one live integer.
     if unsafe { ProcessIdToSessionId(std::process::id(), &raw mut session_id) } == 0_i32 {
         return Err("No test logon session".into());
     }
-    let nonce = transport_windows::nonce().map_err(|error| error.to_string())?;
-    assert!(
-        transport_windows::probe(nonce).is_err(),
-        "no endpoint exists before consent"
-    );
-    let mut pipe = Pipe::open(nonce, session_id).map_err(|error| error.to_string())?;
+    Ok(session_id)
+}
+
+fn check_live_status(pipe: &mut Pipe, nonce: protocol::Nonce) -> Result<(), String> {
     let _listening = pipe.poll();
     let client = std::thread::spawn(move || transport_windows::probe(nonce));
     let deadline = Instant::now();
@@ -101,10 +98,27 @@ fn local_pipe_status_disconnect_and_revoke_close_the_endpoint() -> Result<(), St
         std::thread::sleep(Duration::from_millis(5));
     }
     assert!(reply, "bounded server admitted the local peer and replied");
-    let _status = client
+    let status = client
         .join()
         .map_err(|_panic| "Probe thread did not complete")??;
+    assert_eq!(
+        status,
+        "Places Editor agent session is active (status only)."
+    );
     let _disconnected = pipe.poll();
+    Ok(())
+}
+
+#[test]
+fn local_pipe_status_disconnect_and_revoke_close_the_endpoint() -> Result<(), String> {
+    let session_id = windows_session()?;
+    let nonce = transport_windows::nonce().map_err(|error| error.to_string())?;
+    assert!(
+        transport_windows::probe(nonce).is_err(),
+        "no endpoint exists before consent"
+    );
+    let mut pipe = Pipe::open(nonce, session_id).map_err(|error| error.to_string())?;
+    check_live_status(&mut pipe, nonce)?;
     let scope = SceneStamp::new();
     let mut state = Session {
         live: Some(super::Live {
@@ -155,5 +169,75 @@ fn local_pipe_status_disconnect_and_revoke_close_the_endpoint() -> Result<(), St
         transport_windows::probe(next).is_err(),
         "hidden-view grant stays revoked"
     );
+    Ok(())
+}
+
+#[test]
+fn loss_of_monitorability_requires_fresh_grant_and_take_over_revokes_it() -> Result<(), String> {
+    let os_session = windows_session()?;
+    let scope = SceneStamp::new();
+    let mut state = Session::default();
+
+    // This fixture starts immediately after the desktop has approved an
+    // explicit grant. It does not substitute for real desktop verification.
+    let install = |test_editor: &mut Session| -> Result<protocol::Nonce, String> {
+        let nonce = transport_windows::nonce().map_err(|error| error.to_string())?;
+        test_editor.live = Some(super::Live {
+            grant: Grant {
+                scope: scope.clone(),
+                nonce,
+            },
+            pipe: Pipe::open(nonce, os_session).map_err(|error| error.to_string())?,
+        });
+        test_editor.paused = false;
+        Ok(nonce)
+    };
+
+    assert!(!state.active());
+    let old = install(&mut state)?;
+    assert_eq!(state.label(), Some("Take Over"));
+    let live = state.live.as_mut().ok_or("Missing initial grant")?;
+    check_live_status(&mut live.pipe, old)?;
+
+    // Simulate monitorability lost through occlusion. The editor's production
+    // tick, not the test fixture, must retire and close the active endpoint.
+    assert!(matches!(
+        state.tick(Some(&scope), false),
+        super::Tick::Paused
+    ));
+    assert!(!state.active());
+    assert!(
+        transport_windows::probe(old).is_err(),
+        "cover revoked the old code"
+    );
+    assert!(matches!(state.tick(Some(&scope), true), super::Tick::Idle));
+    assert!(!state.active());
+    assert!(
+        transport_windows::probe(old).is_err(),
+        "uncovering did not revive it"
+    );
+    assert!(
+        state.enable(&scope).is_err(),
+        "missing native proof cannot resume"
+    );
+
+    // Model a separate deliberate grant after fresh native approval.
+    let fresh = install(&mut state)?;
+    assert_ne!(old, fresh);
+    assert!(
+        transport_windows::probe(old).is_err(),
+        "old code stays revoked"
+    );
+    let fresh_live = state.live.as_mut().ok_or("Missing fresh grant")?;
+    check_live_status(&mut fresh_live.pipe, fresh)?;
+
+    assert!(state.pause(), "Take Over retires the new grant");
+    assert!(!state.active());
+    assert!(
+        transport_windows::probe(fresh).is_err(),
+        "new endpoint is closed"
+    );
+    assert!(matches!(state.tick(Some(&scope), true), super::Tick::Idle));
+    assert!(transport_windows::probe(fresh).is_err());
     Ok(())
 }
