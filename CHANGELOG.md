@@ -33,6 +33,8 @@ and linked reports retain historical implementation and validation details.
 
 ### Pickup props
 
+- Add 19 pickup props under Debris, including broken stone, wood, tile and
+  renovation scraps.
 - Add a stock pot, frying pan, two food cans and four glass bottles. Bottles
   clink on intact impacts and shatter only on a strong first contact after a
   deliberate throw.

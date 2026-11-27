@@ -3028,5 +3028,100 @@
     "path": "editor/previews/7f20d11f8c925babf58bce42.png",
     "sha256": "37a818d334b437ac9f809819cb1998afa3e91720dea06e89a11005acadf1d834",
     "source": "environments/winter/props/window_frame.glb"
+  },
+  "core:debris_rock_wedge": {
+    "path": "editor/previews/debris_rock_wedge.png",
+    "sha256": "ca3d9e19ab94a48c7b8d801b082d1881b0a5d6d02b2496343db679cc086ccf28",
+    "source": "environments/outdoor/props/debris_rock_wedge.glb"
+  },
+  "core:debris_rock_cobble": {
+    "path": "editor/previews/debris_rock_cobble.png",
+    "sha256": "4217473ef9b9b7ed00239705577c1c8780cfbab7168e1305e96bf680343d794f",
+    "source": "environments/outdoor/props/debris_rock_cobble.glb"
+  },
+  "core:debris_rock_shard": {
+    "path": "editor/previews/debris_rock_shard.png",
+    "sha256": "9e5876f7f62d1525be67c6a83503dadeba3286793d3d36d61a9ecff7fc07508c",
+    "source": "environments/outdoor/props/debris_rock_shard.glb"
+  },
+  "core:debris_concrete_corner": {
+    "path": "editor/previews/debris_concrete_corner.png",
+    "sha256": "c05c6d569747fc8cb793d51425eb921758b706bab2b3ecb872541f5d345175b0",
+    "source": "environments/maintenance/props/debris_concrete_corner.glb"
+  },
+  "core:debris_concrete_spall": {
+    "path": "editor/previews/debris_concrete_spall.png",
+    "sha256": "ed19af54a4f2825cd57003e371007eeceb7d5bc4a56183b3d01436b5c9a27dc8",
+    "source": "environments/maintenance/props/debris_concrete_spall.glb"
+  },
+  "core:debris_concrete_curb": {
+    "path": "editor/previews/debris_concrete_curb.png",
+    "sha256": "2aacb41bc6187206b8df1cf959820b181acda52c29974b8c210053c951fd4302",
+    "source": "environments/maintenance/props/debris_concrete_curb.glb"
+  },
+  "core:debris_plank_fork": {
+    "path": "editor/previews/debris_plank_fork.png",
+    "sha256": "31b1003a0e4e0ed74218515cc13a2ceea3e9dd0d62419c0aaeba5c3b30beda30",
+    "source": "environments/maintenance/props/debris_plank_fork.glb"
+  },
+  "core:debris_plank_diagonal": {
+    "path": "editor/previews/debris_plank_diagonal.png",
+    "sha256": "9d43ebee3e30478e2c73e32dcb66d77fde59e615df675a72e8ff3a2ad5cb4d0c",
+    "source": "environments/maintenance/props/debris_plank_diagonal.glb"
+  },
+  "core:debris_plank_double": {
+    "path": "editor/previews/debris_plank_double.png",
+    "sha256": "c22936d6be914288f76777364ad8d064b0b351c778b31806da01017ed4384c74",
+    "source": "environments/maintenance/props/debris_plank_double.glb"
+  },
+  "core:debris_brick_mortar": {
+    "path": "editor/previews/debris_brick_mortar.png",
+    "sha256": "05cf777a6c173dc930d1ee3ce16a83e0e26299187ac525aa68029d9b50149eda",
+    "source": "environments/maintenance/props/debris_brick_mortar.glb"
+  },
+  "core:debris_cinder_split": {
+    "path": "editor/previews/debris_cinder_split.png",
+    "sha256": "506864f4e4998bc56a2ea13f03aaa2f12349ff3f59a8a4ce293fc90b01c0d5a3",
+    "source": "environments/maintenance/props/debris_cinder_split.glb"
+  },
+  "core:debris_ceramic_shard": {
+    "path": "editor/previews/debris_ceramic_shard.png",
+    "sha256": "5b7c012755f8edf51275e564a6e1e6e7bde568d3da18012b49fc61e2deeb284f",
+    "source": "environments/maintenance/props/debris_ceramic_shard.glb"
+  },
+  "core:debris_drywall_torn": {
+    "path": "editor/previews/debris_drywall_torn.png",
+    "sha256": "655f204481515e13d70ac5235d3414808545c711c96172ef8ddf995301576832",
+    "source": "environments/maintenance/props/debris_drywall_torn.glb"
+  },
+  "core:debris_pvc_cracked_elbow": {
+    "path": "editor/previews/debris_pvc_cracked_elbow.png",
+    "sha256": "4a94b8d026b1dfbad2f672d8a3adc5d960513f56bcf150c9861dfc83fd268102",
+    "source": "environments/maintenance/props/debris_pvc_cracked_elbow.glb"
+  },
+  "core:debris_duct_bent_corner": {
+    "path": "editor/previews/debris_duct_bent_corner.png",
+    "sha256": "6451cef630f1f8b6cb35c8a957442fa9f9beda295ddd6003ff4223d5a18b8597",
+    "source": "environments/maintenance/props/debris_duct_bent_corner.glb"
+  },
+  "core:debris_ceiling_tile_stained": {
+    "path": "editor/previews/debris_ceiling_tile_stained.png",
+    "sha256": "b9e95d0b03197ea7e226c80dd7042c7ca816ce8fb1130ec061d9a09f096c6f01",
+    "source": "environments/maintenance/props/debris_ceiling_tile_stained.glb"
+  },
+  "core:debris_asphalt_stripe": {
+    "path": "editor/previews/debris_asphalt_stripe.png",
+    "sha256": "5da6753266b9ec8845cd50a797e993e1178f60f1d713fee774d619a7fe29637f",
+    "source": "environments/maintenance/props/debris_asphalt_stripe.glb"
+  },
+  "core:debris_faceplate_cracked": {
+    "path": "editor/previews/debris_faceplate_cracked.png",
+    "sha256": "5fa6d3ed48c1388f10b9997d7e7089c4a9c95d8bd05a738c7752ca044c277779",
+    "source": "environments/maintenance/props/debris_faceplate_cracked.glb"
+  },
+  "core:debris_track_bent_offcut": {
+    "path": "editor/previews/debris_track_bent_offcut.png",
+    "sha256": "78679249335a6548da8f0bafdd0b20ca15e34af451378369c12670e98366fd25",
+    "source": "environments/maintenance/props/debris_track_bent_offcut.glb"
   }
 }
