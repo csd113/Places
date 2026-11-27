@@ -49,6 +49,9 @@ Run the complete bidirectional workflow inventory against the exact final build,
 
 ## Research only, then multiplayer
 
+### Follow-up: Rust 1.100 feature review
+**After all editor API implementation and sign-off (API-09). Research only.** Verify the exact Rust 1.100 stability and platform/toolchain requirements for the never type (`!`), allocator-aware collections (`Allocator`, `Vec`, `Box`), and the proposed `core::mem::DropGuard` helper against official release notes and API stability attributes. Check the latest Places toolchain pin and only recommend APIs actually usable on it. Identify concrete call sites, compare existing patterns, and explain what to adopt, defer, or skip. Favor simplification for impossible branches and cleanup paths. For custom allocation, identify measured allocation pressure and assess ownership, failure behavior, portability, and maintenance before recommending a prototype. Do not refactor, change the Rust pin, add dependencies or start a rollout from this review.
+
 ### 30. [GitHub #15: Multiplayer and in-session text chat](https://github.com/csd113/Places/issues/15)
 **Deferred.** Leave GitHub #15 open. Keep this large feature behind core fixes and smaller work. Define a bounded join/host/leave and reconnect flow, synchronize movement and visible players, choose and document the shared interactions and world state, and add in-session text chat. Validate two players together and cleanup/reconnect under latency or disconnection. Do not broaden into unrelated engine or account work.
 
