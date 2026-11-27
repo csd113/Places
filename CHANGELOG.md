@@ -39,6 +39,7 @@ and linked reports retain historical implementation and validation details.
 
 ### Gameplay and maps
 
+- Add warm terrazzo floors, ivory wall panels and acoustic T-grid ceilings to the Mall material picker.
 - Add reusable, map-local Game Modes for movement, health and crowbar settings.
   Health is off by default. Maps can configure starting and maximum health,
   regeneration, health kits, hit protection and HUD visibility. The default

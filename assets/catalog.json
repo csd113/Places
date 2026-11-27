@@ -14321,6 +14321,82 @@
         "restitution": 0.1,
         "pickup": true
       }
+    },
+    {
+      "id": "mall:tex_terrazzo_warm_01",
+      "display_name": "Mall Warm Terrazzo Tile Texture",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/mall/textures/floors/terrazzo_warm_01.png",
+      "surface": "floor",
+      "description": "Warm pale polished terrazzo tile with restrained mineral chips and fine grout. Four 0.60 m tiles per 1.20 m repeat."
+    },
+    {
+      "id": "mall:terrazzo_warm_01",
+      "display_name": "Mall Warm Terrazzo Tile",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "floor",
+      "texture": "mall:tex_terrazzo_warm_01",
+      "tile_metres": 1.2,
+      "specular": 0.22,
+      "shine": 0.32,
+      "description": "Warm pale polished terrazzo tile with restrained mineral chips and fine grout. Four 0.60 m tiles per 1.20 m repeat."
+    },
+    {
+      "id": "mall:tex_ivory_panel_01",
+      "display_name": "Mall Ivory Wall Panels Texture",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/mall/textures/walls/ivory_panel_01.png",
+      "surface": "wall",
+      "description": "Warm ivory satin architectural panels with quiet mineral detail and shallow neutral reveals. Each panel is 0.60 m wide and 1.20 m high."
+    },
+    {
+      "id": "mall:ivory_panel_01",
+      "display_name": "Mall Ivory Wall Panels",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "mall:tex_ivory_panel_01",
+      "tile_metres": 1.2,
+      "specular": 0.1,
+      "shine": 0.16,
+      "description": "Warm ivory satin architectural panels with quiet mineral detail and shallow neutral reveals. Each panel is 0.60 m wide and 1.20 m high."
+    },
+    {
+      "id": "mall:tex_acoustic_tgrid_01",
+      "display_name": "Mall Acoustic T-grid Ceiling Texture",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "texture",
+      "source": "file",
+      "model": "environments/mall/textures/ceilings/acoustic_tgrid_01.png",
+      "surface": "ceiling",
+      "description": "Off-white mineral acoustic tile with a finely perforated face and painted suspended T-rails. Grid pitch 0.60 m."
+    },
+    {
+      "id": "mall:acoustic_tgrid_01",
+      "display_name": "Mall Acoustic T-grid Ceiling",
+      "asset_class": "environment",
+      "theme": "mall",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "ceiling",
+      "texture": "mall:tex_acoustic_tgrid_01",
+      "tile_metres": 1.2,
+      "grid_metres": 0.6,
+      "specular": 0.03,
+      "shine": 0.06,
+      "description": "Off-white mineral acoustic tile with a finely perforated face and painted suspended T-rails. Grid pitch 0.60 m."
     }
   ]
 }
