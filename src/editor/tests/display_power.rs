@@ -403,8 +403,7 @@ fn qa_reply_while_visible(
 ) -> Result<(), String> {
     let query = ["status".into(), code.into()];
     let request = std::thread::spawn(move || {
-        client(&query)
-            .is_ok_and(|reply| reply == "Places Editor agent session is active (status only).")
+        client(&query).is_ok_and(|reply| reply == "Places Editor agent session is active.")
     });
     let started = Instant::now();
     while started.elapsed() < Duration::from_secs(2) && !request.is_finished() {

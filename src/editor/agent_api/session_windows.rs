@@ -3,10 +3,11 @@
 use sdl3::video::Window;
 
 use super::{
-    SceneStamp,
+    SceneStamp, batch,
     protocol::{self, Nonce, Reply},
     transport_windows::{self, Input, Pipe},
     visibility_windows::{Monitor, VisibilityDenial},
+    wire::{self, Call},
 };
 
 struct Grant {
@@ -31,6 +32,8 @@ pub(in crate::editor) struct Session {
     live: Option<Live>,
     paused: bool,
     presented: bool,
+    pub(super) pilot: batch::State,
+    pub(super) refresh: Option<SceneStamp>,
 }
 
 impl Session {
@@ -62,6 +65,8 @@ impl Session {
     pub(in crate::editor) fn pause(&mut self) -> bool {
         if self.live.take().is_some() {
             self.paused = true;
+            self.pilot = batch::State::default();
+            self.refresh = None;
             true
         } else {
             false
@@ -110,7 +115,12 @@ impl Session {
 
     /// At most one fixed-size request per presented frame, with fresh OS and
     /// grant checks before admission and again before releasing the reply.
-    pub(in crate::editor) fn tick(&mut self, scope: Option<&SceneStamp>, drawn: bool) -> Tick {
+    #[cfg(test)]
+    fn tick(&mut self, scope: Option<&SceneStamp>, drawn: bool) -> Tick {
+        self.poll(scope, drawn).0
+    }
+
+    pub(super) fn poll(&mut self, scope: Option<&SceneStamp>, drawn: bool) -> (Tick, Option<Call>) {
         self.presented = drawn;
         if Monitor::refresh_pending() {
             // Close the pipe before registering for the new display state.
@@ -119,40 +129,65 @@ impl Session {
             if let Some(monitor) = &mut self.monitor {
                 monitor.refresh_power();
             }
-            return if revoked { Tick::Paused } else { Tick::Idle };
+            return (if revoked { Tick::Paused } else { Tick::Idle }, None);
         }
         if !self.active() {
-            return Tick::Idle;
+            return (Tick::Idle, None);
         }
         if !self.admitted(scope) {
             let _revoked = self.pause();
-            return Tick::Paused;
+            return (Tick::Paused, None);
         }
-        let dispatch = self.live.as_mut().and_then(|live| match live.pipe.poll() {
-            Some(Input::Message(bytes)) => Some(protocol::dispatch(&bytes, live.grant.nonce)),
-            Some(Input::Malformed) => Some(Reply::BadMessage),
-            None => None,
-        });
-        let Some(reply) = dispatch else {
-            return Tick::Idle;
+        let Some(live) = self.live.as_mut() else {
+            return (Tick::Idle, None);
+        };
+        let reply = match live.pipe.poll() {
+            Some(Input::Message(bytes)) => match protocol::pilot_call(&bytes, live.grant.nonce) {
+                Some(Ok(call)) => return (Tick::Idle, Some(call)),
+                Some(Err(error)) => error,
+                None => protocol::dispatch(&bytes, live.grant.nonce),
+            },
+            Some(Input::Malformed) => Reply::BadMessage,
+            None => return (Tick::Idle, None),
         };
         if !self.admitted(scope) {
             let _revoked = self.pause();
-            return Tick::Paused;
+            return (Tick::Paused, None);
         }
         if self
             .live
             .as_mut()
-            .is_some_and(|live| live.pipe.reply(reply))
+            .is_some_and(|session| session.pipe.reply(reply))
             && reply == Reply::Ready
         {
-            Tick::Read
+            (Tick::Read, None)
         } else {
-            Tick::Idle
+            (Tick::Idle, None)
         }
     }
 
-    fn admitted(&self, scope: Option<&SceneStamp>) -> bool {
+    pub(super) fn reply_pilot(
+        &mut self,
+        reply: &serde_json::Value,
+        scope: Option<&SceneStamp>,
+    ) -> bool {
+        if !self.admitted(scope) {
+            let _revoked = self.pause();
+            return false;
+        }
+        self.live
+            .as_mut()
+            .is_some_and(|live| match protocol::pilot_reply(reply) {
+                Ok(packet) => live.pipe.reply_packet(&packet),
+                Err(_) => live.pipe.reply(Reply::BadMessage),
+            })
+    }
+
+    pub(super) fn pilot_binding(&self) -> Option<Nonce> {
+        self.live.as_ref().map(|live| live.grant.nonce)
+    }
+
+    pub(super) fn admitted(&self, scope: Option<&SceneStamp>) -> bool {
         let verified = self.presented
             && self
                 .monitor
@@ -171,15 +206,32 @@ pub(in crate::editor) enum Tick {
     Read,
 }
 
-pub(in crate::editor) fn client(arguments: &[String]) -> Result<&'static str, String> {
-    let [operation, session] = arguments else {
-        return Err("Usage: places-editor --agent status SESSION".into());
-    };
-    if operation != "status" {
-        return Err("Only the read-only status command is available".into());
+pub(in crate::editor) fn client(arguments: &[String]) -> Result<String, String> {
+    let nonce = |session| protocol::decode(session).ok_or("Invalid editor session code");
+    match arguments {
+        [operation, session] if operation == "status" => {
+            transport_windows::probe(nonce(session)?).map(str::to_owned)
+        }
+        [operation, session, payload] if operation == "call" => {
+            if payload.len() > wire::MAX_PACKET.saturating_sub(protocol::REQUEST_LEN) {
+                return Err("Pilot request is too large".into());
+            }
+            let call = serde_json::from_str::<Call>(payload)
+                .map_err(|error| format!("Invalid pilot request: {error}"))?;
+            transport_windows::call(
+                nonce(session)?,
+                payload.as_bytes(),
+                matches!(
+                    call,
+                    Call::Apply {
+                        request_id: _,
+                        digest: _
+                    }
+                ),
+            )
+        }
+        _ => Err("Usage: places-editor --agent status SESSION | --agent call SESSION JSON".into()),
     }
-    let nonce = protocol::decode(session).ok_or("Invalid editor session code")?;
-    transport_windows::probe(nonce)
 }
 
 #[cfg(test)]

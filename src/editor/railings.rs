@@ -99,6 +99,19 @@ pub(super) fn candidate(
     middle: &[[f32; 3]],
     end: [f32; 3],
 ) -> Result<(Value, ObjectId), String> {
+    let mut raw = doc.raw().clone();
+    let index = stage_path(&mut raw, start, middle, end)?;
+    let checked = doc.validate_candidate(&raw)?;
+    let owner = check_path(&checked, doc.level(), index, start)?;
+    Ok((raw, owner))
+}
+
+pub(super) fn stage_path(
+    raw: &mut Value,
+    start: [f32; 3],
+    middle: &[[f32; 3]],
+    end: [f32; 3],
+) -> Result<usize, String> {
     let points: Vec<_> = std::iter::once(start)
         .chain(middle.iter().copied())
         .chain([end])
@@ -110,13 +123,20 @@ pub(super) fn candidate(
     {
         return Err("Split the railing into separate runs where the floor grade changes".into());
     }
-    let mut raw = doc.raw().clone();
-    let records = record_array_mut(&mut raw, "guardrails")?;
+    let records = record_array_mut(raw, "guardrails")?;
     let index = records.len();
     let path: Vec<_> = points.iter().skip(1).map(|&[x, _, z]| [x, z]).collect();
     records.push(json!({"x":start[0],"z":start[2],"y":start[1],"rise":rise,"length":1_u32,"path":path,"height":1_u32,"post_spacing":1.2_f32}));
-    let checked = doc.validate_candidate(&raw)?;
-    validate_changed(&checked, doc.level(), index)?;
+    Ok(index)
+}
+
+pub(super) fn check_path(
+    checked: &LevelDef,
+    before: &LevelDef,
+    index: usize,
+    start: [f32; 3],
+) -> Result<ObjectId, String> {
+    validate_changed(checked, before, index)?;
     let floor_support = |room: &RoomDef| {
         let (x0, x1, z0, z1) = room.bounds();
         (x0..=x1).contains(&start[0]) && (z0..=z1).contains(&start[2])
@@ -133,7 +153,7 @@ pub(super) fn candidate(
         })
         .map(|(i, _)| i)
         .ok_or(FOOTING_CUE)?;
-    Ok((raw, ObjectId::Room(owner)))
+    Ok(ObjectId::Room(owner))
 }
 
 pub(super) fn validate_changed(

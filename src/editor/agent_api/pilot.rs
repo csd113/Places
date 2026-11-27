@@ -136,7 +136,13 @@ pub(in crate::editor) struct ReplaceFixture<'a> {
 impl ReplaceFixture<'_> {
     /// Resolve the target and catalog choice into an unvalidated editor draft.
     pub(in crate::editor) fn candidate(self, doc: &Document) -> Result<Value, Error> {
-        if doc.level().ceiling_lights.get(self.light).is_none() {
+        self.check_input(doc.level())?;
+        doc.fixture_candidate(self.light, self.asset)
+            .map_err(Error::Rejected)
+    }
+
+    pub(super) fn check_input(&self, level: &crate::engine::level::LevelDef) -> Result<(), Error> {
+        if level.ceiling_lights.get(self.light).is_none() {
             return Err(Error::InvalidInput(
                 "Select a light first, then apply this fixture.",
             ));
@@ -150,8 +156,7 @@ impl ReplaceFixture<'_> {
                 "Choose a light fixture from the catalog",
             ));
         }
-        doc.fixture_candidate(self.light, self.asset)
-            .map_err(Error::Rejected)
+        Ok(())
     }
 }
 

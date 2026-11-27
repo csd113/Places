@@ -87,6 +87,51 @@ impl Focus {
         }
         false
     }
+    pub(super) fn editable(&self, raw: &serde_json::Value, id: ObjectId) -> bool {
+        let (key, index) = id.collection();
+        self.visible(id)
+            && !raw
+                .get(key)
+                .and_then(|records| records.get(index))
+                .and_then(|record| record.get("editor_locked"))
+                .and_then(serde_json::Value::as_bool)
+                .unwrap_or(false)
+    }
+
+    pub(super) fn check_edit(
+        &self,
+        raw: &serde_json::Value,
+        level: &LevelDef,
+        objects: &[super::document::ObjectInfo],
+        candidate: &serde_json::Value,
+    ) -> Result<(), String> {
+        super::Document::check_locked_scene(raw, objects, candidate)?;
+        for object in objects {
+            if self.editable(raw, object.id) && self.included(level, object.id) {
+                continue;
+            }
+            let (key, i) = object.id.collection();
+            if let Some(old) = raw.get(key).and_then(|a| a.get(i))
+                && !candidate
+                    .get(key)
+                    .and_then(serde_json::Value::as_array)
+                    .is_some_and(|a| {
+                        let before = raw
+                            .get(key)
+                            .and_then(serde_json::Value::as_array)
+                            .map_or(0, |records| records.iter().filter(|r| *r == old).count());
+                        a.iter().filter(|r| *r == old).count() >= before
+                    })
+            {
+                return Err(format!(
+                    "{} is locked, hidden or outside isolation. Show and unlock it before changing its attachments.",
+                    object.label
+                ));
+            }
+        }
+        Ok(())
+    }
+
     pub fn preview(&self, level: &LevelDef) -> (LevelDef, Vec<(ObjectId, ObjectId)>) {
         let mut filtered = level.clone();
         let mut map = Vec::new();
@@ -141,46 +186,17 @@ impl Focus {
 }
 impl App {
     pub(super) fn editable(&self, id: ObjectId) -> bool {
-        self.focus.visible(id)
-            && !self
-                .document
-                .as_ref()
-                .and_then(|d| {
-                    let (key, i) = id.collection();
-                    d.raw().get(key)?.get(i)?.get("editor_locked")?.as_bool()
-                })
-                .unwrap_or(false)
+        self.document.as_ref().map_or_else(
+            || self.focus.visible(id),
+            |doc| self.focus.editable(doc.raw(), id),
+        )
     }
     pub(super) fn check_focused_edit(&self, candidate: &serde_json::Value) -> Result<(), String> {
         let Some(doc) = &self.document else {
             return Ok(());
         };
-        doc.check_locked_edit(candidate)?;
-        for object in doc.objects() {
-            if self.editable(object.id) && self.focus.included(doc.level(), object.id) {
-                continue;
-            }
-            let (key, i) = object.id.collection();
-            if let Some(old) = doc.raw().get(key).and_then(|a| a.get(i))
-                && !candidate
-                    .get(key)
-                    .and_then(serde_json::Value::as_array)
-                    .is_some_and(|a| {
-                        let before = doc
-                            .raw()
-                            .get(key)
-                            .and_then(serde_json::Value::as_array)
-                            .map_or(0, |records| records.iter().filter(|r| *r == old).count());
-                        a.iter().filter(|r| *r == old).count() >= before
-                    })
-            {
-                return Err(format!(
-                    "{} is locked, hidden or outside isolation. Show and unlock it before changing its attachments.",
-                    object.label
-                ));
-            }
-        }
-        Ok(())
+        self.focus
+            .check_edit(doc.raw(), doc.level(), doc.objects(), candidate)
     }
     #[expect(
         clippy::wildcard_enum_match_arm,

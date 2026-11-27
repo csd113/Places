@@ -76,6 +76,40 @@ fn fixed_protocol_rejects_stale_version_and_non_status_messages() {
     );
 }
 
+#[test]
+fn pilot_wire_rejects_unapproved_actions_and_wrong_grant() {
+    let nonce = [21; 16];
+    let request = |body: &[u8]| protocol::pilot_message(nonce, body);
+    let inspect = request(br#"{"op":"inspect","samples":[[0.1,0.2]]}"#);
+    assert!(
+        matches!(protocol::pilot_call(&inspect, nonce), Some(Ok(super::Call::Inspect { samples })) if samples.len() == 1),
+        "a valid bounded query reaches the pilot"
+    );
+    assert!(
+        matches!(
+            protocol::pilot_call(&inspect, [22; 16]),
+            Some(Err(Reply::StaleSession))
+        ),
+        "a different grant cannot dispatch a pilot query"
+    );
+    let raw = request(br#"{"op":"preview","request_id":1,"context":1,"actions":[{"capability":"raw.write","path":"scene.json"}]}"#);
+    assert!(
+        matches!(
+            protocol::pilot_call(&raw, nonce),
+            Some(Err(Reply::BadMessage))
+        ),
+        "no raw-write or generic capability can enter the planner"
+    );
+    let extra = request(br#"{"op":"inspect","path":"scene.json"}"#);
+    assert!(
+        matches!(
+            protocol::pilot_call(&extra, nonce),
+            Some(Err(Reply::BadMessage))
+        ),
+        "unknown fields are refused before dispatch"
+    );
+}
+
 fn windows_session() -> Result<u32, String> {
     use windows_sys::Win32::System::RemoteDesktop::ProcessIdToSessionId;
     let mut session_id = 0;
@@ -101,10 +135,7 @@ fn check_live_status(pipe: &mut Pipe, nonce: protocol::Nonce) -> Result<(), Stri
     let status = client
         .join()
         .map_err(|_panic| "Probe thread did not complete")??;
-    assert_eq!(
-        status,
-        "Places Editor agent session is active (status only)."
-    );
+    assert_eq!(status, "Places Editor agent session is active.");
     let _disconnected = pipe.poll();
     Ok(())
 }

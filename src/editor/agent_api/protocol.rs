@@ -1,4 +1,4 @@
-//! Fixed messages. The only API-02 operation is a read-only status probe.
+//! The original status probe and the bounded pilot share one private channel.
 
 pub(super) const REQUEST_LEN: usize = 22;
 pub(super) const RESPONSE_LEN: usize = 6;
@@ -7,6 +7,57 @@ pub(super) type Nonce = [u8; 16];
 const MAGIC: [u8; 4] = *b"PLEA";
 const VERSION: u8 = 1;
 const STATUS: u8 = 1;
+const PILOT: u8 = 16;
+
+pub(super) fn pilot_message(nonce: Nonce, body: &[u8]) -> Vec<u8> {
+    let mut message = request(nonce).to_vec();
+    if let Some(op) = message.get_mut(5) {
+        *op = PILOT;
+    }
+    message.extend_from_slice(body);
+    message
+}
+
+pub(super) fn pilot_call(message: &[u8], nonce: Nonce) -> Option<Result<super::wire::Call, Reply>> {
+    let [a, b, c, d, version, PILOT, credential_and_body @ ..] = message else {
+        return None;
+    };
+    let result = if [*a, *b, *c, *d] != MAGIC {
+        Err(Reply::BadMessage)
+    } else if *version != VERSION {
+        Err(Reply::UnsupportedVersion)
+    } else if let Some((credential, body)) = credential_and_body.split_at_checked(nonce.len()) {
+        if credential == nonce {
+            serde_json::from_slice(body).map_err(|_error| Reply::BadMessage)
+        } else {
+            Err(Reply::StaleSession)
+        }
+    } else {
+        Err(Reply::BadMessage)
+    };
+    Some(result)
+}
+
+pub(super) fn pilot_reply(value: &serde_json::Value) -> Result<Vec<u8>, serde_json::Error> {
+    let mut message = MAGIC.to_vec();
+    message.extend([VERSION, PILOT]);
+    serde_json::to_writer(&mut message, value)?;
+    Ok(message)
+}
+
+pub(super) fn pilot_response(message: &[u8]) -> Result<String, String> {
+    let [a, b, c, d, version, PILOT, body @ ..] = message else {
+        return response(message)
+            .map_err(str::to_owned)
+            .and_then(|_| Err("Unexpected status reply".into()));
+    };
+    if [*a, *b, *c, *d] != MAGIC || *version != VERSION {
+        return Err("Invalid editor reply".into());
+    }
+    let value: serde_json::Value =
+        serde_json::from_slice(body).map_err(|error| error.to_string())?;
+    Ok(value.to_string())
+}
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub(super) enum Reply {
@@ -69,7 +120,7 @@ pub(super) fn response(message: &[u8]) -> Result<&'static str, &'static str> {
         return Err("Invalid editor reply");
     }
     match *code {
-        0 => Ok("Places Editor agent session is active (status only)."),
+        0 => Ok("Places Editor agent session is active."),
         1 => Err("Editor rejected a malformed request"),
         2 => Err("Editor does not support this protocol version"),
         3 => Err("Editor does not support this operation"),

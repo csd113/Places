@@ -197,11 +197,10 @@ and must not be summed. OS RSS and private commit remain separate measurements.
 
 Agent access starts off. On a supported local Windows console, open an idle
 project and keep the editor uncovered on the active display. Click **Agent
-Off** in the footer to create a read-only grant for the Windows logon and
-open document. The editor copies `places-editor --agent status SESSION` to
-the clipboard. Run it with the same editor binary from a process that does
-not cover the editor. It reports whether that exact session is active and
-cannot read map contents or edit.
+Off** in the footer to grant the three reversible pilot edits for the Windows
+logon and open document. The editor copies `places-editor --agent status SESSION`
+to the clipboard. Run it with the same editor binary from a process that does
+not cover the editor. Status only reports whether that exact grant is active.
 
 **Take Over** revokes the endpoint. Hiding, minimizing or covering the editor,
 locking or leaving the console, changing displays or projects, opening a
@@ -210,6 +209,33 @@ does not restore a grant. Click **Resume Agent** for a new code. The pilot
 fails closed on other platforms, multiple displays, unverifiable console or
 display state, and verification or performance modes. Windows visibility
 signals cannot prove that someone is watching the screen.
+
+The same binary accepts `places-editor --agent call SESSION JSON` with one
+compact JSON argument. Start with `{"op":"inspect"}` for the context, revision,
+selection and snap. Pass up to eight normalized viewport coordinates in
+`samples` to resolve visible walking surfaces (top-left is [0,0], far
+edges excluded). `{"op":"fixtures"}` lists light fixture IDs and their mounts.
+Pass the returned `next` cursor as `after` to read the next page.
+
+Preview with `{"op":"preview","request_id":1,"context":1,"actions":[...]}`.
+Each of the one to three actions has a `capability` and its own fields:
+
+| Capability | Action fields |
+| --- | --- |
+| `railing.place_path@1` | `points`: two to eight viewport points, including turns. Uses native railing snap and footing. |
+| `escalator.connect_landings@1` | `lower`, `upper`: two visible floor points, lower first. |
+| `light.replace_fixture@1` | `light`: the selected light's index from inspection. `asset_id`: a fixture ID. |
+
+The preview resolves picks against the inspected viewport and checks edits in
+order without changing the editor. Apply with
+`{"op":"apply","request_id":1,"digest":"<digest from preview>"}`.
+Apply rejects stale context or access and installs the whole batch as one
+Undo. Use `cancel` or `receipt` with the same ID and digest to discard a
+preview or check its outcome. Exact retries return the recorded result. If an
+apply loses its reply, reconcile first. After revocation, check native scene
+state and history before attempting a new edit. The pilot retains at most
+16 request IDs per grant and admits only small scenes (64 KiB, 96 editor
+objects). Save, file paths and Quick Test are not API operations.
 
 ### Native workflow inventory for editor command preparation
 

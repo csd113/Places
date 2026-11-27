@@ -402,18 +402,33 @@ impl Document {
         light: usize,
         asset: &str,
     ) -> Result<Value, String> {
-        let mut raw = self.asset_candidate_base()?;
-        let fixture = object_mut(&mut raw, ObjectId::Light(light))?;
-        let mount = if crate::engine::lighting::fixture_profile(asset).kind
+        let mut raw = self.raw().clone();
+        Self::stage_fixture(&mut raw, self.level(), light, asset)?;
+        Ok(raw)
+    }
+
+    pub(in crate::editor) fn stage_fixture(
+        raw: &mut Value,
+        level: &crate::engine::level::LevelDef,
+        light: usize,
+        asset: &str,
+    ) -> Result<(), String> {
+        objects::pin_prop_ids(raw, level)?;
+        super::pin_gameplay_ids(raw, level)?;
+        let fixture = object_mut(raw, ObjectId::Light(light))?;
+        drop(fixture.insert("mount".into(), Self::fixture_mount(asset).into()));
+        drop(fixture.insert("fixture".into(), asset.into()));
+        Ok(())
+    }
+
+    pub(in crate::editor) fn fixture_mount(asset: &str) -> &'static str {
+        if crate::engine::lighting::fixture_profile(asset).kind
             == crate::engine::lighting::FixtureKind::WallSconce
         {
             "wall"
         } else {
             "ceiling"
-        };
-        drop(fixture.insert("mount".into(), mount.into()));
-        drop(fixture.insert("fixture".into(), asset.into()));
-        Ok(raw)
+        }
     }
 }
 

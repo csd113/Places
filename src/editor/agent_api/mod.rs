@@ -1,8 +1,13 @@
-//! Editor-owned commands and the visible Windows agent session. API-02 only
-//! exposes a read-only status probe; the pilot commands have no transport route.
+//! Editor-owned commands and the visible Windows agent session.
+//! Only the bounded, reversible pilot vocabulary is exposed.
 
 mod pilot;
 mod scene;
+
+#[cfg(windows)]
+mod batch;
+#[cfg(windows)]
+mod wire;
 
 #[cfg(windows)]
 mod protocol;
@@ -36,7 +41,7 @@ use sdl3::{
     video::Window,
 };
 
-pub(super) fn client(arguments: &[String]) -> Result<&'static str, String> {
+pub(super) fn client(arguments: &[String]) -> Result<String, String> {
     #[cfg(windows)]
     {
         session_windows::client(arguments)
@@ -79,8 +84,7 @@ impl App {
                 let _revoked = self.agent.pause();
                 return Err("Could not copy the session command. Agent remains paused.".into());
             }
-            self.status =
-                "Agent ready (read-only). Session command copied. Take Over revokes access.".into();
+            self.status = "Pilot edits enabled: railings, escalators, light fixtures. Session copied. Take Over revokes access.".into();
             Ok(())
         }
         #[cfg(not(windows))]
@@ -137,6 +141,10 @@ impl App {
             let scope = self.agent_scope().cloned();
             if self.agent.retain_scope(scope.as_ref()) {
                 self.status = "Agent paused because the editor or project changed. Resume to grant access again.".into();
+            } else {
+                let mut pilot = std::mem::take(&mut self.agent.pilot);
+                pilot.observe(self);
+                self.agent.pilot = pilot;
             }
         }
     }
@@ -150,7 +158,11 @@ impl App {
                 .active()
                 .then(|| self.agent_scope().cloned())
                 .flatten();
-            match self.agent.tick(scope.as_ref(), presented) {
+            if self.viewport.document_scene_ready() {
+                self.agent.refresh = None;
+            }
+            let (tick, pending) = self.agent.poll(scope.as_ref(), presented);
+            match tick {
                 Tick::Idle => {}
                 Tick::Paused => {
                     self.status =
@@ -158,6 +170,24 @@ impl App {
                 }
                 Tick::Read => {
                     self.status = "Agent read session status. Take Over revokes access.".into();
+                }
+            }
+            if let (Some(call), Some(binding)) = (pending, self.agent.pilot_binding()) {
+                if !self.agent.admitted(scope.as_ref()) {
+                    self.pause_agent();
+                    return;
+                }
+                let mut pilot = std::mem::take(&mut self.agent.pilot);
+                let reply = pilot.dispatch(self, call, binding);
+                self.agent.pilot = pilot;
+                let reply_scope = self.agent_scope().cloned();
+                let _sent = self.agent.reply_pilot(&reply, reply_scope.as_ref());
+                if self.agent.active() {
+                    let outcome = reply
+                        .get("outcome")
+                        .and_then(serde_json::Value::as_str)
+                        .unwrap_or("rejected");
+                    self.status = format!("Agent request {outcome}. Take Over revokes access.");
                 }
             }
         }
@@ -174,7 +204,12 @@ impl App {
             || self.runtime_preparing()
             || self.compile.is_some()
             || self.play.is_some()
-            || self.viewport.is_preparing()
+            || (self.viewport.is_preparing()
+                && !self.agent.refresh.as_ref().is_some_and(|refresh| {
+                    self.document
+                        .as_ref()
+                        .is_some_and(|doc| doc.scene_stamp().matches(refresh))
+                }))
             || self.viewport.local_progress().is_some()
             || self.placement.is_some()
             || self.translation.is_some()

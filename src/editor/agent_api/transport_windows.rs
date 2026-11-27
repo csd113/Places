@@ -33,7 +33,10 @@ use windows_sys::Win32::{
     },
 };
 
-use super::protocol::{self, Nonce, Reply};
+use super::{
+    protocol::{self, Nonce, Reply},
+    wire,
+};
 
 const PEER_LIFETIME: Duration = Duration::from_secs(2);
 const ACCESS: u32 =
@@ -143,8 +146,8 @@ fn logon_pipe(path: &[u16]) -> io::Result<OwnedHandle> {
             PIPE_ACCESS_DUPLEX | FILE_FLAG_FIRST_PIPE_INSTANCE,
             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_NOWAIT | PIPE_REJECT_REMOTE_CLIENTS,
             1,
-            64,
-            64,
+            wire::MAX_REPLY.try_into().unwrap_or(8192),
+            wire::MAX_PACKET.try_into().unwrap_or(4096),
             0,
             &raw const attributes,
         )
@@ -196,7 +199,7 @@ fn write(handle: HANDLE, message: &[u8]) -> io::Result<()> {
 }
 
 pub(super) enum Input {
-    Message([u8; protocol::REQUEST_LEN]),
+    Message(Vec<u8>),
     Malformed,
 }
 
@@ -254,13 +257,13 @@ impl Pipe {
             self.reset();
             return None;
         }
-        let mut packet = [0; protocol::REQUEST_LEN];
+        let mut packet = [0; wire::MAX_PACKET];
         match read(pipe, &mut packet) {
-            Ok(bytes) if !self.answered => Some(if bytes == packet.len() {
-                Input::Message(packet)
-            } else {
-                Input::Malformed
-            }),
+            Ok(bytes) if !self.answered => Some(
+                packet
+                    .get(..bytes)
+                    .map_or(Input::Malformed, |message| Input::Message(message.to_vec())),
+            ),
             Err(error) if error.raw_os_error() == Some(number(ERROR_NO_DATA)) => None,
             Err(error)
                 if error.raw_os_error() == Some(number(ERROR_MORE_DATA)) && !self.answered =>
@@ -275,7 +278,11 @@ impl Pipe {
     }
 
     pub(super) fn reply(&mut self, reply: Reply) -> bool {
-        if write(self.handle.as_raw_handle(), &reply.bytes()).is_err() {
+        self.reply_packet(&reply.bytes())
+    }
+
+    pub(super) fn reply_packet(&mut self, reply: &[u8]) -> bool {
+        if reply.len() > wire::MAX_REPLY || write(self.handle.as_raw_handle(), reply).is_err() {
             self.reset();
             return false;
         }
@@ -286,6 +293,27 @@ impl Pipe {
 }
 
 pub(super) fn probe(nonce: Nonce) -> Result<&'static str, String> {
+    let reply = exchange(nonce, &protocol::request(nonce), false)?;
+    protocol::response(&reply).map_err(str::to_owned)
+}
+
+pub(super) fn call(nonce: Nonce, body: &[u8], mutating: bool) -> Result<String, String> {
+    let packet = protocol::pilot_message(nonce, body);
+    let reply = exchange(nonce, &packet, mutating)?;
+    protocol::pilot_response(&reply).map_err(|error| uncertain(error, mutating))
+}
+
+fn uncertain(error: String, mutating: bool) -> String {
+    if mutating {
+        format!(
+            "Apply outcome uncertain: {error}. Reconcile with the same request ID and digest before retrying."
+        )
+    } else {
+        error
+    }
+}
+
+fn exchange(nonce: Nonce, packet: &[u8], mutating: bool) -> Result<Vec<u8>, String> {
     let path = name(nonce);
     // SAFETY: only this fixed-format local pipe name is accepted; no general path
     // and no server impersonation beyond identification are granted.
@@ -311,20 +339,24 @@ pub(super) fn probe(nonce: Nonce) -> Result<&'static str, String> {
             io::Error::last_os_error()
         ));
     }
-    write(pipe.as_raw_handle(), &protocol::request(nonce)).map_err(|error| error.to_string())?;
+    write(pipe.as_raw_handle(), packet).map_err(|error| uncertain(error.to_string(), mutating))?;
     let started = Instant::now();
-    let mut buffer = [0; protocol::RESPONSE_LEN];
+    let mut buffer = [0; wire::MAX_REPLY];
     while started.elapsed() < PEER_LIFETIME {
         match read(pipe.as_raw_handle(), &mut buffer) {
             Ok(count) => {
-                return protocol::response(buffer.get(..count).unwrap_or_default())
-                    .map_err(str::to_owned);
+                return Ok(buffer.get(..count).unwrap_or_default().to_vec());
             }
             Err(error) if error.raw_os_error() == Some(number(ERROR_NO_DATA)) => {
                 std::thread::sleep(Duration::from_millis(10));
             }
-            Err(error) => return Err(format!("Editor session disconnected: {error}")),
+            Err(error) => {
+                return Err(uncertain(
+                    format!("Editor session disconnected: {error}"),
+                    mutating,
+                ));
+            }
         }
     }
-    Err("Editor session timed out".into())
+    Err(uncertain("Editor session timed out".into(), mutating))
 }
