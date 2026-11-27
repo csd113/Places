@@ -10,7 +10,7 @@ use sdl3::{
 };
 use std::{
     ptr::null_mut,
-    sync::atomic::{AtomicBool, AtomicU32, Ordering},
+    sync::atomic::{AtomicBool, AtomicUsize, Ordering},
 };
 use windows_sys::Win32::{
     Foundation::{HWND, LPARAM, LRESULT, POINT, RECT, WPARAM},
@@ -40,21 +40,60 @@ use windows_sys::Win32::{
         Shell::{DefSubclassProc, RemoveWindowSubclass, SetWindowSubclass},
         WindowsAndMessaging::{
             DEVICE_NOTIFY_CALLBACK, GW_HWNDNEXT, GetClientRect, GetSystemMetrics, GetTopWindow,
-            GetWindow, GetWindowRect, IsIconic, IsWindowVisible, PBT_APMSUSPEND,
-            PBT_POWERSETTINGCHANGE, SM_CMONITORS, WM_DISPLAYCHANGE, WM_POWERBROADCAST,
-            WM_WTSSESSION_CHANGE,
+            GetWindow, GetWindowRect, IsIconic, IsWindowVisible, PBT_APMRESUMEAUTOMATIC,
+            PBT_APMSUSPEND, PBT_POWERSETTINGCHANGE, SM_CMONITORS, WM_DISPLAYCHANGE,
+            WM_POWERBROADCAST, WM_WTSSESSION_CHANGE,
         },
     },
 };
 
-const DISPLAY_UNKNOWN: u32 = u32::MAX;
-static DISPLAY: AtomicU32 = AtomicU32::new(DISPLAY_UNKNOWN);
+// Generation and permission bit change in one atomic operation. A callback
+// already in flight when we unregister can never publish into a newer generation.
+const POWERED: usize = 1;
+const EXHAUSTED: usize = usize::MAX & !POWERED;
+
+struct DisplayEvidence(AtomicUsize);
+
+impl DisplayEvidence {
+    const fn new() -> Self {
+        Self(AtomicUsize::new(0))
+    }
+
+    fn invalidate(&self) {
+        let _previous = self
+            .0
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |state| {
+                (state & !POWERED).checked_add(2)
+            });
+    }
+
+    fn generation(&self) -> Option<usize> {
+        let generation = self.0.load(Ordering::SeqCst) & !POWERED;
+        (generation != EXHAUSTED).then_some(generation)
+    }
+
+    fn publish(&self, generation: usize, on: bool) -> bool {
+        self.0
+            .try_update(Ordering::SeqCst, Ordering::SeqCst, |state| {
+                (generation != EXHAUSTED && state & !POWERED == generation)
+                    .then_some(generation | usize::from(on))
+            })
+            .is_ok()
+    }
+
+    fn powered(&self) -> bool {
+        self.0.load(Ordering::SeqCst) & POWERED != 0
+    }
+}
+
+static DISPLAY: DisplayEvidence = DisplayEvidence::new();
+static REFRESH: AtomicBool = AtomicBool::new(false);
 static INTERRUPTED: AtomicBool = AtomicBool::new(false);
 const HOOK: usize = 1;
 
 pub(super) struct Monitor {
     window: HWND,
-    power: HPOWERNOTIFY,
+    power: Option<HPOWERNOTIFY>,
     session: u32,
 }
 
@@ -73,49 +112,94 @@ unsafe extern "system" fn window_message(
     if message == WM_WTSSESSION_CHANGE || message == WM_DISPLAYCHANGE {
         INTERRUPTED.store(true, Ordering::SeqCst);
     }
-    // Display topology changes invalidate the old display's power evidence.
     if message == WM_DISPLAYCHANGE {
-        DISPLAY.store(DISPLAY_UNKNOWN, Ordering::SeqCst);
+        DISPLAY.invalidate();
+        REFRESH.store(true, Ordering::SeqCst);
     }
-    if message == WM_POWERBROADCAST && u32::try_from(wparam).ok() == Some(PBT_APMSUSPEND) {
-        DISPLAY.store(DISPLAY_UNKNOWN, Ordering::SeqCst);
-        INTERRUPTED.store(true, Ordering::SeqCst);
+    if message == WM_POWERBROADCAST {
+        let event = u32::try_from(wparam).ok();
+        if event == Some(PBT_APMSUSPEND) {
+            DISPLAY.invalidate();
+            REFRESH.store(false, Ordering::SeqCst);
+            INTERRUPTED.store(true, Ordering::SeqCst);
+        } else if event == Some(PBT_APMRESUMEAUTOMATIC) {
+            DISPLAY.invalidate();
+            REFRESH.store(true, Ordering::SeqCst);
+            INTERRUPTED.store(true, Ordering::SeqCst);
+        }
     }
     // SAFETY: forward the unchanged message while on our window's subclass chain.
     unsafe { DefSubclassProc(hwnd, message, wparam, lparam) }
 }
 
 unsafe extern "system" fn power_event(
-    _context: *const std::ffi::c_void,
+    context: *const std::ffi::c_void,
     kind: u32,
     data: *const std::ffi::c_void,
 ) -> u32 {
-    if kind != PBT_POWERSETTINGCHANGE || data.is_null() {
-        DISPLAY.store(DISPLAY_UNKNOWN, Ordering::SeqCst);
-        INTERRUPTED.store(true, Ordering::SeqCst);
-        return 0;
-    }
-    // SAFETY: the power manager registered this callback for a power setting
-    // and supplies a POWERBROADCAST_SETTING until the callback returns.
-    let setting = unsafe { &*data.cast::<POWERBROADCAST_SETTING>() };
-    let found = setting.PowerSetting;
-    let expected = GUID_SESSION_DISPLAY_STATUS;
-    let display = if found.data1 == expected.data1
-        && found.data2 == expected.data2
-        && found.data3 == expected.data3
-        && found.data4 == expected.data4
-        && setting.DataLength == bytes::<u32>()
-    {
-        // SAFETY: the notification has four payload bytes at Data.
-        unsafe { (&raw const setting.Data).cast::<u32>().read_unaligned() }
+    let on = if kind == PBT_POWERSETTINGCHANGE && !data.is_null() {
+        // SAFETY: the registered power-manager callback receives this structure
+        // alive for the duration of the call.
+        let setting = unsafe { &*data.cast::<POWERBROADCAST_SETTING>() };
+        let found = setting.PowerSetting;
+        let expected = GUID_SESSION_DISPLAY_STATUS;
+        if found.data1 == expected.data1
+            && found.data2 == expected.data2
+            && found.data3 == expected.data3
+            && found.data4 == expected.data4
+            && setting.DataLength == bytes::<u32>()
+        {
+            // SAFETY: DataLength proves four readable payload bytes at Data.
+            let state = unsafe { (&raw const setting.Data).cast::<u32>().read_unaligned() };
+            state == 1
+        } else {
+            false
+        }
     } else {
-        DISPLAY_UNKNOWN
+        false
     };
-    DISPLAY.store(display, Ordering::SeqCst);
-    if display != 1 {
+    if DISPLAY.publish(context.addr(), on) && !on {
         INTERRUPTED.store(true, Ordering::SeqCst);
     }
     0
+}
+
+fn register_power(generation: usize) -> Option<HPOWERNOTIFY> {
+    let setting = GUID_SESSION_DISPLAY_STATUS;
+    let subscription = DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS {
+        Callback: Some(power_event),
+        // Opaque generation, passed back verbatim by Windows and never dereferenced.
+        Context: std::ptr::without_provenance_mut(generation),
+    };
+    let mut registration = null_mut();
+    // SAFETY: the API reads the subscription for this call and retains only
+    // the static function and the opaque context. The out pointer is writable.
+    let registered = unsafe {
+        PowerSettingRegisterNotification(
+            &raw const setting,
+            DEVICE_NOTIFY_CALLBACK,
+            (&raw const subscription).cast_mut().cast(),
+            &raw mut registration,
+        )
+    };
+    (registered == 0 && !registration.is_null()).then_some(registration.addr().cast_signed())
+}
+
+fn unregister_power(handle: HPOWERNOTIFY) -> bool {
+    // SAFETY: the caller supplies an owned, still-registered power subscription.
+    unsafe { PowerSettingUnregisterNotification(handle) == 0 }
+}
+
+fn replace_power<T: Copy>(
+    current: &mut Option<T>,
+    unregister: impl FnOnce(T) -> bool,
+    register: impl FnOnce() -> Option<T>,
+) {
+    if current.is_some_and(|handle| !unregister(handle)) {
+        // Keep the old handle for a later retry or Drop. Its evidence is stale.
+        return;
+    }
+    *current = register();
 }
 
 impl Monitor {
@@ -136,7 +220,8 @@ impl Monitor {
         {
             return None;
         }
-        DISPLAY.store(DISPLAY_UNKNOWN, Ordering::SeqCst);
+        DISPLAY.invalidate();
+        REFRESH.store(false, Ordering::SeqCst);
         INTERRUPTED.store(false, Ordering::SeqCst);
         // SAFETY: this call is on the owning UI thread; no borrowed state enters the hook.
         if unsafe { SetWindowSubclass(hwnd, Some(window_message), HOOK, 0) } == 0_i32 {
@@ -148,23 +233,8 @@ impl Monitor {
             let _removed = unsafe { RemoveWindowSubclass(hwnd, Some(window_message), HOOK) };
             return None;
         }
-        let setting = GUID_SESSION_DISPLAY_STATUS;
-        let subscription = DEVICE_NOTIFY_SUBSCRIBE_PARAMETERS {
-            Callback: Some(power_event),
-            Context: null_mut(),
-        };
-        let mut registration = null_mut();
-        // SAFETY: the power API reads the subscription for this call and
-        // retains only the static callback and null context.
-        let registered = unsafe {
-            PowerSettingRegisterNotification(
-                &raw const setting,
-                DEVICE_NOTIFY_CALLBACK,
-                (&raw const subscription).cast_mut().cast(),
-                &raw mut registration,
-            )
-        };
-        if registered != 0 || registration.is_null() {
+        let power = DISPLAY.generation().and_then(register_power);
+        if power.is_none() {
             // SAFETY: retract the two successful installations, before returning.
             let _unregistered = unsafe { WTSUnRegisterSessionNotification(hwnd) };
             // SAFETY: this thread installed the subclass above.
@@ -173,7 +243,7 @@ impl Monitor {
         }
         Some(Self {
             window: hwnd,
-            power: registration.addr().cast_signed(),
+            power,
             session,
         })
     }
@@ -186,8 +256,22 @@ impl Monitor {
         INTERRUPTED.swap(false, Ordering::SeqCst)
     }
 
+    pub(super) fn refresh_pending() -> bool {
+        REFRESH.load(Ordering::SeqCst)
+    }
+
+    /// The editor loop calls this only after retiring the existing grant.
+    pub(super) fn refresh_power(&mut self) {
+        if REFRESH.swap(false, Ordering::SeqCst) {
+            let generation = DISPLAY.generation();
+            replace_power(&mut self.power, unregister_power, || {
+                generation.and_then(register_power)
+            });
+        }
+    }
+
     pub(super) fn verified(&self) -> bool {
-        if DISPLAY.load(Ordering::SeqCst) != 1 {
+        if self.power.is_none() || Self::refresh_pending() || !DISPLAY.powered() {
             return false;
         }
         // SAFETY: query-only console identity. A transition sentinel never equals our session.
@@ -216,8 +300,10 @@ impl Monitor {
 
 impl Drop for Monitor {
     fn drop(&mut self) {
-        // SAFETY: these are exactly the registrations this instance owns.
-        let _power = unsafe { PowerSettingUnregisterNotification(self.power) };
+        DISPLAY.invalidate();
+        if let Some(power) = self.power.take() {
+            let _power = unregister_power(power);
+        }
         // SAFETY: the SDL window outlives the monitor.
         let _session = unsafe { WTSUnRegisterSessionNotification(self.window) };
         // SAFETY: this is the original owning window thread.
@@ -377,3 +463,7 @@ fn uncovered(window: HWND, client: &RECT) -> bool {
     }
     false
 }
+
+#[cfg(test)]
+#[path = "../tests/display_power.rs"]
+mod tests;

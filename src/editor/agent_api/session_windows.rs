@@ -109,6 +109,15 @@ impl Session {
     /// grant checks before admission and again before releasing the reply.
     pub(in crate::editor) fn tick(&mut self, scope: Option<&SceneStamp>, drawn: bool) -> Tick {
         self.presented = drawn;
+        if Monitor::refresh_pending() {
+            // Close the pipe before registering for the new display state.
+            // A positive initial callback never creates or restores a grant.
+            let revoked = self.pause();
+            if let Some(monitor) = &mut self.monitor {
+                monitor.refresh_power();
+            }
+            return if revoked { Tick::Paused } else { Tick::Idle };
+        }
         if !self.active() {
             return Tick::Idle;
         }
