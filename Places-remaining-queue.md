@@ -16,6 +16,13 @@
 
 ## Research only, then multiplayer
 
+### Research: Local agent API for the Places level editor
+**Next priority. Research only; Mall work is paused.** Trace the current editor's commands, geometry validation, undo/redo, and save path. Compare a local CLI, local IPC, and an optional MCP adapter. Recommend the smallest cross-platform design with exact integration points, costs, risks, and a staged rollout.
+
+- **Full editor parity in both directions.** Inventory every Basic and Advanced workflow, including save, export, bake, and Quick Test. Require the same command implementations, selection and mode prerequisites, validation, intentional overrides, and confirmations as the editor UI. Verify no feature is missing and no API action or batch can do something the editor cannot. Plan an automated parity check for future editor features.
+- **Safe, efficient commands.** Specify versioned typed commands, stable object IDs, focused queries and deltas, actionable validation errors, revision-bound preview/apply, atomic reversible batches, one-step undo, retry receipts and safe recovery. Evaluate human edits during preview, cancellation, lost replies and repeat requests. Keep local access opt-in and scoped. No direct level-file writes, arbitrary scripts, or unrestricted filesystem access. Save, export and bake remain explicit editor actions, not hidden batch side effects.
+- **Proof and benchmark.** Plan disposable editor-authored examples for railings, two-landing escalators, and shop lights. Compare manual and API results, calls, tokens and elapsed time. Include visual or Quick Test readback, invalid placement and stale preview rejection without mutations, and an exact undo check. Identify gaps before recommending implementation. Do not implement, edit production maps, or resume the Mall in this item.
+
 ### 30. [GitHub #15: Multiplayer and in-session text chat](https://github.com/csd113/Places/issues/15)
 **Deferred.** Leave GitHub #15 open. Keep this large feature behind core fixes and smaller work. Define a bounded join/host/leave and reconnect flow, synchronize movement and visible players, choose and document the shared interactions and world state, and add in-session text chat. Validate two players together and cleanup/reconnect under latency or disconnection. Do not broaden into unrelated engine or account work.
 
