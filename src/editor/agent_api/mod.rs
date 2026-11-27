@@ -215,6 +215,9 @@ impl App {
             || self.translation.is_some()
             || self.wall_drag.is_some()
             || self.escalator.is_some()
+            || self.elevators.mode.is_some()
+            || self.lighting.painting
+            || self.navigation.pick_goal.is_some()
             || self.play_floor_pick
         {
             return None;

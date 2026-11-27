@@ -8,8 +8,8 @@ use std::{
 };
 use windows_sys::Win32::{
     Foundation::{
-        ERROR_MORE_DATA, ERROR_NO_DATA, ERROR_PIPE_CONNECTED, ERROR_PIPE_LISTENING, HANDLE,
-        INVALID_HANDLE_VALUE,
+        ERROR_MORE_DATA, ERROR_NO_DATA, ERROR_PIPE_BUSY, ERROR_PIPE_CONNECTED,
+        ERROR_PIPE_LISTENING, HANDLE, INVALID_HANDLE_VALUE,
     },
     Security::{
         ACL, ACL_REVISION, AddAccessAllowedAce,
@@ -39,6 +39,7 @@ use super::{
 };
 
 const PEER_LIFETIME: Duration = Duration::from_secs(2);
+const CONNECT_RETRY: Duration = Duration::from_millis(500);
 const ACCESS: u32 =
     FILE_READ_DATA | FILE_WRITE_DATA | FILE_READ_ATTRIBUTES | FILE_WRITE_ATTRIBUTES | SYNCHRONIZE;
 
@@ -315,20 +316,33 @@ fn uncertain(error: String, mutating: bool) -> String {
 
 fn exchange(nonce: Nonce, packet: &[u8], mutating: bool) -> Result<Vec<u8>, String> {
     let path = name(nonce);
-    // SAFETY: only this fixed-format local pipe name is accepted; no general path
-    // and no server impersonation beyond identification are granted.
-    let pipe = owned(unsafe {
-        CreateFileW(
-            path.as_ptr(),
-            ACCESS,
-            0,
-            null(),
-            OPEN_EXISTING,
-            SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
-            null_mut(),
-        )
-    })
-    .map_err(|error| format!("Editor session unavailable: {error}"))?;
+    let connecting = Instant::now();
+    let pipe = loop {
+        // SAFETY: only this fixed-format local pipe name is accepted; no general path
+        // and no server impersonation beyond identification are granted.
+        match owned(unsafe {
+            CreateFileW(
+                path.as_ptr(),
+                ACCESS,
+                0,
+                null(),
+                OPEN_EXISTING,
+                SECURITY_SQOS_PRESENT | SECURITY_IDENTIFICATION,
+                null_mut(),
+            )
+        }) {
+            Ok(handle) => break handle,
+            Err(error)
+                if error.raw_os_error() == Some(number(ERROR_PIPE_BUSY))
+                    && connecting.elapsed() < CONNECT_RETRY =>
+            {
+                // The one native pipe instance may still be retiring the previous
+                // reply. No request bytes were sent, so this is safe even for Apply.
+                std::thread::sleep(Duration::from_millis(10));
+            }
+            Err(error) => return Err(format!("Editor session unavailable: {error}")),
+        }
+    };
     let mode = PIPE_READMODE_MESSAGE | PIPE_NOWAIT;
     // SAFETY: this is a live local client handle and mode is passed by value through a pointer.
     if unsafe { SetNamedPipeHandleState(pipe.as_raw_handle(), &raw const mode, null(), null()) }

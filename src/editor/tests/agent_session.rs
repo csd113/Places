@@ -122,7 +122,11 @@ fn windows_session() -> Result<u32, String> {
 
 fn check_live_status(pipe: &mut Pipe, nonce: protocol::Nonce) -> Result<(), String> {
     let _listening = pipe.poll();
-    let client = std::thread::spawn(move || transport_windows::probe(nonce));
+    let client = std::thread::spawn(move || {
+        let first = transport_windows::probe(nonce)?;
+        let adjacent = transport_windows::probe(nonce)?;
+        Ok::<_, String>((first, adjacent))
+    });
     let deadline = Instant::now();
     let mut reply = false;
     while deadline.elapsed() < Duration::from_secs(2) && !client.is_finished() {
@@ -132,10 +136,14 @@ fn check_live_status(pipe: &mut Pipe, nonce: protocol::Nonce) -> Result<(), Stri
         std::thread::sleep(Duration::from_millis(5));
     }
     assert!(reply, "bounded server admitted the local peer and replied");
-    let status = client
+    let (first, adjacent) = client
         .join()
         .map_err(|_panic| "Probe thread did not complete")??;
-    assert_eq!(status, "Places Editor agent session is active.");
+    assert_eq!(first, "Places Editor agent session is active.");
+    assert_eq!(
+        adjacent, first,
+        "a fresh request can follow the previous reply"
+    );
     let _disconnected = pipe.poll();
     Ok(())
 }
