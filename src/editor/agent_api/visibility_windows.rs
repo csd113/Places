@@ -47,10 +47,14 @@ use windows_sys::Win32::{
     },
 };
 
-// Generation and permission bit change in one atomic operation. A callback
-// already in flight when we unregister can never publish into a newer generation.
+// Generation, power state, and its interruption latch change atomically.
+// A callback in flight at unregister cannot publish into a newer generation.
 const POWERED: usize = 1;
-const EXHAUSTED: usize = usize::MAX & !POWERED;
+const NOT_POWERED: usize = 2;
+const POWER_MASK: usize = POWERED | NOT_POWERED;
+const POWER_INTERRUPTED: usize = 4;
+const EVIDENCE_MASK: usize = POWER_MASK | POWER_INTERRUPTED;
+const EXHAUSTED: usize = usize::MAX & !EVIDENCE_MASK;
 
 struct DisplayEvidence(AtomicUsize);
 
@@ -63,33 +67,88 @@ impl DisplayEvidence {
         let _previous = self
             .0
             .try_update(Ordering::SeqCst, Ordering::SeqCst, |state| {
-                (state & !POWERED).checked_add(2)
+                (state & !EVIDENCE_MASK).checked_add(8)
             });
     }
 
     fn generation(&self) -> Option<usize> {
-        let generation = self.0.load(Ordering::SeqCst) & !POWERED;
+        let generation = self.0.load(Ordering::SeqCst) & !EVIDENCE_MASK;
         (generation != EXHAUSTED).then_some(generation)
     }
 
     fn publish(&self, generation: usize, on: bool) -> bool {
         self.0
             .try_update(Ordering::SeqCst, Ordering::SeqCst, |state| {
-                (generation != EXHAUSTED && state & !POWERED == generation)
-                    .then_some(generation | usize::from(on))
+                let evidence = if on {
+                    POWERED | (state & POWER_INTERRUPTED)
+                } else {
+                    NOT_POWERED | POWER_INTERRUPTED
+                };
+                (generation != EXHAUSTED && state & !EVIDENCE_MASK == generation)
+                    .then_some(generation | evidence)
             })
             .is_ok()
     }
 
+    fn take_interruption(&self) -> bool {
+        self.0.fetch_and(!POWER_INTERRUPTED, Ordering::SeqCst) & POWER_INTERRUPTED != 0
+    }
+
+    fn check(&self) -> Result<(), VisibilityDenial> {
+        match self.0.load(Ordering::SeqCst) & POWER_MASK {
+            POWERED => Ok(()),
+            NOT_POWERED => Err(VisibilityDenial::DisplayNotOn),
+            _ => Err(VisibilityDenial::NoPowerReport),
+        }
+    }
+
+    #[cfg(test)]
     fn powered(&self) -> bool {
-        self.0.load(Ordering::SeqCst) & POWERED != 0
+        self.check().is_ok()
     }
 }
 
 static DISPLAY: DisplayEvidence = DisplayEvidence::new();
 static REFRESH: AtomicBool = AtomicBool::new(false);
-static INTERRUPTED: AtomicBool = AtomicBool::new(false);
+static WINDOW_INTERRUPTED: AtomicBool = AtomicBool::new(false);
 const HOOK: usize = 1;
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+pub(super) enum VisibilityDenial {
+    PowerSubscription,
+    DisplayChanging,
+    NoPowerReport,
+    DisplayNotOn,
+    NotLocalConsole,
+    DisplayLayout,
+    SessionLockedOrUnknown,
+    InputDesktop,
+    WindowUnavailable,
+    ClientBounds,
+    OutsideDisplay,
+    Covered,
+    WindowStackUnknown,
+}
+
+impl VisibilityDenial {
+    pub(super) const fn status(self) -> &'static str {
+        match self {
+            Self::PowerSubscription => "Agent unavailable: no display power subscription",
+            Self::DisplayChanging => "Agent unavailable: display change pending",
+            Self::NoPowerReport => "Agent unavailable: no display power report yet",
+            Self::DisplayNotOn => "Agent unavailable: display power is not verified on",
+            Self::NotLocalConsole => "Agent needs the active local console",
+            Self::DisplayLayout => "Agent needs exactly one active display",
+            Self::SessionLockedOrUnknown => "Agent needs a verified unlocked session",
+            Self::InputDesktop => "Agent needs the normal interactive Windows desktop",
+            Self::WindowUnavailable => "Agent needs a visible, non-minimized editor window",
+            Self::ClientBounds => "Agent unavailable: editor window bounds are unknown",
+            Self::OutsideDisplay => "Agent needs the whole editor on the active display",
+            Self::Covered => "Agent needs the whole editor uncovered",
+            Self::WindowStackUnknown => "Agent unavailable: cannot verify overlapping windows",
+        }
+    }
+}
 
 pub(super) struct Monitor {
     window: HWND,
@@ -110,7 +169,7 @@ unsafe extern "system" fn window_message(
     _data: usize,
 ) -> LRESULT {
     if message == WM_WTSSESSION_CHANGE || message == WM_DISPLAYCHANGE {
-        INTERRUPTED.store(true, Ordering::SeqCst);
+        WINDOW_INTERRUPTED.store(true, Ordering::SeqCst);
     }
     if message == WM_DISPLAYCHANGE {
         DISPLAY.invalidate();
@@ -121,11 +180,11 @@ unsafe extern "system" fn window_message(
         if event == Some(PBT_APMSUSPEND) {
             DISPLAY.invalidate();
             REFRESH.store(false, Ordering::SeqCst);
-            INTERRUPTED.store(true, Ordering::SeqCst);
+            WINDOW_INTERRUPTED.store(true, Ordering::SeqCst);
         } else if event == Some(PBT_APMRESUMEAUTOMATIC) {
             DISPLAY.invalidate();
             REFRESH.store(true, Ordering::SeqCst);
-            INTERRUPTED.store(true, Ordering::SeqCst);
+            WINDOW_INTERRUPTED.store(true, Ordering::SeqCst);
         }
     }
     // SAFETY: forward the unchanged message while on our window's subclass chain.
@@ -158,9 +217,7 @@ unsafe extern "system" fn power_event(
     } else {
         false
     };
-    if DISPLAY.publish(context.addr(), on) && !on {
-        INTERRUPTED.store(true, Ordering::SeqCst);
-    }
+    let _applied = DISPLAY.publish(context.addr(), on);
     0
 }
 
@@ -222,7 +279,7 @@ impl Monitor {
         }
         DISPLAY.invalidate();
         REFRESH.store(false, Ordering::SeqCst);
-        INTERRUPTED.store(false, Ordering::SeqCst);
+        WINDOW_INTERRUPTED.store(false, Ordering::SeqCst);
         // SAFETY: this call is on the owning UI thread; no borrowed state enters the hook.
         if unsafe { SetWindowSubclass(hwnd, Some(window_message), HOOK, 0) } == 0_i32 {
             return None;
@@ -253,7 +310,9 @@ impl Monitor {
     }
 
     pub(super) fn interrupted() -> bool {
-        INTERRUPTED.swap(false, Ordering::SeqCst)
+        let power = DISPLAY.take_interruption();
+        let window = WINDOW_INTERRUPTED.swap(false, Ordering::SeqCst);
+        power || window
     }
 
     pub(super) fn refresh_pending() -> bool {
@@ -270,31 +329,42 @@ impl Monitor {
         }
     }
 
-    pub(super) fn verified(&self) -> bool {
-        if self.power.is_none() || Self::refresh_pending() || !DISPLAY.powered() {
-            return false;
+    pub(super) fn verified(&self) -> Result<(), VisibilityDenial> {
+        if self.power.is_none() {
+            return Err(VisibilityDenial::PowerSubscription);
         }
+        if Self::refresh_pending() {
+            return Err(VisibilityDenial::DisplayChanging);
+        }
+        DISPLAY.check()?;
         // SAFETY: query-only console identity. A transition sentinel never equals our session.
         if unsafe { WTSGetActiveConsoleSessionId() } != self.session {
-            return false;
+            return Err(VisibilityDenial::NotLocalConsole);
         }
         // SAFETY: this is a query-only count. Session display power is not per-monitor evidence.
-        if unsafe { GetSystemMetrics(SM_CMONITORS) } != 1_i32
-            || !unlocked(self.session)
-            || !input_desktop()
-        {
-            return false;
+        if unsafe { GetSystemMetrics(SM_CMONITORS) } != 1_i32 {
+            return Err(VisibilityDenial::DisplayLayout);
+        }
+        if !unlocked(self.session) {
+            return Err(VisibilityDenial::SessionLockedOrUnknown);
+        }
+        if !input_desktop() {
+            return Err(VisibilityDenial::InputDesktop);
         }
         let hwnd = self.window;
         // SAFETY: hwnd is retained only while SDL owns the window.
         if unsafe { IsWindowVisible(hwnd) } == 0_i32 {
-            return false;
+            return Err(VisibilityDenial::WindowUnavailable);
         }
         // SAFETY: same live hwnd.
         if unsafe { IsIconic(hwnd) } != 0_i32 || cloaked(hwnd) != Some(false) {
-            return false;
+            return Err(VisibilityDenial::WindowUnavailable);
         }
-        client_rect(hwnd).is_some_and(|rect| on_display(&rect) && uncovered(hwnd, &rect))
+        let rect = client_rect(hwnd).ok_or(VisibilityDenial::ClientBounds)?;
+        if !on_display(&rect) {
+            return Err(VisibilityDenial::OutsideDisplay);
+        }
+        uncovered(hwnd, &rect)
     }
 }
 
@@ -432,15 +502,15 @@ fn on_display(rect: &RECT) -> bool {
         && bounds.bottom >= rect.bottom
 }
 
-fn uncovered(window: HWND, client: &RECT) -> bool {
+fn uncovered(window: HWND, client: &RECT) -> Result<(), VisibilityDenial> {
     // SAFETY: null requests the first top-level window in Z order.
     let mut above = unsafe { GetTopWindow(null_mut()) };
     for _ in 0_u8..64 {
         if above == window {
-            return true;
+            return Ok(());
         }
         if above.is_null() {
-            return false;
+            return Err(VisibilityDenial::WindowStackUnknown);
         }
         // SAFETY: these read-only queries tolerate a window concurrently destroyed.
         let visible = unsafe { IsWindowVisible(above) } != 0_i32;
@@ -449,19 +519,21 @@ fn uncovered(window: HWND, client: &RECT) -> bool {
         if visible && !minimized && cloaked(above) != Some(true) {
             let mut rect = RECT::default();
             // SAFETY: output is a writable RECT; failure is an uncertain visibility result.
-            if unsafe { GetWindowRect(above, &raw mut rect) } == 0_i32
-                || (rect.left < client.right
-                    && client.left < rect.right
-                    && rect.top < client.bottom
-                    && client.top < rect.bottom)
+            if unsafe { GetWindowRect(above, &raw mut rect) } == 0_i32 {
+                return Err(VisibilityDenial::WindowStackUnknown);
+            }
+            if rect.left < client.right
+                && client.left < rect.right
+                && rect.top < client.bottom
+                && client.top < rect.bottom
             {
-                return false;
+                return Err(VisibilityDenial::Covered);
             }
         }
         // SAFETY: query the next Z-order entry; an unstable/long list fails closed.
         above = unsafe { GetWindow(above, GW_HWNDNEXT) };
     }
-    false
+    Err(VisibilityDenial::WindowStackUnknown)
 }
 
 #[cfg(test)]

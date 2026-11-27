@@ -6,7 +6,7 @@ use super::{
     SceneStamp,
     protocol::{self, Nonce, Reply},
     transport_windows::{self, Input, Pipe},
-    visibility_windows::Monitor,
+    visibility_windows::{Monitor, VisibilityDenial},
 };
 
 struct Grant {
@@ -80,17 +80,17 @@ impl Session {
             .as_ref()
             .ok_or("Agent sessions are unavailable in this editor")?;
         let _previous = Monitor::interrupted();
-        if !self.presented || !monitor.verified() {
-            return Err(
-                "Agent needs an uncovered editor on the active, unlocked local display".into(),
-            );
+        if !self.presented {
+            return Err("Agent needs a presented editor frame".into());
         }
+        monitor.verified().map_err(VisibilityDenial::status)?;
         let nonce = transport_windows::nonce().map_err(|error| error.to_string())?;
         let pipe = Pipe::open(nonce, monitor.session())
             .map_err(|error| format!("Cannot open private editor session: {error}"))?;
-        if Monitor::interrupted() || !monitor.verified() {
+        if Monitor::interrupted() {
             return Err("Editor visibility changed before the session could start".into());
         }
+        monitor.verified().map_err(VisibilityDenial::status)?;
         self.live = Some(Live {
             grant: Grant {
                 scope: scene.clone(),
@@ -152,7 +152,10 @@ impl Session {
     fn admitted(&self, scope: Option<&SceneStamp>) -> bool {
         let verified = self.presented
             && !Monitor::interrupted()
-            && self.monitor.as_ref().is_some_and(Monitor::verified);
+            && self
+                .monitor
+                .as_ref()
+                .is_some_and(|monitor| monitor.verified().is_ok());
         self.live
             .as_ref()
             .is_some_and(|live| live.grant.permits(scope, verified))

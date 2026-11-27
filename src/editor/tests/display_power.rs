@@ -1,5 +1,30 @@
-use super::{DisplayEvidence, replace_power};
+use super::{DisplayEvidence, VisibilityDenial, replace_power};
 use std::cell::RefCell;
+
+#[test]
+fn stale_off_cannot_interrupt_new_generation() -> Result<(), &'static str> {
+    let evidence = DisplayEvidence::new();
+    let old = evidence.generation().ok_or("Missing initial generation")?;
+    assert!(evidence.publish(old, false));
+
+    // An OFF accepted before retirement cannot leave a separate late latch,
+    // and an in-flight OFF delivered after the fresh ON is also rejected.
+    evidence.invalidate();
+    let current = evidence.generation().ok_or("Missing refresh generation")?;
+    assert!(evidence.publish(current, true));
+    assert!(!evidence.publish(old, false));
+    assert!(evidence.powered());
+    assert!(!evidence.take_interruption());
+
+    // Conversely an ON never clears a genuine interruption of this generation.
+    assert!(evidence.publish(current, false));
+    assert_eq!(evidence.check(), Err(VisibilityDenial::DisplayNotOn));
+    assert!(evidence.publish(current, true));
+    assert!(evidence.powered());
+    assert!(evidence.take_interruption());
+    assert!(!evidence.take_interruption());
+    Ok(())
+}
 
 #[test]
 fn new_display_evidence_cannot_use_old_callbacks() -> Result<(), &'static str> {
@@ -12,6 +37,7 @@ fn new_display_evidence_cannot_use_old_callbacks() -> Result<(), &'static str> {
 
     evidence.invalidate();
     let next = evidence.generation().ok_or("Missing refresh generation")?;
+    assert_eq!(evidence.check(), Err(VisibilityDenial::NoPowerReport));
     assert_ne!(old, next, "display change retires the callback generation");
     assert!(
         !evidence.powered(),
