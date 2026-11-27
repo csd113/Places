@@ -21,6 +21,8 @@
 **Non-negotiable:** The agent may use every existing Basic and Advanced workflow by the end, but may not bypass UI rules, invent outcomes the editor cannot produce, or write raw level files. The running editor owns document state and is the only authoring authority. Keep its viewport visible and monitorable throughout; no headless mode or fallback writer. Preserve the normal human workflow and keep the agent UI compact. Use one source writer, small patches, and exact independent review per stage.
 
 ### API-01. Workflow inventory and shared command foundation
+**Completed.** Implemented and independently reviewed as [`325dfb81996f`](https://github.com/csd113/Places/commit/325dfb81996ff8268df532284d01ef0226b0e337).
+
 Map native menu actions, inline edits, modal confirmations, viewport gestures, and project tools to semantic operations with mode, selection, preconditions, validation, undo and side-effect policy. Include unsupported or human-confirmation-only paths explicitly. Record existing behavior before extracting a small editor-owned command registry; make the UI and pilot call the same underlying rules, not a wrapper around mutating UI handlers. Define versioned capabilities, typed errors, document-epoch handles, relevant state revisions and compatibility. **Done when:** registry entries can be checked against native workflows both ways, normal UI behavior is unchanged, and rejected pilot operations leave document and live UI state untouched.
 
 ### API-02. Visible-session controls and thin local CLI
