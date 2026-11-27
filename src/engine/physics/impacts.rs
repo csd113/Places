@@ -66,6 +66,21 @@ pub enum ImpactRelease {
     Thrown,
 }
 
+/// Playback routing for a bounded contact event. Physics diagnostics keep
+/// their original event shape and release provenance.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum ImpactAudio {
+    Surface,
+    BottleGlass,
+    ReplacedByShatter,
+}
+
+pub(super) struct QueuedImpact {
+    pub event: ImpactEvent,
+    pub audio: ImpactAudio,
+    pub bottle_breaks: [Option<u64>; 2],
+}
+
 /// One body's own release identity, independent of inherited contact causes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, serde::Serialize, serde::Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -130,17 +145,16 @@ impl ImpactBudget {
     }
 
     pub fn take(&mut self, speed: f32, impulse: f32, cooldown: f32) -> Option<f32> {
-        if !speed.is_finite()
-            || !impulse.is_finite()
-            || speed < MIN_IMPACT_SPEED
-            || impulse < MIN_IMPACT_IMPULSE
-            || cooldown > 0.0
-            || self.tokens < 1.0
-        {
+        if !Self::meaningful(speed, impulse) || cooldown > 0.0 || self.tokens < 1.0 {
             return None;
         }
         self.tokens -= 1.0;
         Some((speed / 5.0).sqrt().clamp(0.1, 1.0))
+    }
+
+    pub fn meaningful(speed: f32, impulse: f32) -> bool {
+        speed.is_finite() && impulse.is_finite()
+            && speed >= MIN_IMPACT_SPEED && impulse >= MIN_IMPACT_IMPULSE
     }
 
     pub const fn item_cooldown() -> f32 {

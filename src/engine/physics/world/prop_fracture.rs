@@ -1,5 +1,8 @@
-//! Opt-in Christmas props fracture on their own first qualifying solved drop contact.
+//! Opt-in props fracture on their own first solved contact after the required release.
 use glam::Vec3;
+
+mod bottles;
+pub(super) mod bottle_contacts;
 
 use crate::engine::level::PropDef;
 use crate::engine::physics::{BodyMotion, ImpactRelease, PhysicsDef};
@@ -26,6 +29,25 @@ pub enum Breakable {
     House,
     SpruceGlobe,
     VillageGlobe,
+    Bottle(BottleKind),
+}
+
+#[derive(Clone, Copy)]
+pub enum BottleKind {
+    Beer,
+    Vodka,
+    Wine,
+    Gin,
+}
+
+pub fn bottle_kind(model: &str) -> Option<BottleKind> {
+    match model {
+        "core:beer_bottle" => Some(BottleKind::Beer),
+        "core:vodka_bottle" => Some(BottleKind::Vodka),
+        "core:wine_bottle" => Some(BottleKind::Wine),
+        "core:gin_bottle" => Some(BottleKind::Gin),
+        _ => None,
+    }
 }
 
 impl Breakable {
@@ -34,6 +56,19 @@ impl Breakable {
             Self::House => &HOUSE_PARTS,
             Self::SpruceGlobe => &SPRUCE_PARTS,
             Self::VillageGlobe => &VILLAGE_PARTS,
+            Self::Bottle(kind) => bottles::panels(kind),
+        }
+    }
+
+    pub(crate) const fn is_bottle(self) -> bool {
+        matches!(self, Self::Bottle(_))
+    }
+
+    const fn release(self) -> ImpactRelease {
+        if self.is_bottle() {
+            ImpactRelease::Thrown
+        } else {
+            ImpactRelease::Dropped
         }
     }
 
@@ -41,6 +76,7 @@ impl Breakable {
         match self {
             Self::House => (MIN_SPEED, MIN_IMPULSE),
             Self::SpruceGlobe | Self::VillageGlobe => (2.15, 0.035),
+            Self::Bottle(_) => (3.6, 0.08),
         }
     }
 }
@@ -73,7 +109,7 @@ pub fn eligible(prop: &PropDef) -> Option<Breakable> {
         HOUSE => Some(Breakable::House),
         SPRUCE => Some(Breakable::SpruceGlobe),
         VILLAGE => Some(Breakable::VillageGlobe),
-        _ => None,
+        model => bottle_kind(model).map(Breakable::Bottle),
     }
 }
 
@@ -97,12 +133,16 @@ pub struct BreakPlan {
 }
 
 impl BreakableBody {
-    pub(super) fn contact_tested(&self, serial: u64) -> bool {
-        self.tested == Some(serial)
+    pub(super) const fn is_bottle(&self) -> bool {
+        self.kind.is_bottle()
+    }
+
+    pub(super) fn saved_contact(&self, release: ImpactRelease, serial: u64) -> Option<bool> {
+        (release == self.kind.release()).then_some(self.tested == Some(serial))
     }
 
     pub(super) fn restore_contact(&mut self, release: ImpactRelease, serial: u64, tested: bool) {
-        self.tested = (release == ImpactRelease::Dropped && tested).then_some(serial);
+        self.tested = (release == self.kind.release() && tested).then_some(serial);
         self.pending = false;
     }
 
@@ -111,23 +151,46 @@ impl BreakableBody {
     /// trigger it. The first actual contact decides, even if it was gentle.
     pub(super) fn witness_contact(
         &mut self,
+        key: u64,
         entry: &BodyEntry,
         held: bool,
         speed: f32,
         impulse: f32,
-    ) {
-        if entry.originating_release != ImpactRelease::Dropped
-            || self.tested == Some(entry.release_serial)
-            || entry.recovery.suspended
-            || held
-            || !impulse.is_finite()
-            || impulse <= 0.001
-        {
-            return;
+    ) -> bool {
+        if !self.can_test(key, entry, held) || !impulse.is_finite() || impulse <= 0.001 {
+            return false;
         }
         self.tested = Some(entry.release_serial);
         let (min_speed, min_impulse) = self.kind.thresholds();
         self.pending = speed >= min_speed && impulse >= min_impulse;
+        self.pending
+    }
+    fn can_test(&self, key: u64, entry: &BodyEntry, held: bool) -> bool {
+        entry.originating_release == self.kind.release()
+            && (!self.is_bottle()
+                || (entry.release == ImpactRelease::Thrown
+                    && entry.release_source == key
+                    && entry.release_incident == entry.release_serial))
+            && self.tested != Some(entry.release_serial)
+            && !entry.recovery.suspended
+            && !held
+    }
+}
+
+pub(super) fn witness_festive_sides(
+    breakables: &mut std::collections::BTreeMap<u64, BreakableBody>,
+    entries: &std::collections::BTreeMap<u64, BodyEntry>,
+    held: Option<u64>,
+    keys: [Option<u64>; 2],
+    speed: f32,
+    impulse: f32,
+) {
+    for key in keys.into_iter().flatten() {
+        if let Some(breakable) = breakables.get_mut(&key).filter(|record| !record.is_bottle())
+            && let Some(entry) = entries.get(&key)
+        {
+            let _qualified = breakable.witness_contact(key, entry, held == Some(key), speed, impulse);
+        }
     }
 }
 
@@ -140,6 +203,14 @@ impl ItemWorld {
 
     pub(crate) fn register_breakable(&mut self, key: u64, kind: Breakable, scale: f32) {
         if let Some(runtime) = self.runtime.as_mut() {
+            if kind.is_bottle()
+                && let Some(entry) = runtime.entries.get(&key)
+                && let Some(collider) = runtime.world.colliders.get_mut(entry.collider)
+            {
+                use rapier3d::prelude::ActiveEvents;
+                collider.set_active_events(collider.active_events().union(ActiveEvents::CONTACT_FORCE_EVENTS));
+                collider.set_contact_force_event_threshold(0.0);
+            }
             drop(runtime.breakables.insert(
                 key,
                 BreakableBody {
@@ -262,6 +333,9 @@ impl ItemWorld {
         let Some(house) = runtime.breakables.get_mut(&key) else {
             return false;
         };
+        if pieces.is_empty() || !house.pieces.is_empty() || entry.recovery.suspended {
+            return false;
+        }
         let Some(body) = runtime.world.bodies.get_mut(entry.body) else {
             return false;
         };
@@ -272,6 +346,13 @@ impl ItemWorld {
         collider.set_enabled(false);
         entry.recovery.suspended = true;
         house.pieces = pieces;
+        if house.is_bottle() {
+            for queued in &mut runtime.impacts {
+                if queued.bottle_breaks.contains(&Some(key)) {
+                    queued.audio = super::ImpactAudio::ReplacedByShatter;
+                }
+            }
+        }
         runtime.refresh_queries();
         runtime.populate_counts(&mut self.stats);
         true
@@ -380,3 +461,7 @@ const VILLAGE_PARTS: [Panel; 5] = [
     SHARD_RIGHT,
     SHARD_LEFT,
 ];
+
+#[cfg(test)]
+#[path = "../../tests/bottle_fractures.rs"]
+mod tests;

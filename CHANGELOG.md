@@ -31,6 +31,12 @@ and linked reports retain historical implementation and validation details.
   resume. Refuse a save at a shattered prop's reoccupied original footprint
   without replacing the previous checkpoint.
 
+### Pickup props
+
+- Add a stock pot, frying pan, two food cans and four glass bottles. Bottles
+  clink on intact impacts and shatter only on a strong first contact after a
+  deliberate throw.
+
 ### Gameplay and maps
 
 - Add reusable, map-local Game Modes for movement, health and crowbar settings.

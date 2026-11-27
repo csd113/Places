@@ -3088,6 +3088,24 @@
       0.1899999976158142
     ]
   },
+  "environments/home/props/beer_bottle.glb": {
+    "sha256": "9305632567a63873a1e10e54eb388a08e52d5808d2fe5045ed928a18b5114cf4",
+    "triangles": 856,
+    "texture_edge": 256,
+    "identities": [
+      "core:beer_bottle"
+    ],
+    "bounds_min": [
+      -0.033,
+      0.0,
+      -0.0347
+    ],
+    "bounds_max": [
+      0.033,
+      0.231,
+      0.0347
+    ]
+  },
   "environments/home/props/book_stack.glb": {
     "sha256": "9c25aede1be4fd06ac76af82ee804afd379d06deedb2d563b15400b07999fdec",
     "triangles": 436,
@@ -3358,6 +3376,42 @@
       0.17499999701976776
     ]
   },
+  "environments/home/props/food_can_closed.glb": {
+    "sha256": "5c06ddc66fb4cbbeaca1a8ec43fd189d54948a50cf84902eaf56911683807aa0",
+    "triangles": 2212,
+    "texture_edge": 256,
+    "identities": [
+      "core:food_can_closed"
+    ],
+    "bounds_min": [
+      -0.03811,
+      0.0,
+      -0.03811
+    ],
+    "bounds_max": [
+      0.03811,
+      0.107,
+      0.0384
+    ]
+  },
+  "environments/home/props/food_can_dented_open.glb": {
+    "sha256": "9a5578ca5bcc3157a5e17475f6124a7177b55a9a9a33e0026f99e8c7ef5018ce",
+    "triangles": 2532,
+    "texture_edge": 256,
+    "identities": [
+      "core:food_can_dented_open"
+    ],
+    "bounds_min": [
+      -0.03811,
+      0.0,
+      -0.03811
+    ],
+    "bounds_max": [
+      0.03811,
+      0.107,
+      0.0384
+    ]
+  },
   "environments/home/props/fork.glb": {
     "sha256": "51acdb95687454f0d38fe1e7fc4579c50e2dca33d42c07842e9ecfdde15746db",
     "triangles": 396,
@@ -3374,6 +3428,42 @@
       0.013000000268220901,
       0.012000000104308128,
       0.09799999743700027
+    ]
+  },
+  "environments/home/props/frying_pan.glb": {
+    "sha256": "535e1e32d5579261d5bf4ef70bc2e7938c66b291488e7aa33b4aad917240ddc1",
+    "triangles": 1060,
+    "texture_edge": 256,
+    "identities": [
+      "core:frying_pan"
+    ],
+    "bounds_min": [
+      -0.137,
+      0.0,
+      -0.1362495
+    ],
+    "bounds_max": [
+      0.3023265,
+      0.0454,
+      0.1362495
+    ]
+  },
+  "environments/home/props/gin_bottle.glb": {
+    "sha256": "924de4279e1e6ba22acfc58ccd68178a897d609deb746da11665b034a5a7a7da",
+    "triangles": 952,
+    "texture_edge": 256,
+    "identities": [
+      "core:gin_bottle"
+    ],
+    "bounds_min": [
+      -0.047,
+      0.0,
+      -0.0397219
+    ],
+    "bounds_max": [
+      0.047,
+      0.231,
+      0.0398916
     ]
   },
   "environments/home/props/kettle.glb": {
@@ -3574,6 +3664,24 @@
       0.0925000011920929
     ]
   },
+  "environments/home/props/stock_pot.glb": {
+    "sha256": "f5a915069f8b25628e08310dace80da4501d2f8024c2eb3d128956f280085914",
+    "triangles": 1740,
+    "texture_edge": 256,
+    "identities": [
+      "core:stock_pot"
+    ],
+    "bounds_min": [
+      -0.1600876,
+      0.0,
+      -0.112
+    ],
+    "bounds_max": [
+      0.1600876,
+      0.168,
+      0.112
+    ]
+  },
   "environments/home/props/stove.glb": {
     "sha256": "5c619632629de82c1ff2ea5e8d43a841712df350ebe991c18a43c18f8ceba00a",
     "triangles": 784,
@@ -3626,6 +3734,24 @@
       0.7749999761581421,
       0.550000011920929,
       0.23800000548362732
+    ]
+  },
+  "environments/home/props/vodka_bottle.glb": {
+    "sha256": "382ea1ae38bae3fbfc24f695b9b626eeb15c0552d3b778bab6ec693e3669b8f5",
+    "triangles": 904,
+    "texture_edge": 256,
+    "identities": [
+      "core:vodka_bottle"
+    ],
+    "bounds_min": [
+      -0.037,
+      0.0,
+      -0.03096
+    ],
+    "bounds_max": [
+      0.037,
+      0.268,
+      0.03096
     ]
   },
   "environments/home/props/wall_switch.glb": {
@@ -6709,6 +6835,24 @@
       0.6299999952316284,
       1.159999966621399,
       0.10499999672174454
+    ]
+  },
+  "environments/home/props/wine_bottle.glb": {
+    "sha256": "a7f35436501abf44affcc76ce1609a7b61029ccf58fea656b487762c20462793",
+    "triangles": 1000,
+    "texture_edge": 256,
+    "identities": [
+      "core:wine_bottle"
+    ],
+    "bounds_min": [
+      -0.039,
+      0.0,
+      -0.0407
+    ],
+    "bounds_max": [
+      0.039,
+      0.31,
+      0.0407
     ]
   },
   "environments/janitor_closet/models/cardboard_supply_box.glb": {

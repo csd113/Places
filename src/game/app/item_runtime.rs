@@ -777,7 +777,9 @@ impl FrameLoop<'_> {
             self.game.door_colliders(),
             self.game.airborne_velocity(),
         );
-        self.renderer.sync_prop_fractures(&mut self.items.world);
+        self.renderer.sync_prop_fractures(&mut self.items.world, |position| {
+            let _played = crate::game::audio::play_bottle_shatter(&mut self.audio.system, position);
+        });
         for recovery in self.items.world.take_recoveries() {
             if recovery.released_held {
                 self.items.input.invalidate();

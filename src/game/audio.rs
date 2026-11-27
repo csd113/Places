@@ -1,10 +1,10 @@
 //! Automatic world audio shared by the player and disposable editor sessions.
 use super::Game;
-use crate::engine::audio::{AudioBus, AudioSystem, PlayRequest, SourceId, TimeDomain};
+use crate::engine::audio::{AudioBus, AudioSystem, PerceptionOwner, PlayRequest, SourceId, TimeDomain};
 use crate::engine::door::DoorPhase;
 use crate::engine::level::{LevelDef, LevelSurfaces};
 use crate::engine::loader::PropCatalog;
-use crate::engine::physics::{ItemWorld, SurfaceMaterial};
+use crate::engine::physics::{ImpactEvent, ImpactRelease, ItemWorld, SurfaceMaterial};
 use glam::{Mat4, Vec3};
 
 #[cfg(test)]
@@ -12,6 +12,38 @@ use glam::{Mat4, Vec3};
 mod tests;
 
 pub mod christmas;
+
+pub fn play_impact_cue(audio: &mut AudioSystem, cue: &str, impact: ImpactEvent) -> bool {
+    let dropped = impact.release == ImpactRelease::Dropped;
+    // Ordinary drops preserve their one-metre footstep radius. Let a bottle's
+    // quiet glass clink reach the standing player's ears from the floor.
+    let drop_range = if cue == "impact_glass" { [0.35, 3.5] } else { [0.01, 1.0] };
+    audio.play(
+        cue,
+        PlayRequest {
+            perception: PerceptionOwner::Gameplay { event: impact.incident },
+            position: Some(impact.position),
+            spatial: Some(true),
+            attenuation: dropped.then_some(drop_range),
+            bus: AudioBus::Prop,
+            gain: if dropped { 0.35 * impact.strength } else { impact.strength },
+            ..PlayRequest::default()
+        },
+    )
+}
+
+pub fn play_bottle_shatter(audio: &mut AudioSystem, position: Vec3) -> bool {
+    audio.play(
+        "prop_glass_shatter",
+        PlayRequest {
+            position: Some(position),
+            spatial: Some(true),
+            looping: Some(false),
+            bus: AudioBus::Prop,
+            ..PlayRequest::default()
+        },
+    )
+}
 
 pub const HVAC_CUE: &str = "ambience_hvac";
 const ELEVATOR_RIDE_SOURCE: SourceId = SourceId(u64::MAX - 4);

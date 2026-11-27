@@ -14109,6 +14109,218 @@
         "tool": "completed",
         "source": "completed-models.json"
       }
+    },
+    {
+      "id": "core:stock_pot",
+      "display_name": "Stock Pot",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/stock_pot.glb",
+      "size": [
+        0.3201752,
+        0.168,
+        0.224
+      ],
+      "color": "#7f8583",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 1.1,
+        "friction": 0.53,
+        "restitution": 0.12,
+        "pickup": true
+      }
+    },
+    {
+      "id": "core:frying_pan",
+      "display_name": "Frying Pan",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/frying_pan.glb",
+      "size": [
+        0.4393265,
+        0.0454,
+        0.272499
+      ],
+      "color": "#424044",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 1.55,
+        "friction": 0.53,
+        "restitution": 0.095,
+        "pickup": true
+      }
+    },
+    {
+      "id": "core:food_can_closed",
+      "display_name": "Closed Food Can",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/food_can_closed.glb",
+      "size": [
+        0.07622,
+        0.107,
+        0.07651
+      ],
+      "color": "#ad6339",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.44,
+        "friction": 0.53,
+        "restitution": 0.17,
+        "pickup": true,
+        "shape": {
+          "kind": "cylinder",
+          "half_height": 0.0535,
+          "radius": 0.038255
+        }
+      }
+    },
+    {
+      "id": "core:food_can_dented_open",
+      "display_name": "Dented Open Food Can",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/food_can_dented_open.glb",
+      "size": [
+        0.07622,
+        0.107,
+        0.07651
+      ],
+      "color": "#8d8671",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.062,
+        "friction": 0.53,
+        "restitution": 0.2,
+        "pickup": true,
+        "shape": {
+          "kind": "cylinder",
+          "half_height": 0.0535,
+          "radius": 0.038255
+        }
+      }
+    },
+    {
+      "id": "core:beer_bottle",
+      "display_name": "Beer Bottle",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/beer_bottle.glb",
+      "size": [
+        0.066,
+        0.231,
+        0.0694
+      ],
+      "color": "#734221",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.25,
+        "friction": 0.53,
+        "restitution": 0.1,
+        "pickup": true,
+        "shape": {
+          "kind": "cylinder",
+          "half_height": 0.1155,
+          "radius": 0.0347
+        }
+      }
+    },
+    {
+      "id": "core:vodka_bottle",
+      "display_name": "Vodka Bottle",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/vodka_bottle.glb",
+      "size": [
+        0.074,
+        0.268,
+        0.06192
+      ],
+      "color": "#96a9af",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.39,
+        "friction": 0.53,
+        "restitution": 0.1,
+        "pickup": true
+      }
+    },
+    {
+      "id": "core:wine_bottle",
+      "display_name": "Wine Bottle",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/wine_bottle.glb",
+      "size": [
+        0.078,
+        0.31,
+        0.0814
+      ],
+      "color": "#594751",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.46,
+        "friction": 0.53,
+        "restitution": 0.1,
+        "pickup": true,
+        "shape": {
+          "kind": "cylinder",
+          "half_height": 0.155,
+          "radius": 0.0407
+        }
+      }
+    },
+    {
+      "id": "core:gin_bottle",
+      "display_name": "Gin Bottle",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "prop",
+      "source": "file",
+      "model": "environments/home/props/gin_bottle.glb",
+      "size": [
+        0.094,
+        0.231,
+        0.0796135
+      ],
+      "color": "#477564",
+      "category": "Kitchen",
+      "solid": false,
+      "editor_placement_physics": {
+        "motion": "dynamic",
+        "mass_kg": 0.4,
+        "friction": 0.53,
+        "restitution": 0.1,
+        "pickup": true
+      }
     }
   ]
 }

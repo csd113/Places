@@ -1013,6 +1013,11 @@
     "sha256": "8229ccd767ec341a4b44d4acce0fbfe3f0d4a7295466734410a5fcd16855d7ec",
     "source": "shared/props/bed.glb"
   },
+  "core:beer_bottle": {
+    "path": "editor/previews/cookware_beer_bottle.png",
+    "sha256": "dd22dbf37324a96970d672e16f7890d28d0cff1bdf81f8d27d952f8b7482f61f",
+    "source": "environments/home/props/beer_bottle.glb"
+  },
   "core:bookshelf": {
     "path": "editor/previews/d0ba0a0adf9d761205db5f46.png",
     "sha256": "ad50a9be15073ccefe1a19df5effca463cf5398ec5fe93a8e86de64e5b9101fb",
@@ -1145,10 +1150,30 @@
     "sha256": "25b9ecbe8ed2c9a20cf1849e21ee5d776c320a6948d5c691fa332e6c777bcb34",
     "source": "shared/textures/walls/metal_panel_01.png"
   },
+  "core:food_can_closed": {
+    "path": "editor/previews/cookware_food_can_closed.png",
+    "sha256": "99365210f2045a53426c1e46b1f48ad51e6e9909314052576bed094c710820c1",
+    "source": "environments/home/props/food_can_closed.glb"
+  },
+  "core:food_can_dented_open": {
+    "path": "editor/previews/cookware_food_can_dented_open.png",
+    "sha256": "451ad4e5102f181ea5d848cd3d53471aa2db3d45e2511eff3909a5c520979bc8",
+    "source": "environments/home/props/food_can_dented_open.glb"
+  },
   "core:fridge": {
     "path": "editor/previews/e46da8f083155adaeac9023f.png",
     "sha256": "95adfd7b52d9d920508b53a02ad5c5108f15065b19bc96b300d68ef2a5fb1264",
     "source": "shared/props/fridge.glb"
+  },
+  "core:frying_pan": {
+    "path": "editor/previews/cookware_frying_pan.png",
+    "sha256": "a32ac7faa3d5f8981524e766bffce914b78b8cba65b4352ab7a4fb563ca2dc78",
+    "source": "environments/home/props/frying_pan.glb"
+  },
+  "core:gin_bottle": {
+    "path": "editor/previews/cookware_gin_bottle.png",
+    "sha256": "cb0218c64de9077192ea3da9f79194cd7aa6a26680008f43c20ff4c00a557dba",
+    "source": "environments/home/props/gin_bottle.glb"
   },
   "core:glass_sign_flicker_01": {
     "path": "editor/previews/62b90d807bf0d73abc96dfea.png",
@@ -1394,6 +1419,11 @@
     "sha256": "5dbc87a8f0303934620275f0207b28d7478649689f64a85bce771360046f3086",
     "source": "shared/textures/effects/steam_01.png"
   },
+  "core:stock_pot": {
+    "path": "editor/previews/cookware_stock_pot.png",
+    "sha256": "636d5188d13dcb8ad9bb190afad3c7f3e9691fa7f1055f6334d6e9191dbec82b",
+    "source": "environments/home/props/stock_pot.glb"
+  },
   "core:stop_sign": {
     "path": "editor/previews/5def7b52297531b00ce98ebe.png",
     "sha256": "3c9cd7f504c7c9243c3f30f438a385f52ae4c40e2ddaaae9dfbf65124473bd0e",
@@ -1424,6 +1454,11 @@
     "sha256": "2bec6e5a70c4a637cf9a3c047eccf4d539738bce0953ab61d8cbc6f406181443",
     "source": "environments/office/props/vending_machine.glb"
   },
+  "core:vodka_bottle": {
+    "path": "editor/previews/cookware_vodka_bottle.png",
+    "sha256": "a54b33028558d10141c4e0ca21f53a3aa3505f82fd8108f33c51cfb1d31858ac",
+    "source": "environments/home/props/vodka_bottle.glb"
+  },
   "core:wallpaper_stained_01": {
     "path": "editor/previews/99aa1572b8f62f5b48c0c6cf.png",
     "sha256": "39847f1bf877eae398563219da98ec026306966858f73e6bbd7bae8482a2a398",
@@ -1453,6 +1488,11 @@
     "path": "editor/previews/daa755152f34027cd0277432.png",
     "sha256": "dc9caa62d80c0884c2b6f062143934340b12d57d500441d16e831ebd4b18711a",
     "source": "environments/pool/textures/water/pool_water_01.png"
+  },
+  "core:wine_bottle": {
+    "path": "editor/previews/cookware_wine_bottle.png",
+    "sha256": "5f930f707da19e42c210edb6e1f0ce31a862c6885d880ec39e0d294ee7efb37d",
+    "source": "environments/home/props/wine_bottle.glb"
   },
   "editor:door_interior": {
     "geometry_revision": 4,

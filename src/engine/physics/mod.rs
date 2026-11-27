@@ -19,6 +19,7 @@ pub use config::{
     BodyMotion, CompoundPart, PhysicsDef, PrimitiveShapeDef, ShapeDef, WaterPhysicsDef,
 };
 pub(crate) use hold::{HeldPlayerContact, HeldPlayerSlide};
+pub(crate) use impacts::ImpactAudio;
 pub use impacts::{ImpactEvent, ImpactRelease, ReleaseIdentity, SurfaceMaterial};
 pub use recovery::{EscapeReason, RecoveryEvent, RecoveryOutcome};
 pub use trigger_path::ItemTriggerBody;

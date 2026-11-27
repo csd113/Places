@@ -461,14 +461,21 @@ impl Renderer {
         self.renderer.globe_sample()
     }
 
-    /// The shared game/Quick Test boundary for solved festive prop impacts.
-    pub(crate) fn sync_prop_fractures(&mut self, world: &mut crate::engine::physics::ItemWorld) {
+    /// Shared game/Quick Test boundary for committing solved prop fractures.
+    pub(crate) fn sync_prop_fractures(
+        &mut self,
+        world: &mut crate::engine::physics::ItemWorld,
+        mut bottle_shattered: impl FnMut(glam::Vec3),
+    ) {
         let retired = world.drain_fragment_retirements();
         if !retired.is_empty() {
             let _retired = self.despawn_runtime_models(&retired);
         }
         for plan in world.drain_break_plans() {
             let panels = plan.kind.panels();
+            if panels.is_empty() {
+                continue;
+            }
             let mut staged = Vec::with_capacity(panels.len());
             let result: Result<(), String> = panels.iter().copied().try_for_each(|panel| {
                 let key = world.next_fragment_key().ok_or("Fracture piece key unavailable")?;
@@ -485,6 +492,9 @@ impl Renderer {
             if result.is_ok() && self.set_runtime_model_visible(plan.key, false)
                 && world.commit_break(plan.key, staged.clone())
             {
+                if plan.kind.is_bottle() {
+                    bottle_shattered(plan.pose.position);
+                }
                 continue;
             }
             let _restored = self.set_runtime_model_visible(plan.key, true);

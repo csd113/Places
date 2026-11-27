@@ -310,7 +310,7 @@ impl ItemWorld {
         let Some(runtime) = self.runtime.as_ref() else {
             return Ok(Vec::new());
         };
-        // Festive debris is temporary. A persisted checkpoint restores its
+        // Fracture debris is temporary. A persisted checkpoint restores its
         // intact authored prop and does not widen the save membership schema.
         let debris = runtime.breakables.values().flat_map(|record| &record.pieces)
             .filter(|key| runtime.entries.contains_key(key)).count();
@@ -379,8 +379,7 @@ impl ItemWorld {
                         source: entry.release_source,
                         incident: entry.release_incident,
                         fracture_contact_tested: runtime.breakables.get(key).and_then(|record| {
-                            (entry.originating_release == crate::engine::physics::ImpactRelease::Dropped)
-                                .then(|| record.contact_tested(entry.release_serial))
+                            record.saved_contact(entry.originating_release, entry.release_serial)
                         }),
                     }),
                 },
@@ -491,7 +490,7 @@ impl ItemWorld {
             entry.recovery.reset(target);
             if let Some(record) = runtime.breakables.get_mut(&key) {
                 // Old snapshots cannot distinguish already-consumed contacts.
-                // Treat their Dropped generation as tested, not a second drop.
+                // Treat ambiguous eligible releases as tested, not a new release.
                 let tested = provenance.and_then(|p| p.fracture_contact_tested);
                 record.restore_contact(
                     entry.originating_release,
@@ -608,7 +607,7 @@ mod festive_regressions {
         entry.release_serial = generation;
         entry.release_incident = generation;
         let breakable = runtime.breakables.get_mut(&KEY).ok_or("breakable")?;
-        breakable.witness_contact(entry, false, speed, impulse);
+        let _qualified = breakable.witness_contact(KEY, entry, false, speed, impulse);
         Ok(())
     }
 

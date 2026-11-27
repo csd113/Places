@@ -1,14 +1,23 @@
 //! Production physics owner prepared off the UI thread for one private test.
+use crate::engine::audio::AudioSystem;
 use crate::engine::level::{LevelDef, LevelSurfaces};
 use crate::engine::loader::LoadedLevel;
-use crate::engine::physics::{ItemWorld, PlayerContext};
+use crate::engine::physics::{ImpactAudio, ItemWorld, PlayerContext};
 use crate::engine::props::PropAssets;
 use crate::engine::render::Renderer;
 use crate::game::{CollisionWorld, Game};
 use glam::Vec3;
 
+#[derive(Default, serde::Serialize)]
+pub(super) struct BottleAudioWitness {
+    glass: u64,
+    shatter: u64,
+    replaced: u64,
+}
+
 pub(in crate::editor) struct PreparedPhysics {
     pub(super) world: ItemWorld,
+    pub(super) bottle_audio: BottleAudioWitness,
     pub(super) authored: Vec<(u64, String, String)>,
     spawns: Vec<(u64, usize, [f32; 3])>,
     trigger_bodies: Vec<crate::engine::physics::ItemTriggerBody>,
@@ -27,6 +36,7 @@ impl PreparedPhysics {
         let level = &loaded.level;
         let mut prepared = Self {
             world: ItemWorld::from_level_with_materials(level, &collision.walls, &loaded.materials),
+            bottle_audio: BottleAudioWitness::default(),
             authored: Vec::new(),
             spawns: Vec::new(),
             trigger_bodies: Vec::with_capacity(crate::engine::physics::MAX_BODIES),
@@ -118,7 +128,9 @@ impl PreparedPhysics {
         Ok(())
     }
 
-    pub(super) fn step(&mut self, game: &mut Game, seconds: f32, renderer: &mut Renderer) {
+    pub(super) fn step(
+        &mut self, game: &mut Game, seconds: f32, renderer: &mut Renderer, audio: &mut AudioSystem,
+    ) {
         self.world.sync_water(&game.water);
         self.world.sync_escalators(
             game.entities().escalators(),
@@ -130,7 +142,21 @@ impl PreparedPhysics {
             game.door_colliders(),
             game.airborne_velocity(),
         );
-        renderer.sync_prop_fractures(&mut self.world);
+        let witness = &mut self.bottle_audio;
+        renderer.sync_prop_fractures(&mut self.world, |position| {
+            let played = crate::game::audio::play_bottle_shatter(audio, position);
+            witness.shatter = witness.shatter.saturating_add(u64::from(played));
+        });
+        // Quick Test has no generic contact playback. Only the newly added
+        // bottle cues opt into this narrow, shared route.
+        self.world.drain_impact_audio(|impact, route| match route {
+            ImpactAudio::BottleGlass => {
+                let played = crate::game::audio::play_impact_cue(audio, "impact_glass", impact);
+                witness.glass = witness.glass.saturating_add(u64::from(played));
+            }
+            ImpactAudio::ReplacedByShatter => witness.replaced = witness.replaced.saturating_add(1),
+            ImpactAudio::Surface => {}
+        });
         for recovery in self.world.take_recoveries() {
             if recovery.outcome == crate::engine::physics::RecoveryOutcome::Suspended {
                 let _hidden = renderer.set_runtime_model_visible(recovery.key, false);

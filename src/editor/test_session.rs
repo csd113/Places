@@ -284,7 +284,7 @@ impl Session {
         renderer.apply_light_toggles(&toggles);
         self.audio.light_toggles(&toggles);
         self.sync_player_model(seconds, renderer)?;
-        self.physics.step(&mut self.game, seconds, renderer);
+        self.physics.step(&mut self.game, seconds, renderer, audio);
         self.apply_commands(renderer, audio)?;
         self.reconcile_cinematic_input();
         self.update_script_status()?;
@@ -615,6 +615,7 @@ impl Session {
             "navigation_ready": self.game.navigation().is_some(),
             "audio": self.audio_stats,
             "christmas_audio": self.audio.christmas_witness(),
+            "bottle_audio": self.physics.bottle_audio,
             "warning": self.warning,
             "limitations": LIMITATIONS,
             "status": self.status(),

@@ -8,9 +8,9 @@ use super::FrameLoop;
 use crate::engine::audio::{
     AudioBus, AudioSettings, AudioSystem, Listener, PlayRequest, SourceId, TimeDomain,
 };
-use crate::engine::physics::SurfaceMaterial;
+use crate::engine::physics::{ImpactAudio, SurfaceMaterial};
 
-use crate::game::audio::{Capture, HVAC_CUE, WorldAudio};
+use crate::game::audio::{Capture, HVAC_CUE, WorldAudio, play_impact_cue};
 use crate::game::settings::AudioVolume;
 
 pub(super) struct Audio {
@@ -268,7 +268,7 @@ impl FrameLoop<'_> {
         let entities = self.game.entities_mut();
         self.items
             .world
-            .drain_impacts(|impact| play_prop_impact(audio, entities, impact));
+            .drain_impact_audio(|impact, route| play_prop_impact(audio, entities, impact, route));
         self.audio.system.update_acoustic_doors(self.game.doors());
         self.audio
             .system
@@ -419,8 +419,13 @@ fn play_prop_impact(
     audio: &mut AudioSystem,
     entities: &mut crate::engine::entities::EntityWorld,
     impact: crate::engine::physics::ImpactEvent,
+    route: ImpactAudio,
 ) {
     entities.note_guest_impact(impact);
+    if route == ImpactAudio::ReplacedByShatter {
+        // The committed shatter supplies its own playback/perception event.
+        return;
+    }
     let dropped = impact.release == crate::engine::physics::ImpactRelease::Dropped;
     let radius = if dropped {
         1.0
@@ -428,28 +433,14 @@ fn play_prop_impact(
         impact.strength.clamp(0.0, 1.0) * 8.0
     };
     entities.note_stimulus(impact.position, radius, "impact", None);
-    let _played = audio.play(
-        if dropped {
-            dropped_impact_cue(impact.surface)
-        } else {
-            impact_cue(impact.surface)
-        },
-        PlayRequest {
-            perception: crate::engine::audio::PerceptionOwner::Gameplay {
-                event: impact.incident,
-            },
-            position: Some(impact.position),
-            spatial: Some(true),
-            attenuation: dropped.then_some([0.01, 1.0]),
-            bus: AudioBus::Prop,
-            gain: if dropped {
-                0.35 * impact.strength
-            } else {
-                impact.strength
-            },
-            ..PlayRequest::default()
-        },
-    );
+    let cue = if route == ImpactAudio::BottleGlass {
+        "impact_glass"
+    } else if dropped {
+        dropped_impact_cue(impact.surface)
+    } else {
+        impact_cue(impact.surface)
+    };
+    let _played = play_impact_cue(audio, cue, impact);
 }
 
 // A dropped item uses the same surface footstep sample and at most the
@@ -482,7 +473,9 @@ const fn impact_cue(surface: SurfaceMaterial) -> &'static str {
 }
 
 fn prop_cue(model: &str) -> Option<&'static str> {
-    if model.contains("rubber_duck") {
+    if crate::engine::physics::prop_fracture::bottle_kind(model).is_some() {
+        None
+    } else if model.contains("rubber_duck") {
         Some("prop_duck")
     } else if model.contains("bell") {
         Some("prop_bell")
