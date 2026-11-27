@@ -24,18 +24,6 @@
 ### 32. [GitHub #43: Technical architecture and API documentation](https://github.com/csd113/Places/issues/43)
 **Deferred.** Leave GitHub #43 open. The issue explicitly requests documentation, but the newer standing direction is **no routine task reports or reference sheets**. Reconcile that before writing. Cover current engine/game/editor/compiler responsibilities, shared ownership and important data contracts, and the real editor → compiler → package → player path. Verify links/examples against current code and prefer concise maintained content to copying the issue’s historical multi-document scope verbatim. This isn’t an architecture rewrite.
 
-## Christmas environment follow-up
-
-### 39. Add four original Christmas shop props
-**Queued.** Create original assets using the Dot Cloud Computer’s Blender and GIMP as appropriate. Match the existing Places style and add all four to the Christmas environment’s editor catalogue. Keep Basic placement simple. Use the existing editable Christmas shop and preserve the oak floor, other furnishings and room layout.
-
-1. **Wind-up Christmas music box.** An interactive display prop that plays a short original or cleared tune when wound and audibly runs down. Give it a clear interaction prompt and verify repeat activation and that playback stops.
-2. **Advent calendar.** A small wall or counter display with a few doors left open. No calendar/date system or new interaction needed.
-3. **Brass sleigh bells on a leather strap.** A pickup physics prop. Jingle while moved, not just on pickup or impact. Gentle movement should sound soft and sparse; harder shaking should sound stronger and denser; stationary bells should fall silent. Verify held movement, gentle and vigorous shaking, and movement after dropping. Avoid continuous chatter from idle physics jitter; build on existing physics/audio hooks where practical.
-4. **Foil tinsel garland.** A draped storefront version and a straight shelf or railing version. Keep both easy to place in Basic mode.
-
-Add the new assets to the changelog. Verify in a compact native editor fixture and save an editable shop checkpoint. Do not start a full lighting bake or playable mall export.
-
 ## Not in this queue
 
 - GitHub #27–#31 are already closed as completed. Do not reopen, replay their old checklists or restore their work as separate tasks. Only overlapping checks independently required by an active issue still apply.
