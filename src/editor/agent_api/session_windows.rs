@@ -79,7 +79,7 @@ impl Session {
             .monitor
             .as_ref()
             .ok_or("Agent sessions are unavailable in this editor")?;
-        let _previous = Monitor::interrupted();
+        Monitor::acknowledge_interruptions();
         if !self.presented {
             return Err("Agent needs a presented editor frame".into());
         }
@@ -87,9 +87,7 @@ impl Session {
         let nonce = transport_windows::nonce().map_err(|error| error.to_string())?;
         let pipe = Pipe::open(nonce, monitor.session())
             .map_err(|error| format!("Cannot open private editor session: {error}"))?;
-        if Monitor::interrupted() {
-            return Err("Editor visibility changed before the session could start".into());
-        }
+
         monitor.verified().map_err(VisibilityDenial::status)?;
         self.live = Some(Live {
             grant: Grant {
@@ -151,7 +149,6 @@ impl Session {
 
     fn admitted(&self, scope: Option<&SceneStamp>) -> bool {
         let verified = self.presented
-            && !Monitor::interrupted()
             && self
                 .monitor
                 .as_ref()

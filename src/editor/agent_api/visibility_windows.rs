@@ -95,8 +95,10 @@ impl DisplayEvidence {
     }
 
     fn check(&self) -> Result<(), VisibilityDenial> {
-        match self.0.load(Ordering::SeqCst) & POWER_MASK {
-            POWERED => Ok(()),
+        let evidence = self.0.load(Ordering::SeqCst);
+        match evidence & POWER_MASK {
+            POWERED if evidence & POWER_INTERRUPTED == 0 => Ok(()),
+            POWERED => Err(VisibilityDenial::Interrupted),
             NOT_POWERED => Err(VisibilityDenial::DisplayNotOn),
             _ => Err(VisibilityDenial::NoPowerReport),
         }
@@ -119,6 +121,7 @@ pub(super) enum VisibilityDenial {
     DisplayChanging,
     NoPowerReport,
     DisplayNotOn,
+    Interrupted,
     NotLocalConsole,
     DisplayLayout,
     SessionLockedOrUnknown,
@@ -137,6 +140,7 @@ impl VisibilityDenial {
             Self::DisplayChanging => "Agent unavailable: display change pending",
             Self::NoPowerReport => "Agent unavailable: no display power report yet",
             Self::DisplayNotOn => "Agent unavailable: display power is not verified on",
+            Self::Interrupted => "Editor visibility changed before the session could start",
             Self::NotLocalConsole => "Agent needs the active local console",
             Self::DisplayLayout => "Agent needs exactly one active display",
             Self::SessionLockedOrUnknown => "Agent needs a verified unlocked session",
@@ -309,10 +313,11 @@ impl Monitor {
         self.session
     }
 
-    pub(super) fn interrupted() -> bool {
-        let power = DISPLAY.take_interruption();
-        let window = WINDOW_INTERRUPTED.swap(false, Ordering::SeqCst);
-        power || window
+    /// Only a deliberate opt-in can acknowledge past interruptions. Admission
+    /// checks must not clear them, even if the display is already back on.
+    pub(super) fn acknowledge_interruptions() {
+        let _power = DISPLAY.take_interruption();
+        WINDOW_INTERRUPTED.store(false, Ordering::SeqCst);
     }
 
     pub(super) fn refresh_pending() -> bool {
@@ -336,7 +341,7 @@ impl Monitor {
         if Self::refresh_pending() {
             return Err(VisibilityDenial::DisplayChanging);
         }
-        DISPLAY.check()?;
+
         // SAFETY: query-only console identity. A transition sentinel never equals our session.
         if unsafe { WTSGetActiveConsoleSessionId() } != self.session {
             return Err(VisibilityDenial::NotLocalConsole);
@@ -364,7 +369,13 @@ impl Monitor {
         if !on_display(&rect) {
             return Err(VisibilityDenial::OutsideDisplay);
         }
-        uncovered(hwnd, &rect)
+        uncovered(hwnd, &rect)?;
+        if WINDOW_INTERRUPTED.load(Ordering::SeqCst) {
+            return Err(VisibilityDenial::Interrupted);
+        }
+        // Close the check with one non-consuming snapshot of power and its
+        // latch, after the window queries and before the grant or reply.
+        DISPLAY.check()
     }
 }
 

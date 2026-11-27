@@ -20,9 +20,36 @@ fn stale_off_cannot_interrupt_new_generation() -> Result<(), &'static str> {
     assert!(evidence.publish(current, false));
     assert_eq!(evidence.check(), Err(VisibilityDenial::DisplayNotOn));
     assert!(evidence.publish(current, true));
-    assert!(evidence.powered());
+    assert_eq!(evidence.check(), Err(VisibilityDenial::Interrupted));
     assert!(evidence.take_interruption());
     assert!(!evidence.take_interruption());
+    assert!(evidence.powered());
+    Ok(())
+}
+
+#[test]
+fn power_cycle_after_initial_admission_blocks_the_reply() -> Result<(), &'static str> {
+    let evidence = DisplayEvidence::new();
+    let current = evidence.generation().ok_or("Missing initial generation")?;
+    assert!(evidence.publish(current, true));
+    assert_eq!(evidence.check(), Ok(()), "before polling the pipe");
+
+    // Reproduce the former gap: a clear latch followed by OFF then ON before
+    // the final power read. The old power-only predicate would allow the reply.
+    assert!(!evidence.take_interruption());
+    assert!(evidence.publish(current, false));
+    assert!(evidence.publish(current, true));
+    assert_eq!(evidence.check(), Err(VisibilityDenial::Interrupted));
+    assert_eq!(
+        evidence.check(),
+        Err(VisibilityDenial::Interrupted),
+        "a verification attempt never acknowledges the interruption"
+    );
+    assert!(
+        evidence.take_interruption(),
+        "only deliberate opt-in can acknowledge it"
+    );
+    assert_eq!(evidence.check(), Ok(()));
     Ok(())
 }
 
