@@ -12,6 +12,25 @@
 
 ## Release blockers and compact checks
 
+## Level JSON correctness and performance
+
+Audit baseline: [`b58a3a2f`](https://github.com/csd113/Places/commit/b58a3a2fd1d6d04e52c3ba3f98d411cbbac80f35). Keep v1 JSON and readable scene output by default. No bulk map rewrite, full Mall export, or full lighting bake.
+
+### 40. Prevent concurrent editor saves from overwriting changes
+Use the existing project writer lock for ordinary Save and Save All, holding it through conflict checks and publication. Preserve unsaved buffers and report exactly which files saved if Save All stops partway through. Verify two editor instances cannot silently overwrite each other and that partial failure leaves remaining edits available.
+
+### 41. Make accepted scene edits fit the on-disk size limit
+Preflight the actual output bytes before writing. Keep pretty JSON by default, with deterministic compact output when an otherwise valid scene would exceed the 32 MiB limit after indentation. Check the manifest's 256 KiB boundary separately without changing the exact encodings used by game-mode filenames or manifest recovery. Verify near-limit save and reopen preserves values, unknown fields, and the previous file on failure.
+
+### 42. Share level JSON validation across entry points
+Align editor open/import/save and standalone/project compiler checks for duplicate keys, number precision, and known metadata. Diagnose stale flicker links and invalid package title or author before build work. Point errors at the file and field. Preserve unknown fields and intentional project-only rules. Verify valid and invalid fixtures produce consistent results across the relevant entry points.
+
+### 43. Remove repeat parsing and validation from editor and compiler paths
+Reuse validated scene data when opening and saving. Reuse validated source snapshots through compiler staging and per-member work without weakening final exact-byte checks, cancellation, or path safeguards. Measure before and after on small, medium, large, and multi-map sources, using static-only compiler runs. Check p50/p95 and peak memory, exact source recovery, and refusal to publish if inputs change.
+
+### 44. Keep light, trigger, and water references stable across edits
+Normalize blank IDs consistently between the editor and runtime. Preserve existing ID references when an edit deletes or reorders entries, including positional water IDs where applicable. Keep array order and numeric precision intact. Verify targets still resolve to the same objects after supported edits, undo, and reopen.
+
 ## Audio, HUD and environment work
 
 ## Closed experiment: editor automation API
