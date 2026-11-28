@@ -1952,6 +1952,11 @@
     "sha256": "8ffbc1c166444df06fb381b4a827490db9d66750f2a94f103c358dc9c0376ff8",
     "source": "environments/home/props/tv_console.glb"
   },
+  "home:wall_paint_blue_01": {
+    "path": "editor/previews/106badb70ba1185b85697f89.png",
+    "sha256": "fc1a365e1c4c69ab4a9eaf545712226130db1972390542089e782906ae22b97c",
+    "source": "environments/home/textures/walls/wall_paint_blue_01.png"
+  },
   "home:wall_paint_offwhite_01": {
     "path": "editor/previews/0764a741951c4dd8f2c189f9.png",
     "sha256": "fabdc048ec80d9c3e07fe1a92bb6ba20e5d7797bd304f17dfe1c578d033ec7c4",

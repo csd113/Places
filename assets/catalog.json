@@ -1750,6 +1750,17 @@
       "description": "Quiet sage sprigs on warm cream paper, a 25 cm cell."
     },
     {
+      "id": "home:tex_wall_paint_blue_01",
+      "display_name": "Home Blue Paint Texture",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "texture",
+      "source": "file",
+      "surface": "wall",
+      "model": "environments/home/textures/walls/wall_paint_blue_01.png",
+      "description": "Muted blue interior paint with subtle roller stipple; tiles in both directions."
+    },
+    {
       "id": "home:tex_wall_paint_offwhite_01",
       "display_name": "Home Painted Wall Texture",
       "asset_class": "environment",
@@ -1919,6 +1930,20 @@
       "specular": 0.0,
       "shine": 0.12,
       "description": "The same paper in a very subtle repeating motif; still matte."
+    },
+    {
+      "id": "home:wall_paint_blue_01",
+      "display_name": "Blue Painted Wall",
+      "asset_class": "environment",
+      "theme": "home",
+      "asset_type": "material",
+      "source": "definition",
+      "surface": "wall",
+      "texture": "home:tex_wall_paint_blue_01",
+      "tile_metres": 2.0,
+      "specular": 0.1,
+      "shine": 0.22,
+      "description": "Plain muted blue residential wall paint with a low satin finish."
     },
     {
       "id": "home:wall_paint_offwhite_01",

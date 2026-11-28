@@ -84,6 +84,7 @@ and linked reports retain historical implementation and validation details.
 
 ### Environments and props
 
+- Add Blue Painted Wall as an optional Home material in the editor.
 - Add four decorative props to the editor catalog. Office gets Office
   Wastebasket and Office Photocopier. Home gets Kitchen Swing-Lid Bin and
   Ceiling Fan with Opal Light. Add movable PocketCHIP and PocketCHIP (upright)
