@@ -58,7 +58,6 @@ pub struct Document {
     selected: LevelDocument,
     other_levels: BTreeMap<String, LevelDocument>,
     heap_budget: usize,
-    scene_stamp: super::agent_api::SceneStamp,
 }
 
 const MAX_DOCUMENT_HEAP_CHARGE: usize = 256 * 1024 * 1024;
@@ -72,36 +71,27 @@ impl Document {
         &mut self,
         fit: crate::engine::escalator::Fit,
     ) -> Result<ObjectId, String> {
-        let mut raw = self.raw().clone();
-        let id = Self::stage_escalator(&mut raw, self.level(), fit)?;
-        self.accept_edit(raw)?;
-        Ok(id)
-    }
-
-    pub(super) fn stage_escalator(
-        raw: &mut Value,
-        level: &LevelDef,
-        fit: crate::engine::escalator::Fit,
-    ) -> Result<ObjectId, String> {
         use crate::engine::escalator::MODEL;
+        let mut raw = self.raw().clone();
         let [x, world_y, z] = fit.origin.to_array();
-        let floor_y = crate::engine::level::LevelSurfaces::new(level)
+        let floor_y = crate::engine::level::LevelSurfaces::new(self.level())
             .floor_y_at(x, z)
             .ok_or("Escalator base must be inside the room")?;
         let id = objects::add(
-            raw,
-            level,
+            &mut raw,
+            self.level(),
             ObjectKind::Prop,
             [x, world_y - floor_y, z],
             Some(MODEL),
         )?;
-        objects::apply_mechanism_preset(raw, id, MODEL)?;
-        let prop = objects::object_mut(raw, id)?;
+        objects::apply_mechanism_preset(&mut raw, id, MODEL)?;
+        let prop = objects::object_mut(&mut raw, id)?;
         objects::set_number(prop, "rotation_degrees", fit.yaw);
         drop(prop.insert(
             "escalator".into(),
             serde_json::json!({"rise":fit.dimensions.rise,"placement":fit.placement}),
         ));
+        self.accept_edit(raw)?;
         Ok(id)
     }
 
@@ -162,7 +152,6 @@ impl Document {
             selected,
             other_levels: BTreeMap::new(),
             heap_budget,
-            scene_stamp: super::agent_api::SceneStamp::new(),
         })
     }
 
@@ -225,16 +214,11 @@ impl Document {
             })?
         };
         let previous = std::mem::replace(&mut self.selected, next);
-        self.scene_stamp = super::agent_api::SceneStamp::new();
         drop(
             self.other_levels
                 .insert(previous.level.id.clone(), previous),
         );
         Ok(())
-    }
-
-    pub(super) const fn scene_stamp(&self) -> &super::agent_api::SceneStamp {
-        &self.scene_stamp
     }
 
     pub(super) fn resource_snapshot(&self) -> serde_json::Value {
@@ -568,72 +552,6 @@ impl Document {
             .saturating_add(self.selected.byte_count.saturating_mul(2))
     }
 
-    #[cfg(windows)]
-    pub(super) const fn agent_scene_size(&self) -> usize {
-        self.selected.byte_count
-    }
-
-    // Like native admission, only clean inactive levels without history can
-    // make room. API preview and rejected batches never evict any levels.
-    #[cfg(windows)]
-    fn agent_evictions(&self, edited: &Value) -> Result<Vec<String>, String> {
-        let mut retained = self.heap_charge();
-        let additional = self.edit_charge(edited);
-        let mut evictions = Vec::new();
-        for (id, cached) in &self.other_levels {
-            if retained.saturating_add(additional) <= self.heap_budget {
-                break;
-            }
-            if !cached.is_dirty() && cached.history.usage().0 == 0 {
-                retained = retained.saturating_sub(cached.heap_charge());
-                evictions.push(id.clone());
-            }
-        }
-        if retained.saturating_add(additional) > self.heap_budget {
-            return Err(document_memory_error());
-        }
-        Ok(evictions)
-    }
-
-    #[cfg(windows)]
-    pub(super) fn prepare_agent_stage(
-        &self,
-        before: &Value,
-        objects: &[ObjectInfo],
-        edited: &Value,
-    ) -> Result<(LevelDef, usize), String> {
-        Self::check_locked_scene(before, objects, edited)?;
-        drop(self.agent_evictions(edited)?);
-        persistence::validate_raw(edited, self.level_id())
-    }
-
-    #[cfg(windows)]
-    pub(super) fn install_agent_batch(
-        &mut self,
-        expected: &super::agent_api::SceneStamp,
-        edited: Value,
-        level: LevelDef,
-        byte_count: usize,
-        still_admitted: impl FnOnce() -> bool,
-    ) -> Result<(), String> {
-        if !self.scene_stamp.matches(expected) {
-            return Err("Scene changed; refresh and preview again".into());
-        }
-        self.check_locked_edit(&edited)?;
-        let evictions = self.agent_evictions(&edited)?;
-        if edited == self.selected.raw {
-            return Err("Batch would not change the scene".into());
-        }
-        if !still_admitted() {
-            return Err("The visible editor grant was lost before commit".into());
-        }
-        for id in evictions {
-            drop(self.other_levels.remove(&id));
-        }
-        self.install_edit(edited, level, byte_count);
-        Ok(())
-    }
-
     fn prepare_edit(&mut self, edited: &Value) -> Result<(LevelDef, usize), String> {
         let mut timing = crate::engine::perf::loading::StageTimer::new("editor-edit");
         self.check_locked_edit(edited)?;
@@ -654,7 +572,6 @@ impl Document {
         self.selected.level = level;
         timing.step("history-install");
         self.selected.update_view();
-        self.scene_stamp.advance();
         timing.step("dirty-enumerate");
     }
 
@@ -708,7 +625,6 @@ impl Document {
         self.selected.level = level;
         self.selected.update_view();
         self.selected.byte_count = byte_count;
-        self.scene_stamp.advance();
         timing.step("dirty-enumerate-install");
         true
     }

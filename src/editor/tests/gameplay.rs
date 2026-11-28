@@ -44,6 +44,47 @@ impl Drop for Fixture {
     }
 }
 
+// Preserve the wall catalog swap's carrier selection, exact pose and history
+// with two tiny fixtures and no renderer or full map bake.
+#[test]
+fn native_wall_fixture_swap_preserves_pose_and_one_step_history() -> Result<(), String> {
+    let fixture = Fixture::with_level(&json!({
+        "schema":"places-level","format_version":1_u32,"id":"entry","name":"Wall fixture",
+        "spawn":{"x":1_u32,"z":1_u32},"rooms":[{"width":8_u32,"depth":8_u32,"height":3_u32}],
+        "ceiling_lights":[
+            {"id":"target","fixture":"core:pool_light_round","x":2_u32,"y":1.6_f32,"z":3_u32,"mount":"ceiling"},
+            {"id":"neighbor","fixture":"core:pool_light_round","x":4_u32,"z":3_u32,"brightness":0.75_f32}
+        ]
+    }))?;
+    let mut doc = Document::open(&fixture.0)?;
+    let catalog = AssetCatalog::from_json_str(include_str!("../../../assets/catalog.json"))?;
+    let light = ObjectId::Light(0);
+    let before = doc.raw().clone();
+    let mut expected = before.clone();
+    let record = expected
+        .pointer_mut("/ceiling_lights/0")
+        .and_then(serde_json::Value::as_object_mut)
+        .ok_or("missing target fixture")?;
+    drop(record.insert("fixture".into(), json!("core:pool_light_wall")));
+    drop(record.insert("mount".into(), json!("wall")));
+
+    assert!(
+        doc.set_gameplay_asset(light, "core:chair", &catalog)
+            .is_err()
+    );
+    assert_eq!(doc.raw(), &before);
+    assert!(!doc.can_undo());
+    doc.set_gameplay_asset(light, "core:pool_light_wall", &catalog)?;
+    assert_eq!(doc.raw(), &expected);
+    assert!(doc.undo());
+    assert_eq!(doc.raw(), &before);
+    assert!(!doc.can_undo());
+    assert!(doc.redo());
+    assert_eq!(doc.raw(), &expected);
+    assert!(!doc.can_redo());
+    Ok(())
+}
+
 // Compare the native Power setter with a staged draft, preserving authored
 // values, effective intensity and the whole undo snapshot. A tiny fixture
 // also exercises non-finite rejection without a renderer or full map bake.

@@ -89,7 +89,7 @@ pub struct ObjectInfo {
     pub transform: Transform,
 }
 
-pub(in crate::editor) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
+pub(super) fn enumerate(level: &LevelDef) -> Vec<ObjectInfo> {
     let rooms = level.rooms.iter().enumerate().map(|(index, _)| {
         (
             ObjectId::Room(index),

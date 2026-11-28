@@ -4,8 +4,8 @@ use super::super::objects::{array_mut, object_mut};
 use super::super::{Document, ObjectId, objects};
 use super::triggers::set_trigger_policy;
 use super::{GameplaySetting, unused_physics_group};
+use crate::engine::assets::AssetCatalog;
 use crate::engine::physics::config::{BodyMotion, PhysicsDef};
-use crate::{editor::agent_api::ReplaceFixture, engine::assets::AssetCatalog};
 use serde_json::{Value, json};
 
 impl Document {
@@ -335,15 +335,25 @@ impl Document {
         catalog: &AssetCatalog,
     ) -> Result<(), String> {
         if let ObjectId::Light(light) = id {
-            let candidate = ReplaceFixture {
-                light,
-                asset,
-                catalog,
+            if self.level().ceiling_lights.get(light).is_none() {
+                return Err("Select a light first, then apply this fixture.".into());
             }
-            .candidate(self)
-            .map_err(|error| error.to_string())?;
+            if catalog.get(asset).is_none_or(|entry| !entry.is_light()) {
+                return Err("Choose a light fixture from the catalog".into());
+            }
+            let mut raw = self.asset_candidate_base()?;
+            let fixture = object_mut(&mut raw, id)?;
+            let mount = if crate::engine::lighting::fixture_profile(asset).kind
+                == crate::engine::lighting::FixtureKind::WallSconce
+            {
+                "wall"
+            } else {
+                "ceiling"
+            };
+            drop(fixture.insert("mount".into(), mount.into()));
+            drop(fixture.insert("fixture".into(), asset.into()));
             // The native commit gateway admits the draft before its only full validation.
-            return self.accept_edit(candidate);
+            return self.accept_edit(raw);
         }
         let mut raw = self.asset_candidate_base()?;
         let key = match id {
@@ -415,40 +425,6 @@ impl Document {
         objects::pin_prop_ids(&mut raw, self.level())?;
         super::pin_gameplay_ids(&mut raw, self.level())?;
         Ok(raw)
-    }
-
-    pub(in crate::editor) fn fixture_candidate(
-        &self,
-        light: usize,
-        asset: &str,
-    ) -> Result<Value, String> {
-        let mut raw = self.raw().clone();
-        Self::stage_fixture(&mut raw, self.level(), light, asset)?;
-        Ok(raw)
-    }
-
-    pub(in crate::editor) fn stage_fixture(
-        raw: &mut Value,
-        level: &crate::engine::level::LevelDef,
-        light: usize,
-        asset: &str,
-    ) -> Result<(), String> {
-        objects::pin_prop_ids(raw, level)?;
-        super::pin_gameplay_ids(raw, level)?;
-        let fixture = object_mut(raw, ObjectId::Light(light))?;
-        drop(fixture.insert("mount".into(), Self::fixture_mount(asset).into()));
-        drop(fixture.insert("fixture".into(), asset.into()));
-        Ok(())
-    }
-
-    pub(in crate::editor) fn fixture_mount(asset: &str) -> &'static str {
-        if crate::engine::lighting::fixture_profile(asset).kind
-            == crate::engine::lighting::FixtureKind::WallSconce
-        {
-            "wall"
-        } else {
-            "ceiling"
-        }
     }
 }
 

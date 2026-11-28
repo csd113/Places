@@ -345,17 +345,6 @@ impl Viewport {
         self.navigation_goal = goal;
     }
 
-    #[cfg(windows)]
-    pub(super) fn agent_frame(&self) -> ([u32; 16], [u32; 4]) {
-        (
-            self.camera
-                .matrix(self.size)
-                .to_cols_array()
-                .map(f32::to_bits),
-            self.layout.viewport().map(f32::to_bits),
-        )
-    }
-
     pub fn ray(&self, point: [f32; 2]) -> Option<(Vec3, Vec3)> {
         self.camera.ray(point, self.size)
     }

@@ -5,7 +5,6 @@ use sdl3::{event::Event, keyboard::Keycode, mouse::MouseButton, video::Window};
 use super::{
     App,
     actions::Popup,
-    agent_api::{ConnectEscalator, PilotCommand as _},
     ui::{self, Action, Hit},
 };
 use crate::engine::{
@@ -20,7 +19,10 @@ pub(super) const LENGTH_FIELD: usize = 24;
 const UPPER_LANDING: &str =
     "Lower landing set. Pick a higher landing near its open edge. Esc cancels.";
 
-pub(super) fn fit_connection(level: &LevelDef, lower: Vec3, upper: Vec3) -> Result<Fit, String> {
+fn fit_connection(level: &LevelDef, lower: Vec3, upper: Vec3) -> Result<Fit, String> {
+    if !lower.is_finite() || !upper.is_finite() {
+        return Err("Pick two valid floor positions".into());
+    }
     if upper.y <= lower.y + 0.01 {
         return Err(UPPER_LANDING.into());
     }
@@ -129,11 +131,7 @@ impl App {
     fn fitted_escalator(&self, point: Vec3) -> Result<Fit, String> {
         let doc = self.document.as_ref().ok_or("Open a project first")?;
         match self.escalator {
-            Some(Draft::Connect(Some(lower))) => ConnectEscalator {
-                lower,
-                upper: point,
-            }
-            .prepare_current(doc),
+            Some(Draft::Connect(Some(lower))) => fit_connection(doc.level(), lower, point),
             Some(Draft::Free {
                 dimensions,
                 turn,

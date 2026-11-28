@@ -99,6 +99,14 @@ pub(super) fn candidate(
     middle: &[[f32; 3]],
     end: [f32; 3],
 ) -> Result<(Value, ObjectId), String> {
+    if ![&start, &end]
+        .into_iter()
+        .chain(middle)
+        .flatten()
+        .all(|value| value.is_finite())
+    {
+        return Err(FOOTING_CUE.into());
+    }
     let mut raw = doc.raw().clone();
     let index = stage_path(&mut raw, start, middle, end)?;
     let checked = doc.validate_candidate(&raw)?;
@@ -106,7 +114,7 @@ pub(super) fn candidate(
     Ok((raw, owner))
 }
 
-pub(super) fn stage_path(
+fn stage_path(
     raw: &mut Value,
     start: [f32; 3],
     middle: &[[f32; 3]],
@@ -130,7 +138,7 @@ pub(super) fn stage_path(
     Ok(index)
 }
 
-pub(super) fn check_path(
+fn check_path(
     checked: &LevelDef,
     before: &LevelDef,
     index: usize,
