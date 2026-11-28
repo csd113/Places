@@ -71,10 +71,10 @@ use crate::engine::spatial::Aabb;
 
 /// Most dynamic objects one scene holds.
 ///
-/// Bounded headroom for 128 physics items alongside doors, floats and runtime
-/// entities. Each object still costs one draw per material, so static scenery
-/// remains batched. The limit is enforced on spawn; pose updates reuse geometry.
-pub const MAX_DYNAMIC_OBJECTS: usize = 256;
+/// Keeps the existing 128 slots for doors, floats and other runtime entities
+/// alongside all ordinary items and transient fracture visuals. Static scenery
+/// remains batched, and the aggregate dynamic mesh geometry budget is unchanged.
+pub const MAX_DYNAMIC_OBJECTS: usize = crate::engine::physics::MAX_ITEM_BODIES.saturating_add(128);
 
 /// Most distinct dynamic meshes one scene holds, each with a vertex buffer.
 ///
@@ -948,10 +948,6 @@ impl DynamicScene {
         self.water_interactions = enabled;
         self.water_motion.clear();
         self.water_motion_index.clear();
-        if enabled {
-            self.water_motion_index.reserve(MAX_DYNAMIC_OBJECTS);
-            self.water_motion.reserve(MAX_DYNAMIC_OBJECTS);
-        }
     }
 
     /// Drains this frame's changed subjects; stationary objects are never scanned.

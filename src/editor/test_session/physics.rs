@@ -39,7 +39,7 @@ impl PreparedPhysics {
             bottle_audio: BottleAudioWitness::default(),
             authored: Vec::new(),
             spawns: Vec::new(),
-            trigger_bodies: Vec::with_capacity(crate::engine::physics::MAX_BODIES),
+            trigger_bodies: Vec::new(),
         };
         let surfaces = LevelSurfaces::new(level);
         let ids = level.prop_instance_ids();
@@ -182,7 +182,12 @@ impl PreparedPhysics {
         self.world
             .for_each_trigger_body(|body| self.trigger_bodies.push(body));
         let occupants = self.trigger_bodies.iter().filter_map(|body| {
-            let (_, instance, asset) = self.authored.iter().find(|(key, _, _)| *key == body.key)?;
+            // Prepared placements are in ascending source-index (key) order.
+            let index = self
+                .authored
+                .binary_search_by_key(&body.key, |(key, _, _)| *key)
+                .ok()?;
+            let (_, instance, asset) = self.authored.get(index)?;
             Some(crate::engine::entities::TriggerItem {
                 key: body.key,
                 instance,

@@ -4724,7 +4724,7 @@ impl EntityWorld {
         self.item_obstacles.clear();
         for (bounds, blocks_npc) in items
             .item_obstacles()
-            .take(crate::engine::physics::MAX_BODIES)
+            .take(crate::engine::physics::MAX_ITEM_BODIES)
         {
             self.item_obstacles.all.push(bounds);
             if blocks_npc {
@@ -4738,7 +4738,7 @@ impl EntityWorld {
         self.item_obstacles.all.clear();
         self.item_obstacles
             .all
-            .extend(obstacles.take(crate::engine::physics::MAX_BODIES));
+            .extend(obstacles.take(crate::engine::physics::MAX_ITEM_BODIES));
         self.item_obstacles
             .locomotion
             .clone_from(&self.item_obstacles.all);

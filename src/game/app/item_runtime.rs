@@ -152,7 +152,7 @@ impl Items {
             world: crate::engine::physics::ItemWorld::default(),
             authored: Vec::new(),
             miniatures: None,
-            trigger_bodies: Vec::with_capacity(crate::engine::physics::MAX_BODIES),
+            trigger_bodies: Vec::new(),
             input: crate::game::app::item_input::CarryInput::default(),
             target: None,
             captures: std::collections::VecDeque::new(),
@@ -897,11 +897,13 @@ fn trigger_items<'a>(
     session: &'a crate::game::gameplay_runtime::Runtime,
 ) -> impl Iterator<Item = crate::engine::entities::TriggerItem<'a>> + Clone {
     bodies.iter().filter_map(move |body| {
+        // Authored placements are installed in ascending key order. Removal
+        // retains that ordering; session placements have their own identities.
         let (instance, asset) = authored
-            .iter()
-            .find_map(|(key, instance, asset)| {
-                (*key == body.key).then_some((instance.as_str(), asset.as_str()))
-            })
+            .binary_search_by_key(&body.key, |(key, _, _)| *key)
+            .ok()
+            .and_then(|index| authored.get(index))
+            .map(|(_, instance, asset)| (instance.as_str(), asset.as_str()))
             .or_else(|| session.given_identity(body.key))?;
         Some(crate::engine::entities::TriggerItem {
             key: body.key,

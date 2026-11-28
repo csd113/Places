@@ -476,6 +476,16 @@ impl Renderer {
             if panels.is_empty() {
                 continue;
             }
+            match world.reserve_break_fragments(panels.len()) {
+                Ok(expired_fragments) if !expired_fragments.is_empty() => {
+                    let _despawned = self.despawn_runtime_models(&expired_fragments);
+                }
+                Ok(_) => {}
+                Err(error) => {
+                    crate::engine::logging::warn_once("prop-fragment-reserve", error);
+                    continue;
+                }
+            }
             let mut staged = Vec::with_capacity(panels.len());
             let result: Result<(), String> = panels.iter().copied().try_for_each(|panel| {
                 let key = world

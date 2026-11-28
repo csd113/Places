@@ -10,7 +10,7 @@ use serde::Serialize;
 use super::collision::{add, point, query_filter, scaled, subtract, vector};
 use super::config::{BodyMotion, validate_reset_group};
 use super::world::{ItemWorld, Runtime};
-use super::{FIXED_STEP, MAX_BODIES};
+use super::{FIXED_STEP, MAX_ITEM_BODIES};
 
 /// Minimum predicted inward contact speed that counts as a physical activation.
 pub const ACTIVATION_SPEED: f32 = 0.15;
@@ -103,7 +103,7 @@ impl Runtime {
         if !self.floor_contacts.has_powered_tread() {
             return;
         }
-        let mut touching = [0_u64; MAX_BODIES];
+        let mut touching = [0_u64; MAX_ITEM_BODIES];
         let mut count = 0_usize;
         for &handle in self.floor_contacts.tread_colliders() {
             let Some(floor) = self.world.colliders.get(handle).filter(|c| c.is_enabled()) else {
@@ -254,8 +254,8 @@ impl Runtime {
         true
     }
 
-    /// All wake predictions are bounded by one fixed step and 128 existing
-    /// bodies. Queue motion predicts possible impulse propagation; only Rapier
+    /// Wake predictions are bounded by one fixed step and the item body limit.
+    /// Queue motion predicts possible impulse propagation; only Rapier
     /// applies the actual collision impulse, after every target is dynamic.
     pub(super) fn activate_impacts(&mut self) {
         if !self
@@ -269,7 +269,10 @@ impl Runtime {
         let mut targets = std::mem::take(&mut self.wake_targets);
         sweeps.clear();
         targets.clear();
-        self.activation_candidates(&mut sweeps, &mut targets);
+        self.activation_sweeps(&mut sweeps);
+        if !sweeps.is_empty() {
+            self.dormant_wake_targets(&mut targets);
+        }
         let mut cursor = 0_usize;
         while let Some(sweep) = sweeps.get(cursor).copied() {
             cursor = cursor.saturating_add(1);
@@ -281,7 +284,7 @@ impl Runtime {
                 if dormant
                     && let Some(impact) = self.predicted_impact(sweep, *target)
                     && self.activate_key(target.key)
-                    && sweeps.len() < MAX_BODIES
+                    && sweeps.len() < MAX_ITEM_BODIES
                 {
                     sweeps.push(self.propagated_sweep(impact));
                 }
@@ -291,23 +294,15 @@ impl Runtime {
         self.wake_targets = targets;
     }
 
-    fn activation_candidates(&self, sweeps: &mut Vec<WakeSweep>, targets: &mut Vec<WakeTarget>) {
+    fn activation_sweeps(&self, sweeps: &mut Vec<WakeSweep>) {
         for (&key, entry) in &self.entries {
-            if entry.motion != BodyMotion::Dynamic {
+            if entry.motion != BodyMotion::Dynamic || entry.dormant || entry.recovery.suspended {
                 continue;
             }
             let Some(body) = self.world.bodies.get(entry.body) else {
                 continue;
             };
-            if entry.dormant {
-                if let Some(collider) = self.world.colliders.get(entry.collider) {
-                    targets.push(WakeTarget {
-                        key,
-                        bounds: collider.compute_aabb(),
-                        pose: *body.position(),
-                    });
-                }
-            } else if body.is_dynamic() && !body.is_sleeping() {
+            if body.is_dynamic() && !body.is_sleeping() {
                 let acceleration = add(
                     scaled(point(self.world.gravity), body.gravity_scale()),
                     scaled(point(body.user_force()), 1.0 / body.mass()),
@@ -333,6 +328,22 @@ impl Runtime {
                         remaining: FIXED_STEP,
                     });
                 }
+            }
+        }
+    }
+
+    fn dormant_wake_targets(&self, targets: &mut Vec<WakeTarget>) {
+        for (&key, entry) in &self.entries {
+            if entry.motion == BodyMotion::Dynamic
+                && entry.dormant
+                && let Some(body) = self.world.bodies.get(entry.body)
+                && let Some(collider) = self.world.colliders.get(entry.collider)
+            {
+                targets.push(WakeTarget {
+                    key,
+                    bounds: collider.compute_aabb(),
+                    pose: *body.position(),
+                });
             }
         }
     }

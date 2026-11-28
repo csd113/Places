@@ -193,7 +193,6 @@ impl Interactions {
             volumes,
             surfaces,
             ripples: Vec::with_capacity(MAX_RIPPLES),
-            tracks: HashMap::with_capacity(super::super::common::dynamic::MAX_DYNAMIC_OBJECTS),
             ..Self::default()
         };
     }

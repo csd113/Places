@@ -10,7 +10,6 @@ use serde::Serialize;
 use crate::engine::collision::WallAabb;
 use crate::engine::level::{LevelDef, LevelSurfaces, WalkableFloor, WaterShape, WaterVolumes};
 
-use super::MAX_BODIES;
 use super::collision::{add, point, pose, quaternion, query_filter, subtract};
 use super::config::BodyMotion;
 use super::world::{BodyEntry, ItemPose, ItemWorld, Runtime};
@@ -113,7 +112,7 @@ impl Default for RecoveryState {
     fn default() -> Self {
         Self {
             events: VecDeque::with_capacity(MAX_RECOVERY_EVENTS),
-            requests: Vec::with_capacity(MAX_BODIES),
+            requests: Vec::new(),
         }
     }
 }

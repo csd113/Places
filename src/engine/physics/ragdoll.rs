@@ -563,7 +563,7 @@ impl ItemWorld {
             runtime.ragdolls.contains_key(id)
                 || runtime.ragdolls.len() >= MAX_RAGDOLLS
                 || runtime
-                    .owned_body_count()
+                    .ordinary_solver_body_count()
                     .saturating_add(profile.segments.len())
                     > super::MAX_SOLVER_BODIES
         }) {

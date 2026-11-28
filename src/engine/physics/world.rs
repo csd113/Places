@@ -261,7 +261,14 @@ pub struct ResetReport {
     pub released_held: Option<u64>,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum ItemAdmission {
+    Ordinary,
+    BreakFragment,
+}
+
 pub(super) struct BodyEntry {
+    admission: ItemAdmission,
     pub body: RigidBodyHandle,
     pub collider: ColliderHandle,
     pub motion: BodyMotion,
@@ -295,6 +302,7 @@ pub(super) struct Runtime {
     pub world: PhysicsWorld,
     pub(super) floor_contacts: FloorContactHooks,
     pub entries: BTreeMap<u64, BodyEntry>,
+    break_fragment_count: usize,
     pub ragdolls: BTreeMap<String, super::ragdoll::Ragdoll>,
     pub contact_aliases: std::collections::HashMap<ColliderHandle, u64>,
     pub held: Option<HeldItem>,
@@ -548,6 +556,7 @@ impl ItemWorld {
                 world,
                 floor_contacts,
                 entries: BTreeMap::new(),
+                break_fragment_count: 0,
                 ragdolls: BTreeMap::new(),
                 contact_aliases: std::collections::HashMap::new(),
                 held: None,
@@ -571,8 +580,8 @@ impl ItemWorld {
                 contact_onsets: ContactOnsets::default(),
                 frame_contacts: Vec::with_capacity(MAX_CONTACT_PAIRS),
                 frame_contact_impulses: Vec::with_capacity(MAX_CONTACT_PAIRS),
-                wake_sweeps: Vec::with_capacity(MAX_BODIES),
-                wake_targets: Vec::with_capacity(MAX_BODIES),
+                wake_sweeps: Vec::new(),
+                wake_targets: Vec::new(),
                 recovery: RecoveryState::default(),
                 water_work: Vec::new(),
                 contact_solver: ContactSolver::default(),
@@ -599,7 +608,7 @@ impl ItemWorld {
     ///
     /// # Errors
     /// Returns an error for invalid dimensions/parameters, duplicate keys or
-    /// the 128-body limit. Rejection leaves the world unchanged.
+    /// the ordinary item limit. Rejection leaves the world unchanged.
     pub fn spawn(
         &mut self,
         key: u64,
@@ -632,7 +641,33 @@ impl ItemWorld {
         input_rotation: Quat,
         scale: f32,
     ) -> Result<(), String> {
+        self.spawn_with_admission(
+            key,
+            def,
+            bounds,
+            ItemPose {
+                position,
+                rotation: input_rotation,
+            },
+            scale,
+            ItemAdmission::Ordinary,
+        )
+    }
+
+    fn spawn_with_admission(
+        &mut self,
+        key: u64,
+        def: &PhysicsDef,
+        bounds: (Vec3, Vec3),
+        input_pose: ItemPose,
+        scale: f32,
+        admission: ItemAdmission,
+    ) -> Result<(), String> {
         def.validate()?;
+        let ItemPose {
+            position,
+            rotation: input_rotation,
+        } = input_pose;
         let length = input_rotation.length_squared();
         if !position.is_finite()
             || !input_rotation.is_finite()
@@ -645,18 +680,8 @@ impl ItemWorld {
             );
         }
         let rotation = input_rotation.normalize();
-        if self
-            .runtime
-            .as_ref()
-            .is_some_and(|runtime| runtime.entries.contains_key(&key))
-        {
-            return Err("physics key already exists".into());
-        }
-        if self.runtime.as_ref().is_some_and(|runtime| {
-            runtime.entries.len() >= MAX_BODIES
-                || runtime.owned_body_count() >= super::MAX_SOLVER_BODIES
-        }) {
-            return Err("physics body limit reached (128)".into());
+        if let Some(runtime) = &self.runtime {
+            runtime.validate_item_admission(key, admission)?;
         }
         let (shape, center, radius) = model_shape(def, bounds, scale)?;
         let physical_mass = mass_properties(&shape, def.mass_kg)?;
@@ -704,13 +729,17 @@ impl ItemWorld {
             add(center, point(rigid_body.local_center_of_mass()))
         });
         let trigger_path = TriggerPath::new(initial, center, &shape);
+        if admission == ItemAdmission::BreakFragment {
+            runtime.break_fragment_count = runtime.break_fragment_count.saturating_add(1);
+        }
         let _previous = runtime.entries.insert(
             key,
             BodyEntry {
+                admission,
                 body,
                 collider: collider_handle,
                 motion: def.motion,
-                pickup: def.pickup,
+                pickup: admission == ItemAdmission::Ordinary && def.pickup,
                 authored: false,
                 dormant: false,
                 center,
@@ -1003,6 +1032,9 @@ impl ItemWorld {
         let Some(entry) = runtime.entries.remove(&key) else {
             return false;
         };
+        if entry.admission == ItemAdmission::BreakFragment {
+            runtime.break_fragment_count = runtime.break_fragment_count.saturating_sub(1);
+        }
         let _removed = runtime.world.remove_body(entry.body);
         runtime.contact_onsets.remove_collider(entry.collider);
         runtime.frame_contacts.retain(|pair| !pair.contains(&key));
@@ -2391,6 +2423,33 @@ fn collider_key(
 ) -> Option<u64> {
     let encoded = colliders.get(collider)?.user_data.checked_sub(1)?;
     u64::try_from(encoded).ok()
+}
+
+impl Runtime {
+    fn validate_item_admission(&self, key: u64, admission: ItemAdmission) -> Result<(), String> {
+        if self.entries.contains_key(&key) {
+            return Err("physics key already exists".into());
+        }
+        match admission {
+            ItemAdmission::Ordinary
+                if self.entries.len().saturating_sub(self.break_fragment_count) >= MAX_BODIES
+                    || self.ordinary_solver_body_count() >= super::MAX_SOLVER_BODIES =>
+            {
+                Err(format!("physics body limit reached ({MAX_BODIES})"))
+            }
+            ItemAdmission::BreakFragment
+                if self.break_fragment_count >= super::MAX_BREAK_FRAGMENTS =>
+            {
+                Err("break fragment reserve exhausted".into())
+            }
+            ItemAdmission::Ordinary | ItemAdmission::BreakFragment => Ok(()),
+        }
+    }
+
+    pub(super) fn ordinary_solver_body_count(&self) -> usize {
+        self.owned_body_count()
+            .saturating_sub(self.break_fragment_count)
+    }
 }
 
 fn incoming_velocity(

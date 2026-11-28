@@ -685,11 +685,14 @@ fn water_pose_events_coalesce_retire_and_reuse_their_bounded_allocation() -> Res
         .spawn_registered(mesh, [0.0; 3], SpawnOrientation::YAW_ONLY, 0.0, 1.0)
         .ok_or("object refused")?;
     let original = scene.get(id).ok_or("object missing")?.world_bounds();
+    assert_eq!(scene.water_motion.capacity(), 0);
+    assert_eq!(scene.water_motion_index.capacity(), 0);
+    assert!(scene.set_pose(id, [0.0, 0.001, 0.0], [0.0, 0.0, 0.0, 1.0]));
     let allocation = (
         scene.water_motion.capacity(),
         scene.water_motion_index.capacity(),
     );
-    for index in 1_u16..1024 {
+    for index in 2_u16..1024 {
         assert!(scene.set_pose(
             id,
             [0.0, f32::from(index) * 0.001, 0.0],

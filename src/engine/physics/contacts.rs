@@ -6,7 +6,7 @@ use rapier3d::prelude::ColliderHandle;
 
 use super::FIXED_STEP;
 
-const MAX_CONTACTS: usize = super::MAX_BODIES * 8;
+const MAX_CONTACTS: usize = super::MAX_ITEM_BODIES * 8;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 struct Pair([ColliderHandle; 2]);
@@ -27,16 +27,9 @@ struct ContactState {
     cooldown: f32,
 }
 
+#[derive(Default)]
 pub(super) struct ContactOnsets {
     pairs: HashMap<Pair, ContactState>,
-}
-
-impl Default for ContactOnsets {
-    fn default() -> Self {
-        Self {
-            pairs: HashMap::with_capacity(MAX_CONTACTS),
-        }
-    }
 }
 
 impl ContactOnsets {

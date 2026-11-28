@@ -5,9 +5,9 @@ pub(super) mod bottle_contacts;
 mod bottles;
 
 use crate::engine::level::PropDef;
-use crate::engine::physics::{BodyMotion, ImpactRelease, PhysicsDef};
+use crate::engine::physics::{BodyMotion, ImpactRelease, MAX_BREAK_FRAGMENTS, PhysicsDef};
 
-use super::{BodyEntry, ItemPose, ItemWorld};
+use super::{BodyEntry, ItemAdmission, ItemPose, ItemWorld};
 
 const HOUSE: &str = "christmas:gingerbread_house";
 const SPRUCE: &str = "christmas:snow_globe_spruce";
@@ -256,6 +256,52 @@ impl ItemWorld {
             .collect()
     }
 
+    /// Makes room for a complete breakup by retiring the oldest committed
+    /// breakups first. Their disabled originals and reset records stay intact.
+    /// If insufficient space can be reclaimed, nothing is retired.
+    pub(crate) fn reserve_break_fragments(&mut self, count: usize) -> Result<Vec<u64>, String> {
+        if count == 0 || count > MAX_BREAK_FRAGMENTS {
+            return Err("prop breakup exceeds the fragment reserve".into());
+        }
+        let runtime = self
+            .runtime
+            .as_ref()
+            .ok_or("prop breakup has no physics world")?;
+        let needed = runtime
+            .break_fragment_count
+            .saturating_add(count)
+            .saturating_sub(MAX_BREAK_FRAGMENTS);
+        if needed == 0 {
+            return Ok(Vec::new());
+        }
+        let mut breakups: Vec<_> = runtime
+            .breakables
+            .values()
+            .map(|record| &record.pieces)
+            .filter(|pieces| pieces.iter().any(|key| runtime.entries.contains_key(key)))
+            .collect();
+        breakups.sort_unstable_by_key(|pieces| pieces.first().copied());
+        let mut retired = Vec::new();
+        for pieces in breakups {
+            retired.extend(
+                pieces
+                    .iter()
+                    .copied()
+                    .filter(|key| runtime.entries.contains_key(key)),
+            );
+            if retired.len() >= needed {
+                break;
+            }
+        }
+        if retired.len() < needed {
+            return Err("not enough committed fracture debris to retire".into());
+        }
+        for &key in &retired {
+            let _removed = self.remove(key);
+        }
+        Ok(retired)
+    }
+
     pub(crate) fn next_fragment_key(&mut self) -> Option<u64> {
         let runtime = self.runtime.as_mut()?;
         let key = runtime.next_break_fragment;
@@ -306,15 +352,19 @@ impl ItemWorld {
                 .max(0.001),
             friction: 0.75,
             restitution: 0.08,
+            pickup: false,
             ..PhysicsDef::default()
         };
-        self.spawn_oriented(
+        self.spawn_with_admission(
             key,
             &settings,
             (center - half, center + half),
-            position,
-            plan.pose.rotation,
+            ItemPose {
+                position,
+                rotation: plan.pose.rotation,
+            },
             plan.scale,
+            ItemAdmission::BreakFragment,
         )?;
         let scatter = velocity.clamp_length_max(1.1) * 0.25 + direction * 0.37 + Vec3::Y * 0.34;
         let spin = direction.cross(Vec3::Y) * 1.8;

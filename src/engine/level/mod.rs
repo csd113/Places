@@ -6565,7 +6565,7 @@ pub const MAX_LEVEL_LIGHT_SOURCES: u64 = 1_000_000;
 pub const PROP_FALLBACK_SIZE: [f32; 3] = [0.6, 0.9, 0.6];
 
 /// Largest number of authored movable rigid props in one level.
-pub const MAX_LEVEL_PHYSICS_PROPS: usize = 128;
+pub const MAX_LEVEL_PHYSICS_PROPS: usize = 256;
 
 const fn default_prop_scale() -> f32 {
     1.0

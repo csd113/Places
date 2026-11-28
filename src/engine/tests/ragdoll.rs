@@ -464,7 +464,8 @@ fn ragdoll_raised_arms_wall_contact_reaches_sleep() -> Result<(), String> {
 }
 
 fn fill_item_budget(world: &mut ItemWorld) -> Result<(), String> {
-    for key in 0_u64..128 {
+    let limit = u64::try_from(super::MAX_BODIES).map_err(|error| error.to_string())?;
+    for key in 0..limit {
         world.spawn(
             key,
             &super::PhysicsDef {
@@ -480,7 +481,7 @@ fn fill_item_budget(world: &mut ItemWorld) -> Result<(), String> {
     assert!(
         world
             .spawn(
-                129,
+                limit,
                 &super::PhysicsDef {
                     motion: super::BodyMotion::Dynamic,
                     ..super::PhysicsDef::default()

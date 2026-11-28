@@ -108,8 +108,12 @@ outlines. These bitmap controls do not imply screen-reader support.
 Christmas snow globes have contained snowfall at close range. Enable Physics
 on a globe or gingerbread house in Object settings to make it carryable.
 A hard drop fractures it on impact, while a gentle placement leaves it intact.
-Transient pieces are cleared when the test ends. An authored Physics reset
-group also restores the original intact item. Saved game checkpoints restore
+Each level can contain up to 256 movable physics props. Broken bottles,
+gingerbread houses and snow globes share a separate 20-piece reserve. Their
+fragments cannot be picked up. New breakups retire the oldest complete debris
+as needed, leaving the broken original hidden until reset. Transient pieces
+are cleared when the test ends. An authored Physics reset group restores the
+original intact item. Saved game checkpoints restore
 broken props intact at their authored poses. If that collider would overlap
 the saved player, the checkpoint is refused and the previous save is kept.
 Move clear of the prop's original placement and try again.

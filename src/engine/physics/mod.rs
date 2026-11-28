@@ -34,9 +34,13 @@ pub use world::{
 pub const GRAVITY: f32 = 9.8;
 /// Fixed solver interval. At most twelve intervals are consumed per frame.
 pub const FIXED_STEP: f32 = 1.0 / 120.0;
-/// Body allocation and per-frame query bound, shared by authored and given items.
-pub const MAX_BODIES: usize = 128;
-/// Ordinary items plus ten supported articulated skeletons (15 bones each).
+/// Ordinary item limit, shared by authored and given items.
+pub const MAX_BODIES: usize = crate::engine::level::MAX_LEVEL_PHYSICS_PROPS;
+/// Shared transient reserve for bottle, gingerbread house and snow globe fragments.
+pub(crate) const MAX_BREAK_FRAGMENTS: usize = 20;
+/// Maximum number of item bodies, including transient fracture pieces.
+pub(crate) const MAX_ITEM_BODIES: usize = MAX_BODIES.saturating_add(MAX_BREAK_FRAGMENTS);
+/// Ordinary items plus the supported articulated skeletons (15 bones each).
 pub const MAX_SOLVER_BODIES: usize = MAX_BODIES + ragdoll::MAX_RAGDOLLS * 15;
 /// Maximum distance to the first physical surface of a pickable body.
 pub const PICKUP_REACH: f32 = 2.2;
